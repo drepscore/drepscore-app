@@ -30,6 +30,7 @@ import { ArrowUpDown, Search, ExternalLink } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import { formatAda, getParticipationColor, getRationaleColor } from '@/utils/scoring';
 import { getDRepDisplayName, getDRepDisplayNameOrUnnamed } from '@/utils/display';
+import { calculateDocumentationScore, getDocumentationLabel } from '@/utils/documentation';
 import {
   Tooltip,
   TooltipContent,
@@ -37,7 +38,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ParticipationRateModal, DecentralizationScoreModal, RationaleImportanceModal } from './InfoModal';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, CheckCircle2 } from 'lucide-react';
 
 interface DRepTableProps {
   dreps: (DRep | DRepWithScore)[];
@@ -287,6 +288,8 @@ export function DRepTable({ dreps, showMatchScore = false }: DRepTableProps) {
           <TableBody>
             {paginatedDReps.map((drep) => {
               const { name: displayName, isUnnamed } = getDRepDisplayNameOrUnnamed(drep);
+              const docScore = calculateDocumentationScore(drep);
+              const docLabel = getDocumentationLabel(docScore);
               
               return (
               <TableRow key={drep.drepId}>
@@ -296,6 +299,18 @@ export function DRepTable({ dreps, showMatchScore = false }: DRepTableProps) {
                     className="flex items-center gap-2 hover:text-primary group"
                   >
                     <div className="flex items-center gap-1.5">
+                      {docScore >= 80 && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Well documented ({docScore}%)</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       <span className={isUnnamed ? 'text-muted-foreground italic' : 'font-medium'}>
                         {displayName}
                       </span>
@@ -322,6 +337,7 @@ export function DRepTable({ dreps, showMatchScore = false }: DRepTableProps) {
                             </TooltipTrigger>
                             <TooltipContent>
                               <p className="font-mono text-xs">{drep.drepId}</p>
+                              <p className="text-xs mt-1">Documentation: {docScore}%</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>

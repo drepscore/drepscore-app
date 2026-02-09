@@ -6,6 +6,7 @@
 import { Suspense } from 'react';
 import { fetchAllDReps, fetchDRepsWithDetails, fetchDRepVotes, checkKoiosHealth } from '@/utils/koios';
 import { calculateParticipationRate, calculateRationaleRate, calculateDecentralizationScore, lovelaceToAda } from '@/utils/scoring';
+import { sortByQualityScore } from '@/utils/documentation';
 import { DRep } from '@/types/drep';
 import { DRepTableClient } from '@/components/DRepTableClient';
 import { HeroSection } from '@/components/HeroSection';
@@ -132,12 +133,17 @@ async function getDReps(limit: number = 50): Promise<{ dreps: DRep[]; error: boo
       };
     });
 
+    // Sort by quality score (documentation + voting power)
+    const sortedDReps = sortByQualityScore(dreps);
+    
     if (isDev) {
-      console.log(`[DRepScore] Successfully loaded ${dreps.length} DReps with COMPLETE data`);
-      console.log(`[DRepScore] Average votes per DRep: ${Math.round(dreps.reduce((sum, d) => sum + d.totalVotes, 0) / dreps.length)}`);
+      console.log(`[DRepScore] Successfully loaded ${sortedDReps.length} DReps with COMPLETE data`);
+      console.log(`[DRepScore] Average votes per DRep: ${Math.round(sortedDReps.reduce((sum, d) => sum + d.totalVotes, 0) / sortedDReps.length)}`);
+      const wellDocumented = sortedDReps.filter(d => d.name && (d.ticker || d.description)).length;
+      console.log(`[DRepScore] Well documented DReps: ${wellDocumented}/${sortedDReps.length} (${Math.round((wellDocumented / sortedDReps.length) * 100)}%)`);
     }
 
-    return { dreps, error: false, totalAvailable };
+    return { dreps: sortedDReps, error: false, totalAvailable };
   } catch (error) {
     console.error('[DRepScore] Error fetching DReps:', error);
     return { dreps: [], error: true, totalAvailable: 0 };

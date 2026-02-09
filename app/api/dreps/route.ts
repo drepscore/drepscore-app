@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllDReps, fetchDRepsWithDetails, fetchDRepVotes } from '@/utils/koios';
 import { calculateParticipationRate, calculateDecentralizationScore, lovelaceToAda } from '@/utils/scoring';
+import { sortByQualityScore } from '@/utils/documentation';
 import { DRep } from '@/types/drep';
 
 export async function GET(request: NextRequest) {
@@ -107,11 +108,16 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Sort by quality score (documentation + voting power)
+    const sortedDReps = sortByQualityScore(dreps);
+    
     if (isDev) {
-      console.log(`[API] Returning ${dreps.length} DReps with complete data`);
+      console.log(`[API] Returning ${sortedDReps.length} DReps with complete data`);
+      const wellDocumented = sortedDReps.filter(d => d.name && (d.ticker || d.description)).length;
+      console.log(`[API] Well documented: ${wellDocumented}/${sortedDReps.length}`);
     }
 
-    return NextResponse.json(dreps);
+    return NextResponse.json(sortedDReps);
   } catch (error) {
     console.error('[API] Error fetching more DReps:', error);
     return NextResponse.json({ error: 'Failed to load DReps' }, { status: 500 });

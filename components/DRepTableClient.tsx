@@ -10,8 +10,10 @@ import { DRep, DRepWithScore, ValuePreference } from '@/types/drep';
 import { DRepTable } from './DRepTable';
 import { ValueSelector } from './ValueSelector';
 import { calculateValueAlignment } from '@/utils/scoring';
+import { filterWellDocumented, isWellDocumented } from '@/utils/documentation';
 import { Button } from './ui/button';
-import { Loader2 } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { Loader2, Filter } from 'lucide-react';
 
 interface DRepTableClientProps {
   initialDReps: DRep[];
@@ -23,6 +25,7 @@ export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClien
   const [selectedValues, setSelectedValues] = useState<ValuePreference[]>([]);
   const [showMatchScores, setShowMatchScores] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showOnlyDocumented, setShowOnlyDocumented] = useState(false);
 
   const handleValuesChange = (values: ValuePreference[]) => {
     setSelectedValues(values);
@@ -50,9 +53,12 @@ export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClien
     }
   };
 
+  // Filter by documentation if enabled
+  const filteredDReps = showOnlyDocumented ? filterWellDocumented(dreps) : dreps;
+  
   // Calculate match scores when values are selected and search is triggered
   const drepsWithScores: (DRep | DRepWithScore)[] = showMatchScores && selectedValues.length > 0
-    ? dreps.map(drep => {
+    ? filteredDReps.map(drep => {
         // Use actual vote data for alignment scoring
         // Since we now have full vote history, we can calculate real alignment
         const mockVotes: any[] = []; // TODO: Use actual drep.votes when available in type
@@ -64,7 +70,9 @@ export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClien
           matchReasons: selectedValues,
         } as DRepWithScore;
       })
-    : dreps;
+    : filteredDReps;
+  
+  const wellDocumentedCount = dreps.filter(d => isWellDocumented(d)).length;
 
   return (
     <div className="space-y-6">
@@ -81,12 +89,29 @@ export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClien
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">
-            {showMatchScores ? 'Matching DReps' : 'All Active DReps'}
-          </h2>
-          <div className="text-sm text-muted-foreground">
-            Showing {dreps.length} of {totalAvailable} DReps
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold">
+              {showMatchScores ? 'Matching DReps' : 'All Active DReps'}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Sorted by documentation quality and voting power
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant={showOnlyDocumented ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowOnlyDocumented(!showOnlyDocumented)}
+              className="gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              {showOnlyDocumented ? 'Show All' : 'Well Documented Only'}
+            </Button>
+            <div className="text-sm text-muted-foreground text-right">
+              <div>Showing {drepsWithScores.length} of {totalAvailable}</div>
+              <div className="text-xs">{wellDocumentedCount} well documented</div>
+            </div>
           </div>
         </div>
         
