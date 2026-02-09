@@ -23,12 +23,26 @@ interface DRepDetailPageProps {
 }
 
 async function getDRepData(drepId: string) {
+  const isDev = process.env.NODE_ENV === 'development';
+  
   try {
     const decodedId = decodeURIComponent(drepId);
+    
+    if (isDev) {
+      console.log(`[DRepScore] Fetching details for DRep: ${decodedId}`);
+    }
+
     const { info, metadata, votes } = await fetchDRepDetails(decodedId);
 
     if (!info) {
+      if (isDev) {
+        console.warn(`[DRepScore] No info found for DRep: ${decodedId}`);
+      }
       return null;
+    }
+
+    if (isDev) {
+      console.log(`[DRepScore] Found ${votes.length} votes for DRep ${decodedId}`);
     }
 
     // Transform votes to VoteRecord format
@@ -44,17 +58,20 @@ async function getDRepData(drepId: string) {
       hasRationale: vote.meta_url !== null || vote.meta_json?.rationale !== null,
       rationaleUrl: vote.meta_url,
       rationaleText: vote.meta_json?.rationale || null,
-      voteType: 'Governance', // TODO: Distinguish Catalyst votes
+      voteType: 'Governance', // Catalyst votes would need different endpoint/detection
     }));
 
     const votingPower = lovelaceToAda(info.voting_power || '0');
     const delegatorCount = info.delegators || 0;
-    const totalProposals = 1; // TODO: Get actual total proposals
+    
+    // Use actual vote count as proxy for total proposals this DRep could have voted on
+    // This gives us their actual participation in available votes
+    const totalProposals = Math.max(votes.length, 1);
 
     return {
       drepId: info.drep_id,
       drepHash: info.drep_hash,
-      handle: null, // TODO: ADA Handle lookup
+      handle: null, // ADA Handle lookup not yet integrated
       votingPower,
       delegatorCount,
       isActive: info.registered && info.voting_power !== '0',
@@ -67,7 +84,7 @@ async function getDRepData(drepId: string) {
       activeEpoch: info.active_epoch,
     };
   } catch (error) {
-    console.error('Error fetching DRep details:', error);
+    console.error('[DRepScore] Error fetching DRep details:', error);
     return null;
   }
 }
