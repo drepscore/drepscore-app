@@ -16,6 +16,9 @@ export interface DRep {
   drepId: string;
   drepHash: string;
   handle: string | null;
+  name: string | null; // Human-readable name from metadata
+  ticker: string | null; // Short ticker/symbol from metadata
+  description: string | null; // Description from metadata
   votingPower: number; // in ADA
   votingPowerLovelace: string; // raw lovelace string
   participationRate: number; // percentage

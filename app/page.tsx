@@ -109,7 +109,10 @@ async function getDReps(limit: number = 50): Promise<{ dreps: DRep[]; error: boo
       return {
         drepId: drepInfo.drep_id,
         drepHash: drepInfo.drep_hash,
-        handle: null, // Name/ticker from metadata if available
+        handle: null, // ADA Handle lookup not yet integrated
+        name: drepMetadata?.json_metadata?.name || null,
+        ticker: drepMetadata?.json_metadata?.ticker || null,
+        description: drepMetadata?.json_metadata?.description || null,
         votingPower: lovelaceToAda(drepInfo.voting_power || '0'),
         votingPowerLovelace: drepInfo.voting_power || '0',
         participationRate: calculateParticipationRate(votes.length, totalProposals),

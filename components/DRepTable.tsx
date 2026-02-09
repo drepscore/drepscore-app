@@ -28,7 +28,8 @@ import {
 } from '@/components/ui/select';
 import { ArrowUpDown, Search, ExternalLink } from 'lucide-react';
 import { EmptyState } from './EmptyState';
-import { formatAda, getParticipationColor, getRationaleColor, shortenDRepId } from '@/utils/scoring';
+import { formatAda, getParticipationColor, getRationaleColor } from '@/utils/scoring';
+import { getDRepDisplayName, getDRepDisplayNameOrUnnamed } from '@/utils/display';
 import {
   Tooltip,
   TooltipContent,
@@ -36,6 +37,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ParticipationRateModal, DecentralizationScoreModal, RationaleImportanceModal } from './InfoModal';
+import { HelpCircle } from 'lucide-react';
 
 interface DRepTableProps {
   dreps: (DRep | DRepWithScore)[];
@@ -219,7 +221,7 @@ export function DRepTable({ dreps, showMatchScore = false }: DRepTableProps) {
                   onClick={() => toggleSort('drepId')}
                   className="flex items-center gap-1 hover:text-foreground"
                 >
-                  DRep ID / Handle
+                  Name / Ticker
                   <ArrowUpDown className="h-3 w-3" />
                 </button>
               </TableHead>
@@ -283,25 +285,48 @@ export function DRepTable({ dreps, showMatchScore = false }: DRepTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedDReps.map((drep) => (
+            {paginatedDReps.map((drep) => {
+              const { name: displayName, isUnnamed } = getDRepDisplayNameOrUnnamed(drep);
+              
+              return (
               <TableRow key={drep.drepId}>
                 <TableCell>
                   <Link
                     href={`/drep/${encodeURIComponent(drep.drepId)}`}
                     className="flex items-center gap-2 hover:text-primary group"
                   >
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="font-mono text-sm">
-                            {drep.handle || shortenDRepId(drep.drepId)}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="font-mono text-xs">{drep.drepId}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <div className="flex items-center gap-1.5">
+                      <span className={isUnnamed ? 'text-muted-foreground italic' : 'font-medium'}>
+                        {displayName}
+                      </span>
+                      {isUnnamed && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">No metadata provided</p>
+                              <p className="font-mono text-xs mt-1">{drep.drepId}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {!isUnnamed && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="font-mono text-xs text-muted-foreground">
+                                ({drep.drepId.slice(0, 8)}...)
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="font-mono text-xs">{drep.drepId}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                     <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Link>
                 </TableCell>
@@ -334,7 +359,8 @@ export function DRepTable({ dreps, showMatchScore = false }: DRepTableProps) {
                   </Badge>
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       </div>

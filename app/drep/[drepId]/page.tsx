@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchDRepDetails } from '@/utils/koios';
 import { calculateParticipationRate, calculateRationaleRate, calculateDecentralizationScore, lovelaceToAda, formatAda, getParticipationColor, getRationaleColor } from '@/utils/scoring';
+import { getDRepDisplayName, getDRepPrimaryName, hasCustomMetadata, truncateDescription } from '@/utils/display';
 import { VoteRecord } from '@/types/drep';
 import { MetricCard } from '@/components/MetricCard';
 import { VotingHistoryChart } from '@/components/VotingHistoryChart';
@@ -14,7 +15,7 @@ import { DelegationButton } from '@/components/DelegationButton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Users, TrendingUp, FileText, Activity } from 'lucide-react';
+import { ArrowLeft, Users, TrendingUp, FileText, Activity, ExternalLink } from 'lucide-react';
 import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
 import { Suspense } from 'react';
 
@@ -72,6 +73,9 @@ async function getDRepData(drepId: string) {
       drepId: info.drep_id,
       drepHash: info.drep_hash,
       handle: null, // ADA Handle lookup not yet integrated
+      name: metadata?.json_metadata?.name || null,
+      ticker: metadata?.json_metadata?.ticker || null,
+      description: metadata?.json_metadata?.description || null,
       votingPower,
       delegatorCount,
       isActive: info.registered && info.voting_power !== '0',
@@ -108,17 +112,34 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
       </Link>
 
       {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-3xl font-bold">
-            {drep.handle || 'DRep Profile'}
+            {getDRepPrimaryName(drep)}
           </h1>
+          {drep.ticker && (
+            <Badge variant="outline" className="text-lg px-3 py-1">
+              {drep.ticker.toUpperCase()}
+            </Badge>
+          )}
           <Badge variant={drep.isActive ? 'default' : 'secondary'} className="text-sm">
             {drep.isActive ? 'Active' : 'Inactive'}
           </Badge>
+          {!hasCustomMetadata(drep) && (
+            <Badge variant="secondary" className="text-xs">
+              No Metadata
+            </Badge>
+          )}
         </div>
-        <p className="text-sm text-muted-foreground font-mono">
-          {drep.drepId}
+        
+        {drep.description && (
+          <p className="text-base text-muted-foreground max-w-3xl">
+            {drep.description}
+          </p>
+        )}
+        
+        <p className="text-xs text-muted-foreground font-mono">
+          DRep ID: {drep.drepId}
         </p>
       </div>
 
@@ -153,19 +174,31 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
       </div>
 
       {/* About/Statement */}
-      {drep.metadata && (
+      {(drep.metadata || drep.description || drep.name) && (
         <Card>
           <CardHeader>
             <CardTitle>About This DRep</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {drep.metadata.bio && (
+            {drep.name && (
+              <div>
+                <h3 className="font-medium mb-2">Name</h3>
+                <p className="text-sm">{drep.name}</p>
+              </div>
+            )}
+            {drep.description && (
+              <div>
+                <h3 className="font-medium mb-2">Description</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{drep.description}</p>
+              </div>
+            )}
+            {drep.metadata?.bio && (
               <div>
                 <h3 className="font-medium mb-2">Bio</h3>
                 <p className="text-sm text-muted-foreground">{drep.metadata.bio}</p>
               </div>
             )}
-            {drep.metadata.email && (
+            {drep.metadata?.email && (
               <div>
                 <h3 className="font-medium mb-2">Contact</h3>
                 <a
@@ -176,7 +209,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
                 </a>
               </div>
             )}
-            {drep.metadata.references && drep.metadata.references.length > 0 && (
+            {drep.metadata?.references && drep.metadata.references.length > 0 && (
               <div>
                 <h3 className="font-medium mb-2">References</h3>
                 <ul className="space-y-1">
@@ -186,9 +219,10 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
                         href={ref.uri}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline"
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
                       >
                         {ref.label}
+                        <ExternalLink className="h-3 w-3" />
                       </a>
                     </li>
                   ))}

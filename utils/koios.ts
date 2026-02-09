@@ -112,19 +112,33 @@ export async function fetchDRepInfo(drepIds: string[]): Promise<DRepInfoResponse
 
 /**
  * Fetch metadata for specific DReps
+ * Includes name, ticker, description from metadata JSON
+ * Cached for 15 minutes via Next.js fetch cache
  */
 export async function fetchDRepMetadata(drepIds: string[]): Promise<DRepMetadataResponse> {
+  const isDev = process.env.NODE_ENV === 'development';
+  
   try {
     if (drepIds.length === 0) return [];
+    
+    if (isDev) {
+      console.log(`[Koios] Fetching metadata for ${drepIds.length} DReps (includes name, ticker, description)`);
+    }
     
     const data = await koiosFetch<DRepMetadataResponse>('/drep_metadata', {
       method: 'POST',
       body: JSON.stringify({ _drep_ids: drepIds }),
     });
     
+    if (isDev && data) {
+      const withNames = data.filter(m => m.json_metadata?.name).length;
+      const withTickers = data.filter(m => m.json_metadata?.ticker).length;
+      console.log(`[Koios] Metadata: ${withNames} with names, ${withTickers} with tickers`);
+    }
+    
     return data || [];
   } catch (error) {
-    console.error('Error fetching DRep metadata:', error);
+    console.error('[Koios] Error fetching DRep metadata:', error);
     return [];
   }
 }

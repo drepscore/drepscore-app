@@ -45,6 +45,9 @@ export interface DRepMetadata {
   url: string | null;
   hash: string | null;
   json_metadata: {
+    name?: string;
+    ticker?: string;
+    description?: string;
     body?: {
       bio?: string;
       email?: string;
