@@ -62,7 +62,7 @@ async function getDRepData(drepId: string) {
       voteType: 'Governance', // Catalyst votes would need different endpoint/detection
     }));
 
-    const votingPower = lovelaceToAda(info.voting_power || '0');
+    const votingPower = lovelaceToAda(info.amount || '0');
     const delegatorCount = info.delegators || 0;
     
     // Use actual vote count as proxy for total proposals this DRep could have voted on
@@ -81,7 +81,7 @@ async function getDRepData(drepId: string) {
       description,
       votingPower,
       delegatorCount,
-      isActive: info.registered && info.voting_power !== '0',
+      isActive: info.registered && info.amount !== '0',
       participationRate: calculateParticipationRate(voteRecords.length, totalProposals),
       rationaleRate: calculateRationaleRate(votes),
       decentralizationScore: calculateDecentralizationScore(delegatorCount, votingPower),

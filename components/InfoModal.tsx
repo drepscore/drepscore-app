@@ -22,15 +22,27 @@ interface InfoModalProps {
   children: ReactNode;
   triggerText?: string;
   triggerVariant?: 'default' | 'outline' | 'ghost' | 'link';
+  iconOnly?: boolean;
 }
 
-export function InfoModal({ title, children, triggerText = 'Learn More', triggerVariant = 'ghost' }: InfoModalProps) {
+export function InfoModal({ 
+  title, 
+  children, 
+  triggerText = 'Learn More', 
+  triggerVariant = 'ghost',
+  iconOnly = false 
+}: InfoModalProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant={triggerVariant} size="sm" className="gap-2">
+        <Button 
+          variant={triggerVariant} 
+          size={iconOnly ? 'icon' : 'sm'} 
+          className={iconOnly ? 'h-6 w-6' : 'gap-2'}
+          aria-label={iconOnly ? title : undefined}
+        >
           <Info className="h-4 w-4" />
-          {triggerText}
+          {!iconOnly && triggerText}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -75,7 +87,7 @@ export function WhatIsDRepModal() {
 
 export function ParticipationRateModal() {
   return (
-    <InfoModal title="Understanding Participation Rate" triggerVariant="link">
+    <InfoModal title="Understanding Participation Rate" triggerVariant="ghost" iconOnly>
       <p>
         <strong>Participation Rate</strong> measures how actively a DRep engages with governance proposals.
       </p>
@@ -100,7 +112,7 @@ export function ParticipationRateModal() {
 
 export function DecentralizationScoreModal() {
   return (
-    <InfoModal title="Understanding Decentralization Score" triggerVariant="link">
+    <InfoModal title="Understanding Decentralization Score" triggerVariant="ghost" iconOnly>
       <p>
         The <strong>Decentralization Score</strong> measures how voting power is distributed among a DRep's delegators.
       </p>
@@ -129,7 +141,7 @@ export function DecentralizationScoreModal() {
 
 export function RationaleImportanceModal() {
   return (
-    <InfoModal title="Why Rationale Matters" triggerVariant="link">
+    <InfoModal title="Why Rationale Matters" triggerVariant="ghost" iconOnly>
       <p>
         <strong>Rationale</strong> refers to the written explanation a DRep provides for their votes.
       </p>

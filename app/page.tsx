@@ -63,8 +63,8 @@ async function getDReps(limit: number = 50): Promise<{
 
     // Sort by voting power descending
     const sortedInfo = [...info].sort((a, b) => {
-      const aPower = parseInt(a.voting_power || '0');
-      const bPower = parseInt(b.voting_power || '0');
+      const aPower = parseInt(a.amount || '0');
+      const bPower = parseInt(b.amount || '0');
       return bPower - aPower;
     });
 
@@ -122,20 +122,20 @@ async function getDReps(limit: number = 50): Promise<{
         name,
         ticker,
         description,
-        votingPower: lovelaceToAda(drepInfo.voting_power || '0'),
-        votingPowerLovelace: drepInfo.voting_power || '0',
+        votingPower: lovelaceToAda(drepInfo.amount || '0'),
+        votingPowerLovelace: drepInfo.amount || '0',
         participationRate: calculateParticipationRate(votes.length, totalProposals),
         rationaleRate: votes.length > 0 ? Math.round((votesWithRationale / votes.length) * 100) : 0,
         decentralizationScore: calculateDecentralizationScore(
           drepInfo.delegators || 0,
-          lovelaceToAda(drepInfo.voting_power || '0')
+          lovelaceToAda(drepInfo.amount || '0')
         ),
         delegatorCount: drepInfo.delegators || 0,
         totalVotes: votes.length,
         yesVotes,
         noVotes,
         abstainVotes,
-        isActive: drepInfo.registered && drepInfo.voting_power !== '0',
+        isActive: drepInfo.registered && drepInfo.amount !== '0',
         anchorUrl: drepInfo.anchor_url,
         metadata: drepMetadata?.meta_json?.body || null,
       };
