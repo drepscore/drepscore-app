@@ -49,12 +49,20 @@ export interface DRepMetadata {
     ticker?: string;
     description?: string;
     body?: {
+      // CIP-119 Governance Metadata Fields
+      givenName?: string;
+      objectives?: string;
+      motivations?: string;
+      qualifications?: string;
+      paymentAddress?: string;
+      // Legacy/Additional Fields
       bio?: string;
       email?: string;
       references?: Array<{
         label: string;
         uri: string;
       }>;
+      [key: string]: any;
     };
     authors?: string[];
     [key: string]: any;

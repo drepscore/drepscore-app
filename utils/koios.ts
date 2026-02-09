@@ -132,11 +132,18 @@ export async function fetchDRepMetadata(drepIds: string[]): Promise<DRepMetadata
     });
     
     if (isDev && data) {
-      const withNames = data.filter(m => m.json_metadata?.name).length;
+      // Count metadata by source format
+      const withCIP119Names = data.filter(m => m.json_metadata?.body?.givenName).length;
+      const withLegacyNames = data.filter(m => m.json_metadata?.name).length;
       const withTickers = data.filter(m => m.json_metadata?.ticker).length;
-      const withDescriptions = data.filter(m => m.json_metadata?.description).length;
+      const withCIP119Objectives = data.filter(m => m.json_metadata?.body?.objectives).length;
+      const withLegacyDescriptions = data.filter(m => m.json_metadata?.description).length;
       const withAnchorUrl = data.filter(m => m.url !== null).length;
-      console.log(`[Koios] Metadata: ${withNames} with names, ${withTickers} with tickers, ${withDescriptions} with descriptions, ${withAnchorUrl} with anchor URLs`);
+      
+      const totalNames = withCIP119Names + withLegacyNames;
+      const totalDescriptions = withCIP119Objectives + withLegacyDescriptions;
+      
+      console.log(`[Koios] Metadata: ${totalNames} with names (${withCIP119Names} CIP-119, ${withLegacyNames} legacy), ${withTickers} with tickers, ${totalDescriptions} with descriptions (${withCIP119Objectives} CIP-119, ${withLegacyDescriptions} legacy), ${withAnchorUrl} with anchor URLs`);
     }
     
     return data || [];
@@ -148,7 +155,7 @@ export async function fetchDRepMetadata(drepIds: string[]): Promise<DRepMetadata
 
 /**
  * Extract metadata fields with fallback parsing
- * Handles various metadata JSON structures
+ * Handles various metadata JSON structures including CIP-119 governance format
  */
 export function parseMetadataFields(metadata: DRepMetadata | null | undefined): {
   name: string | null;
@@ -161,25 +168,51 @@ export function parseMetadataFields(metadata: DRepMetadata | null | undefined): 
 
   const json = metadata.json_metadata;
   
-  // Try direct fields first
+  // NAME EXTRACTION (priority order)
+  // 1. Try direct fields first (custom/legacy format)
   let name = json.name || null;
-  let ticker = json.ticker || null;
-  let description = json.description || null;
   
-  // Try nested body fields as fallback
+  // 2. Try CIP-119 standard: body.givenName (primary governance metadata field)
+  if (!name && json.body) {
+    name = (json.body as any).givenName || null;
+  }
+  
+  // 3. Try nested body.name (legacy nested format)
   if (!name && json.body) {
     name = (json.body as any).name || null;
   }
+  
+  // 4. Try givenName at root (alternative location)
+  if (!name) {
+    name = (json as any).givenName || null;
+  }
+  
+  // TICKER EXTRACTION (not part of CIP-119, but check legacy formats)
+  let ticker = json.ticker || null;
   if (!ticker && json.body) {
     ticker = (json.body as any).ticker || null;
   }
+  
+  // DESCRIPTION EXTRACTION (priority order)
+  // 1. Try direct description field (custom/legacy)
+  let description = json.description || null;
+  
+  // 2. Try CIP-119 standard: body.objectives (primary description field)
   if (!description && json.body) {
-    description = (json.body as any).description || null;
+    const objectives = (json.body as any).objectives || null;
+    const motivations = (json.body as any).motivations || null;
+    
+    // Combine objectives and motivations if both exist
+    if (objectives && motivations) {
+      description = `${objectives}\n\n${motivations}`;
+    } else {
+      description = objectives || motivations || null;
+    }
   }
   
-  // Try givenName as alternative to name
-  if (!name) {
-    name = (json as any).givenName || null;
+  // 3. Try nested body.description (legacy nested format)
+  if (!description && json.body) {
+    description = (json.body as any).description || null;
   }
   
   return { name, ticker, description };
