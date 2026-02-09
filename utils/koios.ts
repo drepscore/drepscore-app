@@ -6,6 +6,7 @@
 import {
   DRepListResponse,
   DRepInfoResponse,
+  DRepMetadata,
   DRepMetadataResponse,
   DRepVotesResponse,
   ProposalListResponse,
@@ -133,7 +134,9 @@ export async function fetchDRepMetadata(drepIds: string[]): Promise<DRepMetadata
     if (isDev && data) {
       const withNames = data.filter(m => m.json_metadata?.name).length;
       const withTickers = data.filter(m => m.json_metadata?.ticker).length;
-      console.log(`[Koios] Metadata: ${withNames} with names, ${withTickers} with tickers`);
+      const withDescriptions = data.filter(m => m.json_metadata?.description).length;
+      const withAnchorUrl = data.filter(m => m.url !== null).length;
+      console.log(`[Koios] Metadata: ${withNames} with names, ${withTickers} with tickers, ${withDescriptions} with descriptions, ${withAnchorUrl} with anchor URLs`);
     }
     
     return data || [];
@@ -141,6 +144,45 @@ export async function fetchDRepMetadata(drepIds: string[]): Promise<DRepMetadata
     console.error('[Koios] Error fetching DRep metadata:', error);
     return [];
   }
+}
+
+/**
+ * Extract metadata fields with fallback parsing
+ * Handles various metadata JSON structures
+ */
+export function parseMetadataFields(metadata: DRepMetadata | null | undefined): {
+  name: string | null;
+  ticker: string | null;
+  description: string | null;
+} {
+  if (!metadata || !metadata.json_metadata) {
+    return { name: null, ticker: null, description: null };
+  }
+
+  const json = metadata.json_metadata;
+  
+  // Try direct fields first
+  let name = json.name || null;
+  let ticker = json.ticker || null;
+  let description = json.description || null;
+  
+  // Try nested body fields as fallback
+  if (!name && json.body) {
+    name = (json.body as any).name || null;
+  }
+  if (!ticker && json.body) {
+    ticker = (json.body as any).ticker || null;
+  }
+  if (!description && json.body) {
+    description = (json.body as any).description || null;
+  }
+  
+  // Try givenName as alternative to name
+  if (!name) {
+    name = (json as any).givenName || null;
+  }
+  
+  return { name, ticker, description };
 }
 
 /**

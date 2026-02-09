@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAllDReps, fetchDRepsWithDetails, fetchDRepVotes } from '@/utils/koios';
+import { fetchAllDReps, fetchDRepsWithDetails, fetchDRepVotes, parseMetadataFields } from '@/utils/koios';
 import { calculateParticipationRate, calculateDecentralizationScore, lovelaceToAda } from '@/utils/scoring';
 import { sortByQualityScore } from '@/utils/documentation';
 import { DRep } from '@/types/drep';
@@ -82,13 +82,16 @@ export async function GET(request: NextRequest) {
         v.meta_url !== null || v.meta_json?.rationale !== null
       ).length;
 
+      // Parse metadata fields with fallback logic
+      const { name, ticker, description } = parseMetadataFields(drepMetadata);
+
       return {
         drepId: drepInfo.drep_id,
         drepHash: drepInfo.drep_hash,
         handle: null, // ADA Handle lookup not yet integrated
-        name: drepMetadata?.json_metadata?.name || null,
-        ticker: drepMetadata?.json_metadata?.ticker || null,
-        description: drepMetadata?.json_metadata?.description || null,
+        name,
+        ticker,
+        description,
         votingPower: lovelaceToAda(drepInfo.voting_power || '0'),
         votingPowerLovelace: drepInfo.voting_power || '0',
         participationRate: calculateParticipationRate(votes.length, totalProposals),

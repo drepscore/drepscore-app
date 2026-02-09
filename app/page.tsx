@@ -4,16 +4,21 @@
  */
 
 import { Suspense } from 'react';
-import { fetchAllDReps, fetchDRepsWithDetails, fetchDRepVotes, checkKoiosHealth } from '@/utils/koios';
+import { fetchAllDReps, fetchDRepsWithDetails, fetchDRepVotes, checkKoiosHealth, parseMetadataFields } from '@/utils/koios';
 import { calculateParticipationRate, calculateRationaleRate, calculateDecentralizationScore, lovelaceToAda } from '@/utils/scoring';
-import { sortByQualityScore } from '@/utils/documentation';
+import { sortByQualityScore, isWellDocumented } from '@/utils/documentation';
 import { DRep } from '@/types/drep';
 import { DRepTableClient } from '@/components/DRepTableClient';
 import { HeroSection } from '@/components/HeroSection';
 import { ErrorBanner } from '@/components/ErrorBanner';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 
-async function getDReps(limit: number = 50): Promise<{ dreps: DRep[]; error: boolean; totalAvailable: number }> {
+async function getDReps(limit: number = 50): Promise<{ 
+  dreps: DRep[]; 
+  allDReps: DRep[];
+  error: boolean; 
+  totalAvailable: number;
+}> {
   const isDev = process.env.NODE_ENV === 'development';
   
   try {
@@ -25,7 +30,7 @@ async function getDReps(limit: number = 50): Promise<{ dreps: DRep[]; error: boo
     const isHealthy = await checkKoiosHealth();
     if (!isHealthy) {
       console.error('[DRepScore] Koios API health check failed');
-      return { dreps: [], error: true, totalAvailable: 0 };
+      return { dreps: [], allDReps: [], error: true, totalAvailable: 0 };
     }
 
     // Fetch all DReps
@@ -34,7 +39,7 @@ async function getDReps(limit: number = 50): Promise<{ dreps: DRep[]; error: boo
       if (isDev) {
         console.warn('[DRepScore] No DReps found');
       }
-      return { dreps: [], error: false, totalAvailable: 0 };
+      return { dreps: [], allDReps: [], error: false, totalAvailable: 0 };
     }
 
     if (isDev) {
@@ -107,13 +112,16 @@ async function getDReps(limit: number = 50): Promise<{ dreps: DRep[]; error: boo
         v.meta_url !== null || v.meta_json?.rationale !== null
       ).length;
 
+      // Parse metadata fields with fallback logic
+      const { name, ticker, description } = parseMetadataFields(drepMetadata);
+
       return {
         drepId: drepInfo.drep_id,
         drepHash: drepInfo.drep_hash,
         handle: null, // ADA Handle lookup not yet integrated
-        name: drepMetadata?.json_metadata?.name || null,
-        ticker: drepMetadata?.json_metadata?.ticker || null,
-        description: drepMetadata?.json_metadata?.description || null,
+        name,
+        ticker,
+        description,
         votingPower: lovelaceToAda(drepInfo.voting_power || '0'),
         votingPowerLovelace: drepInfo.voting_power || '0',
         participationRate: calculateParticipationRate(votes.length, totalProposals),
@@ -136,22 +144,34 @@ async function getDReps(limit: number = 50): Promise<{ dreps: DRep[]; error: boo
     // Sort by quality score (documentation + voting power)
     const sortedDReps = sortByQualityScore(dreps);
     
+    // DEFAULT FILTER: Only well-documented DReps
+    // Well-documented = has metadata (name/ticker/description) OR has rationale provision
+    const wellDocumentedDReps = sortedDReps.filter(drep => 
+      isWellDocumented(drep) || drep.rationaleRate > 0
+    );
+    
     if (isDev) {
       console.log(`[DRepScore] Successfully loaded ${sortedDReps.length} DReps with COMPLETE data`);
       console.log(`[DRepScore] Average votes per DRep: ${Math.round(sortedDReps.reduce((sum, d) => sum + d.totalVotes, 0) / sortedDReps.length)}`);
-      const wellDocumented = sortedDReps.filter(d => d.name && (d.ticker || d.description)).length;
-      console.log(`[DRepScore] Well documented DReps: ${wellDocumented}/${sortedDReps.length} (${Math.round((wellDocumented / sortedDReps.length) * 100)}%)`);
+      const wellDocumented = wellDocumentedDReps.length;
+      console.log(`[DRepScore] Well documented DReps (default filter): ${wellDocumented}/${sortedDReps.length} (${Math.round((wellDocumented / sortedDReps.length) * 100)}%)`);
+      console.log(`[DRepScore] Returning well-documented DReps by default for better UX`);
     }
 
-    return { dreps: sortedDReps, error: false, totalAvailable };
+    return { 
+      dreps: wellDocumentedDReps, // Default: well-documented only
+      allDReps: sortedDReps, // All DReps for "show all" toggle
+      error: false, 
+      totalAvailable 
+    };
   } catch (error) {
     console.error('[DRepScore] Error fetching DReps:', error);
-    return { dreps: [], error: true, totalAvailable: 0 };
+    return { dreps: [], allDReps: [], error: true, totalAvailable: 0 };
   }
 }
 
 export default async function HomePage() {
-  const { dreps, error, totalAvailable } = await getDReps();
+  const { dreps, allDReps, error, totalAvailable } = await getDReps();
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
@@ -165,7 +185,11 @@ export default async function HomePage() {
       )}
       
       <Suspense fallback={<TableSkeleton />}>
-        <DRepTableClient initialDReps={dreps} totalAvailable={totalAvailable} />
+        <DRepTableClient 
+          initialDReps={dreps} 
+          allDReps={allDReps}
+          totalAvailable={totalAvailable} 
+        />
       </Suspense>
     </div>
   );

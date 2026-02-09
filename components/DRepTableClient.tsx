@@ -16,16 +16,18 @@ import { Badge } from './ui/badge';
 import { Loader2, Filter } from 'lucide-react';
 
 interface DRepTableClientProps {
-  initialDReps: DRep[];
+  initialDReps: DRep[]; // Well-documented by default
+  allDReps: DRep[]; // All DReps (including unnamed)
   totalAvailable: number;
 }
 
-export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClientProps) {
+export function DRepTableClient({ initialDReps, allDReps, totalAvailable }: DRepTableClientProps) {
   const [dreps, setDReps] = useState<DRep[]>(initialDReps);
+  const [allDRepsState, setAllDRepsState] = useState<DRep[]>(allDReps);
   const [selectedValues, setSelectedValues] = useState<ValuePreference[]>([]);
   const [showMatchScores, setShowMatchScores] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showOnlyDocumented, setShowOnlyDocumented] = useState(false);
+  const [includeUnnamed, setIncludeUnnamed] = useState(false);
 
   const handleValuesChange = (values: ValuePreference[]) => {
     setSelectedValues(values);
@@ -41,10 +43,19 @@ export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClien
   const handleLoadMore = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/dreps?offset=${dreps.length}&limit=50`);
+      const currentLength = includeUnnamed ? allDRepsState.length : dreps.length;
+      const response = await fetch(`/api/dreps?offset=${currentLength}&limit=50`);
       if (response.ok) {
         const newDReps = await response.json();
-        setDReps([...dreps, ...newDReps]);
+        
+        // Add to both states
+        setAllDRepsState([...allDRepsState, ...newDReps]);
+        
+        // Filter for well-documented
+        const newWellDocumented = newDReps.filter((d: DRep) => 
+          isWellDocumented(d) || d.rationaleRate > 0
+        );
+        setDReps([...dreps, ...newWellDocumented]);
       }
     } catch (error) {
       console.error('[DRepScore] Error loading more DReps:', error);
@@ -53,12 +64,12 @@ export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClien
     }
   };
 
-  // Filter by documentation if enabled
-  const filteredDReps = showOnlyDocumented ? filterWellDocumented(dreps) : dreps;
+  // Toggle between well-documented and all DReps
+  const displayDReps = includeUnnamed ? allDRepsState : dreps;
   
   // Calculate match scores when values are selected and search is triggered
   const drepsWithScores: (DRep | DRepWithScore)[] = showMatchScores && selectedValues.length > 0
-    ? filteredDReps.map(drep => {
+    ? displayDReps.map((drep: DRep) => {
         // Use actual vote data for alignment scoring
         // Since we now have full vote history, we can calculate real alignment
         const mockVotes: any[] = []; // TODO: Use actual drep.votes when available in type
@@ -70,9 +81,10 @@ export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClien
           matchReasons: selectedValues,
         } as DRepWithScore;
       })
-    : filteredDReps;
+    : displayDReps;
   
-  const wellDocumentedCount = dreps.filter(d => isWellDocumented(d)).length;
+  const wellDocumentedCount = dreps.length;
+  const totalLoaded = allDRepsState.length;
 
   return (
     <div className="space-y-6">
@@ -92,32 +104,45 @@ export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClien
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="space-y-1">
             <h2 className="text-2xl font-bold">
-              {showMatchScores ? 'Matching DReps' : 'All Active DReps'}
+              {showMatchScores ? 'Matching DReps' : (includeUnnamed ? 'All DReps' : 'Well-Documented DReps')}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Sorted by documentation quality and voting power
+              {includeUnnamed 
+                ? 'Sorted by documentation quality and voting power'
+                : 'Showing DReps with metadata or rationale history (default)'}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              variant={showOnlyDocumented ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowOnlyDocumented(!showOnlyDocumented)}
-              className="gap-2"
-            >
-              <Filter className="h-4 w-4" />
-              {showOnlyDocumented ? 'Show All' : 'Well Documented Only'}
-            </Button>
+            <label className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+              <input
+                type="checkbox"
+                checked={includeUnnamed}
+                onChange={(e) => setIncludeUnnamed(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-2 focus:ring-primary cursor-pointer"
+              />
+              <span className="text-sm font-medium">Include unnamed/undocumented DReps</span>
+            </label>
             <div className="text-sm text-muted-foreground text-right">
-              <div>Showing {drepsWithScores.length} of {totalAvailable}</div>
+              <div>Showing {drepsWithScores.length} of {totalLoaded} loaded</div>
               <div className="text-xs">{wellDocumentedCount} well documented</div>
             </div>
           </div>
         </div>
         
-        <DRepTable dreps={drepsWithScores} showMatchScore={showMatchScores} />
+        {drepsWithScores.length === 0 && !includeUnnamed ? (
+          <div className="text-center py-12 space-y-4">
+            <p className="text-lg text-muted-foreground">
+              No well-documented DReps found in this batch.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Check "Include unnamed/undocumented DReps" to see all registrations.
+            </p>
+          </div>
+        ) : (
+          <DRepTable dreps={drepsWithScores} showMatchScore={showMatchScores} />
+        )}
         
-        {dreps.length < totalAvailable && (
+        {(includeUnnamed ? allDRepsState.length : dreps.length) < totalAvailable && (
           <div className="flex justify-center pt-6">
             <Button
               onClick={handleLoadMore}
@@ -132,7 +157,7 @@ export function DRepTableClient({ initialDReps, totalAvailable }: DRepTableClien
                   Loading Complete Data...
                 </>
               ) : (
-                `Load More DReps (${Math.min(50, totalAvailable - dreps.length)} more available)`
+                `Load More DReps (${Math.min(50, totalAvailable - (includeUnnamed ? allDRepsState.length : dreps.length))} more available)`
               )}
             </Button>
           </div>

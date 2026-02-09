@@ -5,7 +5,7 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { fetchDRepDetails } from '@/utils/koios';
+import { fetchDRepDetails, parseMetadataFields } from '@/utils/koios';
 import { calculateParticipationRate, calculateRationaleRate, calculateDecentralizationScore, lovelaceToAda, formatAda, getParticipationColor, getRationaleColor } from '@/utils/scoring';
 import { getDRepDisplayName, getDRepPrimaryName, hasCustomMetadata, truncateDescription } from '@/utils/display';
 import { VoteRecord } from '@/types/drep';
@@ -69,13 +69,16 @@ async function getDRepData(drepId: string) {
     // This gives us their actual participation in available votes
     const totalProposals = Math.max(votes.length, 1);
 
+    // Parse metadata fields with fallback logic
+    const { name, ticker, description } = parseMetadataFields(metadata);
+
     return {
       drepId: info.drep_id,
       drepHash: info.drep_hash,
       handle: null, // ADA Handle lookup not yet integrated
-      name: metadata?.json_metadata?.name || null,
-      ticker: metadata?.json_metadata?.ticker || null,
-      description: metadata?.json_metadata?.description || null,
+      name,
+      ticker,
+      description,
       votingPower,
       delegatorCount,
       isActive: info.registered && info.voting_power !== '0',
