@@ -133,12 +133,12 @@ export async function fetchDRepMetadata(drepIds: string[]): Promise<DRepMetadata
     
     if (isDev && data) {
       // Count metadata by source format
-      const withCIP119Names = data.filter(m => m.json_metadata?.body?.givenName).length;
-      const withLegacyNames = data.filter(m => m.json_metadata?.name).length;
-      const withTickers = data.filter(m => m.json_metadata?.ticker).length;
-      const withCIP119Objectives = data.filter(m => m.json_metadata?.body?.objectives).length;
-      const withLegacyDescriptions = data.filter(m => m.json_metadata?.description).length;
-      const withAnchorUrl = data.filter(m => m.url !== null).length;
+      const withCIP119Names = data.filter(m => m.meta_json?.body?.givenName).length;
+      const withLegacyNames = data.filter(m => m.meta_json?.name).length;
+      const withTickers = data.filter(m => m.meta_json?.ticker).length;
+      const withCIP119Objectives = data.filter(m => m.meta_json?.body?.objectives).length;
+      const withLegacyDescriptions = data.filter(m => m.meta_json?.description).length;
+      const withAnchorUrl = data.filter(m => m.meta_url !== null).length;
       
       const totalNames = withCIP119Names + withLegacyNames;
       const totalDescriptions = withCIP119Objectives + withLegacyDescriptions;
@@ -154,6 +154,30 @@ export async function fetchDRepMetadata(drepIds: string[]): Promise<DRepMetadata
 }
 
 /**
+ * Extract value from JSON-LD format metadata
+ * Handles both plain strings and JSON-LD objects with @value property
+ */
+function extractJsonLdValue(value: any): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  // If it's already a string, return it
+  if (typeof value === 'string') {
+    return value;
+  }
+  // If it's a JSON-LD object with @value, extract it
+  if (typeof value === 'object' && '@value' in value) {
+    return String(value['@value']);
+  }
+  // If it's another type of object, stringify it (last resort)
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+  // Fallback: convert to string
+  return String(value);
+}
+
+/**
  * Extract metadata fields with fallback parsing
  * Handles various metadata JSON structures including CIP-119 governance format
  */
@@ -162,45 +186,45 @@ export function parseMetadataFields(metadata: DRepMetadata | null | undefined): 
   ticker: string | null;
   description: string | null;
 } {
-  if (!metadata || !metadata.json_metadata) {
+  if (!metadata || !metadata.meta_json) {
     return { name: null, ticker: null, description: null };
   }
 
-  const json = metadata.json_metadata;
+  const json = metadata.meta_json;
   
   // NAME EXTRACTION (priority order)
   // 1. Try direct fields first (custom/legacy format)
-  let name = json.name || null;
+  let name = extractJsonLdValue(json.name);
   
   // 2. Try CIP-119 standard: body.givenName (primary governance metadata field)
   if (!name && json.body) {
-    name = (json.body as any).givenName || null;
+    name = extractJsonLdValue((json.body as any).givenName);
   }
   
   // 3. Try nested body.name (legacy nested format)
   if (!name && json.body) {
-    name = (json.body as any).name || null;
+    name = extractJsonLdValue((json.body as any).name);
   }
   
   // 4. Try givenName at root (alternative location)
   if (!name) {
-    name = (json as any).givenName || null;
+    name = extractJsonLdValue((json as any).givenName);
   }
   
   // TICKER EXTRACTION (not part of CIP-119, but check legacy formats)
-  let ticker = json.ticker || null;
+  let ticker = extractJsonLdValue(json.ticker);
   if (!ticker && json.body) {
-    ticker = (json.body as any).ticker || null;
+    ticker = extractJsonLdValue((json.body as any).ticker);
   }
   
   // DESCRIPTION EXTRACTION (priority order)
   // 1. Try direct description field (custom/legacy)
-  let description = json.description || null;
+  let description = extractJsonLdValue(json.description);
   
   // 2. Try CIP-119 standard: body.objectives (primary description field)
   if (!description && json.body) {
-    const objectives = (json.body as any).objectives || null;
-    const motivations = (json.body as any).motivations || null;
+    const objectives = extractJsonLdValue((json.body as any).objectives);
+    const motivations = extractJsonLdValue((json.body as any).motivations);
     
     // Combine objectives and motivations if both exist
     if (objectives && motivations) {
@@ -212,7 +236,7 @@ export function parseMetadataFields(metadata: DRepMetadata | null | undefined): 
   
   // 3. Try nested body.description (legacy nested format)
   if (!description && json.body) {
-    description = (json.body as any).description || null;
+    description = extractJsonLdValue((json.body as any).description);
   }
   
   return { name, ticker, description };

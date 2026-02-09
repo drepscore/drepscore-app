@@ -86,7 +86,7 @@ async function getDRepData(drepId: string) {
       rationaleRate: calculateRationaleRate(votes),
       decentralizationScore: calculateDecentralizationScore(delegatorCount, votingPower),
       anchorUrl: info.anchor_url,
-      metadata: metadata?.json_metadata?.body || null,
+      metadata: metadata?.meta_json?.body || null,
       votes: voteRecords,
       activeEpoch: info.active_epoch,
     };

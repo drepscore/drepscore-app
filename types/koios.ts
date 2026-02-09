@@ -40,11 +40,11 @@ export type DRepInfoResponse = DRepInfo[];
 // DRep Metadata Response
 export interface DRepMetadata {
   drep_id: string;
-  drep_hash: string;
   hex: string;
-  url: string | null;
-  hash: string | null;
-  json_metadata: {
+  has_script: boolean;
+  meta_url: string | null;
+  meta_hash: string | null;
+  meta_json: {
     name?: string;
     ticker?: string;
     description?: string;
@@ -71,6 +71,7 @@ export interface DRepMetadata {
   warning: string | null;
   language: string | null;
   comment: string | null;
+  is_valid: boolean | null;
 }
 
 export type DRepMetadataResponse = DRepMetadata[];

@@ -137,7 +137,7 @@ async function getDReps(limit: number = 50): Promise<{
         abstainVotes,
         isActive: drepInfo.registered && drepInfo.voting_power !== '0',
         anchorUrl: drepInfo.anchor_url,
-        metadata: drepMetadata?.json_metadata?.body || null,
+        metadata: drepMetadata?.meta_json?.body || null,
       };
     });
 
