@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchDRepDetails, parseMetadataFields } from '@/utils/koios';
 import { calculateParticipationRate, calculateRationaleRate, calculateDecentralizationScore, lovelaceToAda, formatAda, getParticipationColor, getRationaleColor } from '@/utils/scoring';
-import { getDRepDisplayName, getDRepPrimaryName, hasCustomMetadata, truncateDescription } from '@/utils/display';
+import { getDRepDisplayName, getDRepPrimaryName, hasCustomMetadata, truncateDescription, getProposalDisplayTitle, extractSocialPlatform } from '@/utils/display';
 import { VoteRecord } from '@/types/drep';
 import { MetricCard } from '@/components/MetricCard';
 import { VotingHistoryChart } from '@/components/VotingHistoryChart';
@@ -54,7 +54,7 @@ async function getDRepData(drepId: string) {
       voteTxHash: vote.vote_tx_hash,
       date: new Date(vote.block_time * 1000),
       vote: vote.vote,
-      title: vote.meta_json?.title || null,
+      title: getProposalDisplayTitle(vote.meta_json?.title || null, vote.proposal_tx_hash, vote.proposal_index),
       abstract: vote.meta_json?.abstract || null,
       hasRationale: vote.meta_url !== null || vote.meta_json?.rationale !== null,
       rationaleUrl: vote.meta_url,
@@ -69,8 +69,16 @@ async function getDRepData(drepId: string) {
     // This gives us their actual participation in available votes
     const totalProposals = Math.max(votes.length, 1);
 
+    // Calculate vote distribution
+    const yesVotes = votes.filter(v => v.vote === 'Yes').length;
+    const noVotes = votes.filter(v => v.vote === 'No').length;
+    const abstainVotes = votes.filter(v => v.vote === 'Abstain').length;
+
     // Parse metadata fields with fallback logic
     const { name, ticker, description } = parseMetadataFields(metadata);
+
+    const participationRate = calculateParticipationRate(voteRecords.length, totalProposals);
+    const rationaleRate = calculateRationaleRate(votes);
 
     return {
       drepId: info.drep_id,
@@ -82,9 +90,16 @@ async function getDRepData(drepId: string) {
       votingPower,
       delegatorCount,
       isActive: info.registered && info.amount !== '0',
-      participationRate: calculateParticipationRate(voteRecords.length, totalProposals),
-      rationaleRate: calculateRationaleRate(votes),
-      decentralizationScore: calculateDecentralizationScore(delegatorCount, votingPower),
+      participationRate,
+      rationaleRate,
+      decentralizationScore: calculateDecentralizationScore(
+        participationRate,
+        rationaleRate,
+        votingPower,
+        yesVotes,
+        noVotes,
+        abstainVotes
+      ),
       anchorUrl: info.anchor_url,
       metadata: metadata?.meta_json?.body || null,
       votes: voteRecords,
@@ -224,7 +239,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
                         rel="noopener noreferrer"
                         className="text-sm text-primary hover:underline flex items-center gap-1"
                       >
-                        {ref.label}
+                        {extractSocialPlatform(ref.uri, ref.label)}
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     </li>
@@ -239,7 +254,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
       {/* Decentralization Insights */}
       <Card>
         <CardHeader>
-          <CardTitle>Decentralization Score</CardTitle>
+          <CardTitle>Governance Engagement Score</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

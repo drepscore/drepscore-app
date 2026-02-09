@@ -23,7 +23,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface VotingHistoryChartProps {
   votes: VoteRecord[];
@@ -31,6 +31,19 @@ interface VotingHistoryChartProps {
 
 export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
   const [filter, setFilter] = useState<'all' | 'Governance' | 'Catalyst'>('all');
+  const [expandedVotes, setExpandedVotes] = useState<Set<string>>(new Set());
+
+  const toggleVoteExpanded = (voteId: string) => {
+    setExpandedVotes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(voteId)) {
+        newSet.delete(voteId);
+      } else {
+        newSet.add(voteId);
+      }
+      return newSet;
+    });
+  };
 
   const filteredVotes = filter === 'all' 
     ? votes 
@@ -155,49 +168,87 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredVotes.slice(0, 10).map((vote) => (
-              <div key={vote.id} className="flex items-start justify-between border-b pb-3 last:border-0">
-                <div className="space-y-1 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant={
-                      vote.vote === 'Yes' ? 'default' : 
-                      vote.vote === 'No' ? 'destructive' : 
-                      'secondary'
-                    }>
-                      {vote.vote}
-                    </Badge>
-                    <Badge variant="outline">{vote.voteType}</Badge>
-                    {vote.hasRationale && (
-                      <Badge variant="outline" className="text-green-600 dark:text-green-400">
-                        Rationale
-                      </Badge>
+            {filteredVotes.slice(0, 10).map((vote) => {
+              const isExpanded = expandedVotes.has(vote.id);
+              const rationaleText = vote.rationaleText;
+              const shouldTruncate = rationaleText && rationaleText.length > 200;
+              const displayRationale = rationaleText && shouldTruncate && !isExpanded
+                ? rationaleText.slice(0, 200) + '...'
+                : rationaleText;
+
+              return (
+                <div key={vote.id} className="border-b pb-3 last:border-0">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={
+                          vote.vote === 'Yes' ? 'default' : 
+                          vote.vote === 'No' ? 'destructive' : 
+                          'secondary'
+                        }>
+                          {vote.vote}
+                        </Badge>
+                        <Badge variant="outline">{vote.voteType}</Badge>
+                        {vote.hasRationale && (
+                          <Badge variant="outline" className="text-green-600 dark:text-green-400">
+                            Rationale
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="font-medium text-sm">
+                        {vote.title || 'Untitled Proposal'}
+                      </p>
+                      {vote.abstract && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {vote.abstract}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {vote.date.toLocaleDateString()}
+                      </p>
+                    </div>
+                    {vote.rationaleUrl && (
+                      <a
+                        href={vote.rationaleUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline flex items-center gap-1 text-xs ml-2"
+                      >
+                        View Source
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     )}
                   </div>
-                  <p className="font-medium text-sm">
-                    {vote.title || 'Untitled Proposal'}
-                  </p>
-                  {vote.abstract && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {vote.abstract}
-                    </p>
+                  
+                  {/* Inline Rationale Display */}
+                  {rationaleText && (
+                    <div className="mt-2 pl-0">
+                      <div className="bg-muted/50 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          {displayRationale}
+                        </p>
+                        {shouldTruncate && (
+                          <button
+                            onClick={() => toggleVoteExpanded(vote.id)}
+                            className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
+                          >
+                            {isExpanded ? (
+                              <>
+                                Show less <ChevronUp className="h-3 w-3" />
+                              </>
+                            ) : (
+                              <>
+                                Read more <ChevronDown className="h-3 w-3" />
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    {vote.date.toLocaleDateString()}
-                  </p>
                 </div>
-                {vote.rationaleUrl && (
-                  <a
-                    href={vote.rationaleUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline flex items-center gap-1 text-xs"
-                  >
-                    View Rationale
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>

@@ -38,34 +38,77 @@ export function calculateRationaleRate(votes: DRepVote[] | VoteRecord[]): number
 }
 
 /**
- * Calculate decentralization score
- * Based on the distribution of delegators and voting power
- * Higher score = more decentralized (many delegators, lower concentration)
+ * Calculate Governance Engagement Score
+ * Measures DRep quality based on activity, voting independence, and power balance
+ * (Replaces delegator-based decentralization score since Koios API doesn't provide delegator data)
  * 
- * @param delegatorCount Number of unique delegators
+ * @param participationRate Participation rate (0-100)
+ * @param rationaleRate Rationale provision rate (0-100)
  * @param votingPowerAda Voting power in ADA
- * @returns Decentralization score (0-100)
+ * @param yesVotes Number of Yes votes
+ * @param noVotes Number of No votes
+ * @param abstainVotes Number of Abstain votes
+ * @returns Governance engagement score (0-100)
  */
 export function calculateDecentralizationScore(
-  delegatorCount: number,
-  votingPowerAda: number
+  participationRate: number,
+  rationaleRate: number,
+  votingPowerAda: number,
+  yesVotes: number,
+  noVotes: number,
+  abstainVotes: number
 ): number {
-  if (delegatorCount === 0 || votingPowerAda === 0) return 0;
+  const totalVotes = yesVotes + noVotes + abstainVotes;
   
-  // Calculate average stake per delegator
-  const avgStakePerDelegator = votingPowerAda / delegatorCount;
+  if (totalVotes === 0) return 0;
   
-  // Ideal scenario: many delegators with balanced stakes
-  // Penalize both: few delegators (centralized) and very low avg (whale dominance indicator)
+  // 1. Activity Score (40%)
+  // Combination of participation rate and rationale provision
+  const activityScore = (participationRate * 0.6 + rationaleRate * 0.4) * 0.4;
   
-  // Score based on delegator count (logarithmic scale)
-  const delegatorScore = Math.min(50, Math.log10(delegatorCount + 1) * 20);
+  // 2. Voting Independence Score (30%)
+  // Calculate entropy of vote distribution (balanced voting = independent thinking)
+  const yesRatio = yesVotes / totalVotes;
+  const noRatio = noVotes / totalVotes;
+  const abstainRatio = abstainVotes / totalVotes;
   
-  // Score based on distribution (inverse of concentration)
-  // Lower average stake per delegator = better distribution
-  const distributionScore = Math.min(50, 50 - Math.log10(avgStakePerDelegator + 1) * 3);
+  // Calculate Shannon entropy, normalize to 0-1 scale
+  let entropy = 0;
+  if (yesRatio > 0) entropy -= yesRatio * Math.log2(yesRatio);
+  if (noRatio > 0) entropy -= noRatio * Math.log2(noRatio);
+  if (abstainRatio > 0) entropy -= abstainRatio * Math.log2(abstainRatio);
   
-  return Math.round(Math.max(0, delegatorScore + distributionScore));
+  // Max entropy for 3 categories is log2(3) ≈ 1.585
+  const maxEntropy = Math.log2(3);
+  const normalizedEntropy = entropy / maxEntropy;
+  const independenceScore = normalizedEntropy * 30;
+  
+  // 3. Power Balance Score (30%)
+  // Tier-based scoring: penalize extremes, reward moderate stake
+  let powerScore = 0;
+  if (votingPowerAda < 1000) {
+    // Very low power: likely inactive or new
+    powerScore = 5;
+  } else if (votingPowerAda < 10000) {
+    // Low power: emerging DRep
+    powerScore = 15;
+  } else if (votingPowerAda < 100000) {
+    // Moderate power: healthy engagement (best tier)
+    powerScore = 30;
+  } else if (votingPowerAda < 1000000) {
+    // High power: established DRep
+    powerScore = 25;
+  } else if (votingPowerAda < 10000000) {
+    // Very high power: potential whale risk
+    powerScore = 15;
+  } else {
+    // Extreme power: whale warning
+    powerScore = 5;
+  }
+  
+  const totalScore = activityScore + independenceScore + powerScore;
+  
+  return Math.round(Math.max(0, Math.min(100, totalScore)));
 }
 
 /**

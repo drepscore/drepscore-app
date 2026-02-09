@@ -91,3 +91,74 @@ export function truncateDescription(description: string | null, maxLength: numbe
   if (description.length <= maxLength) return description;
   return `${description.slice(0, maxLength)}...`;
 }
+
+/**
+ * Generate meaningful proposal title when metadata title is missing
+ */
+export function getProposalDisplayTitle(
+  title: string | null,
+  proposalTxHash: string,
+  proposalIndex: number
+): string {
+  if (title) return title;
+  
+  // Generate fallback title from transaction hash and index
+  const shortHash = proposalTxHash.slice(0, 8);
+  return `Governance Action #${proposalIndex} (${shortHash})`;
+}
+
+/**
+ * Extract social media platform name from URL
+ */
+export function extractSocialPlatform(uri: string, label?: string): string {
+  // If label is provided and not generic, use it
+  if (label && label.toLowerCase() !== 'label' && label.toLowerCase() !== 'link') {
+    return label;
+  }
+
+  try {
+    const url = new URL(uri);
+    const hostname = url.hostname.toLowerCase();
+    
+    // Map common platforms
+    const platformMap: Record<string, string> = {
+      'twitter.com': 'Twitter/X',
+      'x.com': 'Twitter/X',
+      'linkedin.com': 'LinkedIn',
+      'github.com': 'GitHub',
+      'gitlab.com': 'GitLab',
+      'facebook.com': 'Facebook',
+      'instagram.com': 'Instagram',
+      'youtube.com': 'YouTube',
+      'reddit.com': 'Reddit',
+      'medium.com': 'Medium',
+      'discord.com': 'Discord',
+      'discord.gg': 'Discord',
+      'telegram.org': 'Telegram',
+      't.me': 'Telegram',
+      'cardano.org': 'Cardano Foundation',
+      'iohk.io': 'IOHK',
+      'emurgo.io': 'EMURGO',
+    };
+
+    // Check for exact matches
+    for (const [domain, platform] of Object.entries(platformMap)) {
+      if (hostname === domain || hostname === `www.${domain}`) {
+        return platform;
+      }
+    }
+
+    // Check for subdomain matches (e.g., blog.example.com)
+    for (const [domain, platform] of Object.entries(platformMap)) {
+      if (hostname.endsWith(`.${domain}`)) {
+        return platform;
+      }
+    }
+
+    // Fallback: use domain name (remove www. if present)
+    return hostname.replace(/^www\./, '');
+  } catch (error) {
+    // If URL parsing fails, return the label or a generic fallback
+    return label || 'Link';
+  }
+}

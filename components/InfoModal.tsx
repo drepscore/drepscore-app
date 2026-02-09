@@ -112,28 +112,35 @@ export function ParticipationRateModal() {
 
 export function DecentralizationScoreModal() {
   return (
-    <InfoModal title="Understanding Decentralization Score" triggerVariant="ghost" iconOnly>
+    <InfoModal title="Understanding Governance Engagement Score" triggerVariant="ghost" iconOnly>
       <p>
-        The <strong>Decentralization Score</strong> measures how voting power is distributed among a DRep's delegators.
+        The <strong>Governance Engagement Score</strong> measures the quality and independence of a DRep's governance participation.
       </p>
       <p>
-        A higher score indicates better decentralization, which is important for several reasons:
+        A higher score indicates a more engaged, thoughtful, and balanced DRep:
       </p>
-      <ul className="list-disc pl-6 space-y-1">
-        <li><strong>Resistance to Coercion</strong> - Harder for any single entity to control the DRep</li>
-        <li><strong>Broader Representation</strong> - More individual voices contributing to the delegation</li>
-        <li><strong>Network Health</strong> - Distributes influence across the ecosystem</li>
-      </ul>
-      <div className="bg-muted p-4 rounded-lg">
-        <p className="font-medium mb-2">Score Factors:</p>
-        <ul className="list-disc pl-6 space-y-1">
-          <li>Number of unique delegators (more is better)</li>
-          <li>Distribution of stake among delegators (balanced is better)</li>
-        </ul>
+      <div className="bg-muted p-4 rounded-lg space-y-3">
+        <div>
+          <p className="font-medium mb-1">Activity Score (40%)</p>
+          <p className="text-sm text-muted-foreground">
+            Combines participation rate and rationale provision. Active DReps who explain their votes score higher.
+          </p>
+        </div>
+        <div>
+          <p className="font-medium mb-1">Voting Independence (30%)</p>
+          <p className="text-sm text-muted-foreground">
+            Measures voting pattern diversity. DReps who don't vote the same way on every proposal show independent thinking.
+          </p>
+        </div>
+        <div>
+          <p className="font-medium mb-1">Power Balance (30%)</p>
+          <p className="text-sm text-muted-foreground">
+            Rewards moderate voting power (100K-10M ADA). Penalizes extreme concentration (whale risk) and very low power (inactive).
+          </p>
+        </div>
       </div>
-      <p className="text-sm text-muted-foreground">
-        Note: Future versions will include stake pool operator links to provide more transparency 
-        about the delegation structure.
+      <p className="text-sm text-muted-foreground mt-2">
+        Note: This score uses available data since delegator counts are not yet provided by the Koios API.
       </p>
     </InfoModal>
   );

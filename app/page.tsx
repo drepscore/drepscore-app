@@ -127,8 +127,12 @@ async function getDReps(limit: number = 50): Promise<{
         participationRate: calculateParticipationRate(votes.length, totalProposals),
         rationaleRate: votes.length > 0 ? Math.round((votesWithRationale / votes.length) * 100) : 0,
         decentralizationScore: calculateDecentralizationScore(
-          drepInfo.delegators || 0,
-          lovelaceToAda(drepInfo.amount || '0')
+          calculateParticipationRate(votes.length, totalProposals),
+          votes.length > 0 ? Math.round((votesWithRationale / votes.length) * 100) : 0,
+          lovelaceToAda(drepInfo.amount || '0'),
+          yesVotes,
+          noVotes,
+          abstainVotes
         ),
         delegatorCount: drepInfo.delegators || 0,
         totalVotes: votes.length,
