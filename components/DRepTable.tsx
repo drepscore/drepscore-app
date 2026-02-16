@@ -125,9 +125,16 @@ export function DRepTable({ dreps, sortConfig, onSort }: DRepTableProps) {
             />
 
             <SortableHeader 
+              columnKey="influenceScore" 
+              label="Influence" 
+              tooltip="Percentile rank of this DRep's voting power among all DReps. A score of 85 means this DRep has more voting power than 85% of other DReps. Weighted at 10% in the total score."
+              align="right"
+            />
+
+            <SortableHeader 
               columnKey="votingPower" 
               label="Voting Power" 
-              tooltip="Total ADA delegated to this DRep."
+              tooltip="Total ADA delegated to this DRep. This raw value is converted to an 'Influence' percentile rank for scoring purposes."
               align="right"
             />
           </TableRow>
@@ -191,6 +198,10 @@ export function DRepTable({ dreps, sortConfig, onSort }: DRepTableProps) {
 
               <TableCell className="text-right tabular-nums text-muted-foreground">
                 {drep.rationaleRate}%
+              </TableCell>
+
+              <TableCell className="text-right tabular-nums text-muted-foreground">
+                {drep.influenceScore ?? 0}
               </TableCell>
 
               <TableCell className="text-right tabular-nums text-muted-foreground">

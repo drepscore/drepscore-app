@@ -23,6 +23,7 @@ export interface DRep {
   participationRate: number;
   rationaleRate: number;
   decentralizationScore: number;
+  influenceScore: number; // Percentile rank of voting power (0-100)
   delegatorCount: number;
   totalVotes: number;
   yesVotes: number;

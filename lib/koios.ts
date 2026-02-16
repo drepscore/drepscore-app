@@ -235,6 +235,7 @@ export async function getEnrichedDReps(
           participationRate,
           rationaleRate,
           decentralizationScore,
+          influenceScore: 0, // Will be calculated in enrichment phase
           delegatorCount: drepInfo.delegators || 0,
           totalVotes: votes.length,
           yesVotes,
@@ -277,7 +278,7 @@ export async function getEnrichedDReps(
       const influenceScore = percentileRank(drep.votingPower ?? 0, votingPowers);
       const drepScore = calculateDRepScore(drep, influenceScore, DEFAULT_WEIGHTS);
 
-      return { ...drep, drepScore };
+      return { ...drep, drepScore, influenceScore };
     });
 
     const sorted = [...enriched].sort((a, b) => {

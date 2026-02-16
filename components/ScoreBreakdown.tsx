@@ -30,19 +30,7 @@ export function ScoreBreakdown({ drep }: ScoreBreakdownProps) {
   const safeDecentralization = typeof drep.decentralizationScore === 'number' ? drep.decentralizationScore : 0;
   const safeParticipation = typeof drep.participationRate === 'number' ? drep.participationRate : 0;
   const safeRationale = typeof drep.rationaleRate === 'number' ? drep.rationaleRate : 0;
-  const safeDRepScore = typeof drep.drepScore === 'number' ? drep.drepScore : 0;
-
-  // Calculate known component contribution
-  const knownContribution = 
-    (safeDecentralization * WEIGHTS.decentralization) +
-    (safeParticipation * WEIGHTS.participation) +
-    (safeRationale * WEIGHTS.rationale);
-  
-  // Back-calculate Influence score
-  // Total Score = knownContribution + (Influence * 0.10)
-  // Influence = (Total Score - knownContribution) / 0.10
-  const rawInfluence = (safeDRepScore - knownContribution) / WEIGHTS.influence;
-  const influenceScore = Math.max(0, Math.min(100, Math.round(Number.isFinite(rawInfluence) ? rawInfluence : 0)));
+  const safeInfluence = typeof drep.influenceScore === 'number' ? drep.influenceScore : 0;
 
   const components = [
     {
@@ -65,7 +53,7 @@ export function ScoreBreakdown({ drep }: ScoreBreakdownProps) {
     },
     {
       label: 'Influence',
-      value: influenceScore,
+      value: safeInfluence,
       weight: WEIGHTS.influence,
       color: 'bg-chart-4', // Yellow/Orange
     },

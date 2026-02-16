@@ -26,7 +26,7 @@ interface DRepTableClientProps {
   totalAvailable: number;
 }
 
-export type SortKey = 'drepScore' | 'votingPower' | 'participationRate' | 'rationaleRate' | 'decentralizationScore';
+export type SortKey = 'drepScore' | 'votingPower' | 'participationRate' | 'rationaleRate' | 'decentralizationScore' | 'influenceScore';
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortConfig {
