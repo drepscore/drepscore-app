@@ -69,12 +69,20 @@ async function koiosFetch<T>(
     const data = await response.json();
     return data as T;
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
     const koiosError: KoiosError = {
-      message: error instanceof Error ? error.message : 'Unknown error fetching from Koios',
+      message: errorMessage || 'Unknown error fetching from Koios',
       retryable: retryCount < 3,
     };
     
-    console.error('[Koios] API Error:', koiosError);
+    console.error(`[Koios] API Error: ${koiosError.message}`, {
+      endpoint,
+      retryable: koiosError.retryable,
+      retryCount,
+      stack: errorStack
+    });
     throw koiosError;
   }
 }
@@ -125,7 +133,8 @@ export async function fetchAllDReps(): Promise<DRepListResponse> {
     const data = await fetchAllDRepList();
     return data || [];
   } catch (error) {
-    console.error('Error fetching DRep list:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Koios] Error fetching DRep list:', errorMessage);
     return [];
   }
 }
@@ -144,7 +153,8 @@ export async function fetchDRepInfo(drepIds: string[]): Promise<DRepInfoResponse
     
     return data || [];
   } catch (error) {
-    console.error('Error fetching DRep info:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Koios] Error fetching DRep info:', errorMessage);
     return [];
   }
 }
@@ -186,7 +196,9 @@ export async function fetchDRepMetadata(drepIds: string[]): Promise<DRepMetadata
     
     return data || [];
   } catch (error) {
-    console.error('[Koios] Error fetching DRep metadata:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorDetails = error instanceof Error ? { message: error.message, stack: error.stack } : { raw: error };
+    console.error('[Koios] Error fetching DRep metadata:', errorMessage, errorDetails);
     return [];
   }
 }
@@ -292,7 +304,8 @@ export async function fetchDRepVotes(drepId: string): Promise<DRepVotesResponse>
     
     return data || [];
   } catch (error) {
-    console.error('Error fetching DRep votes:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Koios] Error fetching DRep votes:', errorMessage);
     return [];
   }
 }
@@ -314,7 +327,8 @@ export async function fetchDRepDetails(drepId: string) {
       votes: votes || [],
     };
   } catch (error) {
-    console.error('Error fetching DRep details:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Koios] Error fetching DRep details:', errorMessage);
     return {
       info: null,
       metadata: null,
@@ -333,7 +347,8 @@ export async function fetchProposals(): Promise<ProposalListResponse> {
     // For now, we'll estimate from vote records
     return [];
   } catch (error) {
-    console.error('Error fetching proposals:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Koios] Error fetching proposals:', errorMessage);
     return [];
   }
 }
@@ -367,7 +382,8 @@ export async function fetchDRepsWithDetails(drepIds: string[]) {
       metadata: allMetadata,
     };
   } catch (error) {
-    console.error('[Koios] Error fetching DReps with details:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Koios] Error fetching DReps with details:', errorMessage);
     return {
       info: [],
       metadata: [],
@@ -395,14 +411,16 @@ export async function fetchDRepsVotes(drepIds: string[]): Promise<Record<string,
         const votes = await fetchDRepVotes(drepId);
         votesMap[drepId] = votes;
       } catch (error) {
-        console.error(`[Koios] Error fetching votes for ${drepId}:`, error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[Koios] Error fetching votes for ${drepId}:`, errorMessage);
         votesMap[drepId] = [];
       }
     }
     
     return votesMap;
   } catch (error) {
-    console.error('[Koios] Error fetching DReps votes:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Koios] Error fetching DReps votes:', errorMessage);
     return {};
   }
 }
@@ -418,7 +436,8 @@ export async function fetchProposalCount(): Promise<number> {
     const proposals = await fetchProposals();
     return proposals.length || 100; // Default estimate if no data
   } catch (error) {
-    console.error('[Koios] Error fetching proposal count:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Koios] Error fetching proposal count:', errorMessage);
     return 100; // Conservative estimate
   }
 }
