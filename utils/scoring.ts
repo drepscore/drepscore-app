@@ -6,6 +6,41 @@ import { DRepVote } from '@/types/koios';
 import { ValuePreference, VoteRecord } from '@/types/drep';
 
 /**
+ * Size tier categories based on voting power
+ */
+export type SizeTier = 'Small' | 'Medium' | 'Large' | 'Whale';
+
+/**
+ * Get size tier based on voting power in ADA
+ * - Small: < 10,000 ADA (emerging DReps)
+ * - Medium: 10,000 - 1,000,000 ADA (healthy engagement)
+ * - Large: 1,000,000 - 10,000,000 ADA (established DReps)
+ * - Whale: > 10,000,000 ADA (high concentration)
+ */
+export function getSizeTier(votingPowerAda: number): SizeTier {
+  if (votingPowerAda < 10_000) return 'Small';
+  if (votingPowerAda < 1_000_000) return 'Medium';
+  if (votingPowerAda < 10_000_000) return 'Large';
+  return 'Whale';
+}
+
+/**
+ * Get badge styling class for size tier
+ */
+export function getSizeBadgeClass(tier: SizeTier): string {
+  switch (tier) {
+    case 'Small':
+      return 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30';
+    case 'Medium':
+      return 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30';
+    case 'Large':
+      return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30';
+    case 'Whale':
+      return 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30';
+  }
+}
+
+/**
  * Calculate participation rate
  * @param votesCount Number of votes cast
  * @param totalProposals Total number of proposals during active period

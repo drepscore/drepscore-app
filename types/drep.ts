@@ -3,6 +3,8 @@
  * Used across components and API routes
  */
 
+import { SizeTier } from '@/utils/scoring';
+
 export type ValuePreference =
   | 'Treasury Conservative'
   | 'Pro-DeFi'
@@ -23,7 +25,7 @@ export interface DRep {
   participationRate: number;
   rationaleRate: number;
   decentralizationScore: number;
-  influenceScore: number; // Percentile rank of voting power (0-100)
+  sizeTier: SizeTier;
   delegatorCount: number;
   totalVotes: number;
   yesVotes: number;

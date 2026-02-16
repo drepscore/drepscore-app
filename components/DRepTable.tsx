@@ -18,7 +18,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getDRepDisplayName } from '@/utils/display';
-import { formatAda, getDRepScoreBadgeClass } from '@/utils/scoring';
+import { formatAda, getDRepScoreBadgeClass, getSizeBadgeClass } from '@/utils/scoring';
 import { EnrichedDRep } from '@/lib/koios';
 import { CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import { SortConfig, SortKey } from './DRepTableClient';
@@ -98,43 +98,21 @@ export function DRepTable({ dreps, sortConfig, onSort }: DRepTableProps) {
             <SortableHeader 
               columnKey="drepScore" 
               label="DRep Score" 
-              tooltip="A 0-100 score based on Decentralization (40%), Participation (25%), Rationale (25%), and Influence (10%)."
+              tooltip="A 0-100 score based on Participation (35%), Rationale (30%), and Decentralization (35%). Hover over the score bar to see the breakdown."
             />
             
             <TableHead className="text-left font-semibold">DRep</TableHead>
             
             <SortableHeader 
-              columnKey="decentralizationScore" 
-              label="Decentralization" 
-              tooltip="Score based on voting independence and power distribution (40% of total)."
-              align="right"
-            />
-
-            <SortableHeader 
-              columnKey="participationRate" 
-              label="Participation" 
-              tooltip="Percentage of governance actions voted on."
-              align="right"
-            />
-            
-            <SortableHeader 
-              columnKey="rationaleRate" 
-              label="Rationale" 
-              tooltip="Percentage of votes that include a written explanation."
-              align="right"
-            />
-
-            <SortableHeader 
-              columnKey="influenceScore" 
-              label="Influence" 
-              tooltip="Percentile rank of this DRep's voting power among all DReps. A score of 85 means this DRep has more voting power than 85% of other DReps. Weighted at 10% in the total score."
-              align="right"
+              columnKey="sizeTier" 
+              label="Size" 
+              tooltip="DRep size tier based on voting power. Small (<10k ADA), Medium (10k-1M ADA), Large (1M-10M ADA), or Whale (>10M ADA)."
             />
 
             <SortableHeader 
               columnKey="votingPower" 
               label="Voting Power" 
-              tooltip="Total ADA delegated to this DRep. This raw value is converted to an 'Influence' percentile rank for scoring purposes."
+              tooltip="Total ADA delegated to this DRep."
               align="right"
             />
           </TableRow>
@@ -188,20 +166,14 @@ export function DRepTable({ dreps, sortConfig, onSort }: DRepTableProps) {
                 </div>
               </TableCell>
 
-              <TableCell className="text-right tabular-nums text-muted-foreground">
-                {drep.decentralizationScore}
-              </TableCell>
-
-              <TableCell className="text-right tabular-nums text-muted-foreground">
-                {drep.participationRate}%
-              </TableCell>
-
-              <TableCell className="text-right tabular-nums text-muted-foreground">
-                {drep.rationaleRate}%
-              </TableCell>
-
-              <TableCell className="text-right tabular-nums text-muted-foreground">
-                {drep.influenceScore ?? 0}
+              {/* Size Tier Badge */}
+              <TableCell>
+                <Badge
+                  variant="outline"
+                  className={`text-xs font-medium ${getSizeBadgeClass(drep.sizeTier)}`}
+                >
+                  {drep.sizeTier}
+                </Badge>
               </TableCell>
 
               <TableCell className="text-right tabular-nums text-muted-foreground">

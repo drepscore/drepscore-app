@@ -2,7 +2,7 @@
 
 /**
  * Score Breakdown Component
- * Visualizes the components of the DRep Score (Decentralization, Participation, Rationale, Influence)
+ * Visualizes the components of the DRep Score (Participation, Rationale, Decentralization)
  */
 
 import { EnrichedDRep } from '@/lib/koios';
@@ -18,44 +18,39 @@ interface ScoreBreakdownProps {
 }
 
 export function ScoreBreakdown({ drep }: ScoreBreakdownProps) {
-  // Weights from lib/koios.ts
+  // Weights from lib/koios.ts (must sum to 1)
   const WEIGHTS = {
-    decentralization: 0.40,
-    participation: 0.25,
-    rationale: 0.25,
-    influence: 0.10,
+    participation: 0.35,
+    rationale: 0.30,
+    decentralization: 0.35,
   };
 
   // Safe values defaulting to 0
-  const safeDecentralization = typeof drep.decentralizationScore === 'number' ? drep.decentralizationScore : 0;
   const safeParticipation = typeof drep.participationRate === 'number' ? drep.participationRate : 0;
   const safeRationale = typeof drep.rationaleRate === 'number' ? drep.rationaleRate : 0;
-  const safeInfluence = typeof drep.influenceScore === 'number' ? drep.influenceScore : 0;
+  const safeDecentralization = typeof drep.decentralizationScore === 'number' ? drep.decentralizationScore : 0;
 
   const components = [
-    {
-      label: 'Decentralization',
-      value: safeDecentralization,
-      weight: WEIGHTS.decentralization,
-      color: 'bg-chart-1', // Emerald/Green
-    },
     {
       label: 'Participation',
       value: safeParticipation,
       weight: WEIGHTS.participation,
-      color: 'bg-chart-2', // Cyan/Blue
+      color: 'bg-chart-1', // Primary color
+      description: 'Percentage of governance actions voted on',
     },
     {
       label: 'Rationale',
       value: safeRationale,
       weight: WEIGHTS.rationale,
-      color: 'bg-chart-3', // Purple/Pink
+      color: 'bg-chart-2', // Secondary color
+      description: 'Percentage of votes with written explanations',
     },
     {
-      label: 'Influence',
-      value: safeInfluence,
-      weight: WEIGHTS.influence,
-      color: 'bg-chart-4', // Yellow/Orange
+      label: 'Decentralization',
+      value: safeDecentralization,
+      weight: WEIGHTS.decentralization,
+      color: 'bg-chart-3', // Tertiary color
+      description: 'Voting independence and power balance',
     },
   ];
 
@@ -78,9 +73,10 @@ export function ScoreBreakdown({ drep }: ScoreBreakdownProps) {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="font-semibold">{comp.label}</p>
+                  <p className="text-xs text-muted-foreground mb-1">{comp.description}</p>
                   <p>Score: {comp.value}/100</p>
-                  <p className="text-xs text-muted-foreground">
-                    Pts: <span className="font-medium">{safePoints}</span>
+                  <p className="text-xs">
+                    Contributes: <span className="font-semibold">{safePoints} pts</span> (weight: {Math.round(comp.weight * 100)}%)
                   </p>
                 </TooltipContent>
               </Tooltip>

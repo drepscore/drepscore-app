@@ -213,17 +213,23 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
             {drep.metadata?.bio && (
               <div>
                 <h3 className="font-medium mb-2">Bio</h3>
-                <p className="text-sm text-muted-foreground">{drep.metadata.bio}</p>
+                <p className="text-sm text-muted-foreground">
+                  {typeof drep.metadata.bio === 'object' && drep.metadata.bio !== null && '@value' in drep.metadata.bio
+                    ? (drep.metadata.bio as any)['@value']
+                    : drep.metadata.bio}
+                </p>
               </div>
             )}
             {drep.metadata?.email && (
               <div>
                 <h3 className="font-medium mb-2">Contact</h3>
                 <a
-                  href={`mailto:${drep.metadata.email}`}
+                  href={`mailto:${typeof drep.metadata.email === 'object' && drep.metadata.email !== null && '@value' in drep.metadata.email ? (drep.metadata.email as any)['@value'] : drep.metadata.email}`}
                   className="text-sm text-primary hover:underline"
                 >
-                  {drep.metadata.email}
+                  {typeof drep.metadata.email === 'object' && drep.metadata.email !== null && '@value' in drep.metadata.email
+                    ? (drep.metadata.email as any)['@value']
+                    : drep.metadata.email}
                 </a>
               </div>
             )}

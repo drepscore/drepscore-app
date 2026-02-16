@@ -15,6 +15,7 @@ import {
   calculateParticipationRate,
   calculateDecentralizationScore,
   lovelaceToAda,
+  getSizeTier,
 } from '@/utils/scoring';
 import { isWellDocumented } from '@/utils/documentation';
 import { DRep } from '@/types/drep';
@@ -22,8 +23,8 @@ import { DRep } from '@/types/drep';
 // ---------------------------------------------------------------------------
 // Weighting Philosophy
 // ---------------------------------------------------------------------------
-// We prioritize decentralization (40%) and quality signals (participation 25%,
-// rationale 25%) over raw influence (10%). This encourages:
+// We prioritize quality signals (participation 35%, rationale 30%) and
+// decentralization (35%). This encourages:
 // - Active, thoughtful DReps who vote and explain
 // - Balanced power distribution (not whale-dominated)
 // - Governance quality over sheer stake size
@@ -34,15 +35,13 @@ export interface DRepWeights {
   participation: number; // 0-1
   rationale: number;
   decentralization: number;
-  influence: number;
 }
 
-/** Default: decentralization + quality over raw size */
+/** Default: quality signals + decentralization */
 export const DEFAULT_WEIGHTS: DRepWeights = {
-  participation: 0.25,
-  rationale: 0.25,
-  decentralization: 0.4,
-  influence: 0.1,
+  participation: 0.35,
+  rationale: 0.30,
+  decentralization: 0.35,
 };
 
 /** DRep with computed drepScore (0-100) */
@@ -51,46 +50,30 @@ export interface EnrichedDRep extends DRep {
 }
 
 /**
- * Compute percentile rank of a value within an array (0-100).
- * Rank = (count of values strictly less than v) / n * 100.
- */
-function percentileRank(value: number, sortedValues: number[]): number {
-  if (sortedValues.length === 0) return 0;
-  const countBelow = sortedValues.filter((v) => v < value).length;
-  return (countBelow / sortedValues.length) * 100;
-}
-
-/**
  * Calculate rolled-up DRep Score (0-100).
  * Default missing metrics to 0 to penalize inactive/unknown DReps and ensure full table coverage.
  * Every DRep gets a score (even if low); never returns undefined/NaN.
  *
- * @param drep - DRep with participationRate, rationaleRate, decentralizationScore, votingPower
- * @param influenceScore - Percentile rank of voting_power (0-100)
+ * @param drep - DRep with participationRate, rationaleRate, decentralizationScore
  */
 export function calculateDRepScore(
   drep: Pick<
     DRep,
-    'participationRate' | 'rationaleRate' | 'decentralizationScore' | 'votingPower'
+    'participationRate' | 'rationaleRate' | 'decentralizationScore'
   >,
-  influenceScore: number,
   weights: DRepWeights = DEFAULT_WEIGHTS
 ): number {
   // Safely default missing values to 0 to penalize inactive/unknown DReps
   const participation = drep.participationRate ?? 0;
   const rationale = drep.rationaleRate ?? 0;
   const decentralization = drep.decentralizationScore ?? 0;
-  const influence = Number(influenceScore) ?? 0;
 
-  // Quality component (0-1): participation + rationale + decentralization
-  const quality =
+  // Combined score (0-1): weighted sum of all components
+  const raw =
     (participation / 100) * weights.participation +
     (rationale / 100) * weights.rationale +
     (decentralization / 100) * weights.decentralization;
 
-  // Combined score: quality weighted by (1 - influence) + influence percentile
-  const raw =
-    quality * (1 - weights.influence) + (influence / 100) * weights.influence;
   const score = Math.round(raw * 100);
 
   // Always return 0-100 integer; never undefined/NaN
@@ -235,7 +218,7 @@ export async function getEnrichedDReps(
           participationRate,
           rationaleRate,
           decentralizationScore,
-          influenceScore: 0, // Will be calculated in enrichment phase
+          sizeTier: getSizeTier(votingPower),
           delegatorCount: drepInfo.delegators || 0,
           totalVotes: votes.length,
           yesVotes,
@@ -271,14 +254,11 @@ export async function getEnrichedDReps(
         ) ?? 0;
     }
 
-    const votingPowers = allBaseDreps.map((d) => d.votingPower ?? 0);
-
-    // Ensure EVERY DRep gets a drepScore (0-100); percentile across ALL loaded DReps
+    // Ensure EVERY DRep gets a drepScore (0-100)
     const enriched: EnrichedDRep[] = allBaseDreps.map((drep) => {
-      const influenceScore = percentileRank(drep.votingPower ?? 0, votingPowers);
-      const drepScore = calculateDRepScore(drep, influenceScore, DEFAULT_WEIGHTS);
+      const drepScore = calculateDRepScore(drep, DEFAULT_WEIGHTS);
 
-      return { ...drep, drepScore, influenceScore };
+      return { ...drep, drepScore };
     });
 
     const sorted = [...enriched].sort((a, b) => {

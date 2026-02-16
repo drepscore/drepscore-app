@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllDReps, fetchDRepsWithDetails, fetchDRepVotes, parseMetadataFields } from '@/utils/koios';
-import { calculateParticipationRate, calculateDecentralizationScore, lovelaceToAda } from '@/utils/scoring';
+import { calculateParticipationRate, calculateDecentralizationScore, lovelaceToAda, getSizeTier } from '@/utils/scoring';
 import { sortByQualityScore } from '@/utils/documentation';
 import { DRep } from '@/types/drep';
 
@@ -85,6 +85,8 @@ export async function GET(request: NextRequest) {
       // Parse metadata fields with fallback logic
       const { name, ticker, description } = parseMetadataFields(drepMetadata);
 
+      const votingPower = lovelaceToAda(drepInfo.amount || '0');
+      
       return {
         drepId: drepInfo.drep_id,
         drepHash: drepInfo.drep_hash,
@@ -92,18 +94,19 @@ export async function GET(request: NextRequest) {
         name,
         ticker,
         description,
-        votingPower: lovelaceToAda(drepInfo.amount || '0'),
+        votingPower,
         votingPowerLovelace: drepInfo.amount || '0',
         participationRate: calculateParticipationRate(votes.length, totalProposals),
         rationaleRate: votes.length > 0 ? Math.round((votesWithRationale / votes.length) * 100) : 0,
         decentralizationScore: calculateDecentralizationScore(
           calculateParticipationRate(votes.length, totalProposals),
           votes.length > 0 ? Math.round((votesWithRationale / votes.length) * 100) : 0,
-          lovelaceToAda(drepInfo.amount || '0'),
+          votingPower,
           yesVotes,
           noVotes,
           abstainVotes
         ),
+        sizeTier: getSizeTier(votingPower),
         delegatorCount: drepInfo.delegators || 0,
         totalVotes: votes.length,
         yesVotes,

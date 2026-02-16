@@ -13,12 +13,21 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, RotateCcw, ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import { SizeTier } from '@/utils/scoring';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface DRepTableClientProps {
   initialDReps: EnrichedDRep[];
@@ -26,7 +35,7 @@ interface DRepTableClientProps {
   totalAvailable: number;
 }
 
-export type SortKey = 'drepScore' | 'votingPower' | 'participationRate' | 'rationaleRate' | 'decentralizationScore' | 'influenceScore';
+export type SortKey = 'drepScore' | 'votingPower' | 'sizeTier';
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortConfig {
@@ -44,6 +53,7 @@ export function DRepTableClient({
   // State
   const [filterWellDocumented, setFilterWellDocumented] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sizeFilters, setSizeFilters] = useState<Set<SizeTier>>(new Set(['Small', 'Medium', 'Large', 'Whale']));
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: 'drepScore',
     direction: 'desc',
@@ -55,13 +65,16 @@ export function DRepTableClient({
     // 1. Filter by "Well Documented" toggle
     // If filterWellDocumented is true, use initialDReps (which are already filtered server-side)
     // If false, use allDReps.
-    let baseSet = filterWellDocumented ? initialDReps : allDReps;
+    let result = filterWellDocumented ? initialDReps : allDReps;
 
-    // 2. Filter by Search Query
-    if (!searchQuery.trim()) return baseSet;
+    // 2. Filter by Size
+    result = result.filter((drep) => sizeFilters.has(drep.sizeTier));
+
+    // 3. Filter by Search Query
+    if (!searchQuery.trim()) return result;
 
     const query = searchQuery.toLowerCase();
-    return baseSet.filter((drep) => {
+    return result.filter((drep) => {
       const name = drep.name?.toLowerCase() || '';
       const ticker = drep.ticker?.toLowerCase() || '';
       const id = drep.drepId.toLowerCase();
@@ -72,13 +85,25 @@ export function DRepTableClient({
              id.includes(query) || 
              handle.includes(query);
     });
-  }, [filterWellDocumented, searchQuery, allDReps, initialDReps]);
+  }, [filterWellDocumented, sizeFilters, searchQuery, allDReps, initialDReps]);
+
+  // Size tier ordering for sorting
+  const sizeTierOrder = { 'Small': 1, 'Medium': 2, 'Large': 3, 'Whale': 4 };
 
   // Sorting Logic
   const sortedDReps = useMemo(() => {
     return [...filteredDReps].sort((a, b) => {
-      const aValue = a[sortConfig.key] ?? 0;
-      const bValue = b[sortConfig.key] ?? 0;
+      let aValue: number;
+      let bValue: number;
+
+      if (sortConfig.key === 'sizeTier') {
+        // Custom ordering for sizeTier
+        aValue = sizeTierOrder[a.sizeTier] ?? 0;
+        bValue = sizeTierOrder[b.sizeTier] ?? 0;
+      } else {
+        aValue = a[sortConfig.key] ?? 0;
+        bValue = b[sortConfig.key] ?? 0;
+      }
 
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -112,6 +137,20 @@ export function DRepTableClient({
     setSearchQuery('');
     setSortConfig({ key: 'drepScore', direction: 'desc' });
     setFilterWellDocumented(true);
+    setSizeFilters(new Set(['Small', 'Medium', 'Large', 'Whale']));
+    setCurrentPage(1);
+  };
+
+  const toggleSizeFilter = (size: SizeTier) => {
+    setSizeFilters((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(size)) {
+        newSet.delete(size);
+      } else {
+        newSet.add(size);
+      }
+      return newSet;
+    });
     setCurrentPage(1);
   };
 
@@ -132,7 +171,7 @@ export function DRepTableClient({
         </div>
 
         {/* Right: Toggles & Reset */}
-        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end flex-wrap">
           <div className="flex items-center gap-2">
             <Switch
               id="filter-well-documented"
@@ -146,18 +185,59 @@ export function DRepTableClient({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <label htmlFor="filter-well-documented" className="cursor-pointer text-sm font-medium flex items-center gap-1.5">
-                    Filter: Well-Documented Only
+                    Well-Documented
                     <Info className="h-3.5 w-3.5 text-muted-foreground" />
                   </label>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">
-                    When enabled (default), only shows DReps that have provided metadata (name, description) OR have explained at least one vote.
+                    When enabled (default), only shows DReps that have provided metadata (name and description/ticker).
                   </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                Size Filter
+                {sizeFilters.size < 4 && (
+                  <span className="text-xs bg-primary text-primary-foreground rounded-full h-5 w-5 flex items-center justify-center">
+                    {sizeFilters.size}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Filter by Size</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={sizeFilters.has('Small')}
+                onCheckedChange={() => toggleSizeFilter('Small')}
+              >
+                Small (&lt;10k ADA)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={sizeFilters.has('Medium')}
+                onCheckedChange={() => toggleSizeFilter('Medium')}
+              >
+                Medium (10k-1M)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={sizeFilters.has('Large')}
+                onCheckedChange={() => toggleSizeFilter('Large')}
+              >
+                Large (1M-10M)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={sizeFilters.has('Whale')}
+                onCheckedChange={() => toggleSizeFilter('Whale')}
+              >
+                Whale (&gt;10M ADA)
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button 
             variant="ghost" 
