@@ -286,7 +286,7 @@ export async function getEnrichedDReps(
     });
 
     const wellDocumentedDReps = sorted.filter(
-      (d) => isWellDocumented(d) || d.rationaleRate > 0
+      (d) => isWellDocumented(d)
     );
 
     const drepsToReturn = wellDocumentedOnly ? wellDocumentedDReps : sorted;

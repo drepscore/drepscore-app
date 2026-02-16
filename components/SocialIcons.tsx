@@ -58,9 +58,27 @@ export function SocialIcons({ metadata }: SocialIconsProps) {
     }
   };
 
+  // Helper to validate URL
+  const isValidUrl = (url: string) => {
+    try {
+      if (!url || url.length < 5) return false;
+      const lower = url.toLowerCase();
+      // Filter out obvious placeholders
+      if (lower.includes('example.com') || lower === 'http://' || lower === 'https://' || lower === 'na' || lower === 'none') {
+        return false;
+      }
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <div className="flex items-center gap-1 mt-1 flex-wrap">
       {references.slice(0, 4).map((ref, i) => { // Limit to 4 to prevent clutter
+        if (!isValidUrl(ref.uri)) return null;
+
         const platform = extractSocialPlatform(ref.uri, ref.label);
         return (
           <TooltipProvider key={i}>

@@ -111,8 +111,8 @@ export function getProposalDisplayTitle(
  * Extract social media platform name from URL
  */
 export function extractSocialPlatform(uri: string, label?: string): string {
-  // If label is provided and not generic, use it
-  if (label && label.toLowerCase() !== 'label' && label.toLowerCase() !== 'link') {
+  // If label is provided, is a string, and not generic, use it
+  if (label && typeof label === 'string' && label.toLowerCase() !== 'label' && label.toLowerCase() !== 'link') {
     return label;
   }
 
@@ -124,7 +124,9 @@ export function extractSocialPlatform(uri: string, label?: string): string {
     const platformMap: Record<string, string> = {
       'twitter.com': 'Twitter/X',
       'x.com': 'Twitter/X',
+      't.co': 'Twitter/X',
       'linkedin.com': 'LinkedIn',
+      'lnkd.in': 'LinkedIn',
       'github.com': 'GitHub',
       'gitlab.com': 'GitLab',
       'facebook.com': 'Facebook',
@@ -136,6 +138,8 @@ export function extractSocialPlatform(uri: string, label?: string): string {
       'discord.gg': 'Discord',
       'telegram.org': 'Telegram',
       't.me': 'Telegram',
+      'telegram.me': 'Telegram',
+      'linktr.ee': 'Linktree',
       'cardano.org': 'Cardano Foundation',
       'iohk.io': 'IOHK',
       'emurgo.io': 'EMURGO',
@@ -158,7 +162,7 @@ export function extractSocialPlatform(uri: string, label?: string): string {
     // Fallback: use domain name (remove www. if present)
     return hostname.replace(/^www\./, '');
   } catch (error) {
-    // If URL parsing fails, return the label or a generic fallback
-    return label || 'Link';
+    // If URL parsing fails, return the label (if string) or a generic fallback
+    return (label && typeof label === 'string') ? label : 'Link';
   }
 }
