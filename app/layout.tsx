@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { WalletProvider } from "@/utils/wallet";
 import { Header } from "@/components/Header";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,16 +32,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning
       >
-        <WalletProvider>
-          <Header />
-          <main className="min-h-screen">
-            {children}
-          </main>
-        </WalletProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <WalletProvider>
+            <Header />
+            <main className="min-h-screen">
+              {children}
+            </main>
+          </WalletProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

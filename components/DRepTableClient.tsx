@@ -1,254 +1,238 @@
 'use client';
 
 /**
- * Client-side DRep Table Wrapper
- * Manages value-based filtering, scoring, and pagination
+ * DRep Table Client Wrapper
+ * Handles client-side pagination, sorting, filtering, and search
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { DRep, DRepWithScore, ValuePreference } from '@/types/drep';
-import { DRepTable } from './DRepTable';
-import { ValueSelector } from './ValueSelector';
-import { calculateValueAlignment } from '@/utils/scoring';
-import { filterWellDocumented, isWellDocumented } from '@/utils/documentation';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { Loader2, Filter, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { DRepTable } from '@/components/DRepTable';
+import { EmptyState } from '@/components/EmptyState';
+import { EnrichedDRep } from '@/lib/koios';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Search, RotateCcw, ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface DRepTableClientProps {
-  initialDReps: DRep[]; // Well-documented by default
-  allDReps: DRep[]; // All DReps (including unnamed)
+  initialDReps: EnrichedDRep[];
+  allDReps: EnrichedDRep[];
   totalAvailable: number;
 }
 
-export function DRepTableClient({ initialDReps, allDReps, totalAvailable }: DRepTableClientProps) {
-  const [dreps, setDReps] = useState<DRep[]>(initialDReps);
-  const [allDRepsState, setAllDRepsState] = useState<DRep[]>(allDReps);
-  const [selectedValues, setSelectedValues] = useState<ValuePreference[]>([]);
-  const [showMatchScores, setShowMatchScores] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [includeUnnamed, setIncludeUnnamed] = useState(false);
+export type SortKey = 'drepScore' | 'votingPower' | 'participationRate' | 'rationaleRate' | 'decentralizationScore';
+export type SortDirection = 'asc' | 'desc';
+
+export interface SortConfig {
+  key: SortKey;
+  direction: SortDirection;
+}
+
+const PAGE_SIZE = 10;
+
+export function DRepTableClient({
+  initialDReps,
+  allDReps,
+  totalAvailable,
+}: DRepTableClientProps) {
+  // State
+  const [filterWellDocumented, setFilterWellDocumented] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [autoLoadComplete, setAutoLoadComplete] = useState(false);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: 'drepScore',
+    direction: 'desc',
+  });
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const handleValuesChange = (values: ValuePreference[]) => {
-    setSelectedValues(values);
-    if (values.length === 0) {
-      setShowMatchScores(false);
-    }
-  };
-
-  const handleSearch = () => {
-    setShowMatchScores(true);
-  };
-
-  const loadNextBatch = async () => {
-    if (loading) return;
-    
-    setLoading(true);
-    try {
-      const currentLength = allDRepsState.length;
-      const response = await fetch(`/api/dreps?offset=${currentLength}&limit=50`);
-      if (response.ok) {
-        const newDReps = await response.json();
-        
-        if (newDReps.length === 0) {
-          setAutoLoadComplete(true);
-          return false; // No more data
-        }
-        
-        // Add to both states
-        setAllDRepsState(prev => [...prev, ...newDReps]);
-        
-        // Filter for well-documented
-        const newWellDocumented = newDReps.filter((d: DRep) => 
-          isWellDocumented(d) || d.rationaleRate > 0
-        );
-        setDReps(prev => [...prev, ...newWellDocumented]);
-        
-        return true; // More data available
-      }
-      return false;
-    } catch (error) {
-      console.error('[DRepScore] Error loading more DReps:', error);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLoadMore = () => {
-    loadNextBatch();
-  };
-
-  // Progressive auto-loading effect
-  useEffect(() => {
-    if (autoLoadComplete || allDRepsState.length >= totalAvailable) {
-      setAutoLoadComplete(true);
-      return;
-    }
-
-    // Start auto-loading after initial mount with a small delay
-    const timer = setTimeout(async () => {
-      const hasMore = await loadNextBatch();
-      // Continue loading if there's more data
-      if (!hasMore) {
-        setAutoLoadComplete(true);
-      }
-    }, 1000); // 1 second delay between batches
-
-    return () => clearTimeout(timer);
-  }, [allDRepsState.length, autoLoadComplete, totalAvailable]);
-
-  // Toggle between well-documented and all DReps
-  const displayDReps = includeUnnamed ? allDRepsState : dreps;
-  
-  // Search filtering across all loaded DReps
+  // Filter Logic
   const filteredDReps = useMemo(() => {
-    if (!searchQuery.trim()) return displayDReps;
-    
+    // 1. Filter by "Well Documented" toggle
+    // If filterWellDocumented is true, use initialDReps (which are already filtered server-side)
+    // If false, use allDReps.
+    let baseSet = filterWellDocumented ? initialDReps : allDReps;
+
+    // 2. Filter by Search Query
+    if (!searchQuery.trim()) return baseSet;
+
     const query = searchQuery.toLowerCase();
-    return displayDReps.filter((drep: DRep) => {
-      return (
-        drep.name?.toLowerCase().includes(query) ||
-        drep.ticker?.toLowerCase().includes(query) ||
-        drep.drepId.toLowerCase().includes(query) ||
-        drep.description?.toLowerCase().includes(query)
-      );
+    return baseSet.filter((drep) => {
+      const name = drep.name?.toLowerCase() || '';
+      const ticker = drep.ticker?.toLowerCase() || '';
+      const id = drep.drepId.toLowerCase();
+      const handle = drep.handle?.toLowerCase() || '';
+      
+      return name.includes(query) || 
+             ticker.includes(query) || 
+             id.includes(query) || 
+             handle.includes(query);
     });
-  }, [displayDReps, searchQuery]);
-  
-  // Calculate match scores when values are selected and search is triggered
-  const drepsWithScores: (DRep | DRepWithScore)[] = showMatchScores && selectedValues.length > 0
-    ? filteredDReps.map((drep: DRep) => {
-        // Use actual vote data for alignment scoring
-        // Since we now have full vote history, we can calculate real alignment
-        const mockVotes: any[] = []; // TODO: Use actual drep.votes when available in type
-        const matchScore = calculateValueAlignment(mockVotes, selectedValues);
-        
-        return {
-          ...drep,
-          matchScore,
-          matchReasons: selectedValues,
-        } as DRepWithScore;
-      })
-    : filteredDReps;
-  
-  const wellDocumentedCount = dreps.length;
-  const totalLoaded = allDRepsState.length;
-  const loadingProgress = totalAvailable > 0 ? Math.round((totalLoaded / totalAvailable) * 100) : 100;
+  }, [filterWellDocumented, searchQuery, allDReps, initialDReps]);
+
+  // Sorting Logic
+  const sortedDReps = useMemo(() => {
+    return [...filteredDReps].sort((a, b) => {
+      const aValue = a[sortConfig.key] ?? 0;
+      const bValue = b[sortConfig.key] ?? 0;
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredDReps, sortConfig]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(sortedDReps.length / PAGE_SIZE);
+  const paginatedDReps = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return sortedDReps.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [sortedDReps, currentPage]);
+
+  // Handlers
+  const handleSort = (key: SortKey) => {
+    setSortConfig((current) => ({
+      key,
+      direction:
+        current.key === key && current.direction === 'desc' ? 'asc' : 'desc',
+    }));
+    setCurrentPage(1); // Reset to first page on sort
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1); // Reset to first page on search
+  };
+
+  const handleReset = () => {
+    setSearchQuery('');
+    setSortConfig({ key: 'drepScore', direction: 'desc' });
+    setFilterWellDocumented(true);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold">Select Your Values</h2>
-        <p className="text-muted-foreground">
-          Choose up to 5 values to find DReps that align with your preferences.
-        </p>
-        <ValueSelector
-          selectedValues={selectedValues}
-          onValuesChange={handleValuesChange}
-          onSearch={handleSearch}
-        />
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-bold">
-              {showMatchScores ? 'Matching DReps' : (includeUnnamed ? 'All DReps' : 'Well-Documented DReps')}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {includeUnnamed 
-                ? 'Sorted by documentation quality and voting power'
-                : 'Showing DReps with metadata or rationale history (default)'}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-              <input
-                type="checkbox"
-                checked={includeUnnamed}
-                onChange={(e) => setIncludeUnnamed(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-2 focus:ring-primary cursor-pointer"
-              />
-              <span className="text-sm font-medium">Include unnamed/undocumented DReps</span>
-            </label>
-            <div className="text-sm text-muted-foreground text-right">
-              <div>Showing {drepsWithScores.length} {searchQuery && `(filtered)`}</div>
-              <div className="text-xs">{totalLoaded} / {totalAvailable} loaded ({loadingProgress}%)</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search Input */}
-        <div className="relative max-w-md">
+      {/* Controls Bar */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between p-4 rounded-lg border bg-card/50 backdrop-blur-sm">
+        
+        {/* Left: Search */}
+        <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            type="text"
-            placeholder="Search by name, ticker, or DRep ID..."
+            placeholder="Search by Name, Ticker, ID, or Handle..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            onChange={handleSearch}
+            className="pl-9 bg-background/50 border-primary/20 focus:border-primary/50 transition-colors"
           />
         </div>
 
-        {/* Loading Progress Banner */}
-        {!autoLoadComplete && loading && (
-          <div className="bg-muted/50 rounded-lg p-4 flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Loading all DReps...</p>
-              <p className="text-xs text-muted-foreground">
-                {totalLoaded} of {totalAvailable} loaded ({loadingProgress}%)
-              </p>
-            </div>
+        {/* Right: Toggles & Reset */}
+        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="filter-well-documented"
+              checked={filterWellDocumented}
+              onCheckedChange={(checked) => {
+                setFilterWellDocumented(checked);
+                setCurrentPage(1);
+              }}
+            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <label htmlFor="filter-well-documented" className="cursor-pointer text-sm font-medium flex items-center gap-1.5">
+                    Filter: Well-Documented Only
+                    <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                  </label>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">
+                    When enabled (default), only shows DReps that have provided metadata (name, description) OR have explained at least one vote.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-        )}
 
-        {autoLoadComplete && (
-          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-            <p className="text-sm text-green-700 dark:text-green-400">
-              ✓ All {totalAvailable} DReps loaded and ready to search
-            </p>
-          </div>
-        )}
-        
-        {drepsWithScores.length === 0 && !includeUnnamed ? (
-          <div className="text-center py-12 space-y-4">
-            <p className="text-lg text-muted-foreground">
-              No well-documented DReps found in this batch.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Check "Include unnamed/undocumented DReps" to see all registrations.
-            </p>
-          </div>
-        ) : (
-          <DRepTable dreps={drepsWithScores} showMatchScore={showMatchScores} />
-        )}
-        
-        {!autoLoadComplete && allDRepsState.length < totalAvailable && (
-          <div className="flex justify-center pt-6">
-            <Button
-              onClick={handleLoadMore}
-              disabled={loading}
-              size="lg"
-              variant="outline"
-              className="gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                `Load More Manually (${Math.min(50, totalAvailable - allDRepsState.length)} more available)`
-              )}
-            </Button>
-          </div>
-        )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleReset}
+            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Reset
+          </Button>
+        </div>
       </div>
+
+      {/* Results Info */}
+      <div className="text-sm text-muted-foreground px-1">
+        Showing {sortedDReps.length} DReps
+        {totalAvailable > 0 && ` (${totalAvailable} registered)`}
+      </div>
+
+      {/* Table Content */}
+      {paginatedDReps.length === 0 ? (
+        <EmptyState
+          title="No DReps found"
+          message={
+            searchQuery
+              ? `No results matching "${searchQuery}"`
+              : "Try adjusting your filters."
+          }
+          icon="search"
+          action={
+            filterWellDocumented && !searchQuery
+              ? {
+                  label: 'Show all DReps',
+                  onClick: () => setFilterWellDocumented(false),
+                }
+              : {
+                  label: 'Clear Filters',
+                  onClick: handleReset,
+                }
+          }
+        />
+      ) : (
+        <>
+          <DRepTable 
+            dreps={paginatedDReps} 
+            sortConfig={sortConfig}
+            onSort={handleSort}
+          />
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium min-w-[100px] text-center">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

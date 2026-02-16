@@ -49,89 +49,97 @@
 
 :root {
   --radius: 0.625rem;
-  /* Cardano-themed colors: Blues and Greens */
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Cypherpunk Light Mode (High Contrast, Tech) */
+  --background: oklch(0.98 0 0);
+  --foreground: oklch(0.10 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.10 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  /* Primary: Cardano Blue (#0033AD) */
-  --primary: oklch(0.35 0.18 264);
-  --primary-foreground: oklch(0.99 0 0);
-  /* Secondary: Light Blue (#1E88E5) */
-  --secondary: oklch(0.62 0.15 240);
-  --secondary-foreground: oklch(0.99 0 0);
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  /* Accent: Green (#4CAF50) */
-  --accent: oklch(0.68 0.15 145);
-  --accent-foreground: oklch(0.99 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.90 0 0);
-  --input: oklch(0.90 0 0);
-  --ring: oklch(0.35 0.18 264);
-  /* Chart colors: Blues and Greens palette */
-  --chart-1: oklch(0.35 0.18 264);
-  --chart-2: oklch(0.62 0.15 240);
-  --chart-3: oklch(0.68 0.15 145);
-  --chart-4: oklch(0.75 0.12 160);
-  --chart-5: oklch(0.55 0.18 250);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.35 0.18 264);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  /* Custom Cardano colors */
-  --cardano-blue: oklch(0.35 0.18 264);
-  --cardano-light-blue: oklch(0.62 0.15 240);
-  --cardano-green: oklch(0.68 0.15 145);
-  --cardano-bright-green: oklch(0.75 0.16 150);
+  --popover-foreground: oklch(0.10 0 0);
+  
+  /* Primary: Deep Tech Blue */
+  --primary: oklch(0.45 0.20 250);
+  --primary-foreground: oklch(0.98 0 0);
+  
+  /* Secondary: Electric Purple */
+  --secondary: oklch(0.60 0.20 300);
+  --secondary-foreground: oklch(0.98 0 0);
+  
+  --muted: oklch(0.94 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  
+  /* Accent: Neon Cyan */
+  --accent: oklch(0.75 0.18 220);
+  --accent-foreground: oklch(0.10 0 0);
+  
+  --destructive: oklch(0.60 0.25 25);
+  --border: oklch(0.85 0 0);
+  --input: oklch(0.85 0 0);
+  --ring: oklch(0.45 0.20 250);
+  
+  /* Chart colors */
+  --chart-1: oklch(0.45 0.20 250);
+  --chart-2: oklch(0.60 0.20 300);
+  --chart-3: oklch(0.75 0.18 220);
+  --chart-4: oklch(0.65 0.25 150);
+  --chart-5: oklch(0.55 0.20 30);
+  
+  --sidebar: oklch(0.98 0 0);
+  --sidebar-foreground: oklch(0.10 0 0);
+  --sidebar-primary: oklch(0.45 0.20 250);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.94 0 0);
+  --sidebar-accent-foreground: oklch(0.10 0 0);
+  --sidebar-border: oklch(0.85 0 0);
+  --sidebar-ring: oklch(0.45 0.20 250);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  /* Primary: Lighter Cardano Blue for dark mode */
-  --primary: oklch(0.62 0.15 240);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.35 0.18 264);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  /* Accent: Bright Green for dark mode */
-  --accent: oklch(0.75 0.16 150);
-  --accent-foreground: oklch(0.145 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.62 0.15 240);
-  /* Chart colors: Brighter for dark mode */
-  --chart-1: oklch(0.62 0.15 240);
-  --chart-2: oklch(0.75 0.16 150);
-  --chart-3: oklch(0.68 0.15 145);
-  --chart-4: oklch(0.55 0.18 250);
-  --chart-5: oklch(0.70 0.14 170);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.62 0.15 240);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  /* Custom Cardano colors */
-  --cardano-blue: oklch(0.62 0.15 240);
-  --cardano-light-blue: oklch(0.70 0.12 235);
-  --cardano-green: oklch(0.75 0.16 150);
-  --cardano-bright-green: oklch(0.80 0.14 155);
+  /* Cypherpunk Dark Mode (Softened) */
+  --background: oklch(0.12 0.02 240); /* Deep charcoal/slate instead of pure black */
+  --foreground: oklch(0.92 0.01 240); /* Off-white for better readability */
+  
+  --card: oklch(0.16 0.02 240); /* Slightly lighter than background */
+  --card-foreground: oklch(0.92 0.01 240);
+  
+  --popover: oklch(0.16 0.02 240);
+  --popover-foreground: oklch(0.92 0.01 240);
+  
+  /* Primary: Soft Emerald/Mint */
+  --primary: oklch(0.75 0.15 160);
+  --primary-foreground: oklch(0.12 0.02 240);
+  
+  /* Secondary: Soft Purple */
+  --secondary: oklch(0.65 0.15 290);
+  --secondary-foreground: oklch(0.92 0.01 240);
+  
+  --muted: oklch(0.20 0.02 240);
+  --muted-foreground: oklch(0.65 0.05 240);
+  
+  /* Accent: Soft Cyan */
+  --accent: oklch(0.75 0.12 210);
+  --accent-foreground: oklch(0.12 0.02 240);
+  
+  --destructive: oklch(0.60 0.18 25);
+  --border: oklch(0.25 0.02 240);
+  --input: oklch(0.25 0.02 240);
+  --ring: oklch(0.75 0.15 160);
+  
+  /* Chart colors (Softer palette) */
+  --chart-1: oklch(0.75 0.15 160); /* Soft Emerald */
+  --chart-2: oklch(0.75 0.12 210); /* Soft Cyan */
+  --chart-3: oklch(0.65 0.15 290); /* Soft Purple */
+  --chart-4: oklch(0.70 0.12 260); /* Soft Blue */
+  --chart-5: oklch(0.85 0.12 90);  /* Soft Yellow */
+  
+  --sidebar: oklch(0.16 0.02 240);
+  --sidebar-foreground: oklch(0.92 0.01 240);
+  --sidebar-primary: oklch(0.75 0.15 160);
+  --sidebar-primary-foreground: oklch(0.12 0.02 240);
+  --sidebar-accent: oklch(0.20 0.02 240);
+  --sidebar-accent-foreground: oklch(0.92 0.01 240);
+  --sidebar-border: oklch(0.25 0.02 240);
+  --sidebar-ring: oklch(0.75 0.15 160);
 }
 
 @layer base {

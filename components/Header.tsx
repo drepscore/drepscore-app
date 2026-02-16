@@ -7,6 +7,7 @@
 
 import Link from 'next/link';
 import { WalletConnect } from './WalletConnect';
+import { ModeToggle } from './mode-toggle';
 
 export function Header() {
   return (
@@ -18,14 +19,14 @@ export function Header() {
           </div>
         </Link>
         
-        <nav className="flex items-center space-x-6">
+        <nav className="flex items-center space-x-4">
           <Link
             href="/"
             className="text-sm font-medium transition-colors hover:text-primary"
           >
             Home
           </Link>
-          {/* Future navigation items */}
+          <ModeToggle />
           <WalletConnect />
         </nav>
       </div>

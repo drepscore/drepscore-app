@@ -223,14 +223,19 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
                   {/* Inline Rationale Display */}
                   {rationaleText && (
                     <div className="mt-2 pl-0">
-                      <div className="bg-muted/50 rounded-lg p-3">
-                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                      <div className="bg-muted/50 rounded-lg p-3 border border-border/50">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Rationale
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
                           {displayRationale}
                         </p>
                         {shouldTruncate && (
                           <button
                             onClick={() => toggleVoteExpanded(vote.id)}
-                            className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
+                            className="text-xs text-primary hover:underline flex items-center gap-1 mt-2 font-medium"
                           >
                             {isExpanded ? (
                               <>

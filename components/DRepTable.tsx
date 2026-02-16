@@ -2,12 +2,11 @@
 
 /**
  * DRep Table Component
- * Main table for displaying and filtering DReps
+ * Displays DReps with DRep Score as primary column (first, default sort)
+ * Includes sortable headers and tooltips
  */
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import { DRep, DRepWithScore, DRepFilters, DRepSort, ValuePreference } from '@/types/drep';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -16,416 +15,191 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { ArrowUpDown, Search, ExternalLink } from 'lucide-react';
-import { EmptyState } from './EmptyState';
-import { formatAda, getParticipationColor, getRationaleColor } from '@/utils/scoring';
-import { getDRepDisplayName, getDRepDisplayNameOrUnnamed } from '@/utils/display';
-import { calculateDocumentationScore, getDocumentationLabel } from '@/utils/documentation';
+import { Button } from '@/components/ui/button';
+import { getDRepDisplayName } from '@/utils/display';
+import { formatAda, getDRepScoreBadgeClass } from '@/utils/scoring';
+import { EnrichedDRep } from '@/lib/koios';
+import { CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-react';
+import { SortConfig, SortKey } from './DRepTableClient';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { ParticipationRateModal, DecentralizationScoreModal, RationaleImportanceModal } from './InfoModal';
-import { HelpCircle, CheckCircle2 } from 'lucide-react';
+} from "@/components/ui/tooltip"
+import { ScoreBreakdown } from './ScoreBreakdown';
+import { SocialIcons } from './SocialIcons';
 
 interface DRepTableProps {
-  dreps: (DRep | DRepWithScore)[];
-  showMatchScore?: boolean;
+  dreps: EnrichedDRep[];
+  sortConfig?: SortConfig;
+  onSort?: (key: SortKey) => void;
 }
 
-export function DRepTable({ dreps, showMatchScore = false }: DRepTableProps) {
-  const [filters, setFilters] = useState<DRepFilters>({
-    search: '',
-    minParticipation: 0,
-    minVotingPower: 0,
-    selectedValues: [],
-    showActiveOnly: true,
-  });
-  
-  const [sort, setSort] = useState<DRepSort>({
-    field: showMatchScore ? 'matchScore' : 'votingPower',
-    direction: 'desc',
-  });
-  
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+export function DRepTable({ dreps, sortConfig, onSort }: DRepTableProps) {
+  const router = useRouter();
 
-  // Filter and sort DReps
-  const filteredAndSortedDReps = useMemo(() => {
-    let result = [...dreps];
-
-    // Apply filters
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      result = result.filter(drep =>
-        drep.drepId.toLowerCase().includes(searchLower) ||
-        drep.handle?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    if (filters.minParticipation > 0) {
-      result = result.filter(drep => drep.participationRate >= filters.minParticipation);
-    }
-
-    if (filters.minVotingPower > 0) {
-      result = result.filter(drep => drep.votingPower >= filters.minVotingPower);
-    }
-
-    if (filters.showActiveOnly) {
-      result = result.filter(drep => drep.isActive);
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      let aVal: number | string = 0;
-      let bVal: number | string = 0;
-
-      switch (sort.field) {
-        case 'drepId':
-          aVal = a.drepId;
-          bVal = b.drepId;
-          break;
-        case 'votingPower':
-          aVal = a.votingPower;
-          bVal = b.votingPower;
-          break;
-        case 'participationRate':
-          aVal = a.participationRate;
-          bVal = b.participationRate;
-          break;
-        case 'rationaleRate':
-          aVal = a.rationaleRate;
-          bVal = b.rationaleRate;
-          break;
-        case 'decentralizationScore':
-          aVal = a.decentralizationScore;
-          bVal = b.decentralizationScore;
-          break;
-        case 'matchScore':
-          aVal = 'matchScore' in a ? a.matchScore : 0;
-          bVal = 'matchScore' in b ? b.matchScore : 0;
-          break;
-      }
-
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return sort.direction === 'asc' 
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
-      }
-
-      // Type narrowing: both should be numbers at this point
-      const aNum = typeof aVal === 'number' ? aVal : 0;
-      const bNum = typeof bVal === 'number' ? bVal : 0;
-      return sort.direction === 'asc' ? aNum - bNum : bNum - aNum;
-    });
-
-    return result;
-  }, [dreps, filters, sort, showMatchScore]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedDReps.length / pageSize);
-  const paginatedDReps = filteredAndSortedDReps.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
-
-  const toggleSort = (field: DRepSort['field']) => {
-    setSort(prev => ({
-      field,
-      direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc',
-    }));
-  };
-
-  const resetFilters = () => {
-    setFilters({
-      search: '',
-      minParticipation: 0,
-      minVotingPower: 0,
-      selectedValues: [],
-      showActiveOnly: true,
-    });
-    setCurrentPage(1);
-  };
-
-  if (paginatedDReps.length === 0 && filteredAndSortedDReps.length === 0) {
-    return (
-      <EmptyState
-        title="No DReps Found"
-        message="Try adjusting your filters or check back later for updated data"
-        action={{
-          label: 'Reset Filters',
-          onClick: resetFilters,
-        }}
-      />
-    );
+  if (dreps.length === 0) {
+    return null;
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by DRep ID or handle..."
-            value={filters.search}
-            onChange={(e) => {
-              setFilters({ ...filters, search: e.target.value });
-              setCurrentPage(1);
-            }}
-            className="pl-10"
-          />
-        </div>
-        <Select
-          value={filters.minParticipation.toString()}
-          onValueChange={(val) => {
-            setFilters({ ...filters, minParticipation: parseInt(val) });
-            setCurrentPage(1);
+  const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
+    if (sortConfig?.key !== columnKey) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    return sortConfig.direction === 'asc' 
+      ? <ArrowUp className="ml-2 h-4 w-4 text-primary" />
+      : <ArrowDown className="ml-2 h-4 w-4 text-primary" />;
+  };
+
+  const SortableHeader = ({ 
+    columnKey, 
+    label, 
+    tooltip, 
+    align = 'left' 
+  }: { 
+    columnKey: SortKey, 
+    label: string, 
+    tooltip: string,
+    align?: 'left' | 'right' 
+  }) => (
+    <TableHead className={`text-${align}`}>
+      <div className={`flex items-center ${align === 'right' ? 'justify-end' : ''}`}>
+        <Button 
+          variant="ghost" 
+          onClick={(e) => {
+            e.stopPropagation();
+            onSort?.(columnKey);
           }}
+          className="-ml-4 hover:bg-transparent hover:text-primary font-semibold"
         >
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Min Participation" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="0">All Participation</SelectItem>
-            <SelectItem value="40">40%+ Participation</SelectItem>
-            <SelectItem value="70">70%+ Participation</SelectItem>
-            <SelectItem value="90">90%+ Participation</SelectItem>
-          </SelectContent>
-        </Select>
+          {label}
+          <SortIcon columnKey={columnKey} />
+        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-3.5 w-3.5 text-muted-foreground ml-1 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-xs">{tooltip}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
+    </TableHead>
+  );
 
-      {/* Results count */}
-      <div className="text-sm text-muted-foreground">
-        Showing {paginatedDReps.length} of {filteredAndSortedDReps.length} DReps
-      </div>
+  return (
+    <div className="rounded-lg border overflow-hidden bg-card">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {/* DRep Score - first column, primary metric */}
+            <SortableHeader 
+              columnKey="drepScore" 
+              label="DRep Score" 
+              tooltip="A 0-100 score based on Decentralization (40%), Participation (25%), Rationale (25%), and Influence (10%)."
+            />
+            
+            <TableHead className="text-left font-semibold">DRep</TableHead>
+            
+            <SortableHeader 
+              columnKey="decentralizationScore" 
+              label="Decentralization" 
+              tooltip="Score based on voting independence and power distribution (40% of total)."
+              align="right"
+            />
 
-      {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                <button
-                  onClick={() => toggleSort('drepId')}
-                  className="flex items-center gap-1 hover:text-foreground"
-                >
-                  Name / Ticker
-                  <ArrowUpDown className="h-3 w-3" />
-                </button>
-              </TableHead>
-              <TableHead>
-                <button
-                  onClick={() => toggleSort('votingPower')}
-                  className="flex items-center gap-1 hover:text-foreground"
-                >
-                  Voting Power
-                  <ArrowUpDown className="h-3 w-3" />
-                </button>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => toggleSort('participationRate')}
-                    className="flex items-center gap-1 hover:text-foreground"
-                  >
-                    Participation
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                  <ParticipationRateModal />
+            <SortableHeader 
+              columnKey="participationRate" 
+              label="Participation" 
+              tooltip="Percentage of governance actions voted on."
+              align="right"
+            />
+            
+            <SortableHeader 
+              columnKey="rationaleRate" 
+              label="Rationale" 
+              tooltip="Percentage of votes that include a written explanation."
+              align="right"
+            />
+
+            <SortableHeader 
+              columnKey="votingPower" 
+              label="Voting Power" 
+              tooltip="Total ADA delegated to this DRep."
+              align="right"
+            />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {dreps.map((drep) => (
+            <TableRow 
+              key={drep.drepId}
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => router.push(`/drep/${encodeURIComponent(drep.drepId)}`)}
+            >
+              {/* DRep Score */}
+              <TableCell>
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-center min-w-[40px]">
+                    <span className="text-xl font-bold tabular-nums text-foreground leading-none">
+                      {drep.drepScore ?? 0}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-1 py-0 h-4 font-medium mt-1 ${getDRepScoreBadgeClass(drep.drepScore ?? 0)}`}
+                    >
+                      {(drep.drepScore ?? 0) >= 80 ? 'Strong' : (drep.drepScore ?? 0) >= 60 ? 'Good' : 'Low'}
+                    </Badge>
+                  </div>
+                  <ScoreBreakdown drep={drep} />
                 </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => toggleSort('decentralizationScore')}
-                    className="flex items-center gap-1 hover:text-foreground"
-                  >
-                    Decentralization
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                  <DecentralizationScoreModal />
+              </TableCell>
+
+              {/* DRep Identity & Socials */}
+              <TableCell>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">
+                      {getDRepDisplayName(drep)}
+                    </span>
+                    {(drep.name || drep.ticker || drep.description) && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Well Documented: Has metadata (Name/Description)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                  <SocialIcons metadata={drep.metadata} />
                 </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => toggleSort('rationaleRate')}
-                    className="flex items-center gap-1 hover:text-foreground"
-                  >
-                    Rationale Rate
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                  <RationaleImportanceModal />
-                </div>
-              </TableHead>
-              {showMatchScore && (
-                <TableHead>
-                  <button
-                    onClick={() => toggleSort('matchScore')}
-                    className="flex items-center gap-1 hover:text-foreground"
-                  >
-                    Match Score
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-              )}
-              <TableHead>Status</TableHead>
+              </TableCell>
+
+              <TableCell className="text-right tabular-nums text-muted-foreground">
+                {drep.decentralizationScore}
+              </TableCell>
+
+              <TableCell className="text-right tabular-nums text-muted-foreground">
+                {drep.participationRate}%
+              </TableCell>
+
+              <TableCell className="text-right tabular-nums text-muted-foreground">
+                {drep.rationaleRate}%
+              </TableCell>
+
+              <TableCell className="text-right tabular-nums text-muted-foreground">
+                {formatAda(drep.votingPower)} ADA
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedDReps.map((drep) => {
-              const { name: displayName, isUnnamed } = getDRepDisplayNameOrUnnamed(drep);
-              const docScore = calculateDocumentationScore(drep);
-              const docLabel = getDocumentationLabel(docScore);
-              
-              return (
-              <TableRow key={drep.drepId}>
-                <TableCell>
-                  <Link
-                    href={`/drep/${encodeURIComponent(drep.drepId)}`}
-                    className="flex items-center gap-2 hover:text-primary group"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      {docScore >= 80 && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">Well documented ({docScore}%)</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                      <span className={isUnnamed ? 'text-muted-foreground italic' : 'font-medium'}>
-                        {displayName}
-                      </span>
-                      {isUnnamed && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">No metadata provided</p>
-                              <p className="font-mono text-xs mt-1">{drep.drepId}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                      {!isUnnamed && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="font-mono text-xs text-muted-foreground">
-                                ({drep.drepId.slice(0, 8)}...)
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="font-mono text-xs">{drep.drepId}</p>
-                              <p className="text-xs mt-1">Documentation: {docScore}%</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
-                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </Link>
-                </TableCell>
-                <TableCell className="font-medium">
-                  {formatAda(drep.votingPower)} ADA
-                </TableCell>
-                <TableCell>
-                  <span className={getParticipationColor(drep.participationRate)}>
-                    {drep.participationRate}%
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm">
-                    {drep.decentralizationScore}/100
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span className={getRationaleColor(drep.rationaleRate)}>
-                    {drep.rationaleRate}%
-                  </span>
-                </TableCell>
-                {showMatchScore && 'matchScore' in drep && (
-                  <TableCell>
-                    <Badge variant="default">{drep.matchScore}%</Badge>
-                  </TableCell>
-                )}
-                <TableCell>
-                  <Badge variant={drep.isActive ? 'default' : 'secondary'}>
-                    {drep.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Rows per page:</span>
-            <Select
-              value={pageSize.toString()}
-              onValueChange={(val) => {
-                setPageSize(parseInt(val));
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="w-20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="25">25</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <span className="text-sm">
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

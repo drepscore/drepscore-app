@@ -79,12 +79,50 @@ async function koiosFetch<T>(
   }
 }
 
+/** Page size for drep_list pagination (Koios may limit default responses) */
+const DREP_LIST_PAGE_SIZE = 500;
+
 /**
- * Fetch all registered DReps
+ * Fetch all DReps from drep_list with pagination
+ * Koios API may return limited results by default; paginate to load all
+ */
+async function fetchAllDRepList(): Promise<DRepListResponse> {
+  const isDev = process.env.NODE_ENV === 'development';
+  const all: DRepListResponse = [];
+  let offset = 0;
+  let page = 0;
+
+  while (true) {
+    const url = `/drep_list?limit=${DREP_LIST_PAGE_SIZE}&offset=${offset}`;
+    const data = await koiosFetch<DRepListResponse>(url);
+    const pageData = data || [];
+
+    all.push(...pageData);
+    page++;
+
+    if (isDev) {
+      console.log(`[Koios] drep_list page ${page}: ${pageData.length} DReps (total: ${all.length})`);
+    }
+
+    if (pageData.length < DREP_LIST_PAGE_SIZE) {
+      break;
+    }
+    offset += DREP_LIST_PAGE_SIZE;
+  }
+
+  if (isDev && page > 1) {
+    console.log(`[Koios] Fetched ${all.length} DReps from drep_list (${page} pages)`);
+  }
+
+  return all;
+}
+
+/**
+ * Fetch all registered DReps (paginated to load full list)
  */
 export async function fetchAllDReps(): Promise<DRepListResponse> {
   try {
-    const data = await koiosFetch<DRepListResponse>('/drep_list');
+    const data = await fetchAllDRepList();
     return data || [];
   } catch (error) {
     console.error('Error fetching DRep list:', error);

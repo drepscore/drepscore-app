@@ -36,9 +36,11 @@ export function calculateDocumentationScore(drep: Pick<DRep, 'name' | 'ticker' |
   
   // Additional metadata: 20 points
   if (drep.metadata) {
-    if (drep.metadata.bio) score += 5;
-    if (drep.metadata.email) score += 5;
-    if (drep.metadata.references && drep.metadata.references.length > 0) score += 10;
+    const meta = drep.metadata as Record<string, unknown>;
+    if (meta.bio) score += 5;
+    if (meta.email) score += 5;
+    const refs = meta.references;
+    if (Array.isArray(refs) && refs.length > 0) score += 10;
   }
   
   return Math.min(100, score);

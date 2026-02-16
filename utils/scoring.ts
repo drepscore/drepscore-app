@@ -249,6 +249,25 @@ export function getParticipationColor(rate: number): string {
 }
 
 /**
+ * Get badge variant for DRep Score (0-100)
+ * Green ≥80, Yellow 60-79, Red <60
+ */
+export function getDRepScoreBadgeVariant(score: number): 'default' | 'secondary' | 'destructive' {
+  if (score >= 80) return 'default'; // green
+  if (score >= 60) return 'secondary'; // yellow
+  return 'destructive'; // red
+}
+
+/**
+ * Get badge/background color class for DRep Score
+ */
+export function getDRepScoreBadgeClass(score: number): string {
+  if (score >= 80) return 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30';
+  if (score >= 60) return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30';
+  return 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30';
+}
+
+/**
  * Get color class for rationale rate
  * @param rate Rationale rate (0-100)
  * @returns Tailwind color class
