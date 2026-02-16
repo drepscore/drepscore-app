@@ -26,37 +26,40 @@ export function ScoreBreakdown({ drep }: ScoreBreakdownProps) {
     influence: 0.10,
   };
 
-  // Calculate raw contributions (0-100 scale)
-  // Note: Influence score is calculated during enrichment, but we can approximate or pass it if needed.
-  // For visualization, we'll infer it from the total score or just show the known components.
-  // Actually, let's just show the raw scores for each component as bars.
+  // Safe values defaulting to 0
+  const safeDecentralization = typeof drep.decentralizationScore === 'number' ? drep.decentralizationScore : 0;
+  const safeParticipation = typeof drep.participationRate === 'number' ? drep.participationRate : 0;
+  const safeRationale = typeof drep.rationaleRate === 'number' ? drep.rationaleRate : 0;
+  const safeDRepScore = typeof drep.drepScore === 'number' ? drep.drepScore : 0;
+
+  // Calculate known component contribution
+  const knownContribution = 
+    (safeDecentralization * WEIGHTS.decentralization) +
+    (safeParticipation * WEIGHTS.participation) +
+    (safeRationale * WEIGHTS.rationale);
   
-  // We need to back-calculate Influence score since it's not stored directly on DRep
-  // Total Score = sum(component_score * weight)
-  // Influence Score = (Total Score - (Decentralization * 0.4 + Participation * 0.25 + Rationale * 0.25)) / 0.10
-  const knownScore = 
-    ((drep.decentralizationScore ?? 0) * WEIGHTS.decentralization) +
-    (drep.participationRate * WEIGHTS.participation) +
-    (drep.rationaleRate * WEIGHTS.rationale);
-  
-  const influenceScore = Math.max(0, Math.min(100, Math.round((drep.drepScore - knownScore) / WEIGHTS.influence)));
+  // Back-calculate Influence score
+  // Total Score = knownContribution + (Influence * 0.10)
+  // Influence = (Total Score - knownContribution) / 0.10
+  const rawInfluence = (safeDRepScore - knownContribution) / WEIGHTS.influence;
+  const influenceScore = Math.max(0, Math.min(100, Math.round(Number.isFinite(rawInfluence) ? rawInfluence : 0)));
 
   const components = [
     {
       label: 'Decentralization',
-      value: drep.decentralizationScore ?? 0,
+      value: safeDecentralization,
       weight: WEIGHTS.decentralization,
       color: 'bg-chart-1', // Emerald/Green
     },
     {
       label: 'Participation',
-      value: drep.participationRate,
+      value: safeParticipation,
       weight: WEIGHTS.participation,
       color: 'bg-chart-2', // Cyan/Blue
     },
     {
       label: 'Rationale',
-      value: drep.rationaleRate,
+      value: safeRationale,
       weight: WEIGHTS.rationale,
       color: 'bg-chart-3', // Purple/Pink
     },
@@ -72,7 +75,10 @@ export function ScoreBreakdown({ drep }: ScoreBreakdownProps) {
     <div className="flex flex-col gap-1 w-24">
       <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary/20">
         {components.map((comp) => {
-          const points = Math.round(comp.value * comp.weight);
+          const rawPoints = comp.value * comp.weight;
+          const points = Math.round(rawPoints);
+          const safePoints = Number.isFinite(points) ? points : 0;
+          
           return (
             <TooltipProvider key={comp.label}>
               <Tooltip>
@@ -86,7 +92,7 @@ export function ScoreBreakdown({ drep }: ScoreBreakdownProps) {
                   <p className="font-semibold">{comp.label}</p>
                   <p>Score: {comp.value}/100</p>
                   <p className="text-xs text-muted-foreground">
-                    Points: <span className="font-medium text-foreground">{points}</span>
+                    Pts: <span className="font-medium text-foreground">{safePoints}</span>
                   </p>
                 </TooltipContent>
               </Tooltip>
