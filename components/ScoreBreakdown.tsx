@@ -92,7 +92,7 @@ export function ScoreBreakdown({ drep }: ScoreBreakdownProps) {
                   <p className="font-semibold">{comp.label}</p>
                   <p>Score: {comp.value}/100</p>
                   <p className="text-xs text-muted-foreground">
-                    Pts: <span className="font-medium text-foreground">{safePoints}</span>
+                    Pts: <span className="font-medium">{safePoints}</span>
                   </p>
                 </TooltipContent>
               </Tooltip>
