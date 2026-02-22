@@ -1,7 +1,18 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { BrowserWallet, Address } from '@meshsdk/core';
+import { BrowserWallet } from '@meshsdk/core';
+import { bech32 } from 'bech32';
+
+function hexAddressToBech32(hexAddress: string): string {
+  const bytes = Buffer.from(hexAddress, 'hex');
+  const header = bytes[0];
+  // Lower 4 bits of header indicate network: 0=mainnet, 1=testnet
+  const networkId = header & 0x0f;
+  const prefix = networkId === 0 ? 'addr' : 'addr_test';
+  const words = bech32.toWords(bytes);
+  return bech32.encode(prefix, words, 200);
+}
 import { getStoredSession, saveSession, clearSession, parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
 
 export interface WalletContextType {
@@ -98,7 +109,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     try {
       // CIP-30 getUsedAddresses() returns hex; MeshJS signData expects bech32
-      const bech32Address = Address.fromHex(address).toBech32();
+      const bech32Address = hexAddressToBech32(address);
       // #region agent log
       console.log('[DEBUG ce4185] signData called with address:', bech32Address?.substring(0, 20), 'message:', message?.substring(0, 30));
       // #endregion
@@ -133,7 +144,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const nonceHex = Buffer.from(nonce, 'utf8').toString('hex');
       
       // CIP-30 returns hex addresses; MeshJS expects bech32 for signing/verification
-      const bech32Address = Address.fromHex(address).toBech32();
+      const bech32Address = hexAddressToBech32(address);
       // #region agent log
       console.log('[DEBUG ce4185] nonce:', nonce?.substring(0, 30), 'nonceHex:', nonceHex?.substring(0, 30), 'bech32Address:', bech32Address?.substring(0, 20));
       // #endregion
