@@ -4,16 +4,23 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { BrowserWallet } from '@meshsdk/core';
 import { bech32 } from 'bech32';
 
-function hexAddressToBech32(hexAddress: string): string {
-  const bytes = Buffer.from(hexAddress, 'hex');
+function ensureBech32Address(address: string): string {
+  // MeshJS getUsedAddresses() may return bech32 directly — check first
+  if (address.startsWith('addr')) {
+    // #region agent log
+    console.log('[DEBUG ce4185] ensureBech32Address: already bech32', { prefix: address.substring(0, 10), len: address.length });
+    // #endregion
+    return address;
+  }
+  // Otherwise convert from hex
+  const bytes = Buffer.from(address, 'hex');
   const header = bytes[0];
-  // Lower 4 bits of header indicate network: 1=mainnet, 0=testnet (CIP-19)
   const networkId = header & 0x0f;
   const prefix = networkId === 1 ? 'addr' : 'addr_test';
   const words = bech32.toWords(bytes);
   const result = bech32.encode(prefix, words, 200);
   // #region agent log
-  console.log('[DEBUG ce4185] hexAddressToBech32:', { hexLen: hexAddress?.length, header, networkId, prefix, resultPrefix: result?.substring(0, 15), resultLen: result?.length });
+  console.log('[DEBUG ce4185] ensureBech32Address: converted from hex', { hexLen: address.length, resultPrefix: result.substring(0, 15), resultLen: result.length });
   // #endregion
   return result;
 }
@@ -116,7 +123,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     try {
       // CIP-30 getUsedAddresses() returns hex; MeshJS signData expects bech32
-      const bech32Address = hexAddressToBech32(address);
+      const bech32Address = ensureBech32Address(address);
       // #region agent log
       console.log('[DEBUG ce4185] signData params:', { bech32Address, bech32Len: bech32Address?.length, startsWithAddr: bech32Address?.startsWith('addr'), message: message?.substring(0, 30) });
       // #endregion
@@ -151,7 +158,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const nonceHex = Buffer.from(nonce, 'utf8').toString('hex');
       
       // CIP-30 returns hex addresses; MeshJS expects bech32 for signing/verification
-      const bech32Address = hexAddressToBech32(address);
+      const bech32Address = ensureBech32Address(address);
       // #region agent log
       console.log('[DEBUG ce4185] nonce:', nonce?.substring(0, 30), 'nonceHex:', nonceHex?.substring(0, 30), 'bech32Address:', bech32Address?.substring(0, 20));
       // #endregion
