@@ -2,8 +2,5 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "env": {
-    "KOIOS_API_KEY": "@koios-api-key"
-  }
+  "regions": ["iad1"]
 }
