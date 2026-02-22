@@ -2,29 +2,18 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { BrowserWallet } from '@meshsdk/core';
-import { bech32 } from 'bech32';
-
-function ensureBech32Address(address: string): string {
-  // MeshJS getUsedAddresses() may return bech32 directly — check first
-  if (address.startsWith('addr')) {
-    // #region agent log
-    console.log('[DEBUG ce4185] ensureBech32Address: already bech32', { prefix: address.substring(0, 10), len: address.length });
-    // #endregion
-    return address;
-  }
-  // Otherwise convert from hex
-  const bytes = Buffer.from(address, 'hex');
-  const header = bytes[0];
-  const networkId = header & 0x0f;
-  const prefix = networkId === 1 ? 'addr' : 'addr_test';
-  const words = bech32.toWords(bytes);
-  const result = bech32.encode(prefix, words, 200);
-  // #region agent log
-  console.log('[DEBUG ce4185] ensureBech32Address: converted from hex', { hexLen: address.length, resultPrefix: result.substring(0, 15), resultLen: result.length });
-  // #endregion
-  return result;
-}
 import { getStoredSession, saveSession, clearSession, parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
+
+interface CIP30Api {
+  getUsedAddresses(): Promise<string[]>;
+  signData(addr: string, payload: string): Promise<{ signature: string; key: string }>;
+}
+
+declare global {
+  interface Window {
+    cardano?: Record<string, { enable(): Promise<CIP30Api>; name: string }>;
+  }
+}
 
 export interface WalletContextType {
   wallet: BrowserWallet | null;
@@ -46,9 +35,11 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<BrowserWallet | null>(null);
+  const [walletName, setWalletName] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
+  const [hexAddress, setHexAddress] = useState<string | null>(null);
   const [sessionAddress, setSessionAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [availableWallets, setAvailableWallets] = useState<string[]>([]);
@@ -78,20 +69,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const connect = async (walletName: string) => {
+  const connect = async (name: string) => {
     setConnecting(true);
     setError(null);
 
     try {
-      const browserWallet = await BrowserWallet.enable(walletName);
+      const browserWallet = await BrowserWallet.enable(name);
       setWallet(browserWallet);
+      setWalletName(name);
       
       const addresses = await browserWallet.getUsedAddresses();
+
+      // Also get hex address from raw CIP-30 API for signData
+      const rawApi = await window.cardano?.[name]?.enable();
+      const hexAddresses = rawApi ? await rawApi.getUsedAddresses() : [];
       // #region agent log
-      console.log('[DEBUG ce4185] getUsedAddresses returned:', addresses?.length, 'first:', addresses?.[0]?.substring(0, 20));
+      console.log('[DEBUG ce4185] connect:', { bech32First: addresses?.[0]?.substring(0, 20), hexFirst: hexAddresses?.[0]?.substring(0, 20), bech32Count: addresses?.length, hexCount: hexAddresses?.length });
       // #endregion
+
       if (addresses && addresses.length > 0) {
         setAddress(addresses[0]);
+        if (hexAddresses.length > 0) setHexAddress(hexAddresses[0]);
         setConnected(true);
       } else {
         throw new Error('No addresses found in wallet');
@@ -107,44 +105,52 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const disconnect = () => {
     setWallet(null);
+    setWalletName(null);
     setConnected(false);
     setAddress(null);
+    setHexAddress(null);
     setError(null);
   };
 
   const signMessage = useCallback(async (message: string): Promise<{ signature: string; key: string } | null> => {
     // #region agent log
-    console.log('[DEBUG ce4185] signMessage entry:', { hasWallet: !!wallet, address: address?.substring(0, 20), messageLen: message?.length });
+    console.log('[DEBUG ce4185] signMessage entry:', { walletName, hexAddr: hexAddress?.substring(0, 20), messageLen: message?.length });
     // #endregion
-    if (!wallet || !address) {
+    if (!walletName || !hexAddress) {
       setError('Wallet not connected');
       return null;
     }
 
     try {
-      // CIP-30 getUsedAddresses() returns hex; MeshJS signData expects bech32
-      const bech32Address = ensureBech32Address(address);
+      // Bypass MeshJS wrapper — it incorrectly bech32-decodes the payload.
+      // CIP-30 signData expects hex address + hex-encoded payload.
+      const rawApi = await window.cardano?.[walletName]?.enable();
+      if (!rawApi) throw new Error('Could not access wallet API');
+
+      const hexPayload = Array.from(new TextEncoder().encode(message))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
       // #region agent log
-      console.log('[DEBUG ce4185] signData params:', { bech32Address, bech32Len: bech32Address?.length, startsWithAddr: bech32Address?.startsWith('addr'), message: message?.substring(0, 30) });
+      console.log('[DEBUG ce4185] CIP-30 signData params:', { hexAddr: hexAddress.substring(0, 20), hexPayload: hexPayload.substring(0, 30) });
       // #endregion
-      const result = await wallet.signData(bech32Address, message);
+      const result = await rawApi.signData(hexAddress, hexPayload);
       // #region agent log
-      console.log('[DEBUG ce4185] signData result:', { sigLen: result.signature?.length, keyLen: result.key?.length });
+      console.log('[DEBUG ce4185] CIP-30 signData result:', { sigLen: result.signature?.length, keyLen: result.key?.length });
       // #endregion
       return { signature: result.signature, key: result.key };
     } catch (err) {
       // #region agent log
-      console.error('[DEBUG ce4185] signData error:', err);
+      console.error('[DEBUG ce4185] CIP-30 signData error:', err);
       // #endregion
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign message';
       setError(errorMessage);
       console.error('Sign message error:', err);
       return null;
     }
-  }, [wallet, address]);
+  }, [walletName, hexAddress]);
 
   const authenticate = useCallback(async (): Promise<boolean> => {
-    if (!wallet || !address) {
+    if (!walletName || !address || !hexAddress) {
       setError('Connect wallet first');
       return false;
     }
@@ -152,14 +158,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       const nonceResponse = await fetch('/api/auth/nonce');
       const { nonce, signature: nonceSignature } = await nonceResponse.json();
-      
-      // CIP-30 returns hex addresses; MeshJS expects bech32 for signing/verification
-      const bech32Address = ensureBech32Address(address);
+
       // #region agent log
-      console.log('[DEBUG ce4185] authenticate: nonce:', nonce?.substring(0, 30), 'bech32Address:', bech32Address?.substring(0, 20));
+      console.log('[DEBUG ce4185] authenticate:', { nonce: nonce?.substring(0, 30), address: address?.substring(0, 20) });
       // #endregion
 
-      // MeshJS signData internally hex-encodes the payload, so pass raw nonce
       const signResult = await signMessage(nonce);
       if (!signResult) return false;
 
@@ -167,7 +170,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          address: bech32Address,
+          address,
           nonce,
           nonceSignature,
           signature: signResult.signature,
@@ -182,7 +185,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       const { sessionToken } = await authResponse.json();
       saveSession(sessionToken);
-      setSessionAddress(bech32Address);
+      setSessionAddress(address);
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
@@ -190,7 +193,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       console.error('Authentication error:', err);
       return false;
     }
-  }, [wallet, address, signMessage]);
+  }, [walletName, address, hexAddress, signMessage]);
 
   const logout = useCallback(() => {
     clearSession();
