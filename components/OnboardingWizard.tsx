@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import confetti from 'canvas-confetti';
 import { 
   Dialog, 
   DialogContent, 
@@ -30,8 +29,7 @@ import {
   Check,
   ArrowRight,
   Sparkles,
-  Shield,
-  AlertTriangle
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -96,14 +94,13 @@ export function OnboardingWizard({
 }: OnboardingWizardProps) {
   const [step, setStep] = useState(1);
   const [selectedPrefs, setSelectedPrefs] = useState<UserPrefKey[]>(initialPrefs);
-  const [showSuccess, setShowSuccess] = useState(false);
 
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
-      setStep(1);
-      setSelectedPrefs(initialPrefs);
-      setShowSuccess(false);
+      // Start at step 2 if user already has preferences
+      setStep(initialPrefs && initialPrefs.length > 0 ? 2 : 1);
+      setSelectedPrefs(initialPrefs || []);
     }
   }, [open, initialPrefs]);
 
@@ -116,20 +113,7 @@ export function OnboardingWizard({
   };
 
   const handleComplete = () => {
-    // Fire confetti
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#0033A0', '#00C853'], // Cardano Blue & Green
-    });
-
-    setShowSuccess(true);
-
-    // Delay closing to show success message
-    setTimeout(() => {
-      onComplete(selectedPrefs);
-    }, 1500);
+    onComplete(selectedPrefs);
   };
 
   const progress = (step / 3) * 100;
@@ -249,76 +233,54 @@ export function OnboardingWizard({
           {/* Step 3: All Set */}
           {step === 3 && (
             <div className="space-y-6 text-center py-4">
-               {showSuccess ? (
-                <div className="flex flex-col items-center justify-center py-8 animate-in fade-in zoom-in duration-300">
-                  <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
-                    <Check className="w-10 h-10 text-green-600 dark:text-green-400" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-green-600 dark:text-green-400">Alignment Achieved! 🌱</h3>
-                </div>
-              ) : (
-                <>
-                  <DialogHeader>
-                    <DialogTitle>You're All Set!</DialogTitle>
-                    <DialogDescription>
-                      We've personalized the DRep list based on your values.
-                    </DialogDescription>
-                  </DialogHeader>
+              <DialogHeader>
+                <DialogTitle>You're All Set!</DialogTitle>
+                <DialogDescription>
+                  Your personalized DRep list is ready.
+                </DialogDescription>
+              </DialogHeader>
 
-                  <div className="py-4">
-                    <div className="flex flex-wrap gap-2 justify-center mb-4">
-                      {selectedPrefs.map(key => {
-                        const opt = PREF_OPTIONS.find(o => o.key === key);
-                        if (!opt) return null;
-                        const Icon = opt.icon;
-                        return (
-                          <div key={key} className="flex items-center gap-1.5 px-3 py-1 bg-secondary rounded-full text-sm">
-                            <Icon className="w-3 h-3" />
-                            <span>{opt.title}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-left mb-4">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                        <div className="text-xs">
-                          <p className="font-medium text-amber-800 dark:text-amber-200">Mock Alert Preview</p>
-                          <p className="text-amber-700 dark:text-amber-300 mt-0.5">
-                            "Your DRep voted against Treasury Conservative — save preferences to get real alerts"
-                          </p>
-                        </div>
+              <div className="py-4">
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {selectedPrefs.map(key => {
+                    const opt = PREF_OPTIONS.find(o => o.key === key);
+                    if (!opt) return null;
+                    const Icon = opt.icon;
+                    return (
+                      <div key={key} className="flex items-center gap-1.5 px-3 py-1 bg-secondary rounded-full text-sm">
+                        <Icon className="w-3 h-3" />
+                        <span>{opt.title}</span>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-                  <div className="flex flex-col gap-3">
-                    <Button onClick={handleComplete} size="lg" className="w-full">
-                      Show My DReps
-                    </Button>
-                    {onSaveForever && (
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          onComplete(selectedPrefs);
-                          onSaveForever();
-                        }}
-                        className="w-full gap-2"
-                      >
-                        <Shield className="w-4 h-4" />
-                        Save My Preferences Forever
-                      </Button>
-                    )}
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => setStep(2)}
-                    >
-                      Back
-                    </Button>
-                  </div>
-                </>
-              )}
+              <div className="flex flex-col gap-3">
+                {onSaveForever ? (
+                  <Button 
+                    size="lg"
+                    onClick={() => {
+                      onComplete(selectedPrefs);
+                      onSaveForever();
+                    }}
+                    className="w-full gap-2"
+                  >
+                    <Shield className="w-4 h-4" />
+                    Save and See My DReps
+                  </Button>
+                ) : (
+                  <Button onClick={handleComplete} size="lg" className="w-full">
+                    See My DReps
+                  </Button>
+                )}
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setStep(2)}
+                >
+                  Back
+                </Button>
+              </div>
             </div>
           )}
         </div>
