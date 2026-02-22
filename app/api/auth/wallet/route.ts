@@ -9,6 +9,7 @@ export const runtime = 'nodejs';
 interface AuthRequest {
   address: string;
   nonce: string;
+  nonceHex: string;
   nonceSignature: string;
   signature: string;
   key: string;
@@ -17,9 +18,13 @@ interface AuthRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: AuthRequest = await request.json();
-    const { address, nonce, nonceSignature, signature, key } = body;
+    const { address, nonce, nonceHex, nonceSignature, signature, key } = body;
 
-    if (!address || !nonce || !nonceSignature || !signature || !key) {
+    // #region agent log
+    console.log('[DEBUG ce4185] Auth request received:', { address: address?.substring(0, 20), nonce: nonce?.substring(0, 30), nonceHex: nonceHex?.substring(0, 30), sigLen: signature?.length, keyLen: key?.length });
+    // #endregion
+
+    if (!address || !nonce || !nonceHex || !nonceSignature || !signature || !key) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -28,8 +33,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired nonce' }, { status: 401 });
     }
 
+    // #region agent log
+    console.log('[DEBUG ce4185] Nonce verified, calling checkSignature with hex nonce:', { addressPrefix: address.substring(0, 10), nonceHexPrefix: nonceHex.substring(0, 20) });
+    // #endregion
+
     const dataSignature: DataSignature = { signature, key };
-    const isValid = checkSignature(nonce, dataSignature, address);
+    
+    let isValid = false;
+    try {
+      isValid = checkSignature(nonceHex, dataSignature, address);
+      // #region agent log
+      console.log('[DEBUG ce4185] checkSignature result:', isValid);
+      // #endregion
+    } catch (sigError) {
+      // #region agent log
+      console.error('[DEBUG ce4185] checkSignature threw error:', sigError);
+      // #endregion
+      return NextResponse.json({ error: String(sigError) }, { status: 401 });
+    }
     
     if (!isValid) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });

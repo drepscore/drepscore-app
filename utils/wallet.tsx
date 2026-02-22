@@ -65,6 +65,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setWallet(browserWallet);
       
       const addresses = await browserWallet.getUsedAddresses();
+      // #region agent log
+      console.log('[DEBUG ce4185] getUsedAddresses returned:', addresses?.length, 'first:', addresses?.[0]?.substring(0, 20));
+      // #endregion
       if (addresses && addresses.length > 0) {
         setAddress(addresses[0]);
         setConnected(true);
@@ -94,9 +97,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      // #region agent log
+      console.log('[DEBUG ce4185] signData called with address:', address?.substring(0, 20), 'message:', message?.substring(0, 30));
+      // #endregion
       const result = await wallet.signData(address, message);
+      // #region agent log
+      console.log('[DEBUG ce4185] signData result:', { sigLen: result.signature?.length, keyLen: result.key?.length });
+      // #endregion
       return { signature: result.signature, key: result.key };
     } catch (err) {
+      // #region agent log
+      console.error('[DEBUG ce4185] signData error:', err);
+      // #endregion
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign message';
       setError(errorMessage);
       console.error('Sign message error:', err);
@@ -114,7 +126,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const nonceResponse = await fetch('/api/auth/nonce');
       const { nonce, signature: nonceSignature } = await nonceResponse.json();
 
-      const signResult = await signMessage(nonce);
+      // MeshJS signData/checkSignature expect hex-encoded payload — plain nonce with UUID hyphens
+      // would fail bech32 decoding inside checkSignature
+      const nonceHex = Buffer.from(nonce, 'utf8').toString('hex');
+      // #region agent log
+      console.log('[DEBUG ce4185] nonce:', nonce?.substring(0, 30), 'nonceHex:', nonceHex?.substring(0, 30));
+      // #endregion
+
+      const signResult = await signMessage(nonceHex);
       if (!signResult) return false;
 
       const authResponse = await fetch('/api/auth/wallet', {
@@ -124,6 +143,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           address,
           nonce,
           nonceSignature,
+          nonceHex,
           signature: signResult.signature,
           key: signResult.key,
         }),
