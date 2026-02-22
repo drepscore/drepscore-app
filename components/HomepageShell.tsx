@@ -76,10 +76,12 @@ export function HomepageShell() {
           setWatchlist(data.watchlist);
           saveLocalWatchlist(data.watchlist);
         }
-        if (data?.prefs?.userPrefs?.length > 0) {
-          setUserPrefs(data.prefs.userPrefs);
-          setSavedPrefs(data.prefs.userPrefs);
-          saveUserPrefs({ hasSeenOnboarding: true, userPrefs: data.prefs.userPrefs });
+        // Always set savedPrefs from backend (even if empty) to track remote state
+        const backendPrefs = data?.prefs?.userPrefs || [];
+        setSavedPrefs(backendPrefs);
+        if (backendPrefs.length > 0) {
+          setUserPrefs(backendPrefs);
+          saveUserPrefs({ hasSeenOnboarding: true, userPrefs: backendPrefs });
         }
       })
       .catch(console.error);
@@ -162,10 +164,12 @@ export function HomepageShell() {
     setUserPrefs(newList);
   };
 
-  // Check if current prefs differ from saved prefs
-  const hasUnsavedChanges = savedPrefs !== null && 
-    (userPrefs.length !== savedPrefs.length || 
-     !userPrefs.every(p => savedPrefs.includes(p)));
+  // Check if current prefs differ from saved prefs (both directions)
+  const hasUnsavedChanges = isAuthenticated && savedPrefs !== null && savedPrefs.length > 0 && (
+    userPrefs.length !== savedPrefs.length ||
+    !userPrefs.every(p => savedPrefs.includes(p)) ||
+    !savedPrefs.every(p => userPrefs.includes(p))
+  );
 
   if (!hasLoaded) {
     return <div className="min-h-screen" />;
@@ -211,9 +215,21 @@ export function HomepageShell() {
               </Button>
             </>
           ) : (
-            <span className="text-sm text-muted-foreground">
-              Personalize your DRep list based on your values.
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Personalize your DRep list based on your values.
+              </span>
+              {hasUnsavedChanges && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetToSaved}
+                  className="text-xs h-6 px-2 text-muted-foreground hover:text-primary"
+                >
+                  Reset to Saved
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
