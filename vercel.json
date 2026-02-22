@@ -2,5 +2,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "crons": [
+    {
+      "path": "/api/sync?secret=1dec210e-18e5-406b-8143-45a8710dd330",
+      "schedule": "*/30 * * * *"
+    }
+  ]
 }
