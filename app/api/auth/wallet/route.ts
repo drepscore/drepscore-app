@@ -9,7 +9,6 @@ export const runtime = 'nodejs';
 interface AuthRequest {
   address: string;
   nonce: string;
-  nonceHex: string;
   nonceSignature: string;
   signature: string;
   key: string;
@@ -18,13 +17,13 @@ interface AuthRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: AuthRequest = await request.json();
-    const { address, nonce, nonceHex, nonceSignature, signature, key } = body;
+    const { address, nonce, nonceSignature, signature, key } = body;
 
     // #region agent log
-    console.log('[DEBUG ce4185] Auth request received:', { address: address?.substring(0, 20), nonce: nonce?.substring(0, 30), nonceHex: nonceHex?.substring(0, 30), sigLen: signature?.length, keyLen: key?.length });
+    console.log('[DEBUG ce4185] Auth request received:', { address: address?.substring(0, 20), nonce: nonce?.substring(0, 30), sigLen: signature?.length, keyLen: key?.length });
     // #endregion
 
-    if (!address || !nonce || !nonceHex || !nonceSignature || !signature || !key) {
+    if (!address || !nonce || !nonceSignature || !signature || !key) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -34,14 +33,15 @@ export async function POST(request: NextRequest) {
     }
 
     // #region agent log
-    console.log('[DEBUG ce4185] Nonce verified, calling checkSignature with hex nonce:', { addressPrefix: address.substring(0, 10), nonceHexPrefix: nonceHex.substring(0, 20) });
+    console.log('[DEBUG ce4185] Nonce verified, calling checkSignature with original nonce:', { addressPrefix: address.substring(0, 10), noncePrefix: nonce.substring(0, 20) });
     // #endregion
 
     const dataSignature: DataSignature = { signature, key };
     
     let isValid = false;
     try {
-      isValid = await checkSignature(nonceHex, dataSignature, address);
+      // MeshJS checkSignature expects the original message (it handles hex encoding internally)
+      isValid = await checkSignature(nonce, dataSignature, address);
       // #region agent log
       console.log('[DEBUG ce4185] checkSignature result:', isValid);
       // #endregion

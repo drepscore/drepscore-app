@@ -152,18 +152,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       const nonceResponse = await fetch('/api/auth/nonce');
       const { nonce, signature: nonceSignature } = await nonceResponse.json();
-
-      // MeshJS signData/checkSignature expect hex-encoded payload — plain nonce with UUID hyphens
-      // would fail bech32 decoding inside checkSignature
-      const nonceHex = Buffer.from(nonce, 'utf8').toString('hex');
       
       // CIP-30 returns hex addresses; MeshJS expects bech32 for signing/verification
       const bech32Address = ensureBech32Address(address);
       // #region agent log
-      console.log('[DEBUG ce4185] nonce:', nonce?.substring(0, 30), 'nonceHex:', nonceHex?.substring(0, 30), 'bech32Address:', bech32Address?.substring(0, 20));
+      console.log('[DEBUG ce4185] authenticate: nonce:', nonce?.substring(0, 30), 'bech32Address:', bech32Address?.substring(0, 20));
       // #endregion
 
-      const signResult = await signMessage(nonceHex);
+      // MeshJS signData internally hex-encodes the payload, so pass raw nonce
+      const signResult = await signMessage(nonce);
       if (!signResult) return false;
 
       const authResponse = await fetch('/api/auth/wallet', {
@@ -173,7 +170,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           address: bech32Address,
           nonce,
           nonceSignature,
-          nonceHex,
           signature: signResult.signature,
           key: signResult.key,
         }),
