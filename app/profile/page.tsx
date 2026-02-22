@@ -72,7 +72,7 @@ export default function ProfilePage() {
   useEffect(() => {
     // Always load localStorage prefs first
     const localPrefs = getUserPrefs();
-    if (localPrefs?.userPrefs?.length > 0) {
+    if (localPrefs?.userPrefs && localPrefs.userPrefs.length > 0) {
       setUserPrefs(localPrefs.userPrefs);
     }
 
