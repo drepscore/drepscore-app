@@ -29,7 +29,9 @@ import {
   Eye, 
   Check,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Shield,
+  AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +39,7 @@ interface OnboardingWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: (prefs: UserPrefKey[]) => void;
+  onSaveForever?: () => void;
   initialPrefs?: UserPrefKey[];
 }
 
@@ -87,7 +90,8 @@ const PREF_OPTIONS: {
 export function OnboardingWizard({ 
   open, 
   onOpenChange, 
-  onComplete, 
+  onComplete,
+  onSaveForever,
   initialPrefs = [] 
 }: OnboardingWizardProps) {
   const [step, setStep] = useState(1);
@@ -261,8 +265,8 @@ export function OnboardingWizard({
                     </DialogDescription>
                   </DialogHeader>
 
-                  <div className="py-6">
-                    <div className="flex flex-wrap gap-2 justify-center mb-6">
+                  <div className="py-4">
+                    <div className="flex flex-wrap gap-2 justify-center mb-4">
                       {selectedPrefs.map(key => {
                         const opt = PREF_OPTIONS.find(o => o.key === key);
                         if (!opt) return null;
@@ -275,16 +279,37 @@ export function OnboardingWizard({
                         );
                       })}
                     </div>
-                    
-                    <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                      Connect your wallet later to delegate to your top matches.
-                    </p>
+
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-left mb-4">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-xs">
+                          <p className="font-medium text-amber-800 dark:text-amber-200">Mock Alert Preview</p>
+                          <p className="text-amber-700 dark:text-amber-300 mt-0.5">
+                            "Your DRep voted against Treasury Conservative — save preferences to get real alerts"
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-3">
                     <Button onClick={handleComplete} size="lg" className="w-full">
-                      Show My Personalized DReps
+                      Show My DReps
                     </Button>
+                    {onSaveForever && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          onComplete(selectedPrefs);
+                          onSaveForever();
+                        }}
+                        className="w-full gap-2"
+                      >
+                        <Shield className="w-4 h-4" />
+                        Save My Preferences Forever
+                      </Button>
+                    )}
                     <Button 
                       variant="ghost" 
                       onClick={() => setStep(2)}

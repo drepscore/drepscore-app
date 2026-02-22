@@ -46,9 +46,11 @@ const PAGE_SIZE = 10;
 
 interface DRepTableClientProps {
   userPrefs?: UserPrefKey[];
+  watchlist?: string[];
+  onWatchlistToggle?: (drepId: string) => void;
 }
 
-export function DRepTableClient({ userPrefs = [] }: DRepTableClientProps) {
+export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistToggle }: DRepTableClientProps) {
   // Data fetching state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -332,6 +334,8 @@ export function DRepTableClient({ userPrefs = [] }: DRepTableClientProps) {
             dreps={paginatedDReps} 
             sortConfig={sortConfig}
             onSort={handleSort}
+            watchlist={watchlist}
+            onWatchlistToggle={onWatchlistToggle}
           />
           
           {/* Pagination Controls */}

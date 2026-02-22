@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Users, TrendingUp, FileText, Activity, ExternalLink } from 'lucide-react';
 import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
+import { ClaimProfileBanner } from '@/components/ClaimProfileBanner';
 import { Suspense } from 'react';
 
 interface DRepDetailPageProps {
@@ -297,6 +298,9 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
 
       {/* Delegation CTA */}
       <DelegationButton drepId={drep.drepId} drepHandle={drep.handle} />
+
+      {/* Claim Profile Banner */}
+      <ClaimProfileBanner drepId={drep.drepId} />
     </div>
   );
 }

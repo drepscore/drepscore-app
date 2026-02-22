@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { getDRepDisplayName } from '@/utils/display';
 import { formatAda, getDRepScoreBadgeClass, getSizeBadgeClass } from '@/utils/scoring';
 import { EnrichedDRep } from '@/lib/koios';
-import { CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-react';
+import { CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Info, Heart } from 'lucide-react';
 import { SortConfig, SortKey } from './DRepTableClient';
 import {
   Tooltip,
@@ -30,14 +30,17 @@ import {
 } from "@/components/ui/tooltip"
 import { ScoreBreakdown } from './ScoreBreakdown';
 import { SocialIcons } from './SocialIcons';
+import { cn } from '@/lib/utils';
 
 interface DRepTableProps {
   dreps: EnrichedDRep[];
   sortConfig?: SortConfig;
   onSort?: (key: SortKey) => void;
+  watchlist?: string[];
+  onWatchlistToggle?: (drepId: string) => void;
 }
 
-export function DRepTable({ dreps, sortConfig, onSort }: DRepTableProps) {
+export function DRepTable({ dreps, sortConfig, onSort, watchlist = [], onWatchlistToggle }: DRepTableProps) {
   const router = useRouter();
 
   if (dreps.length === 0) {
@@ -115,6 +118,10 @@ export function DRepTable({ dreps, sortConfig, onSort }: DRepTableProps) {
               tooltip="Total ADA delegated to this DRep."
               align="right"
             />
+
+            <TableHead className="w-12">
+              <span className="sr-only">Watchlist</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -178,6 +185,35 @@ export function DRepTable({ dreps, sortConfig, onSort }: DRepTableProps) {
 
               <TableCell className="text-right tabular-nums text-muted-foreground">
                 {formatAda(drep.votingPower)} ADA
+              </TableCell>
+
+              <TableCell>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onWatchlistToggle?.(drep.drepId);
+                        }}
+                        className="p-2 hover:bg-muted rounded-full transition-colors"
+                        aria-label={watchlist.includes(drep.drepId) ? 'Remove from watchlist' : 'Add to watchlist'}
+                      >
+                        <Heart
+                          className={cn(
+                            "h-4 w-4 transition-colors",
+                            watchlist.includes(drep.drepId)
+                              ? "fill-red-500 text-red-500"
+                              : "text-muted-foreground hover:text-red-400"
+                          )}
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{watchlist.includes(drep.drepId) ? 'Remove from watchlist' : 'Add to watchlist'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </TableCell>
             </TableRow>
           ))}

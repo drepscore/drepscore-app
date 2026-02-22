@@ -1,0 +1,243 @@
+'use client';
+
+import { useState } from 'react';
+import { useWallet } from '@/utils/wallet';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Wallet, Shield, Bell, Check, Loader2, AlertCircle } from 'lucide-react';
+
+interface WalletConnectModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+}
+
+type Step = 'connect' | 'sign' | 'push' | 'success';
+
+export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConnectModalProps) {
+  const {
+    connected,
+    connecting,
+    address,
+    isAuthenticated,
+    error,
+    availableWallets,
+    connect,
+    authenticate,
+  } = useWallet();
+
+  const [step, setStep] = useState<Step>('connect');
+  const [authenticating, setAuthenticating] = useState(false);
+  const [pushRequested, setPushRequested] = useState(false);
+
+  const handleWalletSelect = async (walletName: string) => {
+    await connect(walletName);
+    if (!error) {
+      setStep('sign');
+    }
+  };
+
+  const handleSign = async () => {
+    setAuthenticating(true);
+    const success = await authenticate();
+    setAuthenticating(false);
+    
+    if (success) {
+      setStep('push');
+    }
+  };
+
+  const handlePushPrompt = async (enable: boolean) => {
+    if (enable && 'Notification' in window) {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted' && 'serviceWorker' in navigator) {
+        setPushRequested(true);
+        // TODO: Register push subscription and save to Supabase
+      }
+    }
+    setStep('success');
+  };
+
+  const handleClose = () => {
+    onOpenChange(false);
+    if (step === 'success') {
+      onSuccess?.();
+    }
+    setTimeout(() => setStep('connect'), 300);
+  };
+
+  const shortenAddress = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-6)}`;
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
+        {step === 'connect' && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5" />
+                Connect Your Wallet
+              </DialogTitle>
+              <DialogDescription>
+                Save your preferences permanently and unlock Governance Guardian status.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2 py-4">
+              {availableWallets.length > 0 ? (
+                availableWallets.map((walletName) => (
+                  <Button
+                    key={walletName}
+                    variant="outline"
+                    className="w-full justify-start gap-2 h-12"
+                    onClick={() => handleWalletSelect(walletName)}
+                    disabled={connecting}
+                  >
+                    {connecting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Wallet className="h-4 w-4" />
+                    )}
+                    <span className="capitalize">{walletName}</span>
+                  </Button>
+                ))
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No Cardano wallets detected</p>
+                  <p className="text-sm mt-1">Install Eternl, Nami, or Lace to continue</p>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+          </>
+        )}
+
+        {step === 'sign' && connected && address && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Verify Ownership
+              </DialogTitle>
+              <DialogDescription>
+                Sign a message to prove you own this wallet. This doesn't cost any ADA.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-4">
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground">Connected wallet</p>
+                <p className="font-mono text-sm">{shortenAddress(address)}</p>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={handleSign}
+                disabled={authenticating}
+              >
+                {authenticating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Waiting for signature...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4 mr-2" />
+                    Sign & Verify
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+          </>
+        )}
+
+        {step === 'push' && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Stay Informed
+              </DialogTitle>
+              <DialogDescription>
+                Get notified when your DReps vote on important proposals.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-4">
+              <div className="p-4 bg-muted/50 rounded-lg border text-sm">
+                <p className="font-medium mb-1">Mock Alert Preview:</p>
+                <p className="text-muted-foreground">
+                  "Your DRep voted against Treasury Conservative — see how this affects your alignment"
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handlePushPrompt(false)}
+                >
+                  Maybe Later
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => handlePushPrompt(true)}
+                >
+                  <Bell className="h-4 w-4 mr-2" />
+                  Enable Alerts
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {step === 'success' && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <Check className="h-5 w-5" />
+                You're a Governance Guardian!
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="py-6 text-center space-y-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30">
+                <Shield className="h-8 w-8 text-green-600 dark:text-green-400" />
+              </div>
+
+              <div className="space-y-2">
+                <Badge variant="outline" className="gap-1 text-green-600 border-green-600">
+                  <Shield className="h-3 w-3" />
+                  Governance Guardian
+                </Badge>
+                <p className="text-sm text-muted-foreground">
+                  Your preferences are now saved permanently.
+                  {pushRequested && ' Alerts enabled.'}
+                </p>
+              </div>
+
+              <Button onClick={handleClose} className="w-full">
+                Continue to DReps
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
