@@ -10,10 +10,16 @@ function getSecretKey(): Uint8Array {
 
 export async function createNonce(): Promise<{ nonce: string; signature: string; expiresAt: number }> {
   const timestamp = Date.now();
-  const random = crypto.randomUUID();
-  const nonce = `${timestamp}:${random}`;
+  const sessionId = crypto.randomUUID().slice(0, 8);
+  const timeStr = new Date(timestamp).toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
 
-  const signature = await new jose.SignJWT({ nonce })
+  // Human-readable message shown in wallet signing popup
+  const nonce = `Sign in to DRepScore\nTime: ${timeStr}\nSession: ${sessionId}`;
+
+  const signature = await new jose.SignJWT({ nonce, timestamp })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime(Math.floor((timestamp + NONCE_TTL_MS) / 1000))
     .sign(getSecretKey());

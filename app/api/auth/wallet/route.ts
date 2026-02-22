@@ -19,10 +19,6 @@ export async function POST(request: NextRequest) {
     const body: AuthRequest = await request.json();
     const { address, nonce, nonceSignature, signature, key } = body;
 
-    // #region agent log
-    console.log('[DEBUG ce4185] Auth request received:', { address: address?.substring(0, 20), nonce: nonce?.substring(0, 30), sigLen: signature?.length, keyLen: key?.length });
-    // #endregion
-
     if (!address || !nonce || !nonceSignature || !signature || !key) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -32,24 +28,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired nonce' }, { status: 401 });
     }
 
-    // #region agent log
-    console.log('[DEBUG ce4185] Nonce verified, calling checkSignature with original nonce:', { addressPrefix: address.substring(0, 10), noncePrefix: nonce.substring(0, 20) });
-    // #endregion
-
     const dataSignature: DataSignature = { signature, key };
     
     let isValid = false;
     try {
-      // MeshJS checkSignature expects the original message (it handles hex encoding internally)
       isValid = await checkSignature(nonce, dataSignature, address);
-      // #region agent log
-      console.log('[DEBUG ce4185] checkSignature result:', isValid);
-      // #endregion
     } catch (sigError) {
-      // #region agent log
-      console.error('[DEBUG ce4185] checkSignature threw error:', sigError);
-      // #endregion
-      return NextResponse.json({ error: String(sigError) }, { status: 401 });
+      console.error('Signature verification error:', sigError);
+      return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
     }
     
     if (!isValid) {

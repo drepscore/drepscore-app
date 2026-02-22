@@ -82,9 +82,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Also get hex address from raw CIP-30 API for signData
       const rawApi = await getCardanoApi(name)?.enable();
       const hexAddresses = rawApi ? await rawApi.getUsedAddresses() : [];
-      // #region agent log
-      console.log('[DEBUG ce4185] connect:', { bech32First: addresses?.[0]?.substring(0, 20), hexFirst: hexAddresses?.[0]?.substring(0, 20), bech32Count: addresses?.length, hexCount: hexAddresses?.length });
-      // #endregion
 
       if (addresses && addresses.length > 0) {
         setAddress(addresses[0]);
@@ -112,9 +109,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   const signMessage = useCallback(async (message: string): Promise<{ signature: string; key: string } | null> => {
-    // #region agent log
-    console.log('[DEBUG ce4185] signMessage entry:', { walletName, hexAddr: hexAddress?.substring(0, 20), messageLen: message?.length });
-    // #endregion
     if (!walletName || !hexAddress) {
       setError('Wallet not connected');
       return null;
@@ -129,18 +123,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const hexPayload = Array.from(new TextEncoder().encode(message))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
-      // #region agent log
-      console.log('[DEBUG ce4185] CIP-30 signData params:', { hexAddr: hexAddress.substring(0, 20), hexPayload: hexPayload.substring(0, 30) });
-      // #endregion
       const result = await rawApi.signData(hexAddress, hexPayload);
-      // #region agent log
-      console.log('[DEBUG ce4185] CIP-30 signData result:', { sigLen: result.signature?.length, keyLen: result.key?.length });
-      // #endregion
       return { signature: result.signature, key: result.key };
     } catch (err) {
-      // #region agent log
-      console.error('[DEBUG ce4185] CIP-30 signData error:', err);
-      // #endregion
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign message';
       setError(errorMessage);
       console.error('Sign message error:', err);
@@ -157,10 +142,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       const nonceResponse = await fetch('/api/auth/nonce');
       const { nonce, signature: nonceSignature } = await nonceResponse.json();
-
-      // #region agent log
-      console.log('[DEBUG ce4185] authenticate:', { nonce: nonce?.substring(0, 30), address: address?.substring(0, 20) });
-      // #endregion
 
       const signResult = await signMessage(nonce);
       if (!signResult) return false;

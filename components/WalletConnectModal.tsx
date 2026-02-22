@@ -131,7 +131,7 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
                 Verify Ownership
               </DialogTitle>
               <DialogDescription>
-                Sign a message to prove you own this wallet. This doesn't cost any ADA.
+                Sign a message to prove you own this wallet.
               </DialogDescription>
             </DialogHeader>
 
@@ -139,6 +139,15 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-xs text-muted-foreground">Connected wallet</p>
                 <p className="font-mono text-sm">{shortenAddress(address)}</p>
+              </div>
+
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900 text-sm">
+                <p className="font-medium text-blue-800 dark:text-blue-200 mb-1">What to expect:</p>
+                <ul className="text-blue-700 dark:text-blue-300 space-y-1 text-xs">
+                  <li>• Your wallet will show "Sign in to DRepScore"</li>
+                  <li>• This is free — no ADA will be sent</li>
+                  <li>• You can ignore the technical hex codes</li>
+                </ul>
               </div>
 
               <Button
