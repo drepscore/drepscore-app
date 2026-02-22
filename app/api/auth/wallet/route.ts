@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     
     let isValid = false;
     try {
-      isValid = checkSignature(nonceHex, dataSignature, address);
+      isValid = await checkSignature(nonceHex, dataSignature, address);
       // #region agent log
       console.log('[DEBUG ce4185] checkSignature result:', isValid);
       // #endregion
