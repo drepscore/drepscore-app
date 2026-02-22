@@ -29,7 +29,19 @@ export async function POST(request: NextRequest) {
     }
 
     const dataSignature: DataSignature = { signature, key };
-    const isValid = checkSignature(nonce, dataSignature, address);
+    
+    // Must verify against hex-encoded nonce (same format that was signed on client)
+    const hexPayload = Array.from(new TextEncoder().encode(nonce))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    
+    let isValid = false;
+    try {
+      isValid = await checkSignature(hexPayload, dataSignature, address);
+    } catch (sigError) {
+      console.error('Signature verification error:', sigError);
+      return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
+    }
     
     if (!isValid) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });

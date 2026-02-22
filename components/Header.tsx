@@ -37,13 +37,6 @@ export function Header() {
         </Link>
 
         <nav className="flex items-center space-x-2 sm:space-x-4">
-          <Link
-            href="/"
-            className="text-sm font-medium transition-colors hover:text-primary"
-          >
-            Home
-          </Link>
-
           {isAuthenticated && sessionAddress ? (
             <>
               <DropdownMenu>
@@ -99,11 +92,12 @@ export function Header() {
                       Profile
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/" className="cursor-pointer">
-                      <Settings2 className="h-4 w-4 mr-2" />
-                      Change Preferences
-                    </Link>
+                  <DropdownMenuItem 
+                    onClick={() => window.dispatchEvent(new Event('openPreferencesWizard'))}
+                    className="cursor-pointer"
+                  >
+                    <Settings2 className="h-4 w-4 mr-2" />
+                    Change Preferences
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-destructive">

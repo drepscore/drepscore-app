@@ -17,6 +17,7 @@ const WalletConnectModal = dynamic(
   () => import('@/components/WalletConnectModal').then(mod => mod.WalletConnectModal),
   { ssr: false }
 );
+import { Input } from '@/components/ui/input';
 import {
   Shield,
   Wallet,
@@ -27,6 +28,8 @@ import {
   ExternalLink,
   ArrowLeft,
   Loader2,
+  Pencil,
+  Check,
 } from 'lucide-react';
 
 const PREF_LABELS: Record<UserPrefKey, string> = {
@@ -45,11 +48,32 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<SupabaseUser | null>(null);
   const [userPrefs, setUserPrefs] = useState<UserPrefKey[]>([]);
+  const [drepNames, setDrepNames] = useState<Record<string, string>>({});
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [savingName, setSavingName] = useState(false);
+
+  // Fetch DRep data for watchlist name lookup
+  useEffect(() => {
+    fetch('/api/dreps')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.dreps) {
+          const names: Record<string, string> = {};
+          data.dreps.forEach((d: { drepId: string; name: string | null }) => {
+            if (d.name) names[d.drepId] = d.name;
+          });
+          setDrepNames(names);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
-    const prefs = getUserPrefs();
-    if (prefs) {
-      setUserPrefs(prefs.userPrefs);
+    // Always load localStorage prefs first
+    const localPrefs = getUserPrefs();
+    if (localPrefs?.userPrefs && localPrefs.userPrefs.length > 0) {
+      setUserPrefs(localPrefs.userPrefs);
     }
 
     if (!isAuthenticated) {
@@ -69,13 +93,40 @@ export default function ProfilePage() {
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
         setUserData(data);
-        if (data?.prefs?.userPrefs) {
+        setDisplayName(data?.display_name || '');
+        // Prefer backend prefs, fallback to localStorage
+        if (data?.prefs?.userPrefs?.length > 0) {
           setUserPrefs(data.prefs.userPrefs);
+          saveUserPrefs({ hasSeenOnboarding: true, userPrefs: data.prefs.userPrefs });
         }
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [isAuthenticated]);
+
+  const saveDisplayName = async () => {
+    const token = getStoredSession();
+    if (!token) return;
+
+    setSavingName(true);
+    try {
+      const res = await fetch('/api/user', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ display_name: displayName.trim() || null }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUserData(data);
+        setIsEditingName(false);
+      }
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const removeFromWatchlist = async (drepId: string) => {
     if (!userData) return;
@@ -168,13 +219,58 @@ export default function ProfilePage() {
         <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
           <Shield className="h-8 w-8 text-green-600 dark:text-green-400" />
         </div>
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            Governance Guardian
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            {isEditingName ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="h-9 w-48"
+                  autoFocus
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') saveDisplayName();
+                    if (e.key === 'Escape') {
+                      setDisplayName(userData?.display_name || '');
+                      setIsEditingName(false);
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={saveDisplayName}
+                  disabled={savingName}
+                  className="h-8 w-8 p-0"
+                >
+                  {savingName ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-2xl font-bold">
+                  {displayName || 'Anonymous Guardian'}
+                </h1>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsEditingName(true)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <Badge variant="outline" className="text-green-600 border-green-600">
-              Verified
+              <Shield className="h-3 w-3 mr-1" />
+              Governance Guardian
             </Badge>
-          </h1>
+          </div>
           {sessionAddress && (
             <p className="text-sm text-muted-foreground font-mono">{shortenAddress(sessionAddress)}</p>
           )}
@@ -229,9 +325,11 @@ export default function ProfilePage() {
                   >
                     <Link
                       href={`/drep/${encodeURIComponent(drepId)}`}
-                      className="text-sm font-mono hover:text-primary flex items-center gap-1"
+                      className="text-sm hover:text-primary flex items-center gap-1"
                     >
-                      {shortenAddress(drepId)}
+                      <span className={drepNames[drepId] ? '' : 'font-mono'}>
+                        {drepNames[drepId] || shortenAddress(drepId)}
+                      </span>
                       <ExternalLink className="h-3 w-3" />
                     </Link>
                     <button

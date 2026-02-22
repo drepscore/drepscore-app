@@ -3,6 +3,7 @@ import { UserPrefKey } from './drep';
 export interface SupabaseUser {
   wallet_address: string;
   connected_wallets: string[];
+  display_name?: string;
   prefs: {
     userPrefs?: UserPrefKey[];
     hasSeenOnboarding?: boolean;

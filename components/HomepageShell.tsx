@@ -38,6 +38,7 @@ export function HomepageShell() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [userPrefs, setUserPrefs] = useState<UserPrefKey[]>([]);
+  const [savedPrefs, setSavedPrefs] = useState<UserPrefKey[] | null>(null);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
 
@@ -51,6 +52,13 @@ export function HomepageShell() {
     
     setWatchlist(getLocalWatchlist());
     setHasLoaded(true);
+  }, []);
+
+  // Listen for "Change Preferences" event from Header
+  useEffect(() => {
+    const handleOpenPreferences = () => setWizardOpen(true);
+    window.addEventListener('openPreferencesWizard', handleOpenPreferences);
+    return () => window.removeEventListener('openPreferencesWizard', handleOpenPreferences);
   }, []);
 
   useEffect(() => {
@@ -68,9 +76,12 @@ export function HomepageShell() {
           setWatchlist(data.watchlist);
           saveLocalWatchlist(data.watchlist);
         }
-        if (data?.prefs?.userPrefs?.length > 0) {
-          setUserPrefs(data.prefs.userPrefs);
-          saveUserPrefs({ hasSeenOnboarding: true, userPrefs: data.prefs.userPrefs });
+        // Always set savedPrefs from backend (even if empty) to track remote state
+        const backendPrefs = data?.prefs?.userPrefs || [];
+        setSavedPrefs(backendPrefs);
+        if (backendPrefs.length > 0) {
+          setUserPrefs(backendPrefs);
+          saveUserPrefs({ hasSeenOnboarding: true, userPrefs: backendPrefs });
         }
       })
       .catch(console.error);
@@ -83,9 +94,30 @@ export function HomepageShell() {
     setWizardOpen(false);
   };
 
-  const handleSaveForever = () => {
+  const handleSaveForever = async () => {
     setWizardOpen(false);
-    setWalletModalOpen(true);
+    
+    if (isAuthenticated) {
+      // Already signed in - sync prefs to backend directly
+      const token = getStoredSession();
+      if (token) {
+        try {
+          await fetch('/api/user', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ prefs: { userPrefs } }),
+          });
+          setSavedPrefs(userPrefs);
+        } catch (err) {
+          console.error('Failed to save preferences:', err);
+        }
+      }
+    } else {
+      setWalletModalOpen(true);
+    }
   };
 
   const handleWatchlistToggle = useCallback(async (drepId: string) => {
@@ -117,12 +149,27 @@ export function HomepageShell() {
     setUserPrefs([]);
   };
 
+  const resetToSaved = () => {
+    if (savedPrefs) {
+      const newPrefs = { hasSeenOnboarding: true, userPrefs: savedPrefs };
+      saveUserPrefs(newPrefs);
+      setUserPrefs(savedPrefs);
+    }
+  };
+
   const removePref = (key: UserPrefKey) => {
     const newList = userPrefs.filter(k => k !== key);
     const newPrefs = { hasSeenOnboarding: true, userPrefs: newList };
     saveUserPrefs(newPrefs);
     setUserPrefs(newList);
   };
+
+  // Check if current prefs differ from saved prefs (both directions)
+  const hasUnsavedChanges = isAuthenticated && savedPrefs !== null && savedPrefs.length > 0 && (
+    userPrefs.length !== savedPrefs.length ||
+    !userPrefs.every(p => savedPrefs.includes(p)) ||
+    !savedPrefs.every(p => userPrefs.includes(p))
+  );
 
   if (!hasLoaded) {
     return <div className="min-h-screen" />;
@@ -148,6 +195,16 @@ export function HomepageShell() {
                   </button>
                 </Badge>
               ))}
+              {hasUnsavedChanges && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetToSaved}
+                  className="text-xs h-6 px-2 text-muted-foreground hover:text-primary"
+                >
+                  Reset to Saved
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -158,9 +215,21 @@ export function HomepageShell() {
               </Button>
             </>
           ) : (
-            <span className="text-sm text-muted-foreground">
-              Personalize your DRep list based on your values.
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Personalize your DRep list based on your values.
+              </span>
+              {hasUnsavedChanges && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetToSaved}
+                  className="text-xs h-6 px-2 text-muted-foreground hover:text-primary"
+                >
+                  Reset to Saved
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
