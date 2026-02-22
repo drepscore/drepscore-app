@@ -33,6 +33,9 @@ async function getDRepData(drepId: string) {
       console.log(`[DRepScore] Fetching details for DRep: ${decodedId}`);
     }
 
+    // Note: Detail pages fetch directly from Koios to get full vote history
+    // The Supabase cache doesn't store individual votes (space optimization)
+    // Primary performance win is on homepage which doesn't need vote details
     const { info, metadata, votes } = await fetchDRepDetails(decodedId);
 
     if (!info) {

@@ -3,11 +3,14 @@
 /**
  * DRep Table Client Wrapper
  * Handles client-side pagination, sorting, filtering, and search
+ * Fetches data from API route to avoid 128KB server component prop limit
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DRepTable } from '@/components/DRepTable';
 import { EmptyState } from '@/components/EmptyState';
+import { ErrorBanner } from '@/components/ErrorBanner';
+import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { EnrichedDRep } from '@/lib/koios';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
@@ -29,12 +32,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-interface DRepTableClientProps {
-  initialDReps: EnrichedDRep[];
-  allDReps: EnrichedDRep[];
-  totalAvailable: number;
-}
-
 export type SortKey = 'drepScore' | 'votingPower' | 'sizeTier';
 export type SortDirection = 'asc' | 'desc';
 
@@ -45,11 +42,36 @@ export interface SortConfig {
 
 const PAGE_SIZE = 10;
 
-export function DRepTableClient({
-  initialDReps,
-  allDReps,
-  totalAvailable,
-}: DRepTableClientProps) {
+export function DRepTableClient() {
+  // Data fetching state
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [initialDReps, setInitialDReps] = useState<EnrichedDRep[]>([]);
+  const [allDReps, setAllDReps] = useState<EnrichedDRep[]>([]);
+  const [totalAvailable, setTotalAvailable] = useState(0);
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetch('/api/dreps')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch DReps');
+        return res.json();
+      })
+      .then(data => {
+        setInitialDReps(data.dreps || []);
+        setAllDReps(data.allDReps || []);
+        setTotalAvailable(data.totalAvailable || 0);
+        setLoading(false);
+        if (data.error) {
+          setError('Data may be stale - try refreshing');
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching DReps:', err);
+        setError('Failed to load DReps. Please try refreshing the page.');
+        setLoading(false);
+      });
+  }, []);
   // State
   const [filterWellDocumented, setFilterWellDocumented] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,6 +175,21 @@ export function DRepTableClient({
     });
     setCurrentPage(1);
   };
+
+  // Loading state
+  if (loading) {
+    return <TableSkeleton />;
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <ErrorBanner 
+        message={error}
+        retryable={true}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

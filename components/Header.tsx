@@ -3,6 +3,7 @@
 /**
  * Global Header Component
  * Features $drepscore branding and wallet connection
+ * Includes WalletProvider to avoid SSR issues
  */
 
 import Link from 'next/link';
@@ -18,7 +19,7 @@ export function Header() {
             <span className="text-2xl font-bold text-primary">$drepscore</span>
           </div>
         </Link>
-        
+
         <nav className="flex items-center space-x-4">
           <Link
             href="/"

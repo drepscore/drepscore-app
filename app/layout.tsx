@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletProvider } from "@/utils/wallet";
-import { Header } from "@/components/Header";
+import { HeaderClient } from "@/components/HeaderClient";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Providers } from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,12 +43,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <WalletProvider>
-            <Header />
+          <Providers>
+            <HeaderClient />
             <main className="min-h-screen">
               {children}
             </main>
-          </WalletProvider>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>
