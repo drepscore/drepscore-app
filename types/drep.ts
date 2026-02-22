@@ -55,3 +55,16 @@ export interface KoiosError {
   message: string;
   retryable: boolean;
 }
+
+export type UserPrefKey =
+  | 'treasury-conservative'
+  | 'smart-treasury-growth'
+  | 'strong-decentralization'
+  | 'protocol-security-first'
+  | 'innovation-defi-growth'
+  | 'responsible-governance';
+
+export interface UserPrefs {
+  hasSeenOnboarding: boolean;
+  userPrefs: UserPrefKey[];
+}

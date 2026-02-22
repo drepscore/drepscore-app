@@ -31,6 +31,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { UserPrefKey } from '@/types/drep';
+import { applyPreferenceBoost } from '@/utils/userPrefs';
 
 export type SortKey = 'drepScore' | 'votingPower' | 'sizeTier';
 export type SortDirection = 'asc' | 'desc';
@@ -42,7 +44,11 @@ export interface SortConfig {
 
 const PAGE_SIZE = 10;
 
-export function DRepTableClient() {
+interface DRepTableClientProps {
+  userPrefs?: UserPrefKey[];
+}
+
+export function DRepTableClient({ userPrefs = [] }: DRepTableClientProps) {
   // Data fetching state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +128,10 @@ export function DRepTableClient() {
         // Custom ordering for sizeTier
         aValue = sizeTierOrder[a.sizeTier] ?? 0;
         bValue = sizeTierOrder[b.sizeTier] ?? 0;
+      } else if (sortConfig.key === 'drepScore') {
+        // Use boosted score if user prefs exist
+        aValue = applyPreferenceBoost(a, userPrefs);
+        bValue = applyPreferenceBoost(b, userPrefs);
       } else {
         aValue = a[sortConfig.key] ?? 0;
         bValue = b[sortConfig.key] ?? 0;
@@ -131,7 +141,7 @@ export function DRepTableClient() {
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filteredDReps, sortConfig]);
+  }, [filteredDReps, sortConfig, userPrefs]);
 
   // Pagination Logic
   const totalPages = Math.ceil(sortedDReps.length / PAGE_SIZE);
