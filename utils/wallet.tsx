@@ -106,6 +106,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   const signMessage = useCallback(async (message: string): Promise<{ signature: string; key: string } | null> => {
+    // #region agent log
+    console.log('[DEBUG ce4185] signMessage entry:', { hasWallet: !!wallet, address: address?.substring(0, 20), messageLen: message?.length });
+    // #endregion
     if (!wallet || !address) {
       setError('Wallet not connected');
       return null;
@@ -115,7 +118,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // CIP-30 getUsedAddresses() returns hex; MeshJS signData expects bech32
       const bech32Address = hexAddressToBech32(address);
       // #region agent log
-      console.log('[DEBUG ce4185] signData called with address:', bech32Address?.substring(0, 20), 'message:', message?.substring(0, 30));
+      console.log('[DEBUG ce4185] signData params:', { bech32Address, bech32Len: bech32Address?.length, startsWithAddr: bech32Address?.startsWith('addr'), message: message?.substring(0, 30) });
       // #endregion
       const result = await wallet.signData(bech32Address, message);
       // #region agent log
