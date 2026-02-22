@@ -9,10 +9,9 @@ interface CIP30Api {
   signData(addr: string, payload: string): Promise<{ signature: string; key: string }>;
 }
 
-declare global {
-  interface Window {
-    cardano?: Record<string, { enable(): Promise<CIP30Api>; name: string }>;
-  }
+function getCardanoApi(name: string): { enable(): Promise<CIP30Api> } | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (window as any).cardano?.[name];
 }
 
 export interface WalletContextType {
@@ -81,7 +80,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const addresses = await browserWallet.getUsedAddresses();
 
       // Also get hex address from raw CIP-30 API for signData
-      const rawApi = await window.cardano?.[name]?.enable();
+      const rawApi = await getCardanoApi(name)?.enable();
       const hexAddresses = rawApi ? await rawApi.getUsedAddresses() : [];
       // #region agent log
       console.log('[DEBUG ce4185] connect:', { bech32First: addresses?.[0]?.substring(0, 20), hexFirst: hexAddresses?.[0]?.substring(0, 20), bech32Count: addresses?.length, hexCount: hexAddresses?.length });
@@ -124,7 +123,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       // Bypass MeshJS wrapper — it incorrectly bech32-decodes the payload.
       // CIP-30 signData expects hex address + hex-encoded payload.
-      const rawApi = await window.cardano?.[walletName]?.enable();
+      const rawApi = await getCardanoApi(walletName)?.enable();
       if (!rawApi) throw new Error('Could not access wallet API');
 
       const hexPayload = Array.from(new TextEncoder().encode(message))
