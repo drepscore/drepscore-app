@@ -7,11 +7,15 @@ import { bech32 } from 'bech32';
 function hexAddressToBech32(hexAddress: string): string {
   const bytes = Buffer.from(hexAddress, 'hex');
   const header = bytes[0];
-  // Lower 4 bits of header indicate network: 0=mainnet, 1=testnet
+  // Lower 4 bits of header indicate network: 1=mainnet, 0=testnet (CIP-19)
   const networkId = header & 0x0f;
-  const prefix = networkId === 0 ? 'addr' : 'addr_test';
+  const prefix = networkId === 1 ? 'addr' : 'addr_test';
   const words = bech32.toWords(bytes);
-  return bech32.encode(prefix, words, 200);
+  const result = bech32.encode(prefix, words, 200);
+  // #region agent log
+  console.log('[DEBUG ce4185] hexAddressToBech32:', { hexLen: hexAddress?.length, header, networkId, prefix, resultPrefix: result?.substring(0, 15), resultLen: result?.length });
+  // #endregion
+  return result;
 }
 import { getStoredSession, saveSession, clearSession, parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
 
