@@ -96,7 +96,7 @@ export function Header() {
             <>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
+                  <Button variant="ghost" size="icon" className="relative hover:text-primary hover:bg-primary/10">
                     <Bell className="h-4 w-4" />
                     {hasAlerts && (
                       <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-500" />
@@ -155,7 +155,7 @@ export function Header() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 hover:text-primary hover:bg-primary/10 hover:border-primary/40">
                     <Badge variant="outline" className="gap-1 text-green-600 border-green-600 px-1.5 py-0">
                       <Shield className="h-3 w-3" />
                     </Badge>
