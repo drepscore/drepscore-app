@@ -4,10 +4,11 @@
  * DRep Table Client Wrapper
  * Handles client-side pagination, sorting, filtering, and search
  * Fetches data from API route to avoid 128KB server component prop limit
+ * Calculates alignment data and hybrid scores based on user preferences
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { DRepTable } from '@/components/DRepTable';
+import { DRepTable, DRepAlignmentData } from '@/components/DRepTable';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorBanner } from '@/components/ErrorBanner';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
@@ -32,7 +33,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { UserPrefKey } from '@/types/drep';
-import { applyPreferenceBoost } from '@/utils/userPrefs';
+import { 
+  generateDummyAlignment, 
+  calculateHybridScore,
+  AlignmentBreakdown 
+} from '@/lib/alignment';
 
 export type SortKey = 'drepScore' | 'votingPower' | 'sizeTier';
 export type SortDirection = 'asc' | 'desc';
@@ -48,15 +53,18 @@ interface DRepTableClientProps {
   userPrefs?: UserPrefKey[];
   watchlist?: string[];
   onWatchlistToggle?: (drepId: string) => void;
+  isConnected?: boolean;
 }
 
-export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistToggle }: DRepTableClientProps) {
+export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistToggle, isConnected = false }: DRepTableClientProps) {
   // Data fetching state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initialDReps, setInitialDReps] = useState<EnrichedDRep[]>([]);
   const [allDReps, setAllDReps] = useState<EnrichedDRep[]>([]);
   const [totalAvailable, setTotalAvailable] = useState(0);
+  
+  const hasPrefs = userPrefs.length > 0;
 
   // Fetch data on mount
   useEffect(() => {
@@ -120,7 +128,51 @@ export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistTog
   // Size tier ordering for sorting
   const sizeTierOrder = { 'Small': 1, 'Medium': 2, 'Large': 3, 'Whale': 4 };
 
-  // Sorting Logic
+  // Calculate alignment data for all DReps (using dummy alignment without vote data)
+  const alignmentData = useMemo(() => {
+    if (!hasPrefs) return {};
+    
+    const data: Record<string, DRepAlignmentData> = {};
+    const drepsToProcess = filterWellDocumented ? initialDReps : allDReps;
+    
+    for (const drep of drepsToProcess) {
+      const alignment = generateDummyAlignment(drep, userPrefs);
+      
+      // Generate breakdown based on prefs
+      const breakdown: AlignmentBreakdown = {
+        treasury: 50,
+        decentralization: 50,
+        security: 50,
+        innovation: 50,
+        transparency: 50,
+        overall: alignment,
+      };
+      
+      // Calculate individual scores
+      if (userPrefs.includes('strong-decentralization')) {
+        const tierScores: Record<string, number> = { Small: 95, Medium: 80, Large: 50, Whale: 20 };
+        breakdown.decentralization = tierScores[drep.sizeTier] || 50;
+      }
+      if (userPrefs.includes('responsible-governance')) {
+        breakdown.transparency = drep.rationaleRate;
+      }
+      if (userPrefs.includes('protocol-security-first')) {
+        breakdown.security = Math.round(drep.participationRate * 0.5 + drep.rationaleRate * 0.5);
+      }
+      if (userPrefs.includes('innovation-defi-growth')) {
+        breakdown.innovation = Math.round(drep.participationRate * 0.8 + 10);
+      }
+      if (userPrefs.includes('treasury-conservative') || userPrefs.includes('smart-treasury-growth')) {
+        breakdown.treasury = drep.rationaleRate > 50 ? 65 : 45;
+      }
+      
+      data[drep.drepId] = { alignment, breakdown };
+    }
+    
+    return data;
+  }, [initialDReps, allDReps, userPrefs, hasPrefs, filterWellDocumented]);
+
+  // Sorting Logic - uses hybrid score when prefs set
   const sortedDReps = useMemo(() => {
     return [...filteredDReps].sort((a, b) => {
       let aValue: number;
@@ -131,9 +183,11 @@ export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistTog
         aValue = sizeTierOrder[a.sizeTier] ?? 0;
         bValue = sizeTierOrder[b.sizeTier] ?? 0;
       } else if (sortConfig.key === 'drepScore') {
-        // Use boosted score if user prefs exist
-        aValue = applyPreferenceBoost(a, userPrefs);
-        bValue = applyPreferenceBoost(b, userPrefs);
+        // Use hybrid score if user prefs exist
+        const aAlignment = alignmentData[a.drepId]?.alignment ?? 50;
+        const bAlignment = alignmentData[b.drepId]?.alignment ?? 50;
+        aValue = calculateHybridScore(a.drepScore ?? 0, aAlignment, hasPrefs);
+        bValue = calculateHybridScore(b.drepScore ?? 0, bAlignment, hasPrefs);
       } else {
         aValue = a[sortConfig.key] ?? 0;
         bValue = b[sortConfig.key] ?? 0;
@@ -143,7 +197,7 @@ export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistTog
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filteredDReps, sortConfig, userPrefs]);
+  }, [filteredDReps, sortConfig, userPrefs, alignmentData, hasPrefs]);
 
   // Pagination Logic
   const totalPages = Math.ceil(sortedDReps.length / PAGE_SIZE);
@@ -336,6 +390,9 @@ export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistTog
             onSort={handleSort}
             watchlist={watchlist}
             onWatchlistToggle={onWatchlistToggle}
+            alignmentData={alignmentData}
+            userPrefs={userPrefs}
+            isConnected={isConnected}
           />
           
           {/* Pagination Controls */}

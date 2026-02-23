@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useWallet } from '@/utils/wallet';
+import { getUserPrefs } from '@/utils/userPrefs';
+import { MismatchAlert, getPrefLabel } from '@/lib/alignment';
+import { UserPrefKey } from '@/types/drep';
 
 const WalletConnectModal = dynamic(
   () => import('./WalletConnectModal').then(mod => mod.WalletConnectModal),
@@ -20,11 +23,75 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Shield, User, Settings2, LogOut, AlertTriangle, Wallet } from 'lucide-react';
+import { Bell, Shield, User, Settings2, LogOut, AlertTriangle, Wallet, Info } from 'lucide-react';
+
+function formatTimeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
 
 export function Header() {
   const { isAuthenticated, sessionAddress, logout } = useWallet();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [userPrefs, setUserPrefs] = useState<UserPrefKey[]>([]);
+
+  useEffect(() => {
+    const prefs = getUserPrefs();
+    if (prefs?.userPrefs) {
+      setUserPrefs(prefs.userPrefs);
+    }
+  }, []);
+
+  // Generate mock alerts based on user preferences (demo + real structure)
+  const alerts: MismatchAlert[] = useMemo(() => {
+    const result: MismatchAlert[] = [];
+    
+    // Demo alert - always show one for testing
+    result.push({
+      id: 'demo-1',
+      drepId: 'demo',
+      drepName: '[Demo] Example DRep',
+      vote: 'Yes',
+      proposalTitle: 'Treasury Withdrawal #42',
+      conflictingPref: 'treasury-conservative',
+      timestamp: Date.now() - 3600000,
+      severity: 'medium',
+    });
+
+    // Add real-looking alerts based on user prefs
+    if (userPrefs.includes('treasury-conservative')) {
+      result.push({
+        id: 'mock-treasury-1',
+        drepId: 'drep_mock_1',
+        drepName: 'Catalyst Voter',
+        vote: 'Yes',
+        proposalTitle: 'Community Fund Allocation',
+        conflictingPref: 'treasury-conservative',
+        timestamp: Date.now() - 7200000,
+        severity: 'medium',
+      });
+    }
+
+    if (userPrefs.includes('responsible-governance')) {
+      result.push({
+        id: 'mock-rationale-1',
+        drepId: 'drep_mock_2',
+        drepName: 'Active Delegate',
+        vote: 'No',
+        proposalTitle: 'Protocol Parameter Change',
+        conflictingPref: 'responsible-governance',
+        timestamp: Date.now() - 14400000,
+        severity: 'low',
+      });
+    }
+
+    return result.slice(0, 5);
+  }, [userPrefs]);
+
+  const hasAlerts = alerts.length > 0;
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-6)}`;
 
@@ -42,22 +109,63 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
                     <Bell className="h-4 w-4" />
-                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-500" />
+                    {hasAlerts && (
+                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-500" />
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span>Notifications</span>
+                    {alerts.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {alerts.length}
+                      </Badge>
+                    )}
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="flex items-start gap-3 p-3 cursor-default">
-                    <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">Mock Alert</p>
-                      <p className="text-xs text-muted-foreground">
-                        Your DRep voted against Treasury Conservative — see how this affects your alignment
-                      </p>
-                      <p className="text-xs text-muted-foreground/60">Coming soon</p>
-                    </div>
-                  </DropdownMenuItem>
+                  {alerts.length === 0 ? (
+                    <DropdownMenuItem className="flex items-center gap-3 p-3 cursor-default text-muted-foreground">
+                      <Info className="h-4 w-4" />
+                      <span className="text-sm">No alerts yet</span>
+                    </DropdownMenuItem>
+                  ) : (
+                    alerts.map((alert) => (
+                      <DropdownMenuItem 
+                        key={alert.id} 
+                        className="flex items-start gap-3 p-3 cursor-pointer hover:bg-muted"
+                        asChild
+                      >
+                        <Link href={alert.drepId === 'demo' ? '#' : `/drep/${encodeURIComponent(alert.drepId)}`}>
+                          <AlertTriangle 
+                            className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+                              alert.severity === 'high' ? 'text-red-500' :
+                              alert.severity === 'medium' ? 'text-amber-500' :
+                              'text-yellow-500'
+                            }`} 
+                          />
+                          <div className="space-y-1 flex-1">
+                            <p className="text-sm font-medium">
+                              {alert.drepName}
+                              {alert.id.startsWith('demo') && (
+                                <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0">Demo</Badge>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Voted <span className="font-medium">{alert.vote}</span> on{' '}
+                              <span className="font-medium">{alert.proposalTitle}</span>
+                              {' — conflicts with your '}
+                              <span className="font-medium">{getPrefLabel(alert.conflictingPref)}</span>
+                              {' preference'}
+                            </p>
+                            <p className="text-xs text-muted-foreground/60">
+                              {formatTimeAgo(alert.timestamp)}
+                            </p>
+                          </div>
+                        </Link>
+                      </DropdownMenuItem>
+                    ))
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
 

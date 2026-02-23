@@ -8,8 +8,26 @@
  * Usage:
  *   GET /api/sync?secret=<CRON_SECRET>
  *
- * Vercel Cron (vercel.json):
- *   { "crons": [{ "path": "/api/sync?secret=<CRON_SECRET>", "schedule": "0 * * * *" }] }
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │ CRON SETUP (Free Tier Workaround)                                           │
+ * ├─────────────────────────────────────────────────────────────────────────────┤
+ * │ Since Vercel free tier doesn't support native cron jobs, use an external    │
+ * │ service to trigger this endpoint on a schedule:                             │
+ * │                                                                             │
+ * │ Option 1: cron-job.org (free)                                               │
+ * │   1. Create account at https://cron-job.org                                 │
+ * │   2. Create new cron job with:                                              │
+ * │      URL: https://your-app.vercel.app/api/sync?secret=YOUR_CRON_SECRET      │
+ * │      Schedule: Every 15 minutes                                             │
+ * │                                                                             │
+ * │ Option 2: UptimeRobot (free monitoring with HTTP checks)                    │
+ * │   1. Create account at https://uptimerobot.com                              │
+ * │   2. Add HTTP(s) monitor with:                                              │
+ * │      URL: https://your-app.vercel.app/api/sync?secret=YOUR_CRON_SECRET      │
+ * │      Interval: 15 minutes                                                   │
+ * │                                                                             │
+ * │ Note: Set CRON_SECRET in Vercel Environment Variables                       │
+ * └─────────────────────────────────────────────────────────────────────────────┘
  */
 
 import { NextRequest, NextResponse } from 'next/server';

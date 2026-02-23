@@ -15,9 +15,12 @@ import { getStoredSession } from '@/lib/supabaseAuth';
 import { UserPrefKey } from '@/types/drep';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Settings2, X } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Settings2, X, AlertTriangle } from 'lucide-react';
+import { getPrefLabel } from '@/lib/alignment';
 
 const WATCHLIST_KEY = 'drepscore_watchlist';
+const MISMATCH_DISMISSED_KEY = 'drepscore_mismatch_dismissed';
 
 function getLocalWatchlist(): string[] {
   if (typeof window === 'undefined') return [];
@@ -33,6 +36,16 @@ function saveLocalWatchlist(watchlist: string[]): void {
   localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist));
 }
 
+function getMismatchDismissed(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(MISMATCH_DISMISSED_KEY) === 'true';
+}
+
+function setMismatchDismissed(dismissed: boolean): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(MISMATCH_DISMISSED_KEY, dismissed ? 'true' : 'false');
+}
+
 export function HomepageShell() {
   const { isAuthenticated, sessionAddress } = useWallet();
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -41,6 +54,15 @@ export function HomepageShell() {
   const [savedPrefs, setSavedPrefs] = useState<UserPrefKey[] | null>(null);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [mismatchBannerDismissed, setMismatchBannerDismissed] = useState(true);
+  
+  // Mock mismatch for demo - in production, this would come from real vote analysis
+  const mockMismatch = userPrefs.includes('treasury-conservative') ? {
+    drepName: 'Example DRep',
+    vote: 'Yes' as const,
+    proposal: 'Treasury Withdrawal Proposal',
+    pref: 'treasury-conservative' as UserPrefKey,
+  } : null;
 
   useEffect(() => {
     const prefs = getUserPrefs();
@@ -51,6 +73,7 @@ export function HomepageShell() {
     }
     
     setWatchlist(getLocalWatchlist());
+    setMismatchBannerDismissed(getMismatchDismissed());
     setHasLoaded(true);
   }, []);
 
@@ -175,8 +198,34 @@ export function HomepageShell() {
     return <div className="min-h-screen" />;
   }
 
+  const handleDismissMismatch = () => {
+    setMismatchBannerDismissed(true);
+    setMismatchDismissed(true);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Mismatch Alert Banner */}
+      {mockMismatch && !mismatchBannerDismissed && userPrefs.length > 0 && (
+        <Alert variant="destructive" className="relative bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-100">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-800 dark:text-amber-200">Value Mismatch Detected</AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-300">
+            Your DRep <span className="font-semibold">{mockMismatch.drepName}</span> voted{' '}
+            <span className="font-semibold">{mockMismatch.vote}</span> on{' '}
+            <span className="font-semibold">{mockMismatch.proposal}</span>, which may conflict with your{' '}
+            <span className="font-semibold">{getPrefLabel(mockMismatch.pref)}</span> preference.
+          </AlertDescription>
+          <button
+            onClick={handleDismissMismatch}
+            className="absolute top-3 right-3 p-1 hover:bg-amber-500/20 rounded"
+            aria-label="Dismiss alert"
+          >
+            <X className="h-4 w-4 text-amber-600" />
+          </button>
+        </Alert>
+      )}
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           {userPrefs.length > 0 ? (
@@ -261,6 +310,7 @@ export function HomepageShell() {
         userPrefs={userPrefs}
         watchlist={watchlist}
         onWatchlistToggle={handleWatchlistToggle}
+        isConnected={isAuthenticated}
       />
     </div>
   );
