@@ -96,6 +96,9 @@ interface SupabaseRationaleRow {
 const RATIONALE_FETCH_TIMEOUT_MS = 5000;
 const RATIONALE_MAX_CONTENT_SIZE = 50000; // 50KB
 const RATIONALE_CONCURRENCY = 3;
+// Cap IPFS fetches per sync run so the function stays within Vercel's timeout.
+// Each subsequent sync incrementally fetches more. ~30 fetches * 5s / 3 concurrency = ~50s.
+const RATIONALE_MAX_PER_SYNC = 30;
 
 async function fetchRationaleFromUrl(url: string): Promise<string | null> {
   try {
@@ -162,9 +165,14 @@ async function fetchAndCacheRationales(
     .in('vote_tx_hash', txHashes.slice(0, 1000)); // Supabase IN limit
 
   const alreadyCached = new Set((existingRows || []).map(r => r.vote_tx_hash));
-  const uncached = votesNeedingFetch.filter(v => !alreadyCached.has(v.vote.vote_tx_hash));
+  const allUncached = votesNeedingFetch.filter(v => !alreadyCached.has(v.vote.vote_tx_hash));
+  // Process only the most recent uncached votes to stay within function timeout
+  const uncached = allUncached.slice(0, RATIONALE_MAX_PER_SYNC);
 
   if (uncached.length === 0) return { fetched: 0, cached: alreadyCached.size };
+  if (allUncached.length > RATIONALE_MAX_PER_SYNC) {
+    console.log(`[Sync] Rationale fetch capped at ${RATIONALE_MAX_PER_SYNC}/${allUncached.length} uncached votes (remaining will be fetched in future syncs)`);
+  }
 
   console.log(`[Sync] Fetching rationales for ${uncached.length} uncached votes...`);
 
