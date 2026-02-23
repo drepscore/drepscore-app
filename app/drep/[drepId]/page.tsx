@@ -82,7 +82,46 @@ async function getDRepData(drepId: string) {
     const cachedProposals = await getProposalsByIds(
       votes.map(v => ({ txHash: v.proposal_tx_hash, index: v.proposal_index }))
     );
-    const cachedRationales = await getRationalesByVoteTxHashes(votes.map(v => v.vote_tx_hash));
+    let cachedRationales = await getRationalesByVoteTxHashes(votes.map(v => v.vote_tx_hash));
+    
+    // Fetch rationales for recent votes that have meta_url but aren't cached yet
+    const votesNeedingRationale = votes
+      .filter(v => v.meta_url && !v.meta_json?.rationale && !cachedRationales.has(v.vote_tx_hash))
+      .sort((a, b) => b.block_time - a.block_time)
+      .slice(0, 15);
+    
+    if (votesNeedingRationale.length > 0) {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : 'http://localhost:3000';
+        
+        const res = await fetch(`${baseUrl}/api/rationale`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            votes: votesNeedingRationale.map(v => ({
+              voteTxHash: v.vote_tx_hash,
+              drepId: decodedId,
+              proposalTxHash: v.proposal_tx_hash,
+              proposalIndex: v.proposal_index,
+              metaUrl: v.meta_url,
+            })),
+          }),
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          for (const result of data.results || []) {
+            if (result.rationaleText) {
+              cachedRationales.set(result.voteTxHash, result.rationaleText);
+            }
+          }
+        }
+      } catch {
+        // Rationale fetch failed; continue with what we have
+      }
+    }
     
     const voteRecords: VoteRecord[] = votes.map((vote, index) => {
       const cachedProposal = cachedProposals.get(`${vote.proposal_tx_hash}-${vote.proposal_index}`);
