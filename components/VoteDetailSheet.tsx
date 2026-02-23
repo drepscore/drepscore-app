@@ -107,24 +107,32 @@ export function VoteDetailSheet({ vote, open, onOpenChange, userPrefs = [] }: Vo
         </SheetHeader>
 
         <div className="px-4 pb-6 space-y-5">
-          {/* Proposal Metadata Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {typeInfo && (
-              <Badge variant="outline" className="gap-1">
-                {TypeIcon && <TypeIcon className="h-3 w-3" />}
-                {typeInfo.label}
-              </Badge>
-            )}
-            {vote.treasuryTier && (
-              <Badge variant="outline" className="text-xs">
-                {TREASURY_TIER_LABELS[vote.treasuryTier] || vote.treasuryTier}
-              </Badge>
-            )}
-            {vote.withdrawalAmount && (
-              <Badge variant="outline" className="text-xs">
-                {vote.withdrawalAmount.toLocaleString()} ADA
-              </Badge>
-            )}
+          {/* Proposal Metadata Badges + View Full Proposal link */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              {typeInfo && (
+                <Badge variant="outline" className="gap-1">
+                  {TypeIcon && <TypeIcon className="h-3 w-3" />}
+                  {typeInfo.label}
+                </Badge>
+              )}
+              {vote.treasuryTier && (
+                <Badge variant="outline" className="text-xs">
+                  {TREASURY_TIER_LABELS[vote.treasuryTier] || vote.treasuryTier}
+                </Badge>
+              )}
+              {vote.withdrawalAmount && (
+                <Badge variant="outline" className="text-xs">
+                  {vote.withdrawalAmount.toLocaleString()} ADA
+                </Badge>
+              )}
+            </div>
+            <Link
+              href={`/proposals/${vote.proposalTxHash}/${vote.proposalIndex}`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline shrink-0"
+            >
+              View Full Proposal <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
 
           {/* Alignment Reasons */}
@@ -227,22 +235,14 @@ export function VoteDetailSheet({ vote, open, onOpenChange, userPrefs = [] }: Vo
                 </span>
               </div>
             </div>
-            <div className="flex flex-col gap-2 mt-2">
-              <Link
-                href={`/proposals/${vote.proposalTxHash}/${vote.proposalIndex}`}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              >
-                View Full Proposal <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-              <a
-                href={`https://gov.tools/governance_actions/${vote.proposalTxHash}#${vote.proposalIndex}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary hover:underline"
-              >
-                View on GovTool <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
+            <a
+              href={`https://gov.tools/governance_actions/${vote.proposalTxHash}#${vote.proposalIndex}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary hover:underline mt-2"
+            >
+              View on GovTool <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
         </div>
       </SheetContent>
