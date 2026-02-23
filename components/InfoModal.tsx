@@ -182,8 +182,10 @@ export function RationaleImportanceModal() {
         review their past rationales to ensure their reasoning aligns with your values.
       </p>
       <p className="text-sm text-muted-foreground">
-        Note: This metric measures on-chain rationale submitted via CIP-100 metadata. Some DReps 
-        share reasoning through external channels (blogs, YouTube) that isn&apos;t captured here.
+        Note: Rationale is weighted by proposal importance — critical governance votes (hard forks, 
+        constitutional changes) count 3x more than routine votes. Rationale must be at least 50 
+        characters to count. DReps who list social/communication channels in their CIP-119 profile 
+        receive credit via the Profile Completeness score.
       </p>
     </InfoModal>
   );

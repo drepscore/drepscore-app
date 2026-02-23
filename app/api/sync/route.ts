@@ -36,6 +36,7 @@ import { fetchProposals } from '@/utils/koios';
 import { DRepVote } from '@/types/koios';
 import { classifyProposals, computeAllCategoryScores } from '@/lib/alignment';
 import type { ClassifiedProposal } from '@/types/koios';
+import type { ProposalContext } from '@/utils/scoring';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -55,6 +56,7 @@ interface SupabaseDRepRow {
   deliberation_modifier: number;
   effective_participation: number;
   size_tier: string;
+  profile_completeness: number;
 }
 
 interface SupabaseProposalRow {
@@ -250,13 +252,38 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // ── Fetch enriched DReps from Koios (with raw votes) ─────────────────────
+  // ── Fetch proposals FIRST for proposal-type-weighted rationale scoring ────
   console.log('[Sync] Starting DRep sync...');
+  console.log('[Sync] Fetching proposals from Koios (needed for weighted rationale scoring)...');
 
+  let classifiedProposalsList: ClassifiedProposal[] = [];
+  const proposalContextMap = new Map<string, ProposalContext>();
+
+  try {
+    const rawProposals = await fetchProposals();
+    if (rawProposals.length > 0) {
+      classifiedProposalsList = classifyProposals(rawProposals);
+      for (const p of classifiedProposalsList) {
+        proposalContextMap.set(`${p.txHash}-${p.index}`, {
+          proposalType: p.type,
+          treasuryTier: p.treasuryTier,
+        });
+      }
+      console.log(`[Sync] Built proposal context map: ${proposalContextMap.size} proposals`);
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.warn('[Sync] Proposal pre-fetch failed, rationale scoring will use equal weights:', message);
+  }
+
+  // ── Fetch enriched DReps from Koios (with raw votes + proposal context) ──
   let allDReps;
   let rawVotesMap: Record<string, DRepVote[]> | undefined;
   try {
-    const result = await getEnrichedDReps(false, { includeRawVotes: true });
+    const result = await getEnrichedDReps(false, {
+      includeRawVotes: true,
+      proposalContextMap: proposalContextMap.size > 0 ? proposalContextMap : undefined,
+    });
 
     if (result.error) {
       console.error('[Sync] Failed to fetch DReps from Koios');
@@ -315,6 +342,7 @@ export async function GET(request: NextRequest) {
     deliberation_modifier: drep.deliberationModifier,
     effective_participation: drep.effectiveParticipation,
     size_tier: drep.sizeTier,
+    profile_completeness: drep.profileCompleteness,
   }));
 
   // ── Upsert DReps to Supabase ─────────────────────────────────────────────
@@ -451,21 +479,13 @@ export async function GET(request: NextRequest) {
     console.warn('[Sync] No raw votes map available, skipping vote upsert');
   }
 
-  // ── Fetch and cache proposals ──────────────────────────────────────────────
-  console.log('[Sync] Fetching proposals from Koios...');
+  // ── Upsert proposals to Supabase (already fetched and classified above) ───
   let proposalSuccessCount = 0;
   let proposalErrorCount = 0;
-  let classifiedProposalsList: ClassifiedProposal[] = [];
 
   try {
-    const rawProposals = await fetchProposals();
-    
-    if (rawProposals.length > 0) {
-      const classifiedProposals = classifyProposals(rawProposals);
-      classifiedProposalsList = classifiedProposals;
-      console.log(`[Sync] Classified ${classifiedProposals.length} proposals`);
-
-      const rawProposalRows: SupabaseProposalRow[] = classifiedProposals.map((p) => ({
+    if (classifiedProposalsList.length > 0) {
+      const rawProposalRows: SupabaseProposalRow[] = classifiedProposalsList.map((p) => ({
         tx_hash: p.txHash,
         proposal_index: p.index,
         proposal_type: p.type,
@@ -508,11 +528,11 @@ export async function GET(request: NextRequest) {
         }
       }
     } else {
-      console.log('[Sync] No proposals fetched from Koios');
+      console.log('[Sync] No proposals to upsert');
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[Sync] Error syncing proposals:', message);
+    console.error('[Sync] Error upserting proposals:', message);
   }
 
   // ── Generate AI summaries for proposals without one ──────────────────────
@@ -635,6 +655,40 @@ export async function GET(request: NextRequest) {
     console.log(`[Sync] Alignment scores computed for ${alignmentUpdateCount} DReps`);
   } else {
     console.warn('[Sync] Skipping alignment computation (missing votes or proposals)');
+  }
+
+  // ── Snapshot score history (one row per DRep per day) ─────────────────────
+  let scoreHistoryCount = 0;
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const historyRows = allDReps.map((drep) => ({
+      drep_id: drep.drepId,
+      score: drep.drepScore,
+      effective_participation: drep.effectiveParticipation,
+      rationale_rate: drep.rationaleRate,
+      consistency_score: drep.consistencyScore,
+      profile_completeness: drep.profileCompleteness,
+      snapshot_date: today,
+    }));
+
+    for (let i = 0; i < historyRows.length; i += BATCH_SIZE) {
+      const batch = historyRows.slice(i, i + BATCH_SIZE);
+      const { error } = await supabase
+        .from('drep_score_history')
+        .upsert(batch, { onConflict: 'drep_id,snapshot_date', ignoreDuplicates: false });
+      if (error) {
+        // Table may not exist yet -- log but don't fail the sync
+        if (i === 0) console.warn(`[Sync] Score history upsert skipped (table may not exist): ${error.message}`);
+        break;
+      }
+      scoreHistoryCount += batch.length;
+    }
+
+    if (scoreHistoryCount > 0) {
+      console.log(`[Sync] Score history: ${scoreHistoryCount} snapshots saved for ${today}`);
+    }
+  } catch (err) {
+    console.warn('[Sync] Score history phase skipped:', err);
   }
 
   const durationSeconds = ((Date.now() - startTime) / 1000).toFixed(1);

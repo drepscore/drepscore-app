@@ -4,6 +4,18 @@
 
 import { DRepVote } from '@/types/koios';
 import { ValuePreference, VoteRecord } from '@/types/drep';
+import { isValidatedSocialLink } from '@/utils/display';
+
+// ---------------------------------------------------------------------------
+// V2 Scoring Constants
+// ---------------------------------------------------------------------------
+
+export const MIN_RATIONALE_LENGTH = 50;
+
+export interface ProposalContext {
+  proposalType: string;
+  treasuryTier: string | null;
+}
 
 /**
  * Size tier categories based on voting power
@@ -168,6 +180,154 @@ export function calculateEffectiveParticipation(
 ): number {
   return Math.round(participationRate * deliberationModifier);
 }
+
+// ---------------------------------------------------------------------------
+// V2: Profile Completeness (CIP-119 metadata)
+// ---------------------------------------------------------------------------
+
+function extractStringValue(value: unknown): string | null {
+  if (typeof value === 'string') return value.trim() || null;
+  if (value && typeof value === 'object' && '@value' in (value as object)) {
+    const inner = (value as Record<string, unknown>)['@value'];
+    if (typeof inner === 'string') return inner.trim() || null;
+  }
+  return null;
+}
+
+/**
+ * Calculate profile completeness from CIP-119 metadata body.
+ * givenName 15pts, objectives 20pts, motivations 15pts,
+ * qualifications 10pts, bio 10pts, validated social links 25-30pts.
+ */
+export function calculateProfileCompleteness(
+  metadata: Record<string, unknown> | null
+): number {
+  if (!metadata) return 0;
+
+  let score = 0;
+
+  if (extractStringValue(metadata.givenName) || extractStringValue(metadata.name)) score += 15;
+  if (extractStringValue(metadata.objectives)) score += 20;
+  if (extractStringValue(metadata.motivations)) score += 15;
+  if (extractStringValue(metadata.qualifications)) score += 10;
+  if (extractStringValue(metadata.bio)) score += 10;
+
+  const references = metadata.references;
+  if (Array.isArray(references)) {
+    let validCount = 0;
+    for (const ref of references) {
+      if (ref && typeof ref === 'object' && 'uri' in ref) {
+        const { uri, label } = ref as { uri: string; label?: string };
+        if (uri && isValidatedSocialLink(uri, label)) validCount++;
+      }
+    }
+    if (validCount >= 2) score += 30;
+    else if (validCount >= 1) score += 25;
+  }
+
+  return Math.min(100, score);
+}
+
+// ---------------------------------------------------------------------------
+// V2: Proposal-Type-Weighted Rationale
+// ---------------------------------------------------------------------------
+
+const CRITICAL_PROPOSAL_TYPES = [
+  'HardForkInitiation', 'NoConfidence',
+  'NewConstitutionalCommittee', 'UpdateConstitution',
+];
+
+function getProposalImportanceWeight(ctx: ProposalContext): number {
+  if (CRITICAL_PROPOSAL_TYPES.includes(ctx.proposalType)) return 3;
+  if (ctx.proposalType === 'ParameterChange') return 2;
+  if (
+    ctx.proposalType === 'TreasuryWithdrawals' &&
+    (ctx.treasuryTier === 'significant' || ctx.treasuryTier === 'major')
+  ) return 2;
+  return 1;
+}
+
+/**
+ * Check if a vote has quality rationale (>= MIN_RATIONALE_LENGTH chars).
+ * Gives benefit of the doubt when rationale is hosted externally and not yet fetched.
+ */
+export function hasQualityRationale(vote: DRepVote, resolvedText?: string): boolean {
+  if (resolvedText !== undefined) {
+    return resolvedText.length >= MIN_RATIONALE_LENGTH;
+  }
+
+  const inline =
+    vote.meta_json?.body?.comment ||
+    vote.meta_json?.body?.rationale ||
+    vote.meta_json?.rationale;
+
+  if (typeof inline === 'string') {
+    return inline.length >= MIN_RATIONALE_LENGTH;
+  }
+
+  if (vote.meta_url !== null) return true;
+  return false;
+}
+
+/**
+ * Calculate rationale rate weighted by proposal importance.
+ * Critical (3x), Important (2x), Standard (1x).
+ * Falls back to equal weights when proposal context is unavailable.
+ */
+export function calculateWeightedRationaleRate(
+  votes: DRepVote[],
+  proposalMap: Map<string, ProposalContext>,
+  rationaleTexts?: Map<string, string>
+): number {
+  if (votes.length === 0) return 0;
+
+  let weightedRationale = 0;
+  let totalWeight = 0;
+
+  for (const vote of votes) {
+    const key = `${vote.proposal_tx_hash}-${vote.proposal_index}`;
+    const ctx = proposalMap.get(key);
+    const weight = ctx ? getProposalImportanceWeight(ctx) : 1;
+    const resolved = rationaleTexts?.get(vote.vote_tx_hash);
+
+    totalWeight += weight;
+    if (hasQualityRationale(vote, resolved)) {
+      weightedRationale += weight;
+    }
+  }
+
+  if (totalWeight === 0) return 0;
+  return Math.round((weightedRationale / totalWeight) * 100);
+}
+
+// ---------------------------------------------------------------------------
+// V2: Forgiving Rationale Curve
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply tiered curve to rationale rate so early effort is rewarded more.
+ * 0-20% raw  -> 0-30 adjusted  (1.5x, rewards initial effort)
+ * 20-60% raw -> 30-70 adjusted (1.0x, linear middle)
+ * 60-100% raw -> 70-100 adjusted (0.75x, diminishing returns)
+ */
+export function applyRationaleCurve(rawRate: number): number {
+  const rate = Math.max(0, Math.min(100, rawRate));
+
+  let adjusted: number;
+  if (rate <= 20) {
+    adjusted = (rate / 20) * 30;
+  } else if (rate <= 60) {
+    adjusted = 30 + ((rate - 20) / 40) * 40;
+  } else {
+    adjusted = 70 + ((rate - 60) / 40) * 30;
+  }
+
+  return Math.round(Math.max(0, Math.min(100, adjusted)));
+}
+
+// ---------------------------------------------------------------------------
+// Legacy / Utilities
+// ---------------------------------------------------------------------------
 
 /**
  * Calculate abstention penalty

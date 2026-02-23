@@ -107,6 +107,13 @@ export function getProposalDisplayTitle(
   return `Governance Action #${proposalIndex} (${shortHash})`;
 }
 
+export const KNOWN_PLATFORM_NAMES = new Set([
+  'Twitter/X', 'LinkedIn', 'GitHub', 'GitLab', 'Facebook', 'Instagram',
+  'YouTube', 'Reddit', 'Medium', 'Discord', 'Telegram', 'Linktree',
+  'WhatsApp', 'Bluesky', 'Mastodon', 'Twitch', 'Cardano Foundation',
+  'IOHK', 'EMURGO',
+]);
+
 const PLATFORM_URL_MAP: Record<string, string> = {
   'twitter.com': 'Twitter/X',
   'x.com': 'Twitter/X',
@@ -161,6 +168,15 @@ const LABEL_ALIAS_MAP: Record<string, string> = {
   'mastodon': 'Mastodon',
   'twitch': 'Twitch',
 };
+
+/**
+ * Check if a URI resolves to a known social/communication platform.
+ * Used for profile completeness scoring to validate references.
+ */
+export function isValidatedSocialLink(uri: string, label?: string): boolean {
+  const platform = extractSocialPlatform(uri, label);
+  return KNOWN_PLATFORM_NAMES.has(platform);
+}
 
 /**
  * Extract social media platform name from URL.

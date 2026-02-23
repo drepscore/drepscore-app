@@ -41,6 +41,7 @@ function transformSupabaseRowToDRep(row: any): EnrichedDRep {
     metadata: row.metadata || null,
     drepScore: row.score || 0,
     epochVoteCounts: info.epochVoteCounts || [],
+    profileCompleteness: row.profile_completeness || 0,
     alignmentTreasuryConservative: row.alignment_treasury_conservative ?? null,
     alignmentTreasuryGrowth: row.alignment_treasury_growth ?? null,
     alignmentDecentralization: row.alignment_decentralization ?? null,

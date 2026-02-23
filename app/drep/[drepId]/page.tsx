@@ -115,6 +115,7 @@ async function getDRepData(drepId: string) {
       effectiveParticipation: cachedDRep.effectiveParticipation,
       deliberationModifier: cachedDRep.deliberationModifier,
       consistencyScore: cachedDRep.consistencyScore,
+      profileCompleteness: cachedDRep.profileCompleteness,
       anchorUrl: cachedDRep.anchorUrl,
       metadata: cachedDRep.metadata,
       votes: voteRecords,
@@ -232,7 +233,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="font-medium">Effective Participation</span>
-              <span className="text-muted-foreground">{drep.effectiveParticipation}% <span className="text-xs">(45% weight)</span></span>
+              <span className="text-muted-foreground">{drep.effectiveParticipation}% <span className="text-xs">(40% weight)</span></span>
             </div>
             <Progress value={drep.effectiveParticipation} className="h-2" />
             <p className="text-xs text-muted-foreground">
@@ -249,12 +250,13 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="font-medium">Rationale Rate</span>
-              <span className="text-muted-foreground">{drep.rationaleRate}% <span className="text-xs">(35% weight)</span></span>
+              <span className="text-muted-foreground">{drep.rationaleRate}% <span className="text-xs">(25% weight)</span></span>
             </div>
             <Progress value={drep.rationaleRate} className="h-2" />
             <p className="text-xs text-muted-foreground">
-              How often this DRep submits on-chain rationale metadata with their votes.
-              Some DReps share reasoning through external channels (blogs, videos) that isn&apos;t captured here.
+              Weighted by proposal importance: critical governance votes (hard forks, constitutional changes) 
+              count 3x more than routine votes. A forgiving curve rewards DReps who provide rationale 
+              consistently, even if not on every vote.
             </p>
           </div>
           
@@ -267,6 +269,19 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
             <Progress value={drep.consistencyScore} className="h-2" />
             <p className="text-xs text-muted-foreground">
               How steadily this DRep participates over time.
+            </p>
+          </div>
+
+          {/* Profile Completeness */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Profile Completeness</span>
+              <span className="text-muted-foreground">{drep.profileCompleteness}% <span className="text-xs">(15% weight)</span></span>
+            </div>
+            <Progress value={drep.profileCompleteness} className="h-2" />
+            <p className="text-xs text-muted-foreground">
+              How thoroughly this DRep has filled out their CIP-119 metadata profile, including 
+              governance objectives, motivations, qualifications, and verified social/communication links.
             </p>
           </div>
         </CardContent>

@@ -16,8 +16,14 @@ import {
   calculateDeliberationModifier,
   calculateConsistency,
   calculateEffectiveParticipation,
+  calculateProfileCompleteness,
+  calculateWeightedRationaleRate,
+  hasQualityRationale,
+  applyRationaleCurve,
   lovelaceToAda,
   getSizeTier,
+  MIN_RATIONALE_LENGTH,
+  type ProposalContext,
 } from '@/utils/scoring';
 import { isWellDocumented } from '@/utils/documentation';
 import { DRep } from '@/types/drep';
@@ -27,9 +33,11 @@ import { getActiveProposalEpochs, getActualProposalCount } from '@/lib/data';
 // Weighting Philosophy (V2)
 // ---------------------------------------------------------------------------
 // DRep Score is purely objective - measures accountability:
-// - Effective Participation (45%): Do they show up? Penalized for rubber-stamping.
-// - Rationale (35%): Do they explain their votes?
+// - Effective Participation (40%): Do they show up? Penalized for rubber-stamping.
+// - Rationale (25%): Do they explain their votes? Weighted by proposal importance,
+//   curved to reward initial effort, quality threshold to prevent gaming.
 // - Consistency (20%): Do they stay engaged over time?
+// - Profile Completeness (15%): Do they invest in their public CIP-119 profile?
 // ---------------------------------------------------------------------------
 
 /** Weights for DRep Score components (each 0-1, should sum to 1) */
@@ -37,13 +45,15 @@ export interface DRepWeights {
   effectiveParticipation: number;
   rationale: number;
   consistency: number;
+  profileCompleteness: number;
 }
 
 /** Default: accountability-focused weights */
 export const DEFAULT_WEIGHTS: DRepWeights = {
-  effectiveParticipation: 0.45,
-  rationale: 0.35,
+  effectiveParticipation: 0.40,
+  rationale: 0.25,
   consistency: 0.20,
+  profileCompleteness: 0.15,
 };
 
 /** DRep with computed drepScore (0-100) and pre-computed alignment scores */
@@ -60,28 +70,28 @@ export interface EnrichedDRep extends DRep {
 
 /**
  * Calculate rolled-up DRep Score (0-100).
- * Formula: Effective Participation (45%) + Rationale (35%) + Consistency (20%)
- * 
- * Effective Participation = participationRate * deliberationModifier
- * This penalizes rubber-stamping (voting >90% one direction).
+ * Formula: Effective Participation (40%) + Adjusted Rationale (25%)
+ *          + Consistency (20%) + Profile Completeness (15%)
  *
- * @param drep - DRep with effectiveParticipation, rationaleRate, consistencyScore
+ * rationaleRate is the raw weighted rate; the forgiving curve is applied here.
  */
 export function calculateDRepScore(
   drep: Pick<
     DRep,
-    'effectiveParticipation' | 'rationaleRate' | 'consistencyScore'
+    'effectiveParticipation' | 'rationaleRate' | 'consistencyScore' | 'profileCompleteness'
   >,
   weights: DRepWeights = DEFAULT_WEIGHTS
 ): number {
   const effectiveParticipation = drep.effectiveParticipation ?? 0;
-  const rationale = drep.rationaleRate ?? 0;
+  const rationale = applyRationaleCurve(drep.rationaleRate ?? 0);
   const consistency = drep.consistencyScore ?? 0;
+  const profile = drep.profileCompleteness ?? 0;
 
   const raw =
     (effectiveParticipation / 100) * weights.effectiveParticipation +
     (rationale / 100) * weights.rationale +
-    (consistency / 100) * weights.consistency;
+    (consistency / 100) * weights.consistency +
+    (profile / 100) * weights.profileCompleteness;
 
   const score = Math.round(raw * 100);
 
@@ -172,10 +182,11 @@ async function fetchVotesBatched(
  * Fetch enriched DReps with drepScore, sorted by score DESC then voting_power DESC.
  * Loads ALL registered DReps in batches (no limit).
  * @param wellDocumentedOnly - If true, filter to well-documented DReps only (default view)
+ * @param options.proposalContextMap - When provided, enables proposal-type-weighted rationale scoring
  */
 export async function getEnrichedDReps(
   wellDocumentedOnly: boolean = true,
-  options?: { includeRawVotes?: boolean }
+  options?: { includeRawVotes?: boolean; proposalContextMap?: Map<string, ProposalContext> }
 ): Promise<{
   dreps: EnrichedDRep[];
   allDReps: EnrichedDRep[];
@@ -244,6 +255,8 @@ export async function getEnrichedDReps(
         Object.assign(allRawVotes, votesMap);
       }
 
+      const proposalCtx = options?.proposalContextMap;
+
       const batchDreps: DRep[] = sortedInfo.map((drepInfo) => {
         const drepMetadata = metadata.find((m) => m.drep_id === drepInfo.drep_id);
         const rawVotes = votesMap[drepInfo.drep_id] || [];
@@ -263,25 +276,30 @@ export async function getEnrichedDReps(
         const noVotes = votes.filter((v) => v.vote === 'No').length;
         const abstainVotes = votes.filter((v) => v.vote === 'Abstain').length;
 
-        const votesWithRationale = votes.filter(
-          (v) => v.meta_url !== null
-            || v.meta_json?.rationale != null
-            || v.meta_json?.body?.comment != null
-            || v.meta_json?.body?.rationale != null
-        ).length;
-
         const { name, ticker, description } = parseMetadataFields(drepMetadata);
         const votingPower = lovelaceToAda(drepInfo.amount || '0');
 
         const participationRate = calculateParticipationRate(votes.length, actualProposalCount);
-        const rationaleRate =
-          votes.length > 0 ? Math.round((votesWithRationale / votes.length) * 100) : 0;
-        
+
+        // V2: Proposal-type-weighted rationale with quality threshold
+        let rationaleRate: number;
+        if (proposalCtx && proposalCtx.size > 0) {
+          rationaleRate = calculateWeightedRationaleRate(votes, proposalCtx);
+        } else {
+          // Fallback: simple rate with quality check
+          const qualityCount = votes.filter((v) => hasQualityRationale(v)).length;
+          rationaleRate = votes.length > 0 ? Math.round((qualityCount / votes.length) * 100) : 0;
+        }
+
         const deliberationModifier = calculateDeliberationModifier(yesVotes, noVotes, abstainVotes);
         const effectiveParticipation = calculateEffectiveParticipation(participationRate, deliberationModifier);
-        
+
         const { counts: epochVoteCounts, firstEpoch } = computeEpochVoteCounts(votes);
         const consistencyScore = calculateConsistency(epochVoteCounts, firstEpoch, activeProposalEpochs);
+
+        // V2: Profile completeness from CIP-119 metadata
+        const metadataBody = drepMetadata?.meta_json?.body || null;
+        const profileCompleteness = calculateProfileCompleteness(metadataBody as Record<string, unknown> | null);
 
         return {
           drepId: drepInfo.drep_id,
@@ -305,8 +323,9 @@ export async function getEnrichedDReps(
           abstainVotes,
           isActive: drepInfo.registered && drepInfo.amount !== '0',
           anchorUrl: drepInfo.anchor_url,
-          metadata: drepMetadata?.meta_json?.body || null,
+          metadata: metadataBody as Record<string, unknown> | null,
           epochVoteCounts,
+          profileCompleteness,
         };
       });
 

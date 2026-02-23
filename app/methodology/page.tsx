@@ -38,13 +38,13 @@ export default function MethodologyPage() {
             <div>
               <h4 className="font-semibold mb-2">Formula</h4>
               <code className="block bg-muted p-3 rounded-lg text-sm">
-                DRep Score = (Effective Participation × 0.45) + (Rationale Rate × 0.35) + (Consistency × 0.20)
+                DRep Score = (Effective Participation × 0.40) + (Adjusted Rationale × 0.25) + (Consistency × 0.20) + (Profile Completeness × 0.15)
               </code>
             </div>
 
             <div className="space-y-4">
               <div className="border-l-4 border-blue-500 pl-4">
-                <h5 className="font-medium">Effective Participation (45% weight)</h5>
+                <h5 className="font-medium">Effective Participation (40% weight)</h5>
                 <p className="text-sm text-muted-foreground mt-1">
                   Raw participation rate adjusted by a <strong>Deliberation Modifier</strong> that penalizes uniform voting patterns.
                 </p>
@@ -61,22 +61,45 @@ export default function MethodologyPage() {
                   </ul>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  <strong>Why?</strong> A DRep who votes Yes on 98% of proposals isn't demonstrating thoughtful deliberation—they're rubber-stamping. 
+                  <strong>Why?</strong> A DRep who votes Yes on 98% of proposals isn&apos;t demonstrating thoughtful deliberation—they&apos;re rubber-stamping. 
                   We reward DReps who engage with proposals individually.
                 </p>
               </div>
 
               <div className="border-l-4 border-green-500 pl-4">
-                <h5 className="font-medium">Rationale Rate (35% weight)</h5>
+                <h5 className="font-medium">Rationale Rate (25% weight)</h5>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Percentage of votes where the DRep provided a written explanation.
+                  Measures how often a DRep provides meaningful on-chain rationale, weighted by proposal importance 
+                  and adjusted with a forgiving curve.
                 </p>
-                <code className="block bg-muted p-2 rounded text-xs mt-2">
-                  Rationale Rate = (Votes with Rationale / Total Votes) × 100
-                </code>
+                <div className="mt-2 text-sm">
+                  <p className="font-medium">Proposal Importance Weights:</p>
+                  <ul className="list-disc pl-6 text-muted-foreground">
+                    <li><strong>Critical (3×)</strong>: Hard forks, no confidence motions, constitutional committee changes, constitution updates</li>
+                    <li><strong>Important (2×)</strong>: Significant/major treasury withdrawals, parameter changes</li>
+                    <li><strong>Standard (1×)</strong>: Info actions, routine treasury withdrawals</li>
+                  </ul>
+                </div>
+                <div className="mt-2 text-sm">
+                  <p className="font-medium">Forgiving Curve:</p>
+                  <ul className="list-disc pl-6 text-muted-foreground">
+                    <li>0-20% raw → 0-30 adjusted (rewards initial effort)</li>
+                    <li>20-60% raw → 30-70 adjusted (linear middle)</li>
+                    <li>60-100% raw → 70-100 adjusted (diminishing returns)</li>
+                  </ul>
+                </div>
+                <div className="mt-2 text-sm">
+                  <p className="font-medium">Quality Threshold:</p>
+                  <p className="text-muted-foreground">
+                    Rationale must be at least 50 characters to count. Votes with externally-hosted rationale 
+                    (IPFS/HTTP) that hasn&apos;t been fetched yet are given benefit of the doubt.
+                  </p>
+                </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  <strong>Why?</strong> Accountability requires justification. A DRep who explains their reasoning helps delegators 
-                  understand their decision-making and holds themselves publicly accountable.
+                  <strong>Why?</strong> Not all votes are equally consequential. We expect DReps to explain their reasoning on 
+                  the most impactful governance decisions. The forgiving curve recognizes that providing rationale is a practice — 
+                  DReps who consistently explain their critical votes demonstrate accountability, even if they don&apos;t write an 
+                  essay for every info action.
                 </p>
               </div>
 
@@ -93,7 +116,34 @@ export default function MethodologyPage() {
                 <p className="text-sm text-muted-foreground mt-2">
                   <strong>Why?</strong> A DRep who was highly active for one month then disappeared is less reliable than 
                   one who votes consistently epoch after epoch. Governance requires sustained engagement. We only measure 
-                  against epochs where proposals were live, so DReps aren't punished for quiet periods on-chain.
+                  against epochs where proposals were live, so DReps aren&apos;t punished for quiet periods on-chain.
+                </p>
+              </div>
+
+              <div className="border-l-4 border-cyan-500 pl-4">
+                <h5 className="font-medium">Profile Completeness (15% weight)</h5>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Measures how thoroughly a DRep has filled out their CIP-119 governance metadata profile.
+                </p>
+                <div className="mt-2 text-sm">
+                  <p className="font-medium">Point Allocation (100 total):</p>
+                  <ul className="list-disc pl-6 text-muted-foreground">
+                    <li>Name (givenName): 15 points</li>
+                    <li>Governance objectives: 20 points</li>
+                    <li>Motivations: 15 points</li>
+                    <li>Qualifications: 10 points</li>
+                    <li>Bio: 10 points</li>
+                    <li>Verified social links: 25 points (1 link) or 30 points (2+ links)</li>
+                  </ul>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Social links are validated against known platforms (Twitter/X, YouTube, GitHub, LinkedIn, etc.). 
+                  Only links that resolve to recognized communication channels count toward this score.
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  <strong>Why?</strong> DReps who invest in their public profile provide delegators with context for informed 
+                  delegation decisions. Listing communication channels signals ongoing engagement beyond the chain and gives 
+                  delegators ways to follow a DRep&apos;s reasoning even when rationale isn&apos;t submitted on-chain.
                 </p>
               </div>
             </div>
@@ -294,7 +344,8 @@ export default function MethodologyPage() {
                 <strong>Catalyst voting</strong> is on a separate system and not integrated into our scoring.
               </li>
               <li>
-                <strong>Rationale quality</strong> is not assessed—we only check if rationale exists, not if it's thoughtful.
+                <strong>Rationale quality</strong> uses a minimum length threshold (50 characters) but does not assess 
+                depth or thoughtfulness beyond that.
               </li>
               <li>
                 <strong>New DReps</strong> may have low consistency scores due to limited voting history rather than genuine disengagement.

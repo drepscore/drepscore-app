@@ -37,6 +37,7 @@ export interface DRep {
   anchorUrl: string | null;
   metadata: Record<string, unknown> | null;
   epochVoteCounts?: number[];
+  profileCompleteness: number;
 }
 
 export interface VoteRecord {

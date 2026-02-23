@@ -21,15 +21,17 @@ interface ScoreBreakdownProps {
 }
 
 export const WEIGHTS = {
-  effectiveParticipation: 0.45,
-  rationale: 0.35,
+  effectiveParticipation: 0.40,
+  rationale: 0.25,
   consistency: 0.20,
+  profileCompleteness: 0.15,
 };
 
 export function ScoreBreakdownTooltip({ drep, children }: ScoreBreakdownProps) {
   const safeEffectiveParticipation = drep.effectiveParticipation ?? 0;
   const safeRationale = drep.rationaleRate ?? 0;
   const safeConsistency = drep.consistencyScore ?? 0;
+  const safeProfileCompleteness = drep.profileCompleteness ?? 0;
   const deliberationModifier = drep.deliberationModifier ?? 1.0;
   const hasRubberStampDiscount = deliberationModifier < 1.0;
 
@@ -44,13 +46,19 @@ export function ScoreBreakdownTooltip({ drep, children }: ScoreBreakdownProps) {
       label: 'Rationale',
       value: safeRationale,
       weight: WEIGHTS.rationale,
-      description: 'On-chain rationale submitted with votes. Off-chain commentary (blogs, videos) is not captured.',
+      description: 'Weighted by proposal importance (critical votes count more). A forgiving curve rewards consistent effort.',
     },
     {
       label: 'Consistency',
       value: safeConsistency,
       weight: WEIGHTS.consistency,
       description: 'How steadily this DRep participates over time.',
+    },
+    {
+      label: 'Profile Completeness',
+      value: safeProfileCompleteness,
+      weight: WEIGHTS.profileCompleteness,
+      description: 'CIP-119 metadata completeness: objectives, motivations, qualifications, and verified social links.',
     },
   ];
 
