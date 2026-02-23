@@ -114,7 +114,7 @@ export function DelegationInsightBanner() {
       inactive,
       daysSinceVote,
     };
-  }, [delegatedDrepId, userPrefs, allDReps]);
+  }, [resolvedDrepId, userPrefs, allDReps]);
 
   if (!isVisible) return null;
   if (dismissed) return null;
