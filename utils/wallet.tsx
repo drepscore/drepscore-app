@@ -18,10 +18,47 @@ export interface WalletError {
   hint: string;
 }
 
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object') {
+    const obj = err as Record<string, unknown>;
+    if (typeof obj.message === 'string') return obj.message;
+    if (typeof obj.error === 'string') return obj.error;
+    if (typeof obj.info === 'string') return obj.info;
+    if (typeof obj.code === 'number' || typeof obj.code === 'string') {
+      return `Error code: ${obj.code}`;
+    }
+    try {
+      const str = JSON.stringify(err);
+      if (str !== '{}') return str;
+    } catch {
+      // Ignore stringify errors
+    }
+  }
+  return 'Unknown error';
+}
+
 function categorizeError(err: unknown, walletName?: string): WalletError {
-  const message = err instanceof Error ? err.message : String(err);
+  const message = extractErrorMessage(err);
   const lowerMessage = message.toLowerCase();
 
+  // Check for user rejection/cancellation patterns
+  if (
+    lowerMessage.includes('user') && (lowerMessage.includes('reject') || lowerMessage.includes('cancel') || lowerMessage.includes('declined')) ||
+    lowerMessage.includes('cancelled') ||
+    lowerMessage.includes('user declined') ||
+    lowerMessage.includes('refused') ||
+    (typeof err === 'object' && err !== null && 'code' in err && (err as Record<string, unknown>).code === 2) // CIP-30 user declined code
+  ) {
+    return {
+      type: 'user_rejected',
+      message: 'Request cancelled',
+      hint: 'You cancelled the request. Please try again when ready.',
+    };
+  }
+
+  // Check for empty wallet
   if (lowerMessage.includes('no addresses') || lowerMessage.includes('empty')) {
     return {
       type: 'no_addresses',
@@ -30,22 +67,22 @@ function categorizeError(err: unknown, walletName?: string): WalletError {
     };
   }
 
-  if (lowerMessage.includes('user') && (lowerMessage.includes('reject') || lowerMessage.includes('cancel') || lowerMessage.includes('declined'))) {
-    return {
-      type: 'user_rejected',
-      message: 'Request cancelled',
-      hint: 'You cancelled the request. Please try again when ready.',
-    };
-  }
-
-  if (lowerMessage.includes('listener') || lowerMessage.includes('channel closed') || lowerMessage.includes('could not access')) {
+  // Check for extension communication errors (common with Yoroi)
+  if (
+    lowerMessage.includes('listener') ||
+    lowerMessage.includes('channel closed') ||
+    lowerMessage.includes('could not access') ||
+    lowerMessage.includes('could not send rpc') ||
+    lowerMessage.includes('asynchronous response')
+  ) {
     return {
       type: 'extension_error',
       message: `Could not communicate with ${walletName || 'wallet'}`,
-      hint: `Try refreshing the page or reopening your ${walletName || 'wallet'} extension. If the problem persists, try a different browser.`,
+      hint: `The ${walletName || 'wallet'} extension is not responding. Try refreshing the page, closing and reopening the extension, or using a different wallet.`,
     };
   }
 
+  // Check for network errors
   if (lowerMessage.includes('network') || lowerMessage.includes('fetch') || lowerMessage.includes('timeout')) {
     return {
       type: 'network',
@@ -56,7 +93,7 @@ function categorizeError(err: unknown, walletName?: string): WalletError {
 
   return {
     type: 'unknown',
-    message: message || 'Something went wrong',
+    message: message !== 'Unknown error' ? message : 'Something went wrong',
     hint: 'Please try again. If the problem persists, try refreshing the page or using a different wallet.',
   };
 }
