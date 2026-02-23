@@ -188,13 +188,18 @@ export async function getGlobalTotalProposals(): Promise<number> {
   try {
     const supabase = createClient();
     
+    // Query ALL DReps to find the true global max vote count
     const { data: rows, error } = await supabase
       .from('dreps')
-      .select('info')
-      .order('score', { ascending: false })
-      .limit(100);
+      .select('info');
     
-    if (error || !rows || rows.length === 0) {
+    if (error) {
+      console.warn('[Data] getGlobalTotalProposals query failed:', error.message);
+      return 50;
+    }
+    
+    if (!rows || rows.length === 0) {
+      console.warn('[Data] getGlobalTotalProposals: no DReps found');
       return 50;
     }
     
@@ -203,7 +208,8 @@ export async function getGlobalTotalProposals(): Promise<number> {
       .filter((v) => v > 0);
     
     return voteCounts.length > 0 ? Math.max(...voteCounts) : 50;
-  } catch {
+  } catch (err) {
+    console.error('[Data] getGlobalTotalProposals error:', err);
     return 50;
   }
 }
@@ -245,7 +251,15 @@ export async function getProposalsByIds(
       .select('tx_hash, proposal_index, title, abstract, proposal_type, withdrawal_amount, treasury_tier')
       .in('tx_hash', txHashes);
     
-    if (error || !rows) return result;
+    if (error) {
+      console.warn('[Data] getProposalsByIds query failed:', error.message);
+      return result;
+    }
+    
+    if (!rows || rows.length === 0) {
+      console.warn('[Data] getProposalsByIds: no proposals found for', txHashes.length, 'tx hashes');
+      return result;
+    }
     
     // Supabase doesn't support compound-key IN queries; we filter client-side after fetching by tx_hash
     const requestedIds = new Set(proposalIds.map(p => `${p.txHash}-${p.index}`));
@@ -266,7 +280,8 @@ export async function getProposalsByIds(
     }
     
     return result;
-  } catch {
+  } catch (err) {
+    console.error('[Data] getProposalsByIds error:', err);
     return result;
   }
 }
@@ -290,14 +305,20 @@ export async function getRationalesByVoteTxHashes(
       .in('vote_tx_hash', voteTxHashes)
       .not('rationale_text', 'is', null);
     
-    if (error || !rows) return result;
+    if (error) {
+      console.warn('[Data] getRationalesByVoteTxHashes query failed:', error.message);
+      return result;
+    }
+    
+    if (!rows) return result;
     
     for (const row of rows) {
       if (row.rationale_text) result.set(row.vote_tx_hash, row.rationale_text);
     }
     
     return result;
-  } catch {
+  } catch (err) {
+    console.error('[Data] getRationalesByVoteTxHashes error:', err);
     return result;
   }
 }

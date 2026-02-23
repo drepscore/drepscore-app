@@ -38,7 +38,7 @@ export function ScoreBreakdownTooltip({ drep, children }: ScoreBreakdownProps) {
       label: 'Effective Participation',
       value: safeEffectiveParticipation,
       weight: WEIGHTS.effectiveParticipation,
-      description: 'How consistently this DRep votes. Discounted if voting pattern suggests rubber-stamping.',
+      description: 'How often this DRep votes on available proposals. Discounted if voting pattern suggests rubber-stamping.',
     },
     {
       label: 'Rationale',

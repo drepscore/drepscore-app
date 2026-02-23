@@ -127,7 +127,7 @@ export function DRepScoreModal() {
         <div>
           <p className="font-medium mb-1">Effective Participation (45%)</p>
           <p className="text-sm text-muted-foreground">
-            How consistently this DRep votes, with a discount applied if they vote uniformly (&gt;85% one direction), which suggests rubber-stamping.
+            How often this DRep votes on available proposals, with a discount applied if they vote uniformly (&gt;85% one direction), which suggests rubber-stamping.
           </p>
         </div>
         <div>

@@ -22,7 +22,7 @@ import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
 import { ClaimProfileBanner } from '@/components/ClaimProfileBanner';
 import { AboutSection } from '@/components/AboutSection';
 import { SocialIconsLarge } from '@/components/SocialIconsLarge';
-import { getGlobalTotalProposals, getActiveProposalEpochs, getProposalsByIds, getRationalesByVoteTxHashes } from '@/lib/data';
+import { getGlobalTotalProposals, getActiveProposalEpochs, getProposalsByIds, getRationalesByVoteTxHashes, getDRepById } from '@/lib/data';
 import { Suspense } from 'react';
 
 interface DRepDetailPageProps {
@@ -92,9 +92,8 @@ async function getDRepData(drepId: string) {
     
     if (votesNeedingRationale.length > 0) {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL 
-          ? `https://${process.env.VERCEL_URL}` 
-          : 'http://localhost:3000';
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
+          || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
         
         const res = await fetch(`${baseUrl}/api/rationale`, {
           method: 'POST',
@@ -118,8 +117,8 @@ async function getDRepData(drepId: string) {
             }
           }
         }
-      } catch {
-        // Rationale fetch failed; continue with what we have
+      } catch (err) {
+        console.error('[DRepScore] Rationale fetch failed:', err);
       }
     }
     
@@ -170,7 +169,11 @@ async function getDRepData(drepId: string) {
     const consistencyScore = calculateConsistency(epochVoteCounts, firstEpoch, activeProposalEpochs);
 
     const sizeTier = getSizeTier(votingPower);
-    const drepScore = calculateDRepScore({ effectiveParticipation, rationaleRate, consistencyScore });
+    
+    // Use the cached DRep score from Supabase to ensure consistency with the table
+    // Fall back to local calculation only if cache miss
+    const cachedDRep = await getDRepById(decodedId);
+    const drepScore = cachedDRep?.drepScore ?? calculateDRepScore({ effectiveParticipation, rationaleRate, consistencyScore });
 
     return {
       drepId: info.drep_id,
@@ -310,7 +313,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
             </div>
             <Progress value={drep.effectiveParticipation} className="h-2" />
             <p className="text-xs text-muted-foreground">
-              How consistently this DRep votes on proposals.
+              How often this DRep votes on available proposals.
               {drep.deliberationModifier < 1.0 && (
                 <span className="text-amber-600 dark:text-amber-400">
                   {' '}Discounted by {Math.round((1 - drep.deliberationModifier) * 100)}% due to uniform voting pattern.
