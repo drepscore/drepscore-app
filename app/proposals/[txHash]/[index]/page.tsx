@@ -87,9 +87,19 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
           {proposal.title || `Proposal ${txHash.slice(0, 12)}...`}
         </h1>
 
-        {date && (
-          <p className="text-sm text-muted-foreground">Proposed {date}</p>
-        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          {date && (
+            <p className="text-sm text-muted-foreground">Proposed {date}</p>
+          )}
+          <a
+            href={`https://gov.tools/governance_actions/${txHash}#${proposalIndex}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            View on GovTool <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </div>
 
         {proposal.withdrawalAmount && (
           <p className="text-sm font-medium">
@@ -145,17 +155,6 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
       {/* DRep Voters */}
       <ProposalVotersWithContext votes={votes} />
 
-      {/* External Link */}
-      <div className="flex justify-center">
-        <a
-          href={`https://gov.tools/governance_actions/${txHash}#${proposalIndex}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-        >
-          View on GovTool <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-      </div>
     </div>
   );
 }
