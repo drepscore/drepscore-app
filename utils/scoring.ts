@@ -241,6 +241,8 @@ const CRITICAL_PROPOSAL_TYPES = [
   'NewConstitutionalCommittee', 'UpdateConstitution',
 ];
 
+const RATIONALE_EXEMPT_TYPES = ['InfoAction'];
+
 function getProposalImportanceWeight(ctx: ProposalContext): number {
   if (CRITICAL_PROPOSAL_TYPES.includes(ctx.proposalType)) return 3;
   if (ctx.proposalType === 'ParameterChange') return 2;
@@ -276,6 +278,7 @@ export function hasQualityRationale(vote: DRepVote, resolvedText?: string): bool
 /**
  * Calculate rationale rate weighted by proposal importance.
  * Critical (3x), Important (2x), Standard (1x).
+ * InfoActions are excluded entirely (non-binding polls don't need rationale).
  * Falls back to equal weights when proposal context is unavailable.
  */
 export function calculateWeightedRationaleRate(
@@ -291,6 +294,11 @@ export function calculateWeightedRationaleRate(
   for (const vote of votes) {
     const key = `${vote.proposal_tx_hash}-${vote.proposal_index}`;
     const ctx = proposalMap.get(key);
+
+    if (ctx && RATIONALE_EXEMPT_TYPES.includes(ctx.proposalType)) {
+      continue;
+    }
+
     const weight = ctx ? getProposalImportanceWeight(ctx) : 1;
     const resolved = rationaleTexts?.get(vote.vote_tx_hash);
 

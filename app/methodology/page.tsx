@@ -69,15 +69,16 @@ export default function MethodologyPage() {
               <div className="border-l-4 border-green-500 pl-4">
                 <h5 className="font-medium">Rationale Rate (25% weight)</h5>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Measures how often a DRep provides meaningful on-chain rationale, weighted by proposal importance 
-                  and adjusted with a forgiving curve.
+                  Measures how often a DRep provides meaningful on-chain rationale for <em>binding governance decisions</em>,
+                  weighted by proposal importance and adjusted with a forgiving curve.
                 </p>
                 <div className="mt-2 text-sm">
                   <p className="font-medium">Proposal Importance Weights:</p>
                   <ul className="list-disc pl-6 text-muted-foreground">
                     <li><strong>Critical (3×)</strong>: Hard forks, no confidence motions, constitutional committee changes, constitution updates</li>
                     <li><strong>Important (2×)</strong>: Significant/major treasury withdrawals, parameter changes</li>
-                    <li><strong>Standard (1×)</strong>: Info actions, routine treasury withdrawals</li>
+                    <li><strong>Standard (1×)</strong>: Routine treasury withdrawals</li>
+                    <li><strong>Excluded</strong>: InfoActions (non-binding sentiment polls)</li>
                   </ul>
                 </div>
                 <div className="mt-2 text-sm">
@@ -87,19 +88,22 @@ export default function MethodologyPage() {
                     <li>20-60% raw → 30-70 adjusted (linear middle)</li>
                     <li>60-100% raw → 70-100 adjusted (diminishing returns)</li>
                   </ul>
+                  <p className="text-muted-foreground mt-1">
+                    The displayed rate is curve-adjusted to match what the algorithm uses.
+                  </p>
                 </div>
                 <div className="mt-2 text-sm">
                   <p className="font-medium">Quality Threshold:</p>
                   <p className="text-muted-foreground">
-                    Rationale must be at least 50 characters to count. Votes with externally-hosted rationale 
+                    Rationale must be at least 50 characters to count. Votes with externally-hosted rationale
                     (IPFS/HTTP) that hasn&apos;t been fetched yet are given benefit of the doubt.
                   </p>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  <strong>Why?</strong> Not all votes are equally consequential. We expect DReps to explain their reasoning on 
-                  the most impactful governance decisions. The forgiving curve recognizes that providing rationale is a practice — 
-                  DReps who consistently explain their critical votes demonstrate accountability, even if they don&apos;t write an 
-                  essay for every info action.
+                  <strong>Why?</strong> We measure rationale on votes with material governance consequences. InfoActions are
+                  non-binding polls with zero on-chain effect — DReps aren&apos;t penalized for voting on polls without written
+                  rationale. The forgiving curve recognizes that providing rationale is a practice — DReps who consistently
+                  explain their critical votes demonstrate accountability.
                 </p>
               </div>
 

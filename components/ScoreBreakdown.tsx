@@ -3,10 +3,11 @@
 /**
  * Score Breakdown Component
  * Provides tooltip content for DRep Score breakdown
- * Shows: Effective Participation (45%), Rationale (35%), Consistency (20%)
+ * Shows: Effective Participation (40%), Rationale (25%), Consistency (20%), Profile (15%)
  */
 
 import { EnrichedDRep } from '@/lib/koios';
+import { applyRationaleCurve } from '@/utils/scoring';
 import {
   Tooltip,
   TooltipContent,
@@ -44,9 +45,9 @@ export function ScoreBreakdownTooltip({ drep, children }: ScoreBreakdownProps) {
     },
     {
       label: 'Rationale',
-      value: safeRationale,
+      value: applyRationaleCurve(safeRationale),
       weight: WEIGHTS.rationale,
-      description: 'Weighted by proposal importance (critical votes count more). A forgiving curve rewards consistent effort.',
+      description: 'Weighted by proposal importance. InfoActions excluded. Curve-adjusted to reward consistent effort.',
     },
     {
       label: 'Consistency',

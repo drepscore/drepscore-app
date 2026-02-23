@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getProposalDisplayTitle } from '@/utils/display';
 import { getDRepPrimaryName, hasCustomMetadata } from '@/utils/display';
-import { formatAda, getSizeBadgeClass, getDRepScoreBadgeClass } from '@/utils/scoring';
+import { formatAda, getSizeBadgeClass, getDRepScoreBadgeClass, applyRationaleCurve } from '@/utils/scoring';
 import { VoteRecord } from '@/types/drep';
 import { VotingHistoryWithPrefs } from '@/components/VotingHistoryWithPrefs';
 import { InlineDelegationCTA } from '@/components/InlineDelegationCTA';
@@ -250,13 +250,12 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="font-medium">Rationale Rate</span>
-              <span className="text-muted-foreground">{drep.rationaleRate}% <span className="text-xs">(25% weight)</span></span>
+              <span className="text-muted-foreground">{applyRationaleCurve(drep.rationaleRate)}% <span className="text-xs">(25% weight)</span></span>
             </div>
-            <Progress value={drep.rationaleRate} className="h-2" />
+            <Progress value={applyRationaleCurve(drep.rationaleRate)} className="h-2" />
             <p className="text-xs text-muted-foreground">
-              Weighted by proposal importance: critical governance votes (hard forks, constitutional changes) 
-              count 3x more than routine votes. A forgiving curve rewards DReps who provide rationale 
-              consistently, even if not on every vote.
+              Weighted by proposal importance: critical votes count 3x more. InfoActions (non-binding polls)
+              are excluded. A forgiving curve rewards DReps who provide rationale consistently.
             </p>
           </div>
           
