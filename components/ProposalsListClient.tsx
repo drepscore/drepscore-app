@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { ProposalWithVoteSummary } from '@/lib/data';
 import { useWallet } from '@/utils/wallet';
@@ -80,6 +80,12 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
   const [searchQuery, setSearchQuery] = useState('');
   const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
   const [showMyDrepOnly, setShowMyDrepOnly] = useState(false);
+
+  const preserveScroll = useCallback((fn: () => void) => {
+    const y = window.scrollY;
+    fn();
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' })));
+  }, []);
 
   const types = useMemo(() => {
     const set = new Set(proposals.map(p => p.proposalType));
@@ -177,7 +183,7 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
           <Button
             variant={showMyDrepOnly ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setShowMyDrepOnly(!showMyDrepOnly)}
+            onClick={() => preserveScroll(() => setShowMyDrepOnly(!showMyDrepOnly))}
             className="gap-1.5"
           >
             <UserCheck className="h-3.5 w-3.5" />
@@ -189,7 +195,7 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
           <Button
             variant={showWatchlistOnly ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setShowWatchlistOnly(!showWatchlistOnly)}
+            onClick={() => preserveScroll(() => setShowWatchlistOnly(!showWatchlistOnly))}
             className="gap-1.5"
           >
             <Heart className="h-3.5 w-3.5" />

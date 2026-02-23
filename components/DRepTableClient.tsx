@@ -7,7 +7,7 @@
  * Calculates alignment data and hybrid scores based on user preferences
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { DRepTable, DRepAlignmentData } from '@/components/DRepTable';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorBanner } from '@/components/ErrorBanner';
@@ -263,6 +263,12 @@ export function DRepTableClient({
     setCurrentPage(1);
   };
 
+  const preserveScroll = useCallback((fn: () => void) => {
+    const y = window.scrollY;
+    fn();
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' })));
+  }, []);
+
   const toggleSizeFilter = (size: SizeTier) => {
     setSizeFilters((prev) => {
       const newSet = new Set(prev);
@@ -380,7 +386,7 @@ export function DRepTableClient({
               <Button
                 variant={showMyDrepOnly ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => { setShowMyDrepOnly(!showMyDrepOnly); setCurrentPage(1); }}
+                onClick={() => preserveScroll(() => { setShowMyDrepOnly(!showMyDrepOnly); setCurrentPage(1); })}
                 className="gap-1.5 text-xs hover:text-primary hover:bg-primary/10"
               >
                 <UserCheck className="h-3.5 w-3.5" />
@@ -391,7 +397,7 @@ export function DRepTableClient({
               <Button
                 variant={showWatchlistOnly ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => { setShowWatchlistOnly(!showWatchlistOnly); setCurrentPage(1); }}
+                onClick={() => preserveScroll(() => { setShowWatchlistOnly(!showWatchlistOnly); setCurrentPage(1); })}
                 className="gap-1.5 text-xs hover:text-primary hover:bg-primary/10"
               >
                 <Heart className="h-3.5 w-3.5" />
