@@ -212,6 +212,7 @@ export interface CachedProposal {
   proposalIndex: number;
   title: string | null;
   abstract: string | null;
+  aiSummary: string | null;
   proposalType: string | null;
   withdrawalAmount: number | null;
   treasuryTier: string | null;
@@ -239,7 +240,7 @@ export async function getProposalsByIds(
     
     const { data: rows, error } = await supabase
       .from('proposals')
-      .select('tx_hash, proposal_index, title, abstract, proposal_type, withdrawal_amount, treasury_tier, relevant_prefs')
+      .select('tx_hash, proposal_index, title, abstract, ai_summary, proposal_type, withdrawal_amount, treasury_tier, relevant_prefs')
       .in('tx_hash', txHashes);
     
     if (error) {
@@ -263,6 +264,7 @@ export async function getProposalsByIds(
           proposalIndex: row.proposal_index,
           title: row.title,
           abstract: row.abstract,
+          aiSummary: row.ai_summary || null,
           proposalType: row.proposal_type,
           withdrawalAmount: row.withdrawal_amount,
           treasuryTier: row.treasury_tier,

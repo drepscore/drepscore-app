@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useWallet } from '@/utils/wallet';
 import { Button } from '@/components/ui/button';
-import { Vote, Wallet, RefreshCw } from 'lucide-react';
+import { Vote, Wallet, RefreshCw, CheckCircle } from 'lucide-react';
 import { DelegationRisksModal } from './InfoModal';
 
 interface InlineDelegationCTAProps {
@@ -17,7 +17,7 @@ interface InlineDelegationCTAProps {
 }
 
 export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAProps) {
-  const { connected, wallet, isAuthenticated } = useWallet();
+  const { connected, wallet, isAuthenticated, delegatedDrepId } = useWallet();
   const [delegating, setDelegating] = useState(false);
   const [success, setSuccess] = useState(false);
   const [needsReconnect, setNeedsReconnect] = useState(false);
@@ -41,6 +41,20 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
       setDelegating(false);
     }
   };
+
+  const isAlreadyDelegated = !!delegatedDrepId && delegatedDrepId === drepId;
+
+  if (isAlreadyDelegated && !success) {
+    return (
+      <div className="flex flex-col gap-2 p-4 border border-primary/20 rounded-lg bg-primary/5 text-center">
+        <CheckCircle className="h-5 w-5 text-primary mx-auto" />
+        <p className="text-sm font-medium">You&apos;re delegating to this DRep</p>
+        <p className="text-xs text-muted-foreground">
+          Your ADA voting power is already with this DRep.
+        </p>
+      </div>
+    );
+  }
 
   if (success) {
     return (

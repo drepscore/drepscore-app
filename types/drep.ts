@@ -48,6 +48,7 @@ export interface VoteRecord {
   vote: 'Yes' | 'No' | 'Abstain';
   title: string;
   abstract: string | null;
+  aiSummary: string | null;
   hasRationale: boolean;
   rationaleUrl: string | null;
   rationaleText: string | null;

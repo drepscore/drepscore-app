@@ -38,7 +38,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  ExternalLink,
+  FileText,
   ChevronDown,
   ChevronUp,
   Shield,
@@ -50,6 +50,7 @@ import {
   AlertCircle,
   Search,
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface VotingHistoryChartProps {
   votes: VoteRecord[];
@@ -459,18 +460,16 @@ export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChart
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <a
-                              href={`https://gov.tools/governance_actions/${vote.proposalTxHash}#${vote.proposalIndex}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <Link
+                              href={`/proposals/${vote.proposalTxHash}/${vote.proposalIndex}`}
                               className="p-1.5 rounded-lg hover:bg-muted transition-colors"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
-                            </a>
+                              <FileText className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                            </Link>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>View on GovTool</p>
+                            <p>View full proposal</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

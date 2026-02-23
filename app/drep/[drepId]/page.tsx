@@ -74,6 +74,7 @@ async function getDRepData(drepId: string) {
       );
       const title = cachedProposal?.title || null;
       const abstract = cachedProposal?.abstract || null;
+      const aiSummary = cachedProposal?.aiSummary ?? null;
       const rationaleText = cachedRationales.get(vote.vote_tx_hash) || null;
 
       return {
@@ -85,6 +86,7 @@ async function getDRepData(drepId: string) {
         vote: vote.vote,
         title: getProposalDisplayTitle(title, vote.proposal_tx_hash, vote.proposal_index),
         abstract,
+        aiSummary,
         hasRationale: vote.meta_url !== null || rationaleText !== null,
         rationaleUrl: vote.meta_url,
         rationaleText,
