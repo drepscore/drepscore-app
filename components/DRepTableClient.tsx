@@ -33,6 +33,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { UserPrefKey } from '@/types/drep';
+import { Badge } from '@/components/ui/badge';
+import { Settings2, X } from 'lucide-react';
 import { 
   generateDummyAlignment,
   AlignmentBreakdown 
@@ -53,9 +55,24 @@ interface DRepTableClientProps {
   watchlist?: string[];
   onWatchlistToggle?: (drepId: string) => void;
   isConnected?: boolean;
+  onRemovePref?: (pref: UserPrefKey) => void;
+  onClearPrefs?: () => void;
+  onResetToSaved?: () => void;
+  onOpenWizard?: () => void;
+  hasUnsavedChanges?: boolean;
 }
 
-export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistToggle, isConnected = false }: DRepTableClientProps) {
+export function DRepTableClient({ 
+  userPrefs = [], 
+  watchlist = [], 
+  onWatchlistToggle, 
+  isConnected = false,
+  onRemovePref,
+  onClearPrefs,
+  onResetToSaved,
+  onOpenWizard,
+  hasUnsavedChanges = false,
+}: DRepTableClientProps) {
   // Data fetching state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -264,23 +281,87 @@ export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistTog
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Controls Bar */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between p-4 rounded-lg border bg-card/50 backdrop-blur-sm">
+      <div className="p-4 rounded-lg border bg-card/50 backdrop-blur-sm space-y-4">
         
-        {/* Left: Search */}
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by Name, Ticker, ID, or Handle..."
-            value={searchQuery}
-            onChange={handleSearch}
-            className="pl-9 bg-background/50 border-primary/20 focus:border-primary/50 transition-colors"
-          />
+        {/* Row 1: Preference badges */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {hasPrefs ? (
+              <>
+                <span className="text-sm font-medium text-muted-foreground">
+                  Your Values:
+                </span>
+                {userPrefs.map(pref => (
+                  <Badge key={pref} variant="secondary" className="gap-1 pr-1">
+                    {pref.replace(/-/g, ' ')}
+                    {onRemovePref && (
+                      <button
+                        onClick={() => onRemovePref(pref)}
+                        className="hover:bg-muted rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+                {hasUnsavedChanges && onResetToSaved && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onResetToSaved}
+                    className="text-xs h-6 px-2 text-muted-foreground hover:text-primary"
+                  >
+                    Reset to Saved
+                  </Button>
+                )}
+                {onClearPrefs && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClearPrefs}
+                    className="text-xs h-6 px-2 text-muted-foreground hover:text-destructive"
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                Personalize your DRep list based on your values.
+              </span>
+            )}
+          </div>
+          
+          {onOpenWizard && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenWizard}
+              className="gap-2 shrink-0"
+            >
+              <Settings2 className="w-4 h-4" />
+              {hasPrefs ? 'Change Preferences' : 'Personalize My View'}
+            </Button>
+          )}
         </div>
+        
+        {/* Row 2: Search and filters */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          {/* Left: Search */}
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by Name, Ticker, ID, or Handle..."
+              value={searchQuery}
+              onChange={handleSearch}
+              className="pl-9 bg-background/50 border-primary/20 focus:border-primary/50 transition-colors"
+            />
+          </div>
 
-        {/* Right: Toggles & Reset */}
-        <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end flex-wrap">
+          {/* Right: Toggles & Reset */}
+          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end flex-wrap">
           <div className="flex items-center gap-2">
             <Switch
               id="filter-well-documented"
@@ -325,25 +406,25 @@ export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistTog
                 checked={sizeFilters.has('Small')}
                 onCheckedChange={() => toggleSizeFilter('Small')}
               >
-                Small (&lt;10k ADA)
+                Small (&lt;100k ADA)
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={sizeFilters.has('Medium')}
                 onCheckedChange={() => toggleSizeFilter('Medium')}
               >
-                Medium (10k-1M)
+                Medium (100k-5M)
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={sizeFilters.has('Large')}
                 onCheckedChange={() => toggleSizeFilter('Large')}
               >
-                Large (1M-10M)
+                Large (5M-50M)
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={sizeFilters.has('Whale')}
                 onCheckedChange={() => toggleSizeFilter('Whale')}
               >
-                Whale (&gt;10M ADA)
+                Whale (&gt;50M ADA)
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -357,6 +438,7 @@ export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistTog
             <RotateCcw className="h-4 w-4 mr-2" />
             Reset
           </Button>
+          </div>
         </div>
       </div>
 

@@ -13,10 +13,9 @@ import { getUserPrefs, saveUserPrefs } from '@/utils/userPrefs';
 import { useWallet } from '@/utils/wallet';
 import { getStoredSession } from '@/lib/supabaseAuth';
 import { UserPrefKey } from '@/types/drep';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Settings2, X, TrendingDown } from 'lucide-react';
+import { X, TrendingDown } from 'lucide-react';
 import Link from 'next/link';
 
 const WATCHLIST_KEY = 'drepscore_watchlist';
@@ -241,73 +240,6 @@ export function HomepageShell() {
         </Alert>
       )}
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {userPrefs.length > 0 ? (
-            <>
-              <span className="text-sm font-medium text-muted-foreground mr-2">
-                Your Values:
-              </span>
-              {userPrefs.map(pref => (
-                <Badge key={pref} variant="secondary" className="gap-1 pr-1">
-                  {pref.replace(/-/g, ' ')}
-                  <button
-                    onClick={() => removePref(pref)}
-                    className="hover:bg-muted rounded-full p-0.5"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-              {hasUnsavedChanges && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={resetToSaved}
-                  className="text-xs h-6 px-2 text-muted-foreground hover:text-primary"
-                >
-                  Reset to Saved
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearPrefs}
-                className="text-xs h-6 px-2 text-muted-foreground hover:text-destructive"
-              >
-                Clear All
-              </Button>
-            </>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                Personalize your DRep list based on your values.
-              </span>
-              {hasUnsavedChanges && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={resetToSaved}
-                  className="text-xs h-6 px-2 text-muted-foreground hover:text-primary"
-                >
-                  Reset to Saved
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setWizardOpen(true)}
-          className="gap-2"
-        >
-          <Settings2 className="w-4 h-4" />
-          {userPrefs.length > 0 ? 'Change Preferences' : 'Personalize My View'}
-        </Button>
-      </div>
-
       <OnboardingWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}
@@ -326,6 +258,11 @@ export function HomepageShell() {
         watchlist={watchlist}
         onWatchlistToggle={handleWatchlistToggle}
         isConnected={isAuthenticated}
+        onRemovePref={removePref}
+        onClearPrefs={clearPrefs}
+        onResetToSaved={resetToSaved}
+        onOpenWizard={() => setWizardOpen(true)}
+        hasUnsavedChanges={hasUnsavedChanges}
       />
     </div>
   );

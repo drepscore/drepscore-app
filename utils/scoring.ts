@@ -12,15 +12,15 @@ export type SizeTier = 'Small' | 'Medium' | 'Large' | 'Whale';
 
 /**
  * Get size tier based on voting power in ADA
- * - Small: < 10,000 ADA (emerging DReps)
- * - Medium: 10,000 - 1,000,000 ADA (healthy engagement)
- * - Large: 1,000,000 - 10,000,000 ADA (established DReps)
- * - Whale: > 10,000,000 ADA (high concentration)
+ * - Small: < 100,000 ADA (individual holders, emerging DReps)
+ * - Medium: 100,000 - 5,000,000 ADA (established community DReps)
+ * - Large: 5,000,000 - 50,000,000 ADA (major ecosystem players)
+ * - Whale: > 50,000,000 ADA (concentration risk, institutional scale)
  */
 export function getSizeTier(votingPowerAda: number): SizeTier {
-  if (votingPowerAda < 10_000) return 'Small';
-  if (votingPowerAda < 1_000_000) return 'Medium';
-  if (votingPowerAda < 10_000_000) return 'Large';
+  if (votingPowerAda < 100_000) return 'Small';
+  if (votingPowerAda < 5_000_000) return 'Medium';
+  if (votingPowerAda < 50_000_000) return 'Large';
   return 'Whale';
 }
 

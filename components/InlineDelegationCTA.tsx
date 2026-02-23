@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useWallet } from '@/utils/wallet';
 import { Button } from '@/components/ui/button';
-import { Vote, Wallet } from 'lucide-react';
+import { Vote, Wallet, RefreshCw } from 'lucide-react';
 import { DelegationRisksModal } from './InfoModal';
 
 interface InlineDelegationCTAProps {
@@ -17,11 +17,18 @@ interface InlineDelegationCTAProps {
 }
 
 export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAProps) {
-  const { connected, wallet } = useWallet();
+  const { connected, wallet, isAuthenticated } = useWallet();
   const [delegating, setDelegating] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
 
   const handleDelegate = async () => {
+    // If authenticated but wallet not connected in this session, prompt reconnect
+    if (isAuthenticated && !connected) {
+      setNeedsReconnect(true);
+      return;
+    }
+
     if (!wallet || !connected) return;
 
     setDelegating(true);
@@ -48,15 +55,40 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
     );
   }
 
+  // Show reconnect prompt if user clicked delegate while authenticated but not connected
+  if (needsReconnect && isAuthenticated && !connected) {
+    return (
+      <div className="flex flex-col gap-2 p-4 border rounded-lg bg-card">
+        <div className="text-center space-y-2">
+          <p className="text-sm font-medium">Wallet session expired</p>
+          <p className="text-xs text-muted-foreground">
+            Please reconnect your wallet using the button in the header to delegate.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => setNeedsReconnect(false)}
+          className="gap-2 w-full"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Dismiss
+        </Button>
+      </div>
+    );
+  }
+
+  // Determine button state based on authentication (not just connection)
+  const canDelegate = isAuthenticated || connected;
+
   return (
     <div className="flex flex-col gap-2 p-4 border rounded-lg bg-card">
       <Button
-        onClick={connected ? handleDelegate : undefined}
-        disabled={!connected || delegating}
+        onClick={canDelegate ? handleDelegate : undefined}
+        disabled={!canDelegate || delegating}
         className="gap-2 w-full"
         size="lg"
       >
-        {connected ? (
+        {canDelegate ? (
           <>
             <Vote className="h-4 w-4" />
             {delegating ? 'Processing...' : 'Delegate to this DRep'}

@@ -144,14 +144,15 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
   const monthlyVotes = votes.reduce((acc, vote) => {
     const month = vote.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
     if (!acc[month]) {
-      acc[month] = { month, Yes: 0, No: 0, Abstain: 0, total: 0 };
+      acc[month] = { month, dateObj: new Date(vote.date.getFullYear(), vote.date.getMonth(), 1), Yes: 0, No: 0, Abstain: 0, total: 0 };
     }
     acc[month][vote.vote]++;
     acc[month].total++;
     return acc;
-  }, {} as Record<string, { month: string; Yes: number; No: number; Abstain: number; total: number }>);
+  }, {} as Record<string, { month: string; dateObj: Date; Yes: number; No: number; Abstain: number; total: number }>);
 
-  const monthlyData = Object.values(monthlyVotes);
+  // Sort chronologically so right = most recent
+  const monthlyData = Object.values(monthlyVotes).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
   const visibleVotes = showAllVotes ? votes : votes.slice(0, 10);
 
   if (votes.length === 0) {
@@ -273,9 +274,9 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
             {visibleVotes.map((vote) => {
               const isExpanded = expandedVotes.has(vote.id);
               const rationaleText = vote.rationaleText;
-              const shouldTruncate = rationaleText && rationaleText.length > 200;
+              const shouldTruncate = rationaleText && rationaleText.length > 150;
               const displayRationale = rationaleText && shouldTruncate && !isExpanded
-                ? rationaleText.slice(0, 200) + '...'
+                ? rationaleText.slice(0, 150) + '...'
                 : rationaleText;
 
               return (
@@ -313,12 +314,12 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
                       )}
                     </div>
                     
-                    {/* CardanoScan link */}
+                    {/* GovTool proposal link */}
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <a
-                            href={`https://cardanoscan.io/transaction/${vote.voteTxHash}`}
+                            href={`https://gov.tools/governance_actions/${vote.proposalTxHash}#${vote.proposalIndex}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-2 rounded-lg hover:bg-muted transition-colors shrink-0"
@@ -328,7 +329,7 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
                           </a>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>View on CardanoScan</p>
+                          <p>View proposal on GovTool</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -360,17 +361,22 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
                     </div>
                   )}
                   
-                  {/* Show "View rationale" link if hasRationale but no text */}
+                  {/* Fallback for rationale submitted but hosted externally */}
                   {vote.hasRationale && !rationaleText && vote.rationaleUrl && (
-                    <div className="mt-2">
-                      <a
-                        href={vote.rationaleUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                      >
-                        View rationale <ExternalLink className="h-3 w-3" />
-                      </a>
+                    <div className="mt-3">
+                      <div className="bg-muted/20 rounded-lg p-3 border border-border/20">
+                        <p className="text-xs text-muted-foreground">
+                          Rationale submitted but hosted externally.{' '}
+                          <a
+                            href={vote.rationaleUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            View <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
