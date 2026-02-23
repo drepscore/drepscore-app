@@ -1,0 +1,300 @@
+'use client';
+
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useWallet } from '@/utils/wallet';
+import { getUserPrefs } from '@/utils/userPrefs';
+import { computeOverallAlignment } from '@/lib/alignment';
+import { EnrichedDRep } from '@/lib/koios';
+import { UserPrefKey } from '@/types/drep';
+
+// ── Types ───────────────────────────────────────────────────────────────────
+
+export type AlertType = 'alignment-shift' | 'inactivity' | 'new-proposals' | 'vote-activity';
+
+export interface Alert {
+  id: string;
+  type: AlertType;
+  title: string;
+  description: string;
+  link?: string;
+  timestamp: number;
+  read: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface VoteActivityItem {
+  voteTxHash: string;
+  proposalTxHash: string;
+  proposalIndex: number;
+  vote: string;
+  blockTime: number;
+  proposalTitle: string | null;
+  proposalType: string | null;
+  alignment: 'aligned' | 'unaligned' | 'neutral';
+  reasons: string[];
+}
+
+// ── LocalStorage keys ───────────────────────────────────────────────────────
+
+const PREV_SCORECARDS_KEY = 'drepscore_prev_scorecards';
+const LAST_VISIT_KEY = 'drepscore_last_visit';
+const DISMISSED_ALERTS_KEY = 'drepscore_dismissed_alerts';
+const WATCHLIST_KEY = 'drepscore_watchlist';
+
+// ── Thresholds ──────────────────────────────────────────────────────────────
+
+const SHIFT_THRESHOLD = 8;
+const THIRTY_DAYS_SEC = 30 * 24 * 60 * 60;
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function getStoredScorecards(): Record<string, { overall: number; timestamp: number }> {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(localStorage.getItem(PREV_SCORECARDS_KEY) || '{}');
+  } catch { return {}; }
+}
+
+function storeScorecards(data: Record<string, { overall: number; timestamp: number }>) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PREV_SCORECARDS_KEY, JSON.stringify(data));
+}
+
+function getLastVisit(): number {
+  if (typeof window === 'undefined') return 0;
+  return parseInt(localStorage.getItem(LAST_VISIT_KEY) || '0', 10);
+}
+
+function setLastVisit(ts: number) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(LAST_VISIT_KEY, String(ts));
+}
+
+function getDismissedAlerts(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    return new Set(JSON.parse(localStorage.getItem(DISMISSED_ALERTS_KEY) || '[]'));
+  } catch { return new Set(); }
+}
+
+function persistDismissedAlerts(ids: Set<string>) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(DISMISSED_ALERTS_KEY, JSON.stringify([...ids]));
+}
+
+function getWatchlist(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    return JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]');
+  } catch { return []; }
+}
+
+// ── Hook ────────────────────────────────────────────────────────────────────
+
+export function useAlignmentAlerts() {
+  const { connected, delegatedDrepId, isAuthenticated } = useWallet();
+  const [allDReps, setAllDReps] = useState<EnrichedDRep[]>([]);
+  const [userPrefs, setUserPrefs] = useState<UserPrefKey[]>([]);
+  const [voteActivity, setVoteActivity] = useState<VoteActivityItem[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [newProposalCount, setNewProposalCount] = useState(0);
+  const [lastVisitTime, setLastVisitTime] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+
+  // Load initial state from localStorage
+  useEffect(() => {
+    setUserPrefs(getUserPrefs()?.userPrefs || []);
+    setDismissedIds(getDismissedAlerts());
+    setLastVisitTime(getLastVisit());
+  }, []);
+
+  // Fetch DRep data when connected
+  useEffect(() => {
+    if (!connected) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/dreps');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          setAllDReps(data.allDReps || []);
+          setLoaded(true);
+        }
+      } catch {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [connected]);
+
+  // Fetch new proposals since last visit
+  useEffect(() => {
+    if (!connected || lastVisitTime === 0) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/alignment/new-proposals?since=${lastVisitTime}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setNewProposalCount(data.count || 0);
+      } catch { /* ignore */ }
+    })();
+
+    return () => { cancelled = true; };
+  }, [connected, lastVisitTime]);
+
+  // Fetch recent vote activity for delegated DRep
+  useEffect(() => {
+    if (!delegatedDrepId || userPrefs.length === 0) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const prefsStr = userPrefs.join(',');
+        const res = await fetch(
+          `/api/alignment/recent-votes?drepId=${encodeURIComponent(delegatedDrepId)}&prefs=${prefsStr}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setVoteActivity(data.votes || []);
+      } catch { /* ignore */ }
+    })();
+
+    return () => { cancelled = true; };
+  }, [delegatedDrepId, userPrefs]);
+
+  // Build all alerts
+  const alerts: Alert[] = useMemo(() => {
+    if (!loaded || !connected || userPrefs.length === 0) return [];
+
+    const result: Alert[] = [];
+    const now = Math.floor(Date.now() / 1000);
+    const watchlist = getWatchlist();
+    const drepMap = new Map(allDReps.map(d => [d.drepId, d]));
+
+    // ── 1. Alignment shift alerts (delegated + watchlist) ───────────────
+    const prevScorecards = getStoredScorecards();
+    const newScorecards: Record<string, { overall: number; timestamp: number }> = {};
+    const drepIdsToCheck = [
+      ...(delegatedDrepId ? [delegatedDrepId] : []),
+      ...watchlist,
+    ];
+    const uniqueIds = [...new Set(drepIdsToCheck)];
+
+    for (const id of uniqueIds) {
+      const drep = drepMap.get(id);
+      if (!drep) continue;
+
+      const currentOverall = computeOverallAlignment(drep, userPrefs);
+      newScorecards[id] = { overall: currentOverall, timestamp: now };
+
+      const prev = prevScorecards[id];
+      if (prev) {
+        const delta = currentOverall - prev.overall;
+        if (delta <= -SHIFT_THRESHOLD) {
+          const drepName = drep.name || drep.ticker || drep.handle || `${id.slice(0, 12)}...`;
+          const isDelegated = id === delegatedDrepId;
+          result.push({
+            id: `shift-${id}`,
+            type: 'alignment-shift',
+            title: isDelegated
+              ? `Your DRep's alignment dropped`
+              : `${drepName}'s alignment dropped`,
+            description: `Alignment went from ${prev.overall}% to ${currentOverall}% (${delta} pts).`,
+            link: `/drep/${encodeURIComponent(id)}?tab=scorecard`,
+            timestamp: now,
+            read: false,
+            metadata: { drepId: id, drepName, previousMatch: prev.overall, currentMatch: currentOverall, delta },
+          });
+        }
+      }
+    }
+
+    // Update stored scorecards (merge, don't overwrite unrelated entries)
+    storeScorecards({ ...prevScorecards, ...newScorecards });
+
+    // ── 2. DRep inactivity warning ──────────────────────────────────────
+    if (delegatedDrepId) {
+      const myDrep = drepMap.get(delegatedDrepId);
+      if (myDrep?.lastVoteTime != null) {
+        const daysSince = Math.floor((now - myDrep.lastVoteTime) / (24 * 60 * 60));
+        if (daysSince > 30) {
+          result.push({
+            id: `inactivity-${delegatedDrepId}`,
+            type: 'inactivity',
+            title: 'Your DRep has been inactive',
+            description: `No votes in the last ${daysSince} days. Consider reviewing their activity.`,
+            link: `/drep/${encodeURIComponent(delegatedDrepId)}?tab=votes`,
+            timestamp: now,
+            read: false,
+            metadata: { daysSince },
+          });
+        }
+      }
+    }
+
+    // ── 3. New proposals since last visit ────────────────────────────────
+    if (newProposalCount > 0) {
+      result.push({
+        id: `new-proposals-${lastVisitTime}`,
+        type: 'new-proposals',
+        title: `${newProposalCount} new proposal${newProposalCount !== 1 ? 's' : ''}`,
+        description: `${newProposalCount} new governance proposal${newProposalCount !== 1 ? 's' : ''} since your last visit.`,
+        link: '/proposals',
+        timestamp: now,
+        read: false,
+      });
+    }
+
+    // ── 4. Vote activity summary ────────────────────────────────────────
+    const relevantVotes = voteActivity.filter(v => v.alignment !== 'neutral');
+    for (const v of relevantVotes.slice(0, 3)) {
+      const title = v.proposalTitle || `Proposal ${v.proposalTxHash.slice(0, 8)}...`;
+      const verb = v.alignment === 'aligned' ? 'aligned with' : 'conflicts with';
+
+      result.push({
+        id: `vote-${v.voteTxHash}`,
+        type: 'vote-activity',
+        title: `Your DRep voted ${v.vote}`,
+        description: `On "${title}" — ${verb} your preferences.${v.reasons.length > 0 ? ' ' + v.reasons[0] : ''}`,
+        link: `/proposals/${v.proposalTxHash}/${v.proposalIndex}`,
+        timestamp: v.blockTime,
+        read: false,
+        metadata: { alignment: v.alignment, vote: v.vote },
+      });
+    }
+
+    // Update last visit time
+    setLastVisit(now);
+
+    return result;
+  }, [loaded, connected, userPrefs, allDReps, delegatedDrepId, voteActivity, lastVisitTime, newProposalCount]);
+
+  // Filter out dismissed alerts
+  const activeAlerts = useMemo(
+    () => alerts.filter(a => !dismissedIds.has(a.id)),
+    [alerts, dismissedIds],
+  );
+
+  const dismissAlert = useCallback((alertId: string) => {
+    setDismissedIds(prev => {
+      const next = new Set(prev);
+      next.add(alertId);
+      persistDismissedAlerts(next);
+      return next;
+    });
+  }, []);
+
+  const unreadCount = activeAlerts.filter(a => !a.read).length;
+
+  return {
+    alerts: activeAlerts,
+    unreadCount,
+    dismissAlert,
+    loaded,
+  };
+}

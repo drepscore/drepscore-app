@@ -37,8 +37,8 @@ import { Badge } from '@/components/ui/badge';
 import { Settings2, X, Heart, UserCheck } from 'lucide-react';
 import { useWallet } from '@/utils/wallet';
 import { 
-  generateDummyAlignment,
-  AlignmentBreakdown 
+  computeOverallAlignment,
+  getPrecomputedBreakdown,
 } from '@/lib/alignment';
 
 export type SortKey = 'drepScore' | 'votingPower' | 'sizeTier' | 'match';
@@ -161,7 +161,7 @@ export function DRepTableClient({
   // Size tier ordering for sorting
   const sizeTierOrder = { 'Small': 1, 'Medium': 2, 'Large': 3, 'Whale': 4 };
 
-  // Calculate alignment data for all DReps (using dummy alignment without vote data)
+  // Build alignment data from pre-computed per-category scores stored in DRep records
   const alignmentData = useMemo(() => {
     if (!hasPrefs) return {};
     
@@ -169,36 +169,8 @@ export function DRepTableClient({
     const drepsToProcess = filterWellDocumented ? initialDReps : allDReps;
     
     for (const drep of drepsToProcess) {
-      const alignment = generateDummyAlignment(drep, userPrefs);
-      
-      // Generate breakdown based on prefs
-      const breakdown: AlignmentBreakdown = {
-        treasury: 50,
-        decentralization: 50,
-        security: 50,
-        innovation: 50,
-        transparency: 50,
-        overall: alignment,
-      };
-      
-      // Calculate individual scores
-      if (userPrefs.includes('strong-decentralization')) {
-        const tierScores: Record<string, number> = { Small: 95, Medium: 80, Large: 50, Whale: 20 };
-        breakdown.decentralization = tierScores[drep.sizeTier] || 50;
-      }
-      if (userPrefs.includes('responsible-governance')) {
-        breakdown.transparency = drep.rationaleRate;
-      }
-      if (userPrefs.includes('protocol-security-first')) {
-        breakdown.security = Math.round(drep.participationRate * 0.5 + drep.rationaleRate * 0.5);
-      }
-      if (userPrefs.includes('innovation-defi-growth')) {
-        breakdown.innovation = Math.round(drep.participationRate * 0.8 + 10);
-      }
-      if (userPrefs.includes('treasury-conservative') || userPrefs.includes('smart-treasury-growth')) {
-        breakdown.treasury = drep.rationaleRate > 50 ? 65 : 45;
-      }
-      
+      const alignment = computeOverallAlignment(drep, userPrefs);
+      const breakdown = getPrecomputedBreakdown(drep, userPrefs);
       data[drep.drepId] = { alignment, breakdown };
     }
     

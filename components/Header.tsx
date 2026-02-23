@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useWallet } from '@/utils/wallet';
-import { getUserPrefs } from '@/utils/userPrefs';
-import { AlignmentShift } from '@/lib/alignment';
-import { UserPrefKey } from '@/types/drep';
+import { useAlignmentAlerts, AlertType } from '@/hooks/useAlignmentAlerts';
 
 const WalletConnectModal = dynamic(
   () => import('./WalletConnectModal').then(mod => mod.WalletConnectModal),
@@ -23,55 +21,41 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Shield, User, Settings2, LogOut, TrendingDown, Wallet, Info, BookOpen, ScrollText } from 'lucide-react';
+import {
+  Bell,
+  Shield,
+  User,
+  Settings2,
+  LogOut,
+  TrendingDown,
+  Wallet,
+  Info,
+  BookOpen,
+  ScrollText,
+  AlertTriangle,
+  FileText,
+  Vote,
+  X,
+} from 'lucide-react';
+
+const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
+  'alignment-shift': TrendingDown,
+  'inactivity': AlertTriangle,
+  'new-proposals': FileText,
+  'vote-activity': Vote,
+};
+
+const ALERT_COLORS: Record<AlertType, string> = {
+  'alignment-shift': 'text-amber-500',
+  'inactivity': 'text-amber-500',
+  'new-proposals': 'text-blue-500',
+  'vote-activity': 'text-primary',
+};
 
 export function Header() {
   const { isAuthenticated, sessionAddress, logout } = useWallet();
+  const { alerts, unreadCount, dismissAlert } = useAlignmentAlerts();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
-  const [userPrefs, setUserPrefs] = useState<UserPrefKey[]>([]);
-
-  useEffect(() => {
-    const prefs = getUserPrefs();
-    if (prefs?.userPrefs) {
-      setUserPrefs(prefs.userPrefs);
-    }
-  }, []);
-
-  // Generate demo shift-based alerts
-  const shiftAlerts: (AlignmentShift & { isDemo?: boolean })[] = useMemo(() => {
-    const result: (AlignmentShift & { isDemo?: boolean })[] = [];
-    
-    // Demo alert - always show one for new users
-    result.push({
-      drepId: 'demo',
-      drepName: '[Demo] Example DRep',
-      previousMatch: 78,
-      currentMatch: 65,
-      delta: -13,
-      categoryShifts: [
-        { pref: 'treasury-conservative', previous: 80, current: 55, causedBy: ['2 recent treasury votes'] }
-      ],
-      isDemo: true,
-    });
-
-    // Add a real-looking alert if user has preferences
-    if (userPrefs.length > 0) {
-      result.push({
-        drepId: 'drep_example_shift',
-        drepName: 'CardanoBuilder',
-        previousMatch: 72,
-        currentMatch: 61,
-        delta: -11,
-        categoryShifts: [
-          { pref: userPrefs[0], previous: 75, current: 58, causedBy: ['Recent voting activity'] }
-        ],
-      });
-    }
-
-    return result.slice(0, 5);
-  }, [userPrefs]);
-
-  const hasAlerts = shiftAlerts.length > 0;
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-6)}`;
 
@@ -98,57 +82,64 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative hover:text-primary hover:bg-primary/10">
                     <Bell className="h-4 w-4" />
-                    {hasAlerts && (
+                    {unreadCount > 0 && (
                       <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-500" />
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuContent align="end" className="w-80 max-h-[420px] overflow-y-auto">
                   <DropdownMenuLabel className="flex items-center justify-between">
-                    <span>Alignment Alerts</span>
-                    {shiftAlerts.length > 0 && (
+                    <span>Alerts</span>
+                    {unreadCount > 0 && (
                       <Badge variant="secondary" className="text-xs">
-                        {shiftAlerts.length}
+                        {unreadCount}
                       </Badge>
                     )}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {shiftAlerts.length === 0 ? (
+                  {alerts.length === 0 ? (
                     <DropdownMenuItem className="flex items-center gap-3 p-3 cursor-default text-muted-foreground">
                       <Info className="h-4 w-4" />
-                      <span className="text-sm">No alignment changes detected</span>
+                      <span className="text-sm">No alerts right now</span>
                     </DropdownMenuItem>
                   ) : (
-                    shiftAlerts.map((shift, index) => (
-                      <DropdownMenuItem 
-                        key={`${shift.drepId}-${index}`} 
-                        className="flex items-start gap-3 p-3 cursor-pointer hover:bg-muted"
-                        asChild
-                      >
-                        <Link href={shift.drepId === 'demo' ? '#' : `/drep/${encodeURIComponent(shift.drepId)}?tab=scorecard`}>
-                          <TrendingDown className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-500" />
-                          <div className="space-y-1 flex-1">
-                            <p className="text-sm font-medium">
-                              {shift.drepName}
-                              {shift.isDemo && (
-                                <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0">Demo</Badge>
-                              )}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Alignment dropped from{' '}
-                              <span className="font-medium">{shift.previousMatch}%</span> to{' '}
-                              <span className="font-medium">{shift.currentMatch}%</span>{' '}
-                              <span className="text-red-500">({shift.delta} pts)</span>
-                            </p>
-                            {shift.categoryShifts.length > 0 && (
-                              <p className="text-xs text-muted-foreground/80">
-                                {shift.categoryShifts[0].causedBy[0] || 'Recent voting activity'}
-                              </p>
-                            )}
-                          </div>
-                        </Link>
-                      </DropdownMenuItem>
-                    ))
+                    alerts.map((alert) => {
+                      const IconComponent = ALERT_ICONS[alert.type] || Info;
+                      const colorClass = ALERT_COLORS[alert.type] || 'text-muted-foreground';
+
+                      return (
+                        <div
+                          key={alert.id}
+                          className="relative group"
+                        >
+                          <DropdownMenuItem
+                            className="flex items-start gap-3 p-3 cursor-pointer hover:bg-muted pr-8"
+                            asChild
+                          >
+                            <Link href={alert.link || '#'}>
+                              <IconComponent className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
+                              <div className="space-y-1 flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{alert.title}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                  {alert.description}
+                                </p>
+                              </div>
+                            </Link>
+                          </DropdownMenuItem>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              dismissAlert(alert.id);
+                            }}
+                            className="absolute top-3 right-2 p-0.5 rounded hover:bg-muted-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Dismiss alert"
+                          >
+                            <X className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        </div>
+                      );
+                    })
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>

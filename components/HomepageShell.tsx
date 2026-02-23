@@ -13,13 +13,8 @@ import { getUserPrefs, saveUserPrefs } from '@/utils/userPrefs';
 import { useWallet } from '@/utils/wallet';
 import { getStoredSession } from '@/lib/supabaseAuth';
 import { UserPrefKey } from '@/types/drep';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { X, TrendingDown } from 'lucide-react';
-import Link from 'next/link';
 
 const WATCHLIST_KEY = 'drepscore_watchlist';
-const SHIFT_DISMISSED_KEY = 'drepscore_shift_dismissed';
 
 function getLocalWatchlist(): string[] {
   if (typeof window === 'undefined') return [];
@@ -35,16 +30,6 @@ function saveLocalWatchlist(watchlist: string[]): void {
   localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist));
 }
 
-function getShiftDismissed(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem(SHIFT_DISMISSED_KEY) === 'true';
-}
-
-function setShiftDismissed(dismissed: boolean): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(SHIFT_DISMISSED_KEY, dismissed ? 'true' : 'false');
-}
-
 export function HomepageShell() {
   const { isAuthenticated, sessionAddress } = useWallet();
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -53,18 +38,6 @@ export function HomepageShell() {
   const [savedPrefs, setSavedPrefs] = useState<UserPrefKey[] | null>(null);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [shiftBannerDismissed, setShiftBannerDismissed] = useState(true);
-  
-  // Demo alignment shift alert - shows for users with preferences
-  // In production, this would be calculated from stored previous scorecards
-  const demoShift = userPrefs.length > 0 ? {
-    drepId: 'drep_demo_shift',
-    drepName: 'CardanoBuilder',
-    previousMatch: 78,
-    currentMatch: 65,
-    delta: -13,
-    isDemo: true,
-  } : null;
 
   useEffect(() => {
     const prefs = getUserPrefs();
@@ -75,7 +48,6 @@ export function HomepageShell() {
     }
     
     setWatchlist(getLocalWatchlist());
-    setShiftBannerDismissed(getShiftDismissed());
     setHasLoaded(true);
   }, []);
 
@@ -200,46 +172,8 @@ export function HomepageShell() {
     return <div className="min-h-screen" />;
   }
 
-  const handleDismissShift = () => {
-    setShiftBannerDismissed(true);
-    setShiftDismissed(true);
-  };
-
   return (
     <div className="space-y-6">
-      {/* Alignment Shift Alert Banner */}
-      {demoShift && !shiftBannerDismissed && userPrefs.length > 0 && Math.abs(demoShift.delta) > 10 && (
-        <Alert variant="destructive" className="relative bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-100">
-          <TrendingDown className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-800 dark:text-amber-200">
-            Alignment Drop Detected
-            {demoShift.isDemo && (
-              <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0 border-amber-500/50">Demo</Badge>
-            )}
-          </AlertTitle>
-          <AlertDescription className="text-amber-700 dark:text-amber-300">
-            <Link 
-              href={`/drep/${encodeURIComponent(demoShift.drepId)}?tab=scorecard`}
-              className="font-semibold hover:underline"
-            >
-              {demoShift.drepName}
-            </Link>
-            {`'s alignment with your values dropped from `}
-            <span className="font-semibold">{demoShift.previousMatch}%</span> to{' '}
-            <span className="font-semibold">{demoShift.currentMatch}%</span>
-            <span className="text-red-600 dark:text-red-400"> ({demoShift.delta} pts)</span>.
-            {' '}Consider reviewing their recent voting activity.
-          </AlertDescription>
-          <button
-            onClick={handleDismissShift}
-            className="absolute top-3 right-3 p-1 hover:bg-amber-500/20 rounded"
-            aria-label="Dismiss alert"
-          >
-            <X className="h-4 w-4 text-amber-600" />
-          </button>
-        </Alert>
-      )}
-
       <OnboardingWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}

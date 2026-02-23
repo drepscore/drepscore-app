@@ -46,9 +46,16 @@ export const DEFAULT_WEIGHTS: DRepWeights = {
   consistency: 0.20,
 };
 
-/** DRep with computed drepScore (0-100) */
+/** DRep with computed drepScore (0-100) and pre-computed alignment scores */
 export interface EnrichedDRep extends DRep {
   drepScore: number;
+  alignmentTreasuryConservative: number | null;
+  alignmentTreasuryGrowth: number | null;
+  alignmentDecentralization: number | null;
+  alignmentSecurity: number | null;
+  alignmentInnovation: number | null;
+  alignmentTransparency: number | null;
+  lastVoteTime: number | null;
 }
 
 /**
@@ -312,7 +319,17 @@ export async function getEnrichedDReps(
     const enriched: EnrichedDRep[] = allBaseDreps.map((drep) => {
       const drepScore = calculateDRepScore(drep, DEFAULT_WEIGHTS);
 
-      return { ...drep, drepScore };
+      return {
+        ...drep,
+        drepScore,
+        alignmentTreasuryConservative: null,
+        alignmentTreasuryGrowth: null,
+        alignmentDecentralization: null,
+        alignmentSecurity: null,
+        alignmentInnovation: null,
+        alignmentTransparency: null,
+        lastVoteTime: null,
+      };
     });
 
     const sorted = [...enriched].sort((a, b) => {

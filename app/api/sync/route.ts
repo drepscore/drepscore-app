@@ -34,7 +34,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEnrichedDReps, blockTimeToEpoch } from '@/lib/koios';
 import { fetchProposals } from '@/utils/koios';
 import { DRepVote } from '@/types/koios';
-import { classifyProposals } from '@/lib/alignment';
+import { classifyProposals, computeAllCategoryScores } from '@/lib/alignment';
+import type { ClassifiedProposal } from '@/types/koios';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -454,12 +455,14 @@ export async function GET(request: NextRequest) {
   console.log('[Sync] Fetching proposals from Koios...');
   let proposalSuccessCount = 0;
   let proposalErrorCount = 0;
+  let classifiedProposalsList: ClassifiedProposal[] = [];
 
   try {
     const rawProposals = await fetchProposals();
     
     if (rawProposals.length > 0) {
       const classifiedProposals = classifyProposals(rawProposals);
+      classifiedProposalsList = classifiedProposals;
       console.log(`[Sync] Classified ${classifiedProposals.length} proposals`);
 
       const rawProposalRows: SupabaseProposalRow[] = classifiedProposals.map((p) => ({
@@ -586,6 +589,54 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── Compute per-category alignment scores for all DReps ──────────────────
+  let alignmentUpdateCount = 0;
+
+  if (rawVotesMap && classifiedProposalsList.length > 0) {
+    console.log(`[Sync] Computing alignment scores for ${allDReps.length} DReps...`);
+
+    const alignmentUpdates: { id: string; [key: string]: unknown }[] = [];
+
+    for (const drep of allDReps) {
+      const votes = rawVotesMap[drep.drepId] || [];
+      const scores = computeAllCategoryScores(drep, votes, classifiedProposalsList);
+
+      alignmentUpdates.push({
+        id: drep.drepId,
+        alignment_treasury_conservative: scores.alignmentTreasuryConservative,
+        alignment_treasury_growth: scores.alignmentTreasuryGrowth,
+        alignment_decentralization: scores.alignmentDecentralization,
+        alignment_security: scores.alignmentSecurity,
+        alignment_innovation: scores.alignmentInnovation,
+        alignment_transparency: scores.alignmentTransparency,
+        last_vote_time: scores.lastVoteTime,
+      });
+    }
+
+    const alignmentBatches = Math.ceil(alignmentUpdates.length / BATCH_SIZE);
+    for (let i = 0; i < alignmentUpdates.length; i += BATCH_SIZE) {
+      const batch = alignmentUpdates.slice(i, i + BATCH_SIZE);
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+
+      const { error: upsertError } = await supabase
+        .from('dreps')
+        .upsert(batch, { onConflict: 'id', ignoreDuplicates: false });
+
+      if (upsertError) {
+        console.error(`[Sync] Alignment batch ${batchNumber}/${alignmentBatches} error:`, upsertError.message);
+      } else {
+        alignmentUpdateCount += batch.length;
+        if (batchNumber % 5 === 0 || batchNumber === alignmentBatches) {
+          console.log(`[Sync] Alignment batch ${batchNumber}/${alignmentBatches} complete`);
+        }
+      }
+    }
+
+    console.log(`[Sync] Alignment scores computed for ${alignmentUpdateCount} DReps`);
+  } else {
+    console.warn('[Sync] Skipping alignment computation (missing votes or proposals)');
+  }
+
   const durationSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
   const hasErrors = errorCount > 0 || proposalErrorCount > 0 || voteErrorCount > 0;
 
@@ -604,12 +655,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  console.log(`[Sync] Complete — ${successCount} DReps, ${voteSuccessCount} votes, ${proposalSuccessCount} proposals, ${aiSummaryCount} AI summaries synced in ${durationSeconds}s`);
+  console.log(`[Sync] Complete — ${successCount} DReps, ${voteSuccessCount} votes, ${proposalSuccessCount} proposals, ${alignmentUpdateCount} alignments, ${aiSummaryCount} AI summaries synced in ${durationSeconds}s`);
   return NextResponse.json({
     success: true,
     dreps: { synced: successCount, total: rows.length },
     votes: { synced: voteSuccessCount },
     proposals: { synced: proposalSuccessCount },
+    alignments: { computed: alignmentUpdateCount },
     aiSummaries: aiSummaryCount,
     durationSeconds,
     timestamp: new Date().toISOString(),

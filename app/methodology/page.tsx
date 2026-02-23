@@ -198,29 +198,51 @@ export default function MethodologyPage() {
           </CardContent>
         </Card>
 
-        {/* Alignment Alerts Section */}
+        {/* Alerts Section */}
         <Card>
           <CardHeader>
-            <CardTitle>Alignment Shift Alerts</CardTitle>
+            <CardTitle>Governance Alerts</CardTitle>
             <CardDescription>
-              How we notify you when your DReps' alignment changes
+              How we keep you informed about your DRep and governance activity
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Rather than alerting on every individual vote, we monitor your watchlisted DReps for <strong>significant shifts</strong> 
-              in their overall alignment with your preferences.
+              When you connect your wallet, we monitor your delegated and watchlisted DReps to surface
+              the information that matters most. All alerts appear in the bell icon in the header.
             </p>
-            <div className="bg-muted p-4 rounded-lg">
-              <p className="font-medium mb-2">Alert Threshold</p>
-              <p className="text-sm text-muted-foreground">
-                You'll be notified when a DRep's alignment score drops by more than <strong>8 percentage points</strong> from 
-                their previous score. This filters out noise from individual votes while catching meaningful pattern changes.
-              </p>
+            <div className="bg-muted p-4 rounded-lg space-y-3">
+              <div>
+                <p className="font-medium mb-1">Alignment Shift Alerts</p>
+                <p className="text-sm text-muted-foreground">
+                  You&apos;ll be notified when a DRep&apos;s alignment score drops by more than <strong>8 percentage points</strong> from
+                  their previous score. This filters out noise from individual votes while catching meaningful pattern changes.
+                </p>
+              </div>
+              <div>
+                <p className="font-medium mb-1">Inactivity Warnings</p>
+                <p className="text-sm text-muted-foreground">
+                  If your delegated DRep hasn&apos;t voted in over 30 days, you&apos;ll see a warning so you can
+                  review their activity and consider whether they&apos;re still representing your interests.
+                </p>
+              </div>
+              <div>
+                <p className="font-medium mb-1">New Proposals</p>
+                <p className="text-sm text-muted-foreground">
+                  See how many new governance proposals have been submitted since your last visit.
+                </p>
+              </div>
+              <div>
+                <p className="font-medium mb-1">Vote Activity Summary</p>
+                <p className="text-sm text-muted-foreground">
+                  Recent votes by your DRep are evaluated against your preferences so you can see
+                  whether their voting aligns with your values.
+                </p>
+              </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Alerts appear in the bell icon in the header and as a dismissible banner on the homepage. Click through to 
-              review the DRep's full voting record and scorecard.
+              A persistent insight banner below the header summarizes your current DRep&apos;s compatibility
+              and highlights how many alternatives score higher for your preferences.
             </p>
           </CardContent>
         </Card>

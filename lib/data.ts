@@ -41,6 +41,13 @@ function transformSupabaseRowToDRep(row: any): EnrichedDRep {
     metadata: row.metadata || null,
     drepScore: row.score || 0,
     epochVoteCounts: info.epochVoteCounts || [],
+    alignmentTreasuryConservative: row.alignment_treasury_conservative ?? null,
+    alignmentTreasuryGrowth: row.alignment_treasury_growth ?? null,
+    alignmentDecentralization: row.alignment_decentralization ?? null,
+    alignmentSecurity: row.alignment_security ?? null,
+    alignmentInnovation: row.alignment_innovation ?? null,
+    alignmentTransparency: row.alignment_transparency ?? null,
+    lastVoteTime: row.last_vote_time ?? null,
   };
 }
 

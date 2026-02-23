@@ -166,7 +166,7 @@ export interface AlignmentShift {
 // SCORECARD CALCULATION
 // ============================================================================
 
-interface VoteWithProposal {
+export interface VoteWithProposal {
   vote: DRepVote;
   proposal: ClassifiedProposal | null;
 }
@@ -174,7 +174,7 @@ interface VoteWithProposal {
 /**
  * Match votes to classified proposals
  */
-function matchVotesToProposals(
+export function matchVotesToProposals(
   votes: DRepVote[],
   proposals: ClassifiedProposal[]
 ): VoteWithProposal[] {
@@ -193,7 +193,7 @@ function matchVotesToProposals(
  * Calculate Treasury Conservative score (0-100)
  * "No" on Major = 100, "No" on Significant = 90, Routine = 50, "Yes" penalized
  */
-function calculateTreasuryConservativeScore(votesWithProposals: VoteWithProposal[]): number {
+export function calculateTreasuryConservativeScore(votesWithProposals: VoteWithProposal[]): number {
   const treasuryVotes = votesWithProposals.filter(
     v => v.proposal?.type === 'TreasuryWithdrawals'
   );
@@ -224,7 +224,7 @@ function calculateTreasuryConservativeScore(votesWithProposals: VoteWithProposal
  * Calculate Treasury Growth score (0-100)
  * "Yes" with rationale = high, "No" without rationale = low
  */
-function calculateTreasuryGrowthScore(votesWithProposals: VoteWithProposal[]): number {
+export function calculateTreasuryGrowthScore(votesWithProposals: VoteWithProposal[]): number {
   const treasuryVotes = votesWithProposals.filter(
     v => v.proposal?.type === 'TreasuryWithdrawals'
   );
@@ -262,7 +262,7 @@ function calculateTreasuryGrowthScore(votesWithProposals: VoteWithProposal[]): n
  * Calculate Decentralization score (0-100)
  * Based on DRep size tier
  */
-function calculateDecentralizationScore(drep: EnrichedDRep): number {
+export function calculateDecentralizationScore(drep: EnrichedDRep): number {
   const tierScores: Record<string, number> = {
     Small: 95,
     Medium: 72,
@@ -276,7 +276,7 @@ function calculateDecentralizationScore(drep: EnrichedDRep): number {
  * Calculate Protocol Security score (0-100)
  * Based on participation and rationale on security-related proposals
  */
-function calculateSecurityScore(
+export function calculateSecurityScore(
   drep: EnrichedDRep,
   votesWithProposals: VoteWithProposal[]
 ): number {
@@ -301,7 +301,7 @@ function calculateSecurityScore(
  * Calculate Innovation/DeFi score (0-100)
  * Based on participation and yes votes on info/innovation proposals
  */
-function calculateInnovationScore(
+export function calculateInnovationScore(
   drep: EnrichedDRep,
   votesWithProposals: VoteWithProposal[]
 ): number {
@@ -324,7 +324,7 @@ function calculateInnovationScore(
  * Calculate Transparency score (0-100)
  * Direct mapping from rationale rate
  */
-function calculateTransparencyScore(drep: EnrichedDRep): number {
+export function calculateTransparencyScore(drep: EnrichedDRep): number {
   return drep.rationaleRate;
 }
 
@@ -629,31 +629,99 @@ export function getAlignmentColor(alignment: number): string {
   return 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30';
 }
 
+// ============================================================================
+// PRE-COMPUTED ALIGNMENT (used by sync route and client)
+// ============================================================================
+
+export interface AllCategoryScores {
+  alignmentTreasuryConservative: number;
+  alignmentTreasuryGrowth: number;
+  alignmentDecentralization: number;
+  alignmentSecurity: number;
+  alignmentInnovation: number;
+  alignmentTransparency: number;
+  lastVoteTime: number | null;
+}
+
 /**
- * Generate dummy alignment data for demo/localStorage fallback
+ * Compute all 6 per-category alignment scores for a DRep.
+ * Called during sync to pre-compute scores stored in the dreps table.
  */
-export function generateDummyAlignment(drep: EnrichedDRep, prefs: UserPrefKey[]): number {
+export function computeAllCategoryScores(
+  drep: EnrichedDRep,
+  votes: DRepVote[],
+  classifiedProposals: ClassifiedProposal[]
+): AllCategoryScores {
+  const votesWithProposals = matchVotesToProposals(votes, classifiedProposals);
+
+  const lastVoteTime = votes.length > 0
+    ? Math.max(...votes.map(v => v.block_time))
+    : null;
+
+  return {
+    alignmentTreasuryConservative: calculateTreasuryConservativeScore(votesWithProposals),
+    alignmentTreasuryGrowth: calculateTreasuryGrowthScore(votesWithProposals),
+    alignmentDecentralization: calculateDecentralizationScore(drep),
+    alignmentSecurity: calculateSecurityScore(drep, votesWithProposals),
+    alignmentInnovation: calculateInnovationScore(drep, votesWithProposals),
+    alignmentTransparency: calculateTransparencyScore(drep),
+    lastVoteTime,
+  };
+}
+
+/**
+ * Compute overall alignment from pre-computed per-category scores on an EnrichedDRep.
+ * Client-side utility: picks relevant categories based on user prefs and averages them.
+ */
+export function computeOverallAlignment(
+  drep: EnrichedDRep,
+  prefs: UserPrefKey[]
+): number {
   if (prefs.length === 0) return 50;
 
-  let score = 50;
+  const activeScores: number[] = [];
 
-  if (prefs.includes('strong-decentralization')) {
-    if (drep.sizeTier === 'Small') score += 20;
-    else if (drep.sizeTier === 'Medium') score += 10;
-    else if (drep.sizeTier === 'Whale') score -= 15;
+  if (prefs.includes('treasury-conservative') && drep.alignmentTreasuryConservative != null) {
+    activeScores.push(drep.alignmentTreasuryConservative);
+  } else if (prefs.includes('smart-treasury-growth') && drep.alignmentTreasuryGrowth != null) {
+    activeScores.push(drep.alignmentTreasuryGrowth);
   }
 
-  if (prefs.includes('responsible-governance')) {
-    score += Math.round((drep.rationaleRate - 50) * 0.3);
+  if (prefs.includes('strong-decentralization') && drep.alignmentDecentralization != null) {
+    activeScores.push(drep.alignmentDecentralization);
   }
 
-  if (prefs.includes('protocol-security-first')) {
-    score += Math.round((drep.participationRate - 50) * 0.2);
+  if (prefs.includes('protocol-security-first') && drep.alignmentSecurity != null) {
+    activeScores.push(drep.alignmentSecurity);
   }
 
-  if (prefs.includes('innovation-defi-growth')) {
-    score += Math.round((drep.participationRate - 50) * 0.25);
+  if (prefs.includes('innovation-defi-growth') && drep.alignmentInnovation != null) {
+    activeScores.push(drep.alignmentInnovation);
   }
 
-  return Math.max(0, Math.min(100, score));
+  if (prefs.includes('responsible-governance') && drep.alignmentTransparency != null) {
+    activeScores.push(drep.alignmentTransparency);
+  }
+
+  if (activeScores.length === 0) return 50;
+
+  return Math.round(activeScores.reduce((a, b) => a + b, 0) / activeScores.length);
+}
+
+/**
+ * Build an AlignmentBreakdown from pre-computed scores on an EnrichedDRep.
+ */
+export function getPrecomputedBreakdown(drep: EnrichedDRep, prefs: UserPrefKey[]): AlignmentBreakdown {
+  return {
+    treasury: prefs.includes('treasury-conservative')
+      ? (drep.alignmentTreasuryConservative ?? 50)
+      : prefs.includes('smart-treasury-growth')
+        ? (drep.alignmentTreasuryGrowth ?? 50)
+        : 50,
+    decentralization: drep.alignmentDecentralization ?? 50,
+    security: drep.alignmentSecurity ?? 50,
+    innovation: drep.alignmentInnovation ?? 50,
+    transparency: drep.alignmentTransparency ?? 50,
+    overall: computeOverallAlignment(drep, prefs),
+  };
 }
