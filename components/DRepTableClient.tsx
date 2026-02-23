@@ -381,7 +381,7 @@ export function DRepTableClient({
                 variant={showMyDrepOnly ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => { setShowMyDrepOnly(!showMyDrepOnly); setCurrentPage(1); }}
-                className="gap-1.5 text-xs"
+                className="gap-1.5 text-xs hover:text-primary hover:bg-primary/10"
               >
                 <UserCheck className="h-3.5 w-3.5" />
                 My DRep
@@ -392,7 +392,7 @@ export function DRepTableClient({
                 variant={showWatchlistOnly ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => { setShowWatchlistOnly(!showWatchlistOnly); setCurrentPage(1); }}
-                className="gap-1.5 text-xs"
+                className="gap-1.5 text-xs hover:text-primary hover:bg-primary/10"
               >
                 <Heart className="h-3.5 w-3.5" />
                 Watchlist ({watchlist.length})
@@ -428,7 +428,7 @@ export function DRepTableClient({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 hover:text-primary hover:bg-primary/10">
                 Size Filter
                 {sizeFilters.size < 4 && (
                   <span className="text-xs bg-primary text-primary-foreground rounded-full h-5 w-5 flex items-center justify-center">
