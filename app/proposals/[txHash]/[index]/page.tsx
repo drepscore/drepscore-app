@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getProposalByKey, getVotesByProposal } from '@/lib/data';
-import { ProposalVotersClient } from '@/components/ProposalVotersClient';
+import { ProposalVotersWithContext } from '@/components/ProposalVotersWithContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProposalDescription } from '@/components/ProposalDescription';
 import { ArrowLeft, ExternalLink, Shield, Zap, Landmark, Eye, Scale } from 'lucide-react';
 
 interface ProposalDetailPageProps {
@@ -98,32 +99,7 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
       </div>
 
       {/* AI Summary / Abstract */}
-      {(proposal.aiSummary || proposal.abstract) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">
-              {proposal.aiSummary ? 'Summary' : 'Description'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {proposal.aiSummary && (
-              <p className="text-sm leading-relaxed mb-3">{proposal.aiSummary}</p>
-            )}
-            {proposal.abstract && (
-              <div className={proposal.aiSummary ? 'border-t pt-3' : ''}>
-                {proposal.aiSummary && (
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    Full Description
-                  </p>
-                )}
-                <p className="text-sm text-foreground/85 whitespace-pre-wrap leading-relaxed">
-                  {proposal.abstract}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <ProposalDescription aiSummary={proposal.aiSummary} abstract={proposal.abstract} />
 
       {/* Vote Results */}
       <Card>
@@ -167,7 +143,7 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
       </Card>
 
       {/* DRep Voters */}
-      <ProposalVotersClient votes={votes} />
+      <ProposalVotersWithContext votes={votes} />
 
       {/* External Link */}
       <div className="flex justify-center">

@@ -10,6 +10,7 @@ import { useState, useMemo } from 'react';
 import { VoteRecord, UserPrefKey, VoteAlignment } from '@/types/drep';
 import { evaluateVoteAlignment } from '@/lib/alignment';
 import { VoteDetailSheet } from '@/components/VoteDetailSheet';
+import { stripMarkdown } from '@/utils/text';
 import {
   AreaChart,
   Area,
@@ -22,6 +23,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Tooltip,
   TooltipContent,
@@ -39,6 +48,7 @@ import {
   Scale,
   CheckCircle2,
   AlertCircle,
+  Search,
 } from 'lucide-react';
 
 interface VotingHistoryChartProps {
@@ -163,9 +173,14 @@ function AlignmentFlag({ alignment }: { alignment: VoteAlignment }) {
   );
 }
 
+type VoteFilterType = 'all' | 'Yes' | 'No' | 'Abstain';
+
 export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChartProps) {
   const [showAllVotes, setShowAllVotes] = useState(false);
   const [selectedVote, setSelectedVote] = useState<VoteRecord | null>(null);
+  const [voteSearchQuery, setVoteSearchQuery] = useState('');
+  const [voteTypeFilter, setVoteTypeFilter] = useState<string>('all');
+  const [voteDirectionFilter, setVoteDirectionFilter] = useState<VoteFilterType>('all');
 
   const yesCount = votes.filter(v => v.vote === 'Yes').length;
   const noCount = votes.filter(v => v.vote === 'No').length;
@@ -189,9 +204,37 @@ export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChart
   }, {} as Record<string, { month: string; dateObj: Date; Yes: number; No: number; Abstain: number; total: number }>);
 
   const monthlyData = Object.values(monthlyVotes).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
-  const visibleVotes = showAllVotes ? votes : votes.slice(0, 10);
 
-  // Pre-compute alignments for visible votes
+  const proposalTypes = useMemo(() => {
+    const set = new Set(votes.map(v => v.proposalType).filter(Boolean) as string[]);
+    return [...set].sort();
+  }, [votes]);
+
+  const filteredVotes = useMemo(() => {
+    let result = votes;
+
+    if (voteSearchQuery.trim()) {
+      const q = voteSearchQuery.toLowerCase();
+      result = result.filter(v =>
+        (v.title || '').toLowerCase().includes(q) ||
+        (v.abstract || '').toLowerCase().includes(q) ||
+        v.proposalTxHash.toLowerCase().includes(q)
+      );
+    }
+
+    if (voteTypeFilter !== 'all') {
+      result = result.filter(v => v.proposalType === voteTypeFilter);
+    }
+
+    if (voteDirectionFilter !== 'all') {
+      result = result.filter(v => v.vote === voteDirectionFilter);
+    }
+
+    return result;
+  }, [votes, voteSearchQuery, voteTypeFilter, voteDirectionFilter]);
+
+  const visibleVotes = showAllVotes ? filteredVotes : filteredVotes.slice(0, 10);
+
   const alignments = useMemo(() => {
     const map = new Map<string, VoteAlignment>();
     for (const vote of visibleVotes) {
@@ -295,11 +338,58 @@ export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChart
 
       {/* Recent Votes List */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Recent Votes</CardTitle>
-          <span className="text-sm text-muted-foreground">
-            {votes.length} total
-          </span>
+        <CardHeader className="space-y-3">
+          <div className="flex items-center justify-between">
+            <CardTitle>Voting History</CardTitle>
+            <span className="text-sm text-muted-foreground">
+              {filteredVotes.length === votes.length
+                ? `${votes.length} total`
+                : `${filteredVotes.length} of ${votes.length}`}
+            </span>
+          </div>
+
+          {/* Search + Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search proposals..."
+                value={voteSearchQuery}
+                onChange={(e) => { setVoteSearchQuery(e.target.value); setShowAllVotes(false); }}
+                className="pl-9 h-8 text-sm"
+              />
+            </div>
+
+            {proposalTypes.length > 1 && (
+              <Select value={voteTypeFilter} onValueChange={(v) => { setVoteTypeFilter(v); setShowAllVotes(false); }}>
+                <SelectTrigger className="w-[150px] h-8 text-xs">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {proposalTypes.map(t => (
+                    <SelectItem key={t} value={t}>
+                      {PROPOSAL_TYPE_CONFIG[t]?.label || t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <div className="flex gap-1">
+              {(['all', 'Yes', 'No', 'Abstain'] as const).map(d => (
+                <Button
+                  key={d}
+                  variant={voteDirectionFilter === d ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setVoteDirectionFilter(d); setShowAllVotes(false); }}
+                  className="text-xs h-8 px-2.5"
+                >
+                  {d === 'all' ? 'All' : d}
+                </Button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -348,7 +438,7 @@ export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChart
                       {/* Abstract - 2 lines */}
                       {vote.abstract && (
                         <p className="text-xs text-muted-foreground line-clamp-2">
-                          {vote.abstract}
+                          {stripMarkdown(vote.abstract)}
                         </p>
                       )}
 
@@ -357,7 +447,7 @@ export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChart
                         <div className="bg-muted/30 rounded p-2 mt-1">
                           <p className="text-xs text-foreground/80 line-clamp-2">
                             <span className="font-semibold text-muted-foreground">Rationale: </span>
-                            {vote.rationaleText}
+                            {stripMarkdown(vote.rationaleText)}
                           </p>
                         </div>
                       )}
@@ -391,8 +481,14 @@ export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChart
             })}
           </div>
           
+          {filteredVotes.length === 0 && (
+            <p className="text-center py-8 text-muted-foreground">
+              No votes match the current filters.
+            </p>
+          )}
+
           {/* Show All button */}
-          {votes.length > 10 && (
+          {filteredVotes.length > 10 && (
             <div className="mt-4 pt-4 border-t">
               <Button
                 variant="outline"
@@ -402,7 +498,7 @@ export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChart
                 {showAllVotes ? (
                   <>Show less <ChevronUp className="h-4 w-4 ml-2" /></>
                 ) : (
-                  <>Show all {votes.length} votes <ChevronDown className="h-4 w-4 ml-2" /></>
+                  <>Show all {filteredVotes.length} votes <ChevronDown className="h-4 w-4 ml-2" /></>
                 )}
               </Button>
             </div>

@@ -471,6 +471,36 @@ export async function fetchProposalCount(): Promise<number> {
 }
 
 /**
+ * Fetch the DRep ID a given stake address is currently delegated to.
+ * Client-safe (no server-only caching). Returns null if not delegated.
+ */
+export async function fetchDelegatedDRep(stakeAddress: string): Promise<string | null> {
+  try {
+    const url = `${KOIOS_BASE_URL}/account_info`;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(KOIOS_API_KEY && { 'Authorization': `Bearer ${KOIOS_API_KEY}` }),
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ _stake_addresses: [stakeAddress] }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const account = Array.isArray(data) ? data[0] : null;
+    return account?.vote_delegation || account?.delegated_drep || null;
+  } catch (err) {
+    console.error('[Koios] Error fetching delegated DRep:', err);
+    return null;
+  }
+}
+
+/**
  * Check if Koios API is available
  */
 export async function checkKoiosHealth(): Promise<boolean> {

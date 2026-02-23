@@ -12,6 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ExternalLink, Copy, Check, Shield, Zap, Landmark, Eye, Scale } from 'lucide-react';
 import { useState } from 'react';
+import { MarkdownContent } from '@/components/MarkdownContent';
 
 interface VoteDetailSheetProps {
   vote: VoteRecord | null;
@@ -148,9 +149,7 @@ export function VoteDetailSheet({ vote, open, onOpenChange, userPrefs = [] }: Vo
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Proposal Description
               </p>
-              <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
-                {vote.abstract}
-              </p>
+              <MarkdownContent content={vote.abstract} className="text-sm text-foreground/90 leading-relaxed" />
             </div>
           )}
 
@@ -161,9 +160,7 @@ export function VoteDetailSheet({ vote, open, onOpenChange, userPrefs = [] }: Vo
                 Voting Rationale
               </p>
               <div className="bg-muted/20 rounded-lg p-4 border border-border/20">
-                <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
-                  {vote.rationaleText}
-                </p>
+                <MarkdownContent content={vote.rationaleText} className="text-sm text-foreground/90 leading-relaxed" />
               </div>
             </div>
           )}

@@ -34,7 +34,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { UserPrefKey } from '@/types/drep';
 import { Badge } from '@/components/ui/badge';
-import { Settings2, X } from 'lucide-react';
+import { Settings2, X, Heart, UserCheck } from 'lucide-react';
+import { useWallet } from '@/utils/wallet';
 import { 
   generateDummyAlignment,
   AlignmentBreakdown 
@@ -73,6 +74,8 @@ export function DRepTableClient({
   onOpenWizard,
   hasUnsavedChanges = false,
 }: DRepTableClientProps) {
+  const { delegatedDrepId } = useWallet();
+
   // Data fetching state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +111,8 @@ export function DRepTableClient({
   const [filterWellDocumented, setFilterWellDocumented] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sizeFilters, setSizeFilters] = useState<Set<SizeTier>>(new Set(['Small', 'Medium', 'Large', 'Whale']));
+  const [showMyDrepOnly, setShowMyDrepOnly] = useState(false);
+  const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: hasPrefs ? 'match' : 'drepScore',
     direction: 'desc',
@@ -124,15 +129,19 @@ export function DRepTableClient({
 
   // Filter Logic
   const filteredDReps = useMemo(() => {
-    // 1. Filter by "Well Documented" toggle
-    // If filterWellDocumented is true, use initialDReps (which are already filtered server-side)
-    // If false, use allDReps.
     let result = filterWellDocumented ? initialDReps : allDReps;
 
-    // 2. Filter by Size
     result = result.filter((drep) => sizeFilters.has(drep.sizeTier));
 
-    // 3. Filter by Search Query
+    if (showMyDrepOnly && delegatedDrepId) {
+      result = result.filter(d => d.drepId === delegatedDrepId);
+    }
+
+    if (showWatchlistOnly && watchlist.length > 0) {
+      const wSet = new Set(watchlist);
+      result = result.filter(d => wSet.has(d.drepId));
+    }
+
     if (!searchQuery.trim()) return result;
 
     const query = searchQuery.toLowerCase();
@@ -147,7 +156,7 @@ export function DRepTableClient({
              id.includes(query) || 
              handle.includes(query);
     });
-  }, [filterWellDocumented, sizeFilters, searchQuery, allDReps, initialDReps]);
+  }, [filterWellDocumented, sizeFilters, searchQuery, allDReps, initialDReps, showMyDrepOnly, showWatchlistOnly, delegatedDrepId, watchlist]);
 
   // Size tier ordering for sorting
   const sizeTierOrder = { 'Small': 1, 'Medium': 2, 'Large': 3, 'Whale': 4 };
@@ -249,6 +258,8 @@ export function DRepTableClient({
     setSortConfig({ key: hasPrefs ? 'match' : 'drepScore', direction: 'desc' });
     setFilterWellDocumented(true);
     setSizeFilters(new Set(['Small', 'Medium', 'Large', 'Whale']));
+    setShowMyDrepOnly(false);
+    setShowWatchlistOnly(false);
     setCurrentPage(1);
   };
 
@@ -362,6 +373,33 @@ export function DRepTableClient({
 
           {/* Right: Toggles & Reset */}
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end flex-wrap">
+
+          {/* My DRep + Watchlist quick filters */}
+          <div className="flex items-center gap-1.5">
+            {delegatedDrepId && (
+              <Button
+                variant={showMyDrepOnly ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setShowMyDrepOnly(!showMyDrepOnly); setCurrentPage(1); }}
+                className="gap-1.5 text-xs"
+              >
+                <UserCheck className="h-3.5 w-3.5" />
+                My DRep
+              </Button>
+            )}
+            {watchlist.length > 0 && (
+              <Button
+                variant={showWatchlistOnly ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setShowWatchlistOnly(!showWatchlistOnly); setCurrentPage(1); }}
+                className="gap-1.5 text-xs"
+              >
+                <Heart className="h-3.5 w-3.5" />
+                Watchlist ({watchlist.length})
+              </Button>
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             <Switch
               id="filter-well-documented"

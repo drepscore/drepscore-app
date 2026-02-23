@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { BrowserWallet } from '@meshsdk/core';
+import { BrowserWallet, resolveRewardAddress } from '@meshsdk/core';
 import { getStoredSession, saveSession, clearSession, parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
 
 interface CIP30Api {
@@ -110,6 +110,7 @@ export interface WalletContextType {
   address: string | null;
   sessionAddress: string | null;
   isAuthenticated: boolean;
+  delegatedDrepId: string | null;
   error: WalletError | null;
   availableWallets: string[];
   connect: (walletName: string) => Promise<void>;
@@ -130,6 +131,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [hexAddress, setHexAddress] = useState<string | null>(null);
   const [sessionAddress, setSessionAddress] = useState<string | null>(null);
+  const [delegatedDrepId, setDelegatedDrepId] = useState<string | null>(null);
   const [error, setError] = useState<WalletError | null>(null);
   const [availableWallets, setAvailableWallets] = useState<string[]>([]);
 
@@ -189,6 +191,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setAddress(addresses[0]);
         if (hexAddresses.length > 0) setHexAddress(hexAddresses[0]);
         setConnected(true);
+
+        // Non-blocking: resolve stake address and look up delegation
+        try {
+          const stakeAddr = resolveRewardAddress(addresses[0]);
+          if (stakeAddr) {
+            fetch('/api/delegation', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ stakeAddress: stakeAddr }),
+            })
+              .then(r => r.json())
+              .then(({ drepId }) => { if (drepId) setDelegatedDrepId(drepId); })
+              .catch(() => {});
+          }
+        } catch {
+          // Stake address resolution can fail for script addresses — ignore
+        }
       } else {
         throw new Error('No addresses found in wallet');
       }
@@ -206,6 +225,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setConnected(false);
     setAddress(null);
     setHexAddress(null);
+    setDelegatedDrepId(null);
     setError(null);
   };
 
@@ -289,6 +309,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         address,
         sessionAddress,
         isAuthenticated,
+        delegatedDrepId,
         error,
         availableWallets,
         connect,

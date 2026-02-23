@@ -421,6 +421,7 @@ export interface ProposalWithVoteSummary {
   noCount: number;
   abstainCount: number;
   totalVotes: number;
+  voterDrepIds: string[];
 }
 
 /**
@@ -442,31 +443,32 @@ export async function getAllProposalsWithVoteSummary(): Promise<ProposalWithVote
       return [];
     }
 
-    // Fetch vote counts grouped by proposal
+    // Fetch vote counts + voter DRep IDs grouped by proposal
     const { data: voteCounts, error: vError } = await supabase
       .from('drep_votes')
-      .select('proposal_tx_hash, proposal_index, vote');
+      .select('proposal_tx_hash, proposal_index, vote, drep_id');
 
     if (vError) {
       console.warn('[Data] vote counts query failed:', vError.message);
     }
 
-    // Aggregate vote counts per proposal
-    const countMap = new Map<string, { yes: number; no: number; abstain: number }>();
+    // Aggregate vote counts + voter DRep IDs per proposal
+    const countMap = new Map<string, { yes: number; no: number; abstain: number; drepIds: Set<string> }>();
     if (voteCounts) {
       for (const v of voteCounts) {
         const key = `${v.proposal_tx_hash}-${v.proposal_index}`;
-        const entry = countMap.get(key) || { yes: 0, no: 0, abstain: 0 };
+        const entry = countMap.get(key) || { yes: 0, no: 0, abstain: 0, drepIds: new Set<string>() };
         if (v.vote === 'Yes') entry.yes++;
         else if (v.vote === 'No') entry.no++;
         else entry.abstain++;
+        if (v.drep_id) entry.drepIds.add(v.drep_id);
         countMap.set(key, entry);
       }
     }
 
     return proposals.map((p: any) => {
       const key = `${p.tx_hash}-${p.proposal_index}`;
-      const counts = countMap.get(key) || { yes: 0, no: 0, abstain: 0 };
+      const counts = countMap.get(key) || { yes: 0, no: 0, abstain: 0, drepIds: new Set<string>() };
       return {
         txHash: p.tx_hash,
         proposalIndex: p.proposal_index,
@@ -483,6 +485,7 @@ export async function getAllProposalsWithVoteSummary(): Promise<ProposalWithVote
         noCount: counts.no,
         abstainCount: counts.abstain,
         totalVotes: counts.yes + counts.no + counts.abstain,
+        voterDrepIds: [...counts.drepIds],
       };
     });
   } catch (err) {
@@ -520,19 +523,21 @@ export async function getProposalByKey(
 
     if (error || !row) return null;
 
-    // Get vote counts
+    // Get vote counts + voter IDs
     const { data: votes } = await supabase
       .from('drep_votes')
-      .select('vote')
+      .select('vote, drep_id')
       .eq('proposal_tx_hash', txHash)
       .eq('proposal_index', proposalIndex);
 
     let yes = 0, no = 0, abstain = 0;
+    const drepIds = new Set<string>();
     if (votes) {
       for (const v of votes) {
         if (v.vote === 'Yes') yes++;
         else if (v.vote === 'No') no++;
         else abstain++;
+        if (v.drep_id) drepIds.add(v.drep_id);
       }
     }
 
@@ -552,6 +557,7 @@ export async function getProposalByKey(
       noCount: no,
       abstainCount: abstain,
       totalVotes: yes + no + abstain,
+      voterDrepIds: [...drepIds],
     };
   } catch (err) {
     console.error('[Data] getProposalByKey error:', err);

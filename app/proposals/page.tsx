@@ -1,5 +1,5 @@
 import { getAllProposalsWithVoteSummary } from '@/lib/data';
-import { ProposalsListClient } from '@/components/ProposalsListClient';
+import { ProposalsPageClient } from '@/components/ProposalsPageClient';
 
 export const revalidate = 900; // 15 min cache
 
@@ -14,7 +14,7 @@ export default async function ProposalsPage() {
           All Cardano governance proposals with DRep vote breakdowns. Click any proposal to see how DReps voted.
         </p>
       </div>
-      <ProposalsListClient proposals={proposals} />
+      <ProposalsPageClient proposals={proposals} />
     </div>
   );
 }

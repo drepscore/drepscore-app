@@ -3,9 +3,11 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { ProposalWithVoteSummary } from '@/lib/data';
+import { useWallet } from '@/utils/wallet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -21,10 +23,15 @@ import {
   Scale,
   ArrowUpDown,
   ChevronRight,
+  Search,
+  Heart,
+  UserCheck,
 } from 'lucide-react';
+import { stripMarkdown } from '@/utils/text';
 
 interface ProposalsListClientProps {
   proposals: ProposalWithVoteSummary[];
+  watchlist?: string[];
 }
 
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof Landmark; color: string }> = {
@@ -66,9 +73,13 @@ function VoteMiniBar({ yes, no, abstain }: { yes: number; no: number; abstain: n
   );
 }
 
-export function ProposalsListClient({ proposals }: ProposalsListClientProps) {
+export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsListClientProps) {
+  const { delegatedDrepId } = useWallet();
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
+  const [showMyDrepOnly, setShowMyDrepOnly] = useState(false);
 
   const types = useMemo(() => {
     const set = new Set(proposals.map(p => p.proposalType));
@@ -77,9 +88,34 @@ export function ProposalsListClient({ proposals }: ProposalsListClientProps) {
 
   const filtered = useMemo(() => {
     let result = proposals;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(p =>
+        (p.title || '').toLowerCase().includes(q) ||
+        (p.abstract || '').toLowerCase().includes(q) ||
+        (p.aiSummary || '').toLowerCase().includes(q) ||
+        p.txHash.toLowerCase().includes(q)
+      );
+    }
+
+    // Type filter
     if (typeFilter !== 'all') {
       result = result.filter(p => p.proposalType === typeFilter);
     }
+
+    // Watchlist filter: proposals where at least one watchlisted DRep voted
+    if (showWatchlistOnly && watchlist.length > 0) {
+      const wSet = new Set(watchlist);
+      result = result.filter(p => p.voterDrepIds.some(id => wSet.has(id)));
+    }
+
+    // My DRep filter
+    if (showMyDrepOnly && delegatedDrepId) {
+      result = result.filter(p => p.voterDrepIds.includes(delegatedDrepId));
+    }
+
     result = [...result].sort((a, b) => {
       switch (sortKey) {
         case 'date':
@@ -93,12 +129,23 @@ export function ProposalsListClient({ proposals }: ProposalsListClientProps) {
       }
     });
     return result;
-  }, [proposals, typeFilter, sortKey]);
+  }, [proposals, typeFilter, sortKey, searchQuery, showWatchlistOnly, showMyDrepOnly, watchlist, delegatedDrepId]);
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search proposals by title, description, or tx hash..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Filters Row */}
+      <div className="flex flex-wrap items-center gap-2">
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by type" />
@@ -124,6 +171,31 @@ export function ProposalsListClient({ proposals }: ProposalsListClientProps) {
             <SelectItem value="title">Title A-Z</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Quick Filters */}
+        {delegatedDrepId && (
+          <Button
+            variant={showMyDrepOnly ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowMyDrepOnly(!showMyDrepOnly)}
+            className="gap-1.5"
+          >
+            <UserCheck className="h-3.5 w-3.5" />
+            My DRep
+          </Button>
+        )}
+
+        {watchlist.length > 0 && (
+          <Button
+            variant={showWatchlistOnly ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowWatchlistOnly(!showWatchlistOnly)}
+            className="gap-1.5"
+          >
+            <Heart className="h-3.5 w-3.5" />
+            Watchlist
+          </Button>
+        )}
 
         <span className="text-sm text-muted-foreground ml-auto">
           {filtered.length} proposals
@@ -179,7 +251,7 @@ export function ProposalsListClient({ proposals }: ProposalsListClientProps) {
                       {/* Abstract */}
                       {(p.aiSummary || p.abstract) && (
                         <p className="text-xs text-muted-foreground line-clamp-2">
-                          {p.aiSummary || p.abstract}
+                          {stripMarkdown(p.aiSummary || p.abstract || '')}
                         </p>
                       )}
 

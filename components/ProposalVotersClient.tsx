@@ -6,23 +6,54 @@ import { ProposalVoteDetail } from '@/lib/data';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronDown, ChevronUp, User } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ChevronDown, ChevronUp, User, Search, Heart, UserCheck } from 'lucide-react';
+import { MarkdownContent } from '@/components/MarkdownContent';
 
 interface ProposalVotersClientProps {
   votes: ProposalVoteDetail[];
+  watchlist?: string[];
+  delegatedDrepId?: string | null;
 }
 
 type VoteFilter = 'all' | 'Yes' | 'No' | 'Abstain';
 
-export function ProposalVotersClient({ votes }: ProposalVotersClientProps) {
+export function ProposalVotersClient({
+  votes,
+  watchlist = [],
+  delegatedDrepId,
+}: ProposalVotersClientProps) {
   const [filter, setFilter] = useState<VoteFilter>('all');
   const [showAll, setShowAll] = useState(false);
   const [expandedRationales, setExpandedRationales] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
 
   const filtered = useMemo(() => {
-    const result = filter === 'all' ? votes : votes.filter(v => v.vote === filter);
+    let result = filter === 'all' ? votes : votes.filter(v => v.vote === filter);
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(v =>
+        (v.drepName || '').toLowerCase().includes(q) ||
+        v.drepId.toLowerCase().includes(q)
+      );
+    }
+
+    if (showWatchlistOnly && watchlist.length > 0) {
+      const wSet = new Set(watchlist);
+      result = result.filter(v => wSet.has(v.drepId));
+    }
+
+    // Pin delegated DRep to the top
+    if (delegatedDrepId) {
+      const pinned = result.filter(v => v.drepId === delegatedDrepId);
+      const rest = result.filter(v => v.drepId !== delegatedDrepId);
+      result = [...pinned, ...rest];
+    }
+
     return result;
-  }, [votes, filter]);
+  }, [votes, filter, searchQuery, showWatchlistOnly, watchlist, delegatedDrepId]);
 
   const visible = showAll ? filtered : filtered.slice(0, 20);
 
@@ -62,17 +93,50 @@ export function ProposalVotersClient({ votes }: ProposalVotersClientProps) {
             ))}
           </div>
         </div>
+
+        {/* Search + quick filters */}
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search DReps by name or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-8 text-sm"
+            />
+          </div>
+
+          {delegatedDrepId && votes.some(v => v.drepId === delegatedDrepId) && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              <UserCheck className="h-3 w-3" />
+              Your DRep voted
+            </Badge>
+          )}
+
+          {watchlist.length > 0 && (
+            <Button
+              variant={showWatchlistOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowWatchlistOnly(!showWatchlistOnly)}
+              className="gap-1 text-xs h-8"
+            >
+              <Heart className="h-3 w-3" />
+              Watchlist
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
           {visible.map((v) => {
             const isExpanded = expandedRationales.has(v.voteTxHash);
             const hasLongRationale = v.rationaleText && v.rationaleText.length > 200;
+            const isMyDrep = delegatedDrepId === v.drepId;
 
             return (
               <div
                 key={v.voteTxHash}
-                className="border rounded-lg p-3 hover:bg-muted/20 transition-colors"
+                className={`border rounded-lg p-3 hover:bg-muted/20 transition-colors ${isMyDrep ? 'ring-1 ring-primary/40 bg-primary/5' : ''}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0 space-y-1">
@@ -89,6 +153,12 @@ export function ProposalVotersClient({ votes }: ProposalVotersClientProps) {
                       >
                         {v.drepName || `${v.drepId.slice(0, 16)}...${v.drepId.slice(-8)}`}
                       </Link>
+                      {isMyDrep && (
+                        <Badge variant="outline" className="text-xs gap-1 bg-primary/10 border-primary/30">
+                          <UserCheck className="h-2.5 w-2.5" />
+                          Your DRep
+                        </Badge>
+                      )}
                     </div>
 
                     <p className="text-xs text-muted-foreground">
@@ -100,11 +170,13 @@ export function ProposalVotersClient({ votes }: ProposalVotersClientProps) {
                     {/* Rationale */}
                     {v.rationaleText && (
                       <div className="mt-2">
-                        <p className="text-xs text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                          {hasLongRationale && !isExpanded
-                            ? v.rationaleText.slice(0, 200) + '...'
-                            : v.rationaleText}
-                        </p>
+                        {hasLongRationale && !isExpanded ? (
+                          <p className="text-xs text-foreground/80 leading-relaxed">
+                            {v.rationaleText.slice(0, 200)}...
+                          </p>
+                        ) : (
+                          <MarkdownContent content={v.rationaleText} className="text-xs text-foreground/80 leading-relaxed" />
+                        )}
                         {hasLongRationale && (
                           <button
                             onClick={() => toggleRationale(v.voteTxHash)}
@@ -127,7 +199,6 @@ export function ProposalVotersClient({ votes }: ProposalVotersClientProps) {
                     )}
                   </div>
 
-                  {/* Link to DRep profile */}
                   <Link
                     href={`/drep/${encodeURIComponent(v.drepId)}`}
                     className="p-2 rounded-lg hover:bg-muted transition-colors shrink-0"
