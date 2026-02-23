@@ -181,36 +181,26 @@ export async function getActiveProposalEpochs(): Promise<Set<number>> {
 }
 
 /**
- * Get the global total proposals count (max votes across all DReps)
- * Used to calculate participation rate consistently
+ * Get the actual total number of governance proposals from the proposals table.
+ * Used as the denominator for participation rate calculations.
  */
-export async function getGlobalTotalProposals(): Promise<number> {
+export async function getActualProposalCount(): Promise<number> {
   try {
     const supabase = createClient();
-    
-    // Query ALL DReps to find the true global max vote count
-    const { data: rows, error } = await supabase
-      .from('dreps')
-      .select('info');
-    
+
+    const { count, error } = await supabase
+      .from('proposals')
+      .select('*', { count: 'exact', head: true });
+
     if (error) {
-      console.warn('[Data] getGlobalTotalProposals query failed:', error.message);
-      return 50;
+      console.warn('[Data] getActualProposalCount query failed:', error.message);
+      return 88; // fallback based on known count
     }
-    
-    if (!rows || rows.length === 0) {
-      console.warn('[Data] getGlobalTotalProposals: no DReps found');
-      return 50;
-    }
-    
-    const voteCounts = rows
-      .map((r) => (r.info as { totalVotes?: number })?.totalVotes || 0)
-      .filter((v) => v > 0);
-    
-    return voteCounts.length > 0 ? Math.max(...voteCounts) : 50;
+
+    return count && count > 0 ? count : 88;
   } catch (err) {
-    console.error('[Data] getGlobalTotalProposals error:', err);
-    return 50;
+    console.error('[Data] getActualProposalCount error:', err);
+    return 88;
   }
 }
 

@@ -44,7 +44,7 @@ export function ScoreBreakdownTooltip({ drep, children }: ScoreBreakdownProps) {
       label: 'Rationale',
       value: safeRationale,
       weight: WEIGHTS.rationale,
-      description: 'How often this DRep explains their votes.',
+      description: 'On-chain rationale submitted with votes. Off-chain commentary (blogs, videos) is not captured.',
     },
     {
       label: 'Consistency',

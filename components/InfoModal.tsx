@@ -133,7 +133,7 @@ export function DRepScoreModal() {
         <div>
           <p className="font-medium mb-1">Rationale (35%)</p>
           <p className="text-sm text-muted-foreground">
-            How often this DRep explains their votes. Transparency and accountability require justification.
+            How often this DRep submits on-chain rationale metadata with their votes. This measures governance transparency through the official CIP-100 standard. Some DReps share reasoning through external channels (blogs, videos) that isn&apos;t captured by this metric.
           </p>
         </div>
         <div>
@@ -180,6 +180,10 @@ export function RationaleImportanceModal() {
       <p>
         When selecting a DRep, look for those with high rationale provision rates (80%+) and 
         review their past rationales to ensure their reasoning aligns with your values.
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Note: This metric measures on-chain rationale submitted via CIP-100 metadata. Some DReps 
+        share reasoning through external channels (blogs, YouTube) that isn&apos;t captured here.
       </p>
     </InfoModal>
   );

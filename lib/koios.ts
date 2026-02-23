@@ -21,7 +21,7 @@ import {
 } from '@/utils/scoring';
 import { isWellDocumented } from '@/utils/documentation';
 import { DRep } from '@/types/drep';
-import { getActiveProposalEpochs } from '@/lib/data';
+import { getActiveProposalEpochs, getActualProposalCount } from '@/lib/data';
 
 // ---------------------------------------------------------------------------
 // Weighting Philosophy (V2)
@@ -190,9 +190,12 @@ export async function getEnrichedDReps(
     }
 
     // Fetch epochs that had proposals for consistency scoring
-    const activeProposalEpochs = await getActiveProposalEpochs();
+    const [activeProposalEpochs, actualProposalCount] = await Promise.all([
+      getActiveProposalEpochs(),
+      getActualProposalCount(),
+    ]);
     if (isDev) {
-      console.log(`[DRepScore] Active proposal epochs: ${activeProposalEpochs.size} epochs`);
+      console.log(`[DRepScore] Active proposal epochs: ${activeProposalEpochs.size} epochs, actual proposals: ${actualProposalCount}`);
     }
 
     const drepList = await fetchAllDReps();
@@ -210,7 +213,6 @@ export async function getEnrichedDReps(
     }
 
     const allBaseDreps: DRep[] = [];
-    let maxVoteCount = 1;
     const allRawVotes: Record<string, Awaited<ReturnType<typeof fetchDRepVotes>>> = {};
 
     for (let offset = 0; offset < allDrepIds.length; offset += BATCH_SIZE) {
@@ -235,26 +237,36 @@ export async function getEnrichedDReps(
         Object.assign(allRawVotes, votesMap);
       }
 
-      const batchVoteCounts = Object.values(votesMap).map((v) => v.length);
-      maxVoteCount = Math.max(maxVoteCount, ...batchVoteCounts, 1);
-      const totalProposals = maxVoteCount; // Global max for consistent participation rate
-
       const batchDreps: DRep[] = sortedInfo.map((drepInfo) => {
         const drepMetadata = metadata.find((m) => m.drep_id === drepInfo.drep_id);
-        const votes = votesMap[drepInfo.drep_id] || [];
+        const rawVotes = votesMap[drepInfo.drep_id] || [];
+
+        // Deduplicate: keep only the latest vote per proposal (by block_time)
+        const latestByProposal = new Map<string, (typeof rawVotes)[number]>();
+        for (const v of rawVotes) {
+          const key = `${v.proposal_tx_hash}-${v.proposal_index}`;
+          const existing = latestByProposal.get(key);
+          if (!existing || v.block_time > existing.block_time) {
+            latestByProposal.set(key, v);
+          }
+        }
+        const votes = [...latestByProposal.values()];
 
         const yesVotes = votes.filter((v) => v.vote === 'Yes').length;
         const noVotes = votes.filter((v) => v.vote === 'No').length;
         const abstainVotes = votes.filter((v) => v.vote === 'Abstain').length;
 
         const votesWithRationale = votes.filter(
-          (v) => v.meta_url !== null || v.meta_json?.rationale != null
+          (v) => v.meta_url !== null
+            || v.meta_json?.rationale != null
+            || v.meta_json?.body?.comment != null
+            || v.meta_json?.body?.rationale != null
         ).length;
 
         const { name, ticker, description } = parseMetadataFields(drepMetadata);
         const votingPower = lovelaceToAda(drepInfo.amount || '0');
 
-        const participationRate = calculateParticipationRate(votes.length, totalProposals);
+        const participationRate = calculateParticipationRate(votes.length, actualProposalCount);
         const rationaleRate =
           votes.length > 0 ? Math.round((votesWithRationale / votes.length) * 100) : 0;
         
@@ -294,21 +306,7 @@ export async function getEnrichedDReps(
       allBaseDreps.push(...batchDreps);
     }
 
-    const globalTotalProposals = Math.max(
-      ...allBaseDreps.map((d) => d.totalVotes),
-      1
-    );
-    for (const d of allBaseDreps) {
-      d.participationRate = calculateParticipationRate(
-        d.totalVotes,
-        globalTotalProposals
-      );
-      d.effectiveParticipation = calculateEffectiveParticipation(
-        d.participationRate,
-        d.deliberationModifier
-      );
-      // Note: consistencyScore was already calculated with proper firstEpoch and activeProposalEpochs in the batch loop
-    }
+    // Participation is already calculated per-DRep using actualProposalCount in the batch loop above.
 
     // Ensure EVERY DRep gets a drepScore (0-100)
     const enriched: EnrichedDRep[] = allBaseDreps.map((drep) => {

@@ -160,7 +160,10 @@ async function fetchAndCacheRationales(
 ): Promise<{ fetched: number; cached: number }> {
   // Filter to votes that have a meta_url and no inline rationale
   const votesNeedingFetch = allVotes.filter(
-    v => v.vote.meta_url && !v.vote.meta_json?.rationale
+    v => v.vote.meta_url
+      && !v.vote.meta_json?.rationale
+      && !v.vote.meta_json?.body?.comment
+      && !v.vote.meta_json?.body?.rationale
   );
 
   if (votesNeedingFetch.length === 0) return { fetched: 0, cached: 0 };

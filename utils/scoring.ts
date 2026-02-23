@@ -64,7 +64,10 @@ export function calculateRationaleRate(votes: DRepVote[] | VoteRecord[]): number
   
   const votesWithRationale = votes.filter(vote => {
     if ('meta_url' in vote) {
-      return vote.meta_url !== null || vote.meta_json !== null;
+      return vote.meta_url !== null
+        || vote.meta_json?.rationale != null
+        || vote.meta_json?.body?.comment != null
+        || vote.meta_json?.body?.rationale != null;
     }
     return vote.hasRationale;
   }).length;

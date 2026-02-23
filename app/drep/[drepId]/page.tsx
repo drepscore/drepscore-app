@@ -247,7 +247,8 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
             </div>
             <Progress value={drep.rationaleRate} className="h-2" />
             <p className="text-xs text-muted-foreground">
-              How often this DRep provides explanations for their votes.
+              How often this DRep submits on-chain rationale metadata with their votes.
+              Some DReps share reasoning through external channels (blogs, videos) that isn&apos;t captured here.
             </p>
           </div>
           
