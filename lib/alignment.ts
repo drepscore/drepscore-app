@@ -66,8 +66,8 @@ export function classifyProposal(proposal: ProposalInfo): ClassifiedProposal {
     case 'InfoAction':
       // For InfoAction, use keyword analysis on title/abstract
       const searchText = [
-        proposal.meta_json?.title,
-        proposal.meta_json?.abstract,
+        proposal.meta_json?.body?.title || proposal.meta_json?.title,
+        proposal.meta_json?.body?.abstract || proposal.meta_json?.abstract,
       ]
         .filter(Boolean)
         .join(' ')
@@ -100,8 +100,8 @@ export function classifyProposal(proposal: ProposalInfo): ClassifiedProposal {
     txHash: proposal.proposal_tx_hash,
     index: proposal.proposal_index,
     type: proposal.proposal_type,
-    title: proposal.meta_json?.title || `Proposal ${proposal.proposal_tx_hash.slice(0, 8)}...`,
-    abstract: proposal.meta_json?.abstract || '',
+    title: proposal.meta_json?.body?.title || proposal.meta_json?.title || `Proposal ${proposal.proposal_tx_hash.slice(0, 8)}...`,
+    abstract: proposal.meta_json?.body?.abstract || proposal.meta_json?.abstract || '',
     withdrawalAmountAda,
     treasuryTier,
     paramChanges: proposal.param_proposal,

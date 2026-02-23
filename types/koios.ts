@@ -116,6 +116,16 @@ export interface ProposalInfo {
   meta_url: string | null;
   meta_hash: string | null;
   meta_json: {
+    // CIP-108 nests content under `body`
+    body?: {
+      title?: string;
+      abstract?: string;
+      motivation?: string;
+      rationale?: string;
+      references?: Array<{ uri?: string; label?: string; '@type'?: string }>;
+      [key: string]: any;
+    };
+    // Flat fallback (older proposals)
     title?: string;
     abstract?: string;
     motivation?: string;
