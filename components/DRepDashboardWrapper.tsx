@@ -19,6 +19,7 @@ interface DRepDashboardWrapperProps {
     metadata: Record<string, unknown> | null;
     votes: VoteRecord[];
     drepScore: number;
+    brokenLinks?: string[];
   };
   scoreHistory: ScoreSnapshot[];
 }

@@ -703,3 +703,39 @@ export async function getDRepPercentile(score: number): Promise<number> {
     return 0;
   }
 }
+
+// ============================================================================
+// SOCIAL LINK CHECKS
+// ============================================================================
+
+export interface SocialLinkCheck {
+  uri: string;
+  status: 'valid' | 'broken' | 'pending';
+  httpStatus: number | null;
+  lastCheckedAt: string | null;
+}
+
+/**
+ * Get social link check results for a DRep.
+ */
+export async function getSocialLinkChecks(drepId: string): Promise<SocialLinkCheck[]> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('social_link_checks')
+      .select('uri, status, http_status, last_checked_at')
+      .eq('drep_id', drepId);
+
+    if (error || !data) return [];
+
+    return data.map((r: any) => ({
+      uri: r.uri,
+      status: r.status as 'valid' | 'broken' | 'pending',
+      httpStatus: r.http_status,
+      lastCheckedAt: r.last_checked_at,
+    }));
+  } catch (err) {
+    console.error('[Data] getSocialLinkChecks error:', err);
+    return [];
+  }
+}

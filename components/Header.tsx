@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useWallet } from '@/utils/wallet';
 import { useAlignmentAlerts, AlertType } from '@/hooks/useAlignmentAlerts';
+import { getStoredSession } from '@/lib/supabaseAuth';
 
 const WalletConnectModal = dynamic(
   () => import('./WalletConnectModal').then(mod => mod.WalletConnectModal),
@@ -65,8 +66,19 @@ export function Header() {
   const { isAuthenticated, sessionAddress, logout } = useWallet();
   const { alerts, unreadCount, dismissAlert } = useAlignmentAlerts();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-6)}`;
+
+  useEffect(() => {
+    if (!isAuthenticated) { setDisplayName(null); return; }
+    const token = getStoredSession();
+    if (!token) return;
+    fetch('/api/user', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.display_name) setDisplayName(data.display_name); })
+      .catch(() => {});
+  }, [isAuthenticated]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -159,8 +171,8 @@ export function Header() {
                     <Badge variant="outline" className="gap-1 text-green-600 border-green-600 px-1.5 py-0">
                       <Shield className="h-3 w-3" />
                     </Badge>
-                    <span className="hidden sm:inline font-mono text-xs">
-                      {shortenAddress(sessionAddress)}
+                    <span className={`hidden sm:inline text-xs ${displayName ? '' : 'font-mono'}`}>
+                      {displayName || shortenAddress(sessionAddress)}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -169,7 +181,7 @@ export function Header() {
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium flex items-center gap-2">
                         <Shield className="h-3 w-3 text-green-600" />
-                        Governance Guardian
+                        {displayName || 'Governance Guardian'}
                       </p>
                       <p className="text-xs text-muted-foreground font-mono">
                         {shortenAddress(sessionAddress)}

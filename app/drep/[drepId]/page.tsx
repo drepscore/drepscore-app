@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getProposalDisplayTitle } from '@/utils/display';
 import { getDRepPrimaryName, hasCustomMetadata } from '@/utils/display';
-import { formatAda, getSizeBadgeClass, getDRepScoreBadgeClass, applyRationaleCurve, getPillarStatus, getMissingProfileFields } from '@/utils/scoring';
+import { formatAda, getSizeBadgeClass, getDRepScoreBadgeClass, applyRationaleCurve, getPillarStatus, getMissingProfileFields, getEasiestWin } from '@/utils/scoring';
 import { VoteRecord } from '@/types/drep';
 import { VotingHistoryWithPrefs } from '@/components/VotingHistoryWithPrefs';
 import { InlineDelegationCTA } from '@/components/InlineDelegationCTA';
@@ -21,6 +21,8 @@ import { ArrowLeft, TrendingUp } from 'lucide-react';
 import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
 import { ClaimProfileBanner } from '@/components/ClaimProfileBanner';
 import { DRepDashboardWrapper } from '@/components/DRepDashboardWrapper';
+import { CopyableAddress } from '@/components/CopyableAddress';
+import { AdminSimulateToggle } from '@/components/AdminSimulateToggle';
 import { AboutSection } from '@/components/AboutSection';
 import { SocialIconsLarge } from '@/components/SocialIconsLarge';
 import {
@@ -30,6 +32,7 @@ import {
   getRationalesByVoteTxHashes,
   getScoreHistory,
   getDRepPercentile,
+  getSocialLinkChecks,
 } from '@/lib/data';
 import { Suspense } from 'react';
 
@@ -139,10 +142,15 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
     notFound();
   }
 
-  const [scoreHistory, percentile] = await Promise.all([
+  const [scoreHistory, percentile, linkChecks] = await Promise.all([
     getScoreHistory(drep.drepId),
     getDRepPercentile(drep.drepScore),
+    getSocialLinkChecks(drep.drepId),
   ]);
+
+  const brokenLinks = new Set(
+    linkChecks.filter(c => c.status === 'broken').map(c => c.uri)
+  );
 
   const scoreColor = drep.drepScore >= 80 
     ? 'text-green-600 dark:text-green-400' 
@@ -153,12 +161,13 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
   // Pillar values for the redesigned score card
   const adjustedRationale = applyRationaleCurve(drep.rationaleRate);
   const pillars = [
-    { value: drep.effectiveParticipation, label: 'Effective Participation', weight: '40%' },
-    { value: adjustedRationale, label: 'Rationale Rate', weight: '25%' },
-    { value: drep.consistencyScore, label: 'Consistency', weight: '20%' },
-    { value: drep.profileCompleteness, label: 'Profile Completeness', weight: '15%' },
+    { value: drep.effectiveParticipation, label: 'Effective Participation', weight: '40%', maxPoints: 40 },
+    { value: adjustedRationale, label: 'Rationale Rate', weight: '25%', maxPoints: 25 },
+    { value: drep.consistencyScore, label: 'Consistency', weight: '20%', maxPoints: 20 },
+    { value: drep.profileCompleteness, label: 'Profile Completeness', weight: '15%', maxPoints: 15 },
   ];
-  const strongCount = pillars.filter(p => getPillarStatus(p.value) === 'strong').length;
+  const pillarStatuses = pillars.map(p => getPillarStatus(p.value));
+  const quickWin = getEasiestWin(pillars);
 
   // Action hints per pillar
   const missingFields = getMissingProfileFields(drep.metadata);
@@ -167,8 +176,12 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
     : `Voted on ${drep.votes.length} proposals`;
   const rationaleHint = `Rationale measured on binding governance votes only. InfoActions excluded.`;
   const consistencyHint = `Measures steady participation across epochs with proposals`;
-  const profileHint = missingFields.length > 0
-    ? `Missing: ${missingFields.join(', ')}`
+  const brokenLinkCount = brokenLinks.size;
+  const profileHintParts: string[] = [];
+  if (missingFields.length > 0) profileHintParts.push(`Missing: ${missingFields.join(', ')}`);
+  if (brokenLinkCount > 0) profileHintParts.push(`${brokenLinkCount} broken link${brokenLinkCount > 1 ? 's' : ''}`);
+  const profileHint = profileHintParts.length > 0
+    ? profileHintParts.join('. ')
     : 'All profile fields completed';
 
   return (
@@ -226,12 +239,12 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
           </div>
           
           {/* Social Icons */}
-          <SocialIconsLarge metadata={drep.metadata} />
+          <SocialIconsLarge metadata={drep.metadata} brokenLinks={brokenLinks} />
           
           {/* DRep ID */}
-          <p className="text-xs text-muted-foreground font-mono pt-1">
-            {drep.drepId}
-          </p>
+          <div className="pt-1">
+            <CopyableAddress address={drep.drepId} className="text-xs text-muted-foreground" />
+          </div>
         </div>
         
         {/* Delegation CTA - Compact */}
@@ -240,15 +253,23 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         </div>
       </div>
 
-      {/* DRep Score Card - Redesigned with status icons and action hints */}
+      {/* DRep Score Card - Gamified with status dots, tier distance, colored bars */}
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <CardTitle>DRep Score</CardTitle>
-              <span className="text-xs text-muted-foreground">
-                {strongCount} of 4 pillars at Strong
-              </span>
+              {/* Visual pillar dots */}
+              <div className="flex items-center gap-1" title={`${pillarStatuses.filter(s => s === 'strong').length} of 4 pillars at Strong`}>
+                {pillarStatuses.map((s, i) => (
+                  <span
+                    key={i}
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      s === 'strong' ? 'bg-green-500' : s === 'needs-work' ? 'bg-amber-500' : 'bg-red-500'
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className={`text-4xl font-bold tabular-nums ${scoreColor}`}>
@@ -271,11 +292,12 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Quick win callout */}
-          {drep.profileCompleteness < 50 && missingFields.length > 0 && (
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-                Quick win: Complete your profile metadata to easily improve your score — no on-chain transactions needed.
+          {/* Biggest opportunity callout */}
+          {quickWin && (
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-center gap-2">
+              <span className="text-blue-600 dark:text-blue-400 text-sm">&#x1F4A1;</span>
+              <p className="text-xs font-medium text-blue-800 dark:text-blue-300">
+                Biggest opportunity: {quickWin}
               </p>
             </div>
           )}
@@ -283,28 +305,32 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
           <PillarCard
             label="Effective Participation"
             value={drep.effectiveParticipation}
-            weight="40% weight"
+            weight="40%"
+            maxPoints={40}
             status={getPillarStatus(drep.effectiveParticipation)}
             hint={participationHint}
           />
           <PillarCard
             label="Rationale Rate"
             value={adjustedRationale}
-            weight="25% weight"
+            weight="25%"
+            maxPoints={25}
             status={getPillarStatus(adjustedRationale)}
             hint={rationaleHint}
           />
           <PillarCard
             label="Consistency"
             value={drep.consistencyScore}
-            weight="20% weight"
+            weight="20%"
+            maxPoints={20}
             status={getPillarStatus(drep.consistencyScore)}
             hint={consistencyHint}
           />
           <PillarCard
             label="Profile Completeness"
             value={drep.profileCompleteness}
-            weight="15% weight"
+            weight="15%"
+            maxPoints={15}
             status={getPillarStatus(drep.profileCompleteness)}
             hint={profileHint}
           />
@@ -328,6 +354,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
             metadata: drep.metadata,
             votes: drep.votes,
             drepScore: drep.drepScore,
+            brokenLinks: [...brokenLinks],
           }}
           scoreHistory={scoreHistory}
         />
@@ -348,6 +375,11 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
 
       {/* Claim Profile Banner */}
       <ClaimProfileBanner drepId={drep.drepId} />
+
+      {/* Admin simulate toggle (floating pill, only visible for admin wallets) */}
+      <Suspense fallback={null}>
+        <AdminSimulateToggle />
+      </Suspense>
     </div>
   );
 }

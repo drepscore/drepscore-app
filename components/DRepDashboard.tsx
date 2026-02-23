@@ -28,6 +28,7 @@ interface DRepDashboardProps {
     metadata: Record<string, unknown> | null;
     votes: VoteRecord[];
     drepScore: number;
+    brokenLinks?: string[];
   };
   scoreHistory: ScoreSnapshot[];
   isSimulated?: boolean;

@@ -204,7 +204,8 @@ function extractStringValue(value: unknown): string | null {
  * qualifications 10pts, bio 10pts, validated social links 25-30pts.
  */
 export function calculateProfileCompleteness(
-  metadata: Record<string, unknown> | null
+  metadata: Record<string, unknown> | null,
+  brokenUris?: Set<string>
 ): number {
   if (!metadata) return 0;
 
@@ -222,7 +223,10 @@ export function calculateProfileCompleteness(
     for (const ref of references) {
       if (ref && typeof ref === 'object' && 'uri' in ref) {
         const { uri, label } = ref as { uri: string; label?: string };
-        if (uri && isValidatedSocialLink(uri, label)) validCount++;
+        if (uri && isValidatedSocialLink(uri, label)) {
+          if (brokenUris && brokenUris.has(uri)) continue;
+          validCount++;
+        }
       }
     }
     if (validCount >= 2) score += 30;
@@ -555,4 +559,28 @@ export function getMissingProfileFields(metadata: Record<string, unknown> | null
   }
 
   return missing;
+}
+
+/**
+ * Identify the single highest-impact quick win across all pillars.
+ * Returns a label like "Complete your profile (+6 pts)" or null if all strong.
+ */
+export function getEasiestWin(pillars: { label: string; value: number; maxPoints: number }[]): string | null {
+  let best: { label: string; gain: number } | null = null;
+
+  for (const p of pillars) {
+    const status = getPillarStatus(p.value);
+    if (status === 'strong') continue;
+
+    const targetValue = status === 'low' ? 50 : 80;
+    const gap = targetValue - p.value;
+    const targetLabel = status === 'low' ? 'Needs Work' : 'Strong';
+    const pointGain = Math.round(gap * p.maxPoints / 100);
+
+    if (!best || pointGain > best.gain) {
+      best = { label: `Improve ${p.label} to ${targetLabel} (+${pointGain} pts)`, gain: pointGain };
+    }
+  }
+
+  return best?.label ?? null;
 }

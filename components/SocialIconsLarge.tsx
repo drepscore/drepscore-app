@@ -18,7 +18,7 @@ import {
   SiMastodon,
   SiTwitch,
 } from '@icons-pack/react-simple-icons';
-import { Linkedin, Globe, Link as LinkIcon } from 'lucide-react';
+import { Linkedin, Globe, Link as LinkIcon, AlertTriangle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -29,6 +29,7 @@ import {
 interface SocialIconsLargeProps {
   metadata?: Record<string, unknown> | null;
   references?: Array<{ uri: string; label?: string }>;
+  brokenLinks?: Set<string>;
 }
 
 const BRAND_ICONS: Record<string, React.FC<{ className?: string; size?: number }>> = {
@@ -73,7 +74,7 @@ function isValidUrl(url: string) {
   }
 }
 
-export function SocialIconsLarge({ metadata, references: propReferences }: SocialIconsLargeProps) {
+export function SocialIconsLarge({ metadata, references: propReferences, brokenLinks }: SocialIconsLargeProps) {
   const references = propReferences || (metadata?.references as Array<{ label: string; uri: string }> | undefined) || [];
   
   if (references.length === 0) return null;
@@ -85,6 +86,7 @@ export function SocialIconsLarge({ metadata, references: propReferences }: Socia
     <div className="flex items-center gap-2 flex-wrap">
       {validRefs.slice(0, 6).map((ref, i) => {
         const platform = extractSocialPlatform(ref.uri, ref.label);
+        const isBroken = brokenLinks?.has(ref.uri);
         return (
           <TooltipProvider key={i}>
             <Tooltip>
@@ -93,14 +95,21 @@ export function SocialIconsLarge({ metadata, references: propReferences }: Socia
                   href={ref.uri}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-lg border bg-muted/30 text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
+                  className={`relative p-2 rounded-lg border transition-colors ${
+                    isBroken
+                      ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 text-red-500'
+                      : 'bg-muted/30 text-muted-foreground hover:text-primary hover:bg-muted/50'
+                  }`}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {getIcon(platform)}
+                  {isBroken && (
+                    <AlertTriangle className="absolute -top-1 -right-1 h-3 w-3 text-red-500" />
+                  )}
                 </a>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{platform}</p>
+                <p>{isBroken ? `${platform} (link appears broken)` : platform}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

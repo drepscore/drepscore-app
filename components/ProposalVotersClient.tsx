@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ChevronDown, ChevronUp, ChevronRight, Search, Heart, UserCheck } from 'lucide-react';
+import { CopyableAddress } from '@/components/CopyableAddress';
 import { MarkdownContent } from '@/components/MarkdownContent';
 
 interface ProposalVotersClientProps {
@@ -152,9 +153,13 @@ export function ProposalVotersClient({
                       >
                         {v.vote}
                       </Badge>
-                      <span className="text-sm font-medium group-hover:text-primary transition-colors truncate">
-                        {v.drepName || `${v.drepId.slice(0, 16)}...${v.drepId.slice(-8)}`}
-                      </span>
+                      {v.drepName ? (
+                        <span className="text-sm font-medium group-hover:text-primary transition-colors truncate">
+                          {v.drepName}
+                        </span>
+                      ) : (
+                        <CopyableAddress address={v.drepId} truncate className="text-sm font-medium text-muted-foreground" />
+                      )}
                       {isMyDrep && (
                         <Badge variant="outline" className="text-xs gap-1 bg-primary/10 border-primary/30">
                           <UserCheck className="h-2.5 w-2.5" />

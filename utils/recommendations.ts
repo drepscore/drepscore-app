@@ -17,6 +17,7 @@ interface DRepData {
   deliberationModifier: number;
   metadata: Record<string, unknown> | null;
   votes: VoteRecord[];
+  brokenLinks?: string[];
 }
 
 const RATIONALE_EXEMPT_TYPES = ['InfoAction'];
@@ -48,6 +49,17 @@ export function generateRecommendations(drep: DRepData): Recommendation[] {
       title: 'Complete your profile metadata',
       description: `Missing: ${missing.join(', ')}. This is the easiest improvement — no on-chain transactions needed.`,
       potentialGain: Math.max(1, weightedGain),
+    });
+  }
+
+  // --- Broken Social Links ---
+  if (drep.brokenLinks && drep.brokenLinks.length > 0) {
+    recs.push({
+      pillar: 'profile',
+      priority: 'high',
+      title: `${drep.brokenLinks.length} broken social link${drep.brokenLinks.length > 1 ? 's' : ''}`,
+      description: `Fix or update: ${drep.brokenLinks.slice(0, 2).join(', ')}. Broken links don't count toward Profile Completeness.`,
+      potentialGain: Math.max(1, Math.round(drep.brokenLinks.length * 2)),
     });
   }
 

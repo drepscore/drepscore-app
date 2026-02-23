@@ -691,6 +691,91 @@ export async function GET(request: NextRequest) {
     console.warn('[Sync] Score history phase skipped:', err);
   }
 
+  // ── Social link reachability checks (max 50 per sync run) ────────────────
+  let linkChecksCount = 0;
+  try {
+    const LINK_CHECK_LIMIT = 50;
+    const STALE_DAYS = 14;
+    const staleThreshold = new Date(Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+    // Collect all DRep social URIs
+    const allLinks: { drep_id: string; uri: string }[] = [];
+    for (const drep of allDReps) {
+      const refs = drep.metadata?.references;
+      if (!Array.isArray(refs)) continue;
+      for (const ref of refs) {
+        if (ref && typeof ref === 'object' && 'uri' in ref) {
+          const uri = (ref as { uri: string }).uri;
+          if (uri && uri.startsWith('http')) {
+            allLinks.push({ drep_id: drep.drepId, uri });
+          }
+        }
+      }
+    }
+
+    if (allLinks.length > 0) {
+      // Find which ones are already fresh
+      const uris = allLinks.map(l => l.uri);
+      const { data: existing } = await supabase
+        .from('social_link_checks')
+        .select('drep_id, uri, last_checked_at')
+        .in('uri', uris.slice(0, 500));
+
+      const freshSet = new Set<string>();
+      if (existing) {
+        for (const row of existing) {
+          if (row.last_checked_at && row.last_checked_at > staleThreshold) {
+            freshSet.add(`${row.drep_id}|${row.uri}`);
+          }
+        }
+      }
+
+      const toCheck = allLinks
+        .filter(l => !freshSet.has(`${l.drep_id}|${l.uri}`))
+        .slice(0, LINK_CHECK_LIMIT);
+
+      for (const link of toCheck) {
+        let status = 'broken';
+        let httpStatus: number | null = null;
+
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          const res = await fetch(link.uri, {
+            method: 'HEAD',
+            redirect: 'follow',
+            signal: controller.signal,
+            headers: { 'User-Agent': 'DRepScore-LinkChecker/1.0' },
+          });
+          clearTimeout(timeout);
+          httpStatus = res.status;
+          status = res.ok ? 'valid' : 'broken';
+        } catch {
+          // Timeout, DNS fail, network error
+          status = 'broken';
+        }
+
+        await supabase
+          .from('social_link_checks')
+          .upsert({
+            drep_id: link.drep_id,
+            uri: link.uri,
+            status,
+            http_status: httpStatus,
+            last_checked_at: new Date().toISOString(),
+          }, { onConflict: 'drep_id,uri' });
+
+        linkChecksCount++;
+      }
+
+      if (linkChecksCount > 0) {
+        console.log(`[Sync] Social link checks: ${linkChecksCount} links verified`);
+      }
+    }
+  } catch (err) {
+    console.warn('[Sync] Social link check phase skipped:', err);
+  }
+
   const durationSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
   const hasErrors = errorCount > 0 || proposalErrorCount > 0 || voteErrorCount > 0;
 

@@ -30,8 +30,8 @@ import {
   Loader2,
   Pencil,
   Check,
-  Copy,
 } from 'lucide-react';
+import { CopyableAddress } from '@/components/CopyableAddress';
 
 const PREF_LABELS: Record<UserPrefKey, string> = {
   'treasury-conservative': 'Treasury Conservative',
@@ -170,14 +170,6 @@ export default function ProfilePage() {
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 12)}...${addr.slice(-8)}`;
 
-  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const copyAddress = (addr: string) => {
-    navigator.clipboard.writeText(addr).then(() => {
-      setCopiedAddress(addr);
-      setTimeout(() => setCopiedAddress(null), 1500);
-    });
-  };
-
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-16 flex items-center justify-center">
@@ -281,16 +273,7 @@ export default function ProfilePage() {
             </Badge>
           </div>
           {sessionAddress && (
-            <button
-              onClick={() => copyAddress(sessionAddress)}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground font-mono hover:text-foreground transition-colors group"
-              title="Click to copy full address"
-            >
-              {shortenAddress(sessionAddress)}
-              {copiedAddress === sessionAddress
-                ? <Check className="h-3.5 w-3.5 text-green-500" />
-                : <Copy className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />}
-            </button>
+            <CopyableAddress address={sessionAddress} truncate className="text-sm text-muted-foreground" />
           )}
         </div>
       </div>
@@ -345,9 +328,11 @@ export default function ProfilePage() {
                       href={`/drep/${encodeURIComponent(drepId)}`}
                       className="text-sm hover:text-primary flex items-center gap-1"
                     >
-                      <span className={drepNames[drepId] ? '' : 'font-mono'}>
-                        {drepNames[drepId] || shortenAddress(drepId)}
-                      </span>
+                      {drepNames[drepId] ? (
+                        <span>{drepNames[drepId]}</span>
+                      ) : (
+                        <span className="font-mono">{shortenAddress(drepId)}</span>
+                      )}
                       <ExternalLink className="h-3 w-3" />
                     </Link>
                     <button
@@ -379,16 +364,7 @@ export default function ProfilePage() {
             <div className="space-y-2">
               {sessionAddress && (
                 <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                  <button
-                    onClick={() => copyAddress(sessionAddress)}
-                    className="flex items-center gap-1.5 text-sm font-mono hover:text-foreground text-muted-foreground transition-colors group"
-                    title="Click to copy full address"
-                  >
-                    {shortenAddress(sessionAddress)}
-                    {copiedAddress === sessionAddress
-                      ? <Check className="h-3.5 w-3.5 text-green-500" />
-                      : <Copy className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                  </button>
+                  <CopyableAddress address={sessionAddress} truncate className="text-sm text-muted-foreground" />
                   <Badge variant="outline" className="text-green-600 border-green-600">Primary</Badge>
                 </div>
               )}
@@ -399,16 +375,7 @@ export default function ProfilePage() {
                     key={wallet}
                     className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
                   >
-                    <button
-                      onClick={() => copyAddress(wallet)}
-                      className="flex items-center gap-1.5 text-sm font-mono hover:text-foreground text-muted-foreground transition-colors group"
-                      title="Click to copy full address"
-                    >
-                      {shortenAddress(wallet)}
-                      {copiedAddress === wallet
-                        ? <Check className="h-3.5 w-3.5 text-green-500" />
-                        : <Copy className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                    </button>
+                    <CopyableAddress address={wallet} truncate className="text-sm text-muted-foreground" />
                   </div>
                 ))}
             </div>
@@ -432,7 +399,7 @@ export default function ProfilePage() {
               <div className="space-y-2">
                 {userData.delegation_history.map((record, i) => (
                   <div key={i} className="p-2 rounded-lg bg-muted/50 text-sm">
-                    <p className="font-mono">{shortenAddress(record.drepId)}</p>
+                    <CopyableAddress address={record.drepId} truncate className="text-muted-foreground" />
                     <p className="text-xs text-muted-foreground">
                       {new Date(record.timestamp).toLocaleDateString()}
                     </p>
