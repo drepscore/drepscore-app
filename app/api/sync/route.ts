@@ -242,6 +242,12 @@ export async function GET(request: NextRequest) {
     console.error('[Sync] Error syncing proposals:', message);
   }
 
+  // ── Rationale caching note ──────────────────────────────────────────────────
+  // Rationale text is fetched and cached on-demand via POST /api/rationale
+  // when a user views a DRep's profile page. This is more efficient than
+  // trying to prefetch all rationales during sync (which would require
+  // fetching full vote arrays for all DReps).
+
   const durationSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
 
   if (errorCount > 0 || proposalErrorCount > 0) {

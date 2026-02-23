@@ -405,24 +405,28 @@ export function DRepTableClient({
               <DropdownMenuCheckboxItem
                 checked={sizeFilters.has('Small')}
                 onCheckedChange={() => toggleSizeFilter('Small')}
+                onSelect={(e) => e.preventDefault()}
               >
                 Small (&lt;100k ADA)
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={sizeFilters.has('Medium')}
                 onCheckedChange={() => toggleSizeFilter('Medium')}
+                onSelect={(e) => e.preventDefault()}
               >
                 Medium (100k-5M)
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={sizeFilters.has('Large')}
                 onCheckedChange={() => toggleSizeFilter('Large')}
+                onSelect={(e) => e.preventDefault()}
               >
                 Large (5M-50M)
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={sizeFilters.has('Whale')}
                 onCheckedChange={() => toggleSizeFilter('Whale')}
+                onSelect={(e) => e.preventDefault()}
               >
                 Whale (&gt;50M ADA)
               </DropdownMenuCheckboxItem>

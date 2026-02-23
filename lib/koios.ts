@@ -85,10 +85,10 @@ const BATCH_SIZE = 50;
 
 /**
  * Compute vote counts per epoch from vote array
- * Groups votes by epoch_no and returns array of counts
+ * Groups votes by epoch_no and returns array of counts + first epoch
  */
-function computeEpochVoteCounts(votes: Awaited<ReturnType<typeof fetchDRepVotes>>): number[] {
-  if (!votes || votes.length === 0) return [];
+function computeEpochVoteCounts(votes: Awaited<ReturnType<typeof fetchDRepVotes>>): { counts: number[]; firstEpoch: number | undefined } {
+  if (!votes || votes.length === 0) return { counts: [], firstEpoch: undefined };
   
   const epochCounts: Record<number, number> = {};
   let minEpoch = Infinity;
@@ -103,14 +103,14 @@ function computeEpochVoteCounts(votes: Awaited<ReturnType<typeof fetchDRepVotes>
     }
   }
   
-  if (minEpoch === Infinity) return [];
+  if (minEpoch === Infinity) return { counts: [], firstEpoch: undefined };
   
   const counts: number[] = [];
   for (let e = minEpoch; e <= maxEpoch; e++) {
     counts.push(epochCounts[e] || 0);
   }
   
-  return counts;
+  return { counts, firstEpoch: minEpoch };
 }
 
 /** Max concurrent vote fetches to avoid overwhelming the API */
@@ -230,8 +230,8 @@ export async function getEnrichedDReps(
         const deliberationModifier = calculateDeliberationModifier(yesVotes, noVotes, abstainVotes);
         const effectiveParticipation = calculateEffectiveParticipation(participationRate, deliberationModifier);
         
-        const epochVoteCounts = computeEpochVoteCounts(votes);
-        const consistencyScore = calculateConsistency(epochVoteCounts);
+        const { counts: epochVoteCounts, firstEpoch } = computeEpochVoteCounts(votes);
+        const consistencyScore = calculateConsistency(epochVoteCounts, firstEpoch);
 
         return {
           drepId: drepInfo.drep_id,

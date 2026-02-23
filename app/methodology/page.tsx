@@ -83,11 +83,17 @@ export default function MethodologyPage() {
               <div className="border-l-4 border-purple-500 pl-4">
                 <h5 className="font-medium">Consistency (20% weight)</h5>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Measures how steadily a DRep participates over time (normalized inverse coefficient of variation of epoch vote counts).
+                  Measures how steadily a DRep participates <em>across epochs that had active proposals</em>. 
+                  Only epochs where governance actions were available to vote on count toward this score — 
+                  gaps during quiet periods do not penalize a DRep.
                 </p>
+                <code className="block bg-muted p-2 rounded text-xs mt-2">
+                  Consistency = 60% × (1 − CV of votes/epoch) + 40% × (active epochs / proposal epochs)
+                </code>
                 <p className="text-sm text-muted-foreground mt-2">
                   <strong>Why?</strong> A DRep who was highly active for one month then disappeared is less reliable than 
-                  one who votes consistently epoch after epoch. Governance requires sustained engagement.
+                  one who votes consistently epoch after epoch. Governance requires sustained engagement. We only measure 
+                  against epochs where proposals were live, so DReps aren't punished for quiet periods on-chain.
                 </p>
               </div>
             </div>
@@ -269,7 +275,11 @@ export default function MethodologyPage() {
                 <strong>Rationale quality</strong> is not assessed—we only check if rationale exists, not if it's thoughtful.
               </li>
               <li>
-                <strong>New DReps</strong> may have low consistency scores simply due to limited data, not disengagement.
+                <strong>New DReps</strong> may have low consistency scores due to limited voting history rather than genuine disengagement.
+              </li>
+              <li>
+                <strong>Rationale text</strong> is fetched from IPFS and cached on demand; the first time you view a DRep, 
+                some rationales may show as "hosted externally" until they are cached.
               </li>
               <li>
                 <strong>Proposal classification</strong> relies on CIP-1694 types and treasury amounts; some edge cases may be imperfectly categorized.

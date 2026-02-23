@@ -103,14 +103,39 @@ export function calculateDeliberationModifier(
  * Calculate consistency score based on voting activity across epochs
  * Measures how steadily a DRep participates over time
  * 
- * @param epochVoteCounts Array of vote counts per epoch
+ * @param epochVoteCounts Array of vote counts per epoch (index = epoch offset from first active epoch)
+ * @param firstEpoch The first epoch in the array (optional, for filtering by active proposal epochs)
+ * @param activeProposalEpochs Set of epochs that had proposals (optional, for fair consistency)
  * @returns Consistency score (0-100)
  */
-export function calculateConsistency(epochVoteCounts: number[]): number {
+export function calculateConsistency(
+  epochVoteCounts: number[],
+  firstEpoch?: number,
+  activeProposalEpochs?: Set<number>
+): number {
   if (!epochVoteCounts || epochVoteCounts.length === 0) return 0;
   if (epochVoteCounts.length === 1) return epochVoteCounts[0] > 0 ? 50 : 0;
   
-  const nonZeroEpochs = epochVoteCounts.filter(c => c > 0);
+  // If we have active proposal epochs info, filter to only count those epochs
+  let relevantEpochCounts = epochVoteCounts;
+  let relevantEpochCount = epochVoteCounts.length;
+  
+  if (activeProposalEpochs && activeProposalEpochs.size > 0 && firstEpoch !== undefined) {
+    // Only count epochs that had proposals
+    relevantEpochCounts = [];
+    for (let i = 0; i < epochVoteCounts.length; i++) {
+      const epoch = firstEpoch + i;
+      if (activeProposalEpochs.has(epoch)) {
+        relevantEpochCounts.push(epochVoteCounts[i]);
+      }
+    }
+    relevantEpochCount = relevantEpochCounts.length;
+    
+    if (relevantEpochCount === 0) return 50; // No proposals in their active period
+    if (relevantEpochCount === 1) return relevantEpochCounts[0] > 0 ? 50 : 0;
+  }
+  
+  const nonZeroEpochs = relevantEpochCounts.filter(c => c > 0);
   if (nonZeroEpochs.length === 0) return 0;
   
   const mean = nonZeroEpochs.reduce((a, b) => a + b, 0) / nonZeroEpochs.length;
@@ -120,7 +145,7 @@ export function calculateConsistency(epochVoteCounts: number[]): number {
   const stdDev = Math.sqrt(variance);
   const coefficientOfVariation = stdDev / mean;
   
-  const activeEpochRatio = nonZeroEpochs.length / epochVoteCounts.length;
+  const activeEpochRatio = nonZeroEpochs.length / relevantEpochCount;
   const consistencyFromCV = Math.max(0, 1 - coefficientOfVariation);
   const combinedScore = (consistencyFromCV * 0.6 + activeEpochRatio * 0.4) * 100;
   

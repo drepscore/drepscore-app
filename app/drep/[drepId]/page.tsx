@@ -22,14 +22,15 @@ import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
 import { ClaimProfileBanner } from '@/components/ClaimProfileBanner';
 import { AboutSection } from '@/components/AboutSection';
 import { SocialIconsLarge } from '@/components/SocialIconsLarge';
+import { getGlobalTotalProposals, getActiveProposalEpochs, getProposalsByIds, getRationalesByVoteTxHashes } from '@/lib/data';
 import { Suspense } from 'react';
 
 interface DRepDetailPageProps {
   params: Promise<{ drepId: string }>;
 }
 
-function computeEpochVoteCounts(votes: { block_time: number }[]): number[] {
-  if (!votes || votes.length === 0) return [];
+function computeEpochVoteCounts(votes: { block_time: number }[]): { counts: number[]; firstEpoch: number | undefined } {
+  if (!votes || votes.length === 0) return { counts: [], firstEpoch: undefined };
   
   const epochCounts: Record<number, number> = {};
   let minEpoch = Infinity;
@@ -42,14 +43,14 @@ function computeEpochVoteCounts(votes: { block_time: number }[]): number[] {
     maxEpoch = Math.max(maxEpoch, epoch);
   }
   
-  if (minEpoch === Infinity) return [];
+  if (minEpoch === Infinity) return { counts: [], firstEpoch: undefined };
   
   const counts: number[] = [];
   for (let e = minEpoch; e <= maxEpoch; e++) {
     counts.push(epochCounts[e] || 0);
   }
   
-  return counts;
+  return { counts, firstEpoch: minEpoch };
 }
 
 async function getDRepData(drepId: string) {
@@ -78,28 +79,39 @@ async function getDRepData(drepId: string) {
       console.log(`[DRepScore] Found ${votes.length} votes for DRep ${decodedId}`);
     }
 
-    // Transform votes to VoteRecord format
-    const voteRecords: VoteRecord[] = votes.map((vote, index) => ({
-      id: `${vote.vote_tx_hash}-${index}`,
-      proposalTxHash: vote.proposal_tx_hash,
-      proposalIndex: vote.proposal_index,
-      voteTxHash: vote.vote_tx_hash,
-      date: new Date(vote.block_time * 1000),
-      vote: vote.vote,
-      title: getProposalDisplayTitle(vote.meta_json?.title || null, vote.proposal_tx_hash, vote.proposal_index),
-      abstract: vote.meta_json?.abstract || null,
-      hasRationale: vote.meta_url !== null || vote.meta_json?.rationale !== null,
-      rationaleUrl: vote.meta_url,
-      rationaleText: vote.meta_json?.rationale || null,
-      voteType: 'Governance', // Catalyst votes would need different endpoint/detection
-    }));
+    const cachedProposals = await getProposalsByIds(
+      votes.map(v => ({ txHash: v.proposal_tx_hash, index: v.proposal_index }))
+    );
+    const cachedRationales = await getRationalesByVoteTxHashes(votes.map(v => v.vote_tx_hash));
+    
+    const voteRecords: VoteRecord[] = votes.map((vote, index) => {
+      const cachedProposal = cachedProposals.get(`${vote.proposal_tx_hash}-${vote.proposal_index}`);
+      const title = cachedProposal?.title || vote.meta_json?.title || null;
+      const abstract = cachedProposal?.abstract || vote.meta_json?.abstract || null;
+      const rationaleText = cachedRationales.get(vote.vote_tx_hash) || vote.meta_json?.rationale || null;
+      
+      return {
+        id: `${vote.vote_tx_hash}-${index}`,
+        proposalTxHash: vote.proposal_tx_hash,
+        proposalIndex: vote.proposal_index,
+        voteTxHash: vote.vote_tx_hash,
+        date: new Date(vote.block_time * 1000),
+        vote: vote.vote,
+        title: getProposalDisplayTitle(title, vote.proposal_tx_hash, vote.proposal_index),
+        abstract: abstract,
+        hasRationale: vote.meta_url !== null || rationaleText !== null,
+        rationaleUrl: vote.meta_url,
+        rationaleText: rationaleText,
+        voteType: 'Governance',
+      };
+    });
 
     const votingPower = lovelaceToAda(info.amount || '0');
     const delegatorCount = info.delegators || 0;
     
-    // Use actual vote count as proxy for total proposals this DRep could have voted on
-    // This gives us their actual participation in available votes
-    const totalProposals = Math.max(votes.length, 1);
+    // Use the global max vote count so participation rate matches the main table
+    const globalTotalProposals = await getGlobalTotalProposals();
+    const totalProposals = Math.max(globalTotalProposals, votes.length, 1);
 
     // Calculate vote distribution
     const yesVotes = votes.filter(v => v.vote === 'Yes').length;
@@ -114,8 +126,9 @@ async function getDRepData(drepId: string) {
     const deliberationModifier = calculateDeliberationModifier(yesVotes, noVotes, abstainVotes);
     const effectiveParticipation = calculateEffectiveParticipation(participationRate, deliberationModifier);
     
-    const epochVoteCounts = computeEpochVoteCounts(votes);
-    const consistencyScore = calculateConsistency(epochVoteCounts);
+    const { counts: epochVoteCounts, firstEpoch } = computeEpochVoteCounts(votes);
+    const activeProposalEpochs = await getActiveProposalEpochs();
+    const consistencyScore = calculateConsistency(epochVoteCounts, firstEpoch, activeProposalEpochs);
 
     const sizeTier = getSizeTier(votingPower);
     const drepScore = calculateDRepScore({ effectiveParticipation, rationaleRate, consistencyScore });

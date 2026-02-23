@@ -155,6 +155,154 @@ export async function getAllDReps(): Promise<{
 }
 
 /**
+ * Get epochs that had active proposals
+ * Used to calculate consistency fairly (only count epochs where voting was possible)
+ */
+export async function getActiveProposalEpochs(): Promise<Set<number>> {
+  try {
+    const supabase = createClient();
+    
+    const { data: rows, error } = await supabase
+      .from('proposals')
+      .select('proposed_epoch')
+      .not('proposed_epoch', 'is', null);
+    
+    if (error || !rows) return new Set();
+    
+    const epochs = new Set<number>();
+    for (const row of rows) {
+      if (row.proposed_epoch != null) epochs.add(row.proposed_epoch);
+    }
+    
+    return epochs;
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Get the global total proposals count (max votes across all DReps)
+ * Used to calculate participation rate consistently
+ */
+export async function getGlobalTotalProposals(): Promise<number> {
+  try {
+    const supabase = createClient();
+    
+    const { data: rows, error } = await supabase
+      .from('dreps')
+      .select('info')
+      .order('score', { ascending: false })
+      .limit(100);
+    
+    if (error || !rows || rows.length === 0) {
+      return 50;
+    }
+    
+    const voteCounts = rows
+      .map((r) => (r.info as { totalVotes?: number })?.totalVotes || 0)
+      .filter((v) => v > 0);
+    
+    return voteCounts.length > 0 ? Math.max(...voteCounts) : 50;
+  } catch {
+    return 50;
+  }
+}
+
+/**
+ * Proposal metadata from the cached proposals table
+ */
+export interface CachedProposal {
+  txHash: string;
+  proposalIndex: number;
+  title: string | null;
+  abstract: string | null;
+  proposalType: string | null;
+  withdrawalAmount: number | null;
+  treasuryTier: string | null;
+}
+
+/**
+ * Get proposals by their IDs (tx_hash + proposal_index)
+ * Used to enrich vote records with proposal metadata
+ */
+export async function getProposalsByIds(
+  proposalIds: { txHash: string; index: number }[]
+): Promise<Map<string, CachedProposal>> {
+  const result = new Map<string, CachedProposal>();
+  
+  if (proposalIds.length === 0) return result;
+  
+  try {
+    const supabase = createClient();
+    
+    // Build a filter for all the proposal IDs
+    // Note: Supabase doesn't support compound key IN queries easily,
+    // so we'll fetch all proposals and filter client-side for simplicity
+    const txHashes = [...new Set(proposalIds.map(p => p.txHash))];
+    
+    const { data: rows, error } = await supabase
+      .from('proposals')
+      .select('tx_hash, proposal_index, title, abstract, proposal_type, withdrawal_amount, treasury_tier')
+      .in('tx_hash', txHashes);
+    
+    if (error || !rows) return result;
+    
+    // Supabase doesn't support compound-key IN queries; we filter client-side after fetching by tx_hash
+    const requestedIds = new Set(proposalIds.map(p => `${p.txHash}-${p.index}`));
+    
+    for (const row of rows) {
+      const key = `${row.tx_hash}-${row.proposal_index}`;
+      if (requestedIds.has(key)) {
+        result.set(key, {
+          txHash: row.tx_hash,
+          proposalIndex: row.proposal_index,
+          title: row.title,
+          abstract: row.abstract,
+          proposalType: row.proposal_type,
+          withdrawalAmount: row.withdrawal_amount,
+          treasuryTier: row.treasury_tier,
+        });
+      }
+    }
+    
+    return result;
+  } catch {
+    return result;
+  }
+}
+
+/**
+ * Get cached rationale text for votes by their tx hashes
+ */
+export async function getRationalesByVoteTxHashes(
+  voteTxHashes: string[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  
+  if (voteTxHashes.length === 0) return result;
+  
+  try {
+    const supabase = createClient();
+    
+    const { data: rows, error } = await supabase
+      .from('vote_rationales')
+      .select('vote_tx_hash, rationale_text')
+      .in('vote_tx_hash', voteTxHashes)
+      .not('rationale_text', 'is', null);
+    
+    if (error || !rows) return result;
+    
+    for (const row of rows) {
+      if (row.rationale_text) result.set(row.vote_tx_hash, row.rationale_text);
+    }
+    
+    return result;
+  } catch {
+    return result;
+  }
+}
+
+/**
  * Get a single DRep by ID
  * Returns DRep data or null if not found
  */
