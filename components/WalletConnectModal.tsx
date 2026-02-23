@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useWallet } from '@/utils/wallet';
+import { useState, useEffect } from 'react';
+import { useWallet, WalletError } from '@/utils/wallet';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Wallet, Shield, Bell, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Wallet, Shield, Bell, Check, Loader2, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 
 interface WalletConnectModalProps {
   open: boolean;
@@ -31,20 +31,51 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
     availableWallets,
     connect,
     authenticate,
+    clearError,
+    disconnect,
   } = useWallet();
 
   const [step, setStep] = useState<Step>('connect');
   const [authenticating, setAuthenticating] = useState(false);
   const [pushRequested, setPushRequested] = useState(false);
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+
+  // Clear error when modal opens
+  useEffect(() => {
+    if (open) {
+      clearError();
+    }
+  }, [open, clearError]);
 
   const handleWalletSelect = async (walletName: string) => {
+    clearError();
+    setSelectedWallet(walletName);
     await connect(walletName);
-    if (!error) {
+  };
+
+  // Move to sign step when connected successfully
+  useEffect(() => {
+    if (connected && address && !error && step === 'connect') {
       setStep('sign');
+    }
+  }, [connected, address, error, step]);
+
+  const handleTryAgain = () => {
+    clearError();
+    if (selectedWallet) {
+      connect(selectedWallet);
     }
   };
 
+  const handleTryDifferentWallet = () => {
+    clearError();
+    disconnect();
+    setSelectedWallet(null);
+    setStep('connect');
+  };
+
   const handleSign = async () => {
+    clearError();
     setAuthenticating(true);
     const success = await authenticate();
     setAuthenticating(false);
@@ -118,7 +149,39 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
             </div>
 
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <div className="space-y-3">
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-destructive">{error.message}</p>
+                      <p className="text-xs text-muted-foreground">{error.hint}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={handleTryAgain}
+                    disabled={connecting}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Try Again
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={handleTryDifferentWallet}
+                    disabled={connecting}
+                  >
+                    <ArrowLeft className="h-3 w-3 mr-1" />
+                    Different Wallet
+                  </Button>
+                </div>
+              </div>
             )}
           </>
         )}
@@ -170,7 +233,39 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
             </div>
 
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <div className="space-y-3">
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-destructive">{error.message}</p>
+                      <p className="text-xs text-muted-foreground">{error.hint}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={handleSign}
+                    disabled={authenticating}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Try Again
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={handleTryDifferentWallet}
+                    disabled={authenticating}
+                  >
+                    <ArrowLeft className="h-3 w-3 mr-1" />
+                    Different Wallet
+                  </Button>
+                </div>
+              </div>
             )}
           </>
         )}

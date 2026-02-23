@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useWallet } from '@/utils/wallet';
-import { WalletConnect } from './WalletConnect';
 
 const WalletConnectModal = dynamic(
   () => import('./WalletConnectModal').then(mod => mod.WalletConnectModal),
@@ -21,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Shield, User, Settings2, LogOut, AlertTriangle } from 'lucide-react';
+import { Bell, Shield, User, Settings2, LogOut, AlertTriangle, Wallet } from 'lucide-react';
 
 export function Header() {
   const { isAuthenticated, sessionAddress, logout } = useWallet();
@@ -108,18 +107,15 @@ export function Header() {
               </DropdownMenu>
             </>
           ) : (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setWalletModalOpen(true)}
-                className="gap-2"
-              >
-                <Shield className="h-4 w-4" />
-                <span className="hidden sm:inline">Sign In</span>
-              </Button>
-              <WalletConnect />
-            </>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setWalletModalOpen(true)}
+              className="gap-2"
+            >
+              <Wallet className="h-4 w-4" />
+              <span className="hidden sm:inline">Connect Wallet</span>
+            </Button>
           )}
 
           <ModeToggle />

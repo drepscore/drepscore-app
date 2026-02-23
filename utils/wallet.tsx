@@ -6,7 +6,59 @@ import { getStoredSession, saveSession, clearSession, parseSessionToken, isSessi
 
 interface CIP30Api {
   getUsedAddresses(): Promise<string[]>;
+  getUnusedAddresses(): Promise<string[]>;
   signData(addr: string, payload: string): Promise<{ signature: string; key: string }>;
+}
+
+export type WalletErrorType = 'no_addresses' | 'extension_error' | 'user_rejected' | 'network' | 'unknown';
+
+export interface WalletError {
+  type: WalletErrorType;
+  message: string;
+  hint: string;
+}
+
+function categorizeError(err: unknown, walletName?: string): WalletError {
+  const message = err instanceof Error ? err.message : String(err);
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes('no addresses') || lowerMessage.includes('empty')) {
+    return {
+      type: 'no_addresses',
+      message: 'No addresses found in wallet',
+      hint: 'Your wallet appears empty. Please ensure it has received at least one transaction, or try a different wallet.',
+    };
+  }
+
+  if (lowerMessage.includes('user') && (lowerMessage.includes('reject') || lowerMessage.includes('cancel') || lowerMessage.includes('declined'))) {
+    return {
+      type: 'user_rejected',
+      message: 'Request cancelled',
+      hint: 'You cancelled the request. Please try again when ready.',
+    };
+  }
+
+  if (lowerMessage.includes('listener') || lowerMessage.includes('channel closed') || lowerMessage.includes('could not access')) {
+    return {
+      type: 'extension_error',
+      message: `Could not communicate with ${walletName || 'wallet'}`,
+      hint: `Try refreshing the page or reopening your ${walletName || 'wallet'} extension. If the problem persists, try a different browser.`,
+    };
+  }
+
+  if (lowerMessage.includes('network') || lowerMessage.includes('fetch') || lowerMessage.includes('timeout')) {
+    return {
+      type: 'network',
+      message: 'Network error',
+      hint: 'Please check your internet connection and try again.',
+    };
+  }
+
+  return {
+    type: 'unknown',
+    message: message || 'Something went wrong',
+    hint: 'Please try again. If the problem persists, try refreshing the page or using a different wallet.',
+  };
 }
 
 function getCardanoApi(name: string): { enable(): Promise<CIP30Api> } | undefined {
@@ -21,13 +73,14 @@ export interface WalletContextType {
   address: string | null;
   sessionAddress: string | null;
   isAuthenticated: boolean;
-  error: string | null;
+  error: WalletError | null;
   availableWallets: string[];
   connect: (walletName: string) => Promise<void>;
   disconnect: () => void;
   signMessage: (message: string) => Promise<{ signature: string; key: string } | null>;
   authenticate: () => Promise<boolean>;
   logout: () => void;
+  clearError: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -40,8 +93,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [hexAddress, setHexAddress] = useState<string | null>(null);
   const [sessionAddress, setSessionAddress] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<WalletError | null>(null);
   const [availableWallets, setAvailableWallets] = useState<string[]>([]);
+
+  const clearError = useCallback(() => setError(null), []);
 
   const isAuthenticated = sessionAddress !== null;
 
@@ -77,11 +132,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setWallet(browserWallet);
       setWalletName(name);
       
-      const addresses = await browserWallet.getUsedAddresses();
+      // Try used addresses first, then fall back to unused addresses
+      let addresses = await browserWallet.getUsedAddresses();
+      if (!addresses || addresses.length === 0) {
+        addresses = await browserWallet.getUnusedAddresses();
+      }
 
       // Also get hex address from raw CIP-30 API for signData
       const rawApi = await getCardanoApi(name)?.enable();
-      const hexAddresses = rawApi ? await rawApi.getUsedAddresses() : [];
+      let hexAddresses: string[] = [];
+      if (rawApi) {
+        hexAddresses = await rawApi.getUsedAddresses();
+        if (!hexAddresses || hexAddresses.length === 0) {
+          hexAddresses = await rawApi.getUnusedAddresses();
+        }
+      }
 
       if (addresses && addresses.length > 0) {
         setAddress(addresses[0]);
@@ -91,8 +156,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         throw new Error('No addresses found in wallet');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
-      setError(errorMessage);
+      setError(categorizeError(err, name));
       console.error('Wallet connection error:', err);
     } finally {
       setConnecting(false);
@@ -110,7 +174,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const signMessage = useCallback(async (message: string): Promise<{ signature: string; key: string } | null> => {
     if (!walletName || !hexAddress) {
-      setError('Wallet not connected');
+      setError({ type: 'unknown', message: 'Wallet not connected', hint: 'Please connect your wallet first.' });
       return null;
     }
 
@@ -126,8 +190,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const result = await rawApi.signData(hexAddress, hexPayload);
       return { signature: result.signature, key: result.key };
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to sign message';
-      setError(errorMessage);
+      setError(categorizeError(err, walletName));
       console.error('Sign message error:', err);
       return null;
     }
@@ -135,12 +198,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const authenticate = useCallback(async (): Promise<boolean> => {
     if (!walletName || !address || !hexAddress) {
-      setError('Connect wallet first');
+      setError({ type: 'unknown', message: 'Connect wallet first', hint: 'Please connect your wallet before signing in.' });
       return false;
     }
 
     try {
       const nonceResponse = await fetch('/api/auth/nonce');
+      if (!nonceResponse.ok) throw new Error('Network error fetching nonce');
       const { nonce, signature: nonceSignature } = await nonceResponse.json();
 
       const signResult = await signMessage(nonce);
@@ -168,8 +232,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setSessionAddress(address);
       return true;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
-      setError(errorMessage);
+      setError(categorizeError(err, walletName));
       console.error('Authentication error:', err);
       return false;
     }
@@ -196,6 +259,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         signMessage,
         authenticate,
         logout,
+        clearError,
       }}
     >
       {children}
