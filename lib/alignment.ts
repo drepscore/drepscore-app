@@ -101,7 +101,7 @@ export function classifyProposal(proposal: ProposalInfo): ClassifiedProposal {
     index: proposal.proposal_index,
     type: proposal.proposal_type,
     title: proposal.meta_json?.body?.title || proposal.meta_json?.title || `Proposal ${proposal.proposal_tx_hash.slice(0, 8)}...`,
-    abstract: proposal.meta_json?.body?.abstract || proposal.meta_json?.abstract || '',
+    abstract: proposal.meta_json?.body?.abstract || proposal.meta_json?.abstract || proposal.proposal_description || proposal.meta_json?.body?.motivation || null,
     withdrawalAmountAda,
     treasuryTier,
     paramChanges: proposal.param_proposal,

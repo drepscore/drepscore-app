@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ProposalVoteDetail } from '@/lib/data';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ChevronDown, ChevronUp, User, Search, Heart, UserCheck } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronRight, Search, Heart, UserCheck } from 'lucide-react';
 import { MarkdownContent } from '@/components/MarkdownContent';
 
 interface ProposalVotersClientProps {
@@ -23,6 +23,7 @@ export function ProposalVotersClient({
   watchlist = [],
   delegatedDrepId,
 }: ProposalVotersClientProps) {
+  const router = useRouter();
   const [filter, setFilter] = useState<VoteFilter>('all');
   const [showAll, setShowAll] = useState(false);
   const [expandedRationales, setExpandedRationales] = useState<Set<string>>(new Set());
@@ -136,7 +137,11 @@ export function ProposalVotersClient({
             return (
               <div
                 key={v.voteTxHash}
-                className={`border rounded-lg p-3 hover:bg-muted/20 transition-colors ${isMyDrep ? 'ring-1 ring-primary/40 bg-primary/5' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => router.push(`/drep/${encodeURIComponent(v.drepId)}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/drep/${encodeURIComponent(v.drepId)}`); }}
+                className={`border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer group ${isMyDrep ? 'ring-1 ring-primary/40 bg-primary/5' : ''}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0 space-y-1">
@@ -147,12 +152,9 @@ export function ProposalVotersClient({
                       >
                         {v.vote}
                       </Badge>
-                      <Link
-                        href={`/drep/${encodeURIComponent(v.drepId)}`}
-                        className="text-sm font-medium hover:text-primary transition-colors truncate"
-                      >
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors truncate">
                         {v.drepName || `${v.drepId.slice(0, 16)}...${v.drepId.slice(-8)}`}
-                      </Link>
+                      </span>
                       {isMyDrep && (
                         <Badge variant="outline" className="text-xs gap-1 bg-primary/10 border-primary/30">
                           <UserCheck className="h-2.5 w-2.5" />
@@ -179,7 +181,7 @@ export function ProposalVotersClient({
                         )}
                         {hasLongRationale && (
                           <button
-                            onClick={() => toggleRationale(v.voteTxHash)}
+                            onClick={(e) => { e.stopPropagation(); toggleRationale(v.voteTxHash); }}
                             className="text-xs text-primary hover:underline flex items-center gap-1 mt-1 font-medium"
                           >
                             {isExpanded ? (
@@ -194,17 +196,12 @@ export function ProposalVotersClient({
 
                     {v.metaUrl && !v.rationaleText && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Rationale submitted — being fetched from IPFS.
+                        Rationale submitted but not yet indexed. Check back soon.
                       </p>
                     )}
                   </div>
 
-                  <Link
-                    href={`/drep/${encodeURIComponent(v.drepId)}`}
-                    className="p-2 rounded-lg hover:bg-muted transition-colors shrink-0"
-                  >
-                    <User className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                  </Link>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />
                 </div>
               </div>
             );

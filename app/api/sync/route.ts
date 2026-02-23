@@ -61,7 +61,7 @@ interface SupabaseProposalRow {
   proposal_index: number;
   proposal_type: string;
   title: string;
-  abstract: string;
+  abstract: string | null;
   withdrawal_amount: number | null;
   treasury_tier: string | null;
   param_changes: Record<string, unknown> | null;
@@ -98,7 +98,7 @@ const RATIONALE_MAX_CONTENT_SIZE = 50000; // 50KB
 const RATIONALE_CONCURRENCY = 3;
 // Cap IPFS fetches per sync run so the function stays within Vercel's timeout.
 // Each subsequent sync incrementally fetches more. ~30 fetches * 5s / 3 concurrency = ~50s.
-const RATIONALE_MAX_PER_SYNC = 30;
+const RATIONALE_MAX_PER_SYNC = 50;
 
 async function fetchRationaleFromUrl(url: string): Promise<string | null> {
   try {
@@ -518,11 +518,27 @@ export async function GET(request: NextRequest) {
 
   if (process.env.ANTHROPIC_API_KEY) {
     try {
+      // Clear summaries containing raw IPFS/HTTP URLs so they get re-generated
+      const { data: badSummaries } = await supabase
+        .from('proposals')
+        .select('tx_hash, proposal_index')
+        .not('ai_summary', 'is', null)
+        .or('ai_summary.ilike.%ipfs.io%,ai_summary.ilike.%ipfs://%,ai_summary.ilike.%bafkrei%');
+
+      if (badSummaries && badSummaries.length > 0) {
+        for (const row of badSummaries) {
+          await supabase.from('proposals').update({ ai_summary: null })
+            .eq('tx_hash', row.tx_hash).eq('proposal_index', row.proposal_index);
+        }
+        console.log(`[Sync] Cleared ${badSummaries.length} AI summaries with raw URLs for re-generation`);
+      }
+
       const { data: unsummarized } = await supabase
         .from('proposals')
         .select('tx_hash, proposal_index, title, abstract, proposal_type, withdrawal_amount')
         .is('ai_summary', null)
         .not('abstract', 'is', null)
+        .neq('abstract', '')
         .limit(AI_SUMMARY_MAX_PER_SYNC);
 
       if (unsummarized && unsummarized.length > 0) {
@@ -542,11 +558,14 @@ export async function GET(request: NextRequest) {
               max_tokens: 200,
               messages: [{
                 role: 'user',
-                content: `Summarize this Cardano governance proposal in 2-3 sentences for a casual ADA holder. Focus on what it does, who it affects, and why it matters. Be concise and neutral.\n\nTitle: ${row.title || 'Untitled'}\nType: ${row.proposal_type}${amountContext}\nDescription: ${(row.abstract || '').slice(0, 2000)}`,
+                content: `Summarize this Cardano governance proposal in 2-3 sentences for a casual ADA holder. Focus on what it does, who it affects, and why it matters. Be concise and neutral. Do not include any URLs, links, IPFS hashes, or transaction hashes in the summary.\n\nTitle: ${row.title || 'Untitled'}\nType: ${row.proposal_type}${amountContext}\nDescription: ${(row.abstract || '').slice(0, 2000)}`,
               }],
             });
 
-            const summary = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
+            const rawSummary = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
+            const summary = rawSummary
+              ? rawSummary.replace(/https?:\/\/\S+/g, '').replace(/ipfs:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim()
+              : null;
 
             if (summary) {
               await supabase

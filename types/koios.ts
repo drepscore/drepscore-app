@@ -158,7 +158,7 @@ export interface ClassifiedProposal {
   index: number;
   type: ProposalInfo['proposal_type'];
   title: string;
-  abstract: string;
+  abstract: string | null;
   withdrawalAmountAda: number | null;
   treasuryTier: 'routine' | 'significant' | 'major' | null;
   paramChanges: Record<string, unknown> | null;

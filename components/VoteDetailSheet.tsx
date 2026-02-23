@@ -173,7 +173,7 @@ export function VoteDetailSheet({ vote, open, onOpenChange, userPrefs = [] }: Vo
               </p>
               <div className="bg-muted/20 rounded-lg p-3 border border-border/20">
                 <p className="text-xs text-muted-foreground">
-                  Rationale is being fetched from IPFS and will appear after the next sync.
+                  This DRep submitted a rationale, but it hasn&apos;t been indexed yet. Check back soon.
                 </p>
               </div>
             </div>

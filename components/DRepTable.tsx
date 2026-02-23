@@ -83,6 +83,12 @@ export function DRepTable({
       : <ArrowDown className="ml-2 h-4 w-4 text-primary" />;
   };
 
+  const alignClasses: Record<string, { head: string; flex: string; ml: string }> = {
+    left:   { head: 'text-left',   flex: '',               ml: '-ml-4' },
+    center: { head: 'text-center', flex: 'justify-center', ml: ''      },
+    right:  { head: 'text-right',  flex: 'justify-end',    ml: ''      },
+  };
+
   const SortableHeader = ({ 
     columnKey, 
     label, 
@@ -92,53 +98,56 @@ export function DRepTable({
     columnKey: SortKey, 
     label: string, 
     tooltip: string,
-    align?: 'left' | 'right' 
-  }) => (
-    <TableHead className={`text-${align}`}>
-      <div className={`flex items-center ${align === 'right' ? 'justify-end' : ''}`}>
-        <Button 
-          variant="ghost" 
-          onClick={(e) => {
-            e.stopPropagation();
-            onSort?.(columnKey);
-          }}
-          className="-ml-4 hover:bg-transparent hover:text-primary font-semibold"
-        >
-          {label}
-          <SortIcon columnKey={columnKey} />
-        </Button>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="h-3.5 w-3.5 text-muted-foreground ml-1 cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="max-w-xs">{tooltip}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-    </TableHead>
-  );
+    align?: 'left' | 'center' | 'right' 
+  }) => {
+    const ac = alignClasses[align];
+    return (
+      <TableHead className={ac.head}>
+        <div className={`flex items-center ${ac.flex}`}>
+          <Button 
+            variant="ghost" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onSort?.(columnKey);
+            }}
+            className={`${ac.ml} hover:bg-transparent hover:text-primary font-semibold`}
+          >
+            {label}
+            <SortIcon columnKey={columnKey} />
+          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 text-muted-foreground ml-1 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">{tooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </TableHead>
+    );
+  };
 
   return (
     <div className="rounded-lg border overflow-hidden bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            {/* DRep Score - first column, primary metric */}
             <SortableHeader 
               columnKey="drepScore" 
               label="DRep Score" 
               tooltip="An objective 0-100 accountability score based on Effective Participation (45%), Rationale (35%), and Consistency (20%). Hover over the score for breakdown."
+              align="center"
             />
 
-            {/* Match column - only show when user has preferences */}
             {hasPrefs && (
               <SortableHeader 
                 columnKey="match" 
                 label="Match" 
                 tooltip="How well this DRep's voting record aligns with your selected values, based on classified governance proposals."
+                align="center"
               />
             )}
             
@@ -147,7 +156,8 @@ export function DRepTable({
             <SortableHeader 
               columnKey="sizeTier" 
               label="Size" 
-              tooltip="DRep size tier based on voting power. Small (<10k ADA), Medium (10k-1M ADA), Large (1M-10M ADA), or Whale (>10M ADA)."
+              tooltip="DRep size tier based on voting power. Small (<100k ADA), Medium (100k-5M ADA), Large (5M-50M ADA), or Whale (>50M ADA)."
+              align="center"
             />
 
             <SortableHeader 
@@ -175,9 +185,9 @@ export function DRepTable({
                 onClick={() => router.push(`/drep/${encodeURIComponent(drep.drepId)}`)}
               >
                 {/* DRep Score */}
-                <TableCell>
+                <TableCell className="text-center">
                   <ScoreBreakdownTooltip drep={drep}>
-                    <div className="flex flex-col items-center min-w-[40px] cursor-help">
+                    <div className="flex flex-col items-center min-w-[40px] cursor-help mx-auto">
                       <span className="text-xl font-bold tabular-nums text-foreground leading-none">
                         {drep.drepScore ?? 0}
                       </span>
@@ -193,7 +203,7 @@ export function DRepTable({
 
                 {/* Match column - alignment percentage */}
                 {hasPrefs && (
-                  <TableCell>
+                  <TableCell className="text-center">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -261,7 +271,7 @@ export function DRepTable({
                 </TableCell>
 
                 {/* Size Tier Badge */}
-                <TableCell>
+                <TableCell className="text-center">
                   <Badge
                     variant="outline"
                     className={`text-xs font-medium ${getSizeBadgeClass(drep.sizeTier)}`}
