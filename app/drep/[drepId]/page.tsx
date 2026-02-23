@@ -6,20 +6,22 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchDRepDetails, parseMetadataFields } from '@/utils/koios';
-import { calculateParticipationRate, calculateRationaleRate, calculateDeliberationModifier, calculateConsistency, calculateEffectiveParticipation, lovelaceToAda, formatAda, getParticipationColor, getRationaleColor } from '@/utils/scoring';
-import { getDRepDisplayName, getDRepPrimaryName, hasCustomMetadata, truncateDescription, getProposalDisplayTitle, extractSocialPlatform } from '@/utils/display';
+import { calculateParticipationRate, calculateRationaleRate, calculateDeliberationModifier, calculateConsistency, calculateEffectiveParticipation, lovelaceToAda, formatAda, getSizeTier, getSizeBadgeClass } from '@/utils/scoring';
+import { getDRepPrimaryName, hasCustomMetadata, getProposalDisplayTitle } from '@/utils/display';
 import { VoteRecord } from '@/types/drep';
-import { MetricCard } from '@/components/MetricCard';
 import { VotingHistoryChart } from '@/components/VotingHistoryChart';
-import { DelegationButton } from '@/components/DelegationButton';
+import { InlineDelegationCTA } from '@/components/InlineDelegationCTA';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, TrendingUp, FileText, Activity, BarChart3, ExternalLink } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { ArrowLeft, Vote, TrendingUp } from 'lucide-react';
 import { calculateDRepScore } from '@/lib/koios';
 import { getDRepScoreBadgeClass } from '@/utils/scoring';
 import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
 import { ClaimProfileBanner } from '@/components/ClaimProfileBanner';
+import { AboutSection } from '@/components/AboutSection';
+import { SocialIconsLarge } from '@/components/SocialIconsLarge';
 import { Suspense } from 'react';
 
 interface DRepDetailPageProps {
@@ -115,6 +117,9 @@ async function getDRepData(drepId: string) {
     const epochVoteCounts = computeEpochVoteCounts(votes);
     const consistencyScore = calculateConsistency(epochVoteCounts);
 
+    const sizeTier = getSizeTier(votingPower);
+    const drepScore = calculateDRepScore({ effectiveParticipation, rationaleRate, consistencyScore });
+
     return {
       drepId: info.drep_id,
       drepHash: info.drep_hash,
@@ -124,6 +129,8 @@ async function getDRepData(drepId: string) {
       description,
       votingPower,
       delegatorCount,
+      sizeTier,
+      drepScore,
       isActive: info.registered && info.amount !== '0',
       participationRate,
       rationaleRate,
@@ -149,180 +156,138 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
     notFound();
   }
 
+  const scoreColor = drep.drepScore >= 80 
+    ? 'text-green-600 dark:text-green-400' 
+    : drep.drepScore >= 60 
+      ? 'text-amber-600 dark:text-amber-400' 
+      : 'text-red-600 dark:text-red-400';
+
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
+    <div className="container mx-auto px-4 py-8 space-y-6">
       {/* Back button */}
       <Link href="/">
-        <Button variant="ghost" className="gap-2">
+        <Button variant="ghost" className="gap-2 -ml-2">
           <ArrowLeft className="h-4 w-4" />
           Back to DReps
         </Button>
       </Link>
 
-      {/* Header */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-3xl font-bold">
-            {getDRepPrimaryName(drep)}
-          </h1>
-          {drep.ticker && (
-            <Badge variant="outline" className="text-lg px-3 py-1">
-              {drep.ticker.toUpperCase()}
+      {/* Header Block */}
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+        <div className="space-y-3 flex-1">
+          {/* Name and Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-3xl font-bold">
+              {getDRepPrimaryName(drep)}
+            </h1>
+            {drep.ticker && (
+              <Badge variant="outline" className="text-base px-2 py-0.5">
+                {drep.ticker.toUpperCase()}
+              </Badge>
+            )}
+          </div>
+          
+          {/* Status Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant={drep.isActive ? 'default' : 'secondary'}>
+              {drep.isActive ? 'Active' : 'Inactive'}
             </Badge>
-          )}
-          <Badge variant={drep.isActive ? 'default' : 'secondary'} className="text-sm">
-            {drep.isActive ? 'Active' : 'Inactive'}
-          </Badge>
-          {!hasCustomMetadata(drep) && (
-            <Badge variant="secondary" className="text-xs">
-              No Metadata
+            <Badge 
+              variant="outline" 
+              className={getSizeBadgeClass(drep.sizeTier)}
+            >
+              {drep.sizeTier}
             </Badge>
-          )}
+            {!hasCustomMetadata(drep) && (
+              <Badge variant="secondary" className="text-xs">
+                No Metadata
+              </Badge>
+            )}
+          </div>
+          
+          {/* Context Info */}
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>
+              <TrendingUp className="inline h-4 w-4 mr-1" />
+              {formatAda(drep.votingPower)} ADA voting power
+            </p>
+            {drep.activeEpoch && (
+              <p>Active since Epoch {drep.activeEpoch}</p>
+            )}
+          </div>
+          
+          {/* Social Icons */}
+          <SocialIconsLarge metadata={drep.metadata} />
+          
+          {/* DRep ID */}
+          <p className="text-xs text-muted-foreground font-mono pt-1">
+            {drep.drepId}
+          </p>
         </div>
         
-        {drep.description && (
-          <p className="text-base text-muted-foreground max-w-3xl">
-            {drep.description}
-          </p>
-        )}
-        
-        <p className="text-xs text-muted-foreground font-mono">
-          DRep ID: {drep.drepId}
-        </p>
+        {/* Delegation CTA - Compact */}
+        <div className="lg:w-auto">
+          <InlineDelegationCTA drepId={drep.drepId} drepName={getDRepPrimaryName(drep)} />
+        </div>
       </div>
 
-      {/* Voting Power Context */}
-      <div className="text-sm text-muted-foreground">
-        <TrendingUp className="inline h-4 w-4 mr-1" />
-        Voting Power: <span className="font-medium">{formatAda(drep.votingPower)} ADA</span>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="DRep Score"
-          value={`${calculateDRepScore({ effectiveParticipation: drep.effectiveParticipation, rationaleRate: drep.rationaleRate, consistencyScore: drep.consistencyScore })}`}
-          icon={BarChart3}
-          colorClass={getDRepScoreBadgeClass(calculateDRepScore({ effectiveParticipation: drep.effectiveParticipation, rationaleRate: drep.rationaleRate, consistencyScore: drep.consistencyScore })).includes('green') ? 'text-green-600 dark:text-green-400' : getDRepScoreBadgeClass(calculateDRepScore({ effectiveParticipation: drep.effectiveParticipation, rationaleRate: drep.rationaleRate, consistencyScore: drep.consistencyScore })).includes('amber') ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}
-          subtitle="Accountability score"
-        />
-        <MetricCard
-          title="Effective Participation"
-          value={`${drep.effectiveParticipation}%`}
-          icon={Activity}
-          colorClass={getParticipationColor(drep.effectiveParticipation)}
-          subtitle={drep.deliberationModifier < 1.0 ? 'Discounted for uniformity' : `${drep.votes.length} votes cast`}
-        />
-        <MetricCard
-          title="Rationale Rate"
-          value={`${drep.rationaleRate}%`}
-          icon={FileText}
-          colorClass={getRationaleColor(drep.rationaleRate)}
-          subtitle="Votes with explanation"
-        />
-        <MetricCard
-          title="Consistency"
-          value={`${drep.consistencyScore}%`}
-          icon={Activity}
-          colorClass={drep.consistencyScore >= 70 ? 'text-green-600 dark:text-green-400' : drep.consistencyScore >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}
-          subtitle="Steady engagement over time"
-        />
-      </div>
-
-      {/* About/Statement */}
-      {(drep.metadata || drep.description || drep.name) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>About This DRep</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {drep.name && (
-              <div>
-                <h3 className="font-medium mb-2">Name</h3>
-                <p className="text-sm">{drep.name}</p>
-              </div>
-            )}
-            {drep.description && (
-              <div>
-                <h3 className="font-medium mb-2">Description</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{drep.description}</p>
-              </div>
-            )}
-            {drep.metadata?.bio && (
-              <div>
-                <h3 className="font-medium mb-2">Bio</h3>
-                <p className="text-sm text-muted-foreground">
-                  {typeof drep.metadata.bio === 'object' && drep.metadata.bio !== null && '@value' in drep.metadata.bio
-                    ? (drep.metadata.bio as any)['@value']
-                    : drep.metadata.bio}
-                </p>
-              </div>
-            )}
-            {drep.metadata?.email && (
-              <div>
-                <h3 className="font-medium mb-2">Contact</h3>
-                <a
-                  href={`mailto:${typeof drep.metadata.email === 'object' && drep.metadata.email !== null && '@value' in drep.metadata.email ? (drep.metadata.email as any)['@value'] : drep.metadata.email}`}
-                  className="text-sm text-primary hover:underline"
-                >
-                  {typeof drep.metadata.email === 'object' && drep.metadata.email !== null && '@value' in drep.metadata.email
-                    ? (drep.metadata.email as any)['@value']
-                    : drep.metadata.email}
-                </a>
-              </div>
-            )}
-            {drep.metadata?.references && drep.metadata.references.length > 0 && (
-              <div>
-                <h3 className="font-medium mb-2">References</h3>
-                <ul className="space-y-1">
-                  {drep.metadata.references.map((ref, i) => (
-                    <li key={i}>
-                      <a
-                        href={ref.uri}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        {extractSocialPlatform(ref.uri, ref.label)}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* DRep Score Breakdown */}
+      {/* DRep Score Card - Merged metrics and breakdown */}
       <Card>
-        <CardHeader>
-          <CardTitle>Accountability Score Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-lg bg-muted/30">
-                <p className="text-sm text-muted-foreground mb-1">Effective Participation</p>
-                <p className="text-2xl font-bold">{drep.effectiveParticipation}%</p>
-                {drep.deliberationModifier < 1.0 && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    Discounted ({Math.round(drep.deliberationModifier * 100)}%) due to uniform voting
-                  </p>
-                )}
-              </div>
-              <div className="p-4 rounded-lg bg-muted/30">
-                <p className="text-sm text-muted-foreground mb-1">Rationale Rate</p>
-                <p className="text-2xl font-bold">{drep.rationaleRate}%</p>
-              </div>
-              <div className="p-4 rounded-lg bg-muted/30">
-                <p className="text-sm text-muted-foreground mb-1">Consistency</p>
-                <p className="text-2xl font-bold">{drep.consistencyScore}%</p>
-              </div>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle>DRep Score</CardTitle>
+            <div className="flex items-center gap-2">
+              <span className={`text-4xl font-bold tabular-nums ${scoreColor}`}>
+                {drep.drepScore}
+              </span>
+              <Badge
+                variant="outline"
+                className={`text-sm ${getDRepScoreBadgeClass(drep.drepScore)}`}
+              >
+                {drep.drepScore >= 80 ? 'Strong' : drep.drepScore >= 60 ? 'Good' : 'Low'}
+              </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Accountability score measures how consistently this DRep participates, explains their votes, and stays engaged over time.
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Effective Participation */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Effective Participation</span>
+              <span className="text-muted-foreground">{drep.effectiveParticipation}% <span className="text-xs">(45% weight)</span></span>
+            </div>
+            <Progress value={drep.effectiveParticipation} className="h-2" />
+            <p className="text-xs text-muted-foreground">
+              How consistently this DRep votes on proposals.
+              {drep.deliberationModifier < 1.0 && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  {' '}Discounted by {Math.round((1 - drep.deliberationModifier) * 100)}% due to uniform voting pattern.
+                </span>
+              )}
+            </p>
+          </div>
+          
+          {/* Rationale Rate */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Rationale Rate</span>
+              <span className="text-muted-foreground">{drep.rationaleRate}% <span className="text-xs">(35% weight)</span></span>
+            </div>
+            <Progress value={drep.rationaleRate} className="h-2" />
+            <p className="text-xs text-muted-foreground">
+              How often this DRep provides explanations for their votes.
+            </p>
+          </div>
+          
+          {/* Consistency */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Consistency</span>
+              <span className="text-muted-foreground">{drep.consistencyScore}% <span className="text-xs">(20% weight)</span></span>
+            </div>
+            <Progress value={drep.consistencyScore} className="h-2" />
+            <p className="text-xs text-muted-foreground">
+              How steadily this DRep participates over time.
             </p>
           </div>
         </CardContent>
@@ -333,8 +298,13 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         <VotingHistoryChart votes={drep.votes} />
       </Suspense>
 
-      {/* Delegation CTA */}
-      <DelegationButton drepId={drep.drepId} drepHandle={drep.handle} />
+      {/* About Section */}
+      <AboutSection 
+        description={drep.description}
+        bio={drep.metadata?.bio}
+        email={drep.metadata?.email}
+        references={drep.metadata?.references}
+      />
 
       {/* Claim Profile Banner */}
       <ClaimProfileBanner drepId={drep.drepId} />

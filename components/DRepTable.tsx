@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { getDRepDisplayName } from '@/utils/display';
 import { formatAda, getDRepScoreBadgeClass, getSizeBadgeClass } from '@/utils/scoring';
 import { EnrichedDRep } from '@/lib/koios';
-import { CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Info, Heart, Sparkles, UserPlus } from 'lucide-react';
+import { CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Info, Heart, UserPlus } from 'lucide-react';
 import { SortConfig, SortKey } from './DRepTableClient';
 import {
   Tooltip,
@@ -135,21 +135,11 @@ export function DRepTable({
 
             {/* Match column - only show when user has preferences */}
             {hasPrefs && (
-              <TableHead className="text-left font-semibold">
-                <div className="flex items-center">
-                  <span>Match</span>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-3.5 w-3.5 text-muted-foreground ml-1 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">How well this DRep&apos;s voting record aligns with your selected values, based on classified governance proposals.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </TableHead>
+              <SortableHeader 
+                columnKey="match" 
+                label="Match" 
+                tooltip="How well this DRep's voting record aligns with your selected values, based on classified governance proposals."
+              />
             )}
             
             <TableHead className="text-left font-semibold">DRep</TableHead>
@@ -177,7 +167,6 @@ export function DRepTable({
             const drepAlignment = alignmentData[drep.drepId];
             const alignment = drepAlignment?.alignment ?? 50;
             const breakdown = drepAlignment?.breakdown;
-            const isGuardian = alignment >= 80;
 
             return (
               <TableRow 
@@ -208,20 +197,15 @@ export function DRepTable({
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="flex items-center gap-1.5">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-xs font-semibold tabular-nums",
-                                getAlignmentColor(alignment)
-                              )}
-                            >
-                              {alignment}%
-                            </Badge>
-                            {isGuardian && (
-                              <Sparkles className="h-4 w-4 text-amber-500" />
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-xs font-semibold tabular-nums cursor-help",
+                              getAlignmentColor(alignment)
                             )}
-                          </div>
+                          >
+                            {alignment}%
+                          </Badge>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
                           <p className="font-medium mb-1">Value Alignment Breakdown</p>
@@ -245,11 +229,6 @@ export function DRepTable({
                             </div>
                           ) : (
                             <p className="text-xs text-muted-foreground">Based on your selected values</p>
-                          )}
-                          {isGuardian && (
-                            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                              <Sparkles className="h-3 w-3" /> Governance Guardian
-                            </p>
                           )}
                         </TooltipContent>
                       </Tooltip>
