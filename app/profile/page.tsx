@@ -30,6 +30,7 @@ import {
   Loader2,
   Pencil,
   Check,
+  Copy,
 } from 'lucide-react';
 
 const PREF_LABELS: Record<UserPrefKey, string> = {
@@ -169,6 +170,14 @@ export default function ProfilePage() {
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 12)}...${addr.slice(-8)}`;
 
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const copyAddress = (addr: string) => {
+    navigator.clipboard.writeText(addr).then(() => {
+      setCopiedAddress(addr);
+      setTimeout(() => setCopiedAddress(null), 1500);
+    });
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-16 flex items-center justify-center">
@@ -272,7 +281,16 @@ export default function ProfilePage() {
             </Badge>
           </div>
           {sessionAddress && (
-            <p className="text-sm text-muted-foreground font-mono">{shortenAddress(sessionAddress)}</p>
+            <button
+              onClick={() => copyAddress(sessionAddress)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground font-mono hover:text-foreground transition-colors group"
+              title="Click to copy full address"
+            >
+              {shortenAddress(sessionAddress)}
+              {copiedAddress === sessionAddress
+                ? <Check className="h-3.5 w-3.5 text-green-500" />
+                : <Copy className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />}
+            </button>
           )}
         </div>
       </div>
@@ -361,7 +379,16 @@ export default function ProfilePage() {
             <div className="space-y-2">
               {sessionAddress && (
                 <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                  <span className="text-sm font-mono">{shortenAddress(sessionAddress)}</span>
+                  <button
+                    onClick={() => copyAddress(sessionAddress)}
+                    className="flex items-center gap-1.5 text-sm font-mono hover:text-foreground text-muted-foreground transition-colors group"
+                    title="Click to copy full address"
+                  >
+                    {shortenAddress(sessionAddress)}
+                    {copiedAddress === sessionAddress
+                      ? <Check className="h-3.5 w-3.5 text-green-500" />
+                      : <Copy className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                  </button>
                   <Badge variant="outline" className="text-green-600 border-green-600">Primary</Badge>
                 </div>
               )}
@@ -372,7 +399,16 @@ export default function ProfilePage() {
                     key={wallet}
                     className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
                   >
-                    <span className="text-sm font-mono">{shortenAddress(wallet)}</span>
+                    <button
+                      onClick={() => copyAddress(wallet)}
+                      className="flex items-center gap-1.5 text-sm font-mono hover:text-foreground text-muted-foreground transition-colors group"
+                      title="Click to copy full address"
+                    >
+                      {shortenAddress(wallet)}
+                      {copiedAddress === wallet
+                        ? <Check className="h-3.5 w-3.5 text-green-500" />
+                        : <Copy className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                    </button>
                   </div>
                 ))}
             </div>

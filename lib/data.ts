@@ -640,3 +640,66 @@ export async function getVotesByProposal(
     return [];
   }
 }
+
+// ============================================================================
+// SCORE HISTORY
+// ============================================================================
+
+export interface ScoreSnapshot {
+  date: string;
+  score: number;
+  effectiveParticipation: number;
+  rationaleRate: number;
+  consistencyScore: number;
+  profileCompleteness: number;
+}
+
+/**
+ * Get daily score history for a DRep, ordered oldest-first for charting.
+ */
+export async function getScoreHistory(drepId: string): Promise<ScoreSnapshot[]> {
+  try {
+    const supabase = createClient();
+
+    const { data: rows, error } = await supabase
+      .from('drep_score_history')
+      .select('snapshot_date, score, effective_participation, rationale_rate, consistency_score, profile_completeness')
+      .eq('drep_id', drepId)
+      .order('snapshot_date', { ascending: true });
+
+    if (error || !rows) return [];
+
+    return rows.map((r: any) => ({
+      date: r.snapshot_date,
+      score: r.score ?? 0,
+      effectiveParticipation: r.effective_participation ?? 0,
+      rationaleRate: r.rationale_rate ?? 0,
+      consistencyScore: r.consistency_score ?? 0,
+      profileCompleteness: r.profile_completeness ?? 0,
+    }));
+  } catch (err) {
+    console.error('[Data] getScoreHistory error:', err);
+    return [];
+  }
+}
+
+/**
+ * Get the percentile rank of a DRep's score among all DReps.
+ * Returns 0-100 (e.g. 72 means "higher than 72% of DReps").
+ */
+export async function getDRepPercentile(score: number): Promise<number> {
+  try {
+    const supabase = createClient();
+
+    const [{ count: belowCount }, { count: totalCount }] = await Promise.all([
+      supabase.from('dreps').select('*', { count: 'exact', head: true }).lt('score', score),
+      supabase.from('dreps').select('*', { count: 'exact', head: true }),
+    ]);
+
+    if (!totalCount || totalCount === 0) return 0;
+    return Math.round(((belowCount ?? 0) / totalCount) * 100);
+  } catch (err) {
+    console.error('[Data] getDRepPercentile error:', err);
+    return 0;
+  }
+}

@@ -36,6 +36,9 @@ import {
   FileText,
   Vote,
   X,
+  Sparkles,
+  UserCircle,
+  Clock,
 } from 'lucide-react';
 
 const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
@@ -43,6 +46,9 @@ const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
   'inactivity': AlertTriangle,
   'new-proposals': FileText,
   'vote-activity': Vote,
+  'drep-score-change': Sparkles,
+  'drep-profile-gap': UserCircle,
+  'drep-missed-epoch': Clock,
 };
 
 const ALERT_COLORS: Record<AlertType, string> = {
@@ -50,6 +56,9 @@ const ALERT_COLORS: Record<AlertType, string> = {
   'inactivity': 'text-amber-500',
   'new-proposals': 'text-blue-500',
   'vote-activity': 'text-primary',
+  'drep-score-change': 'text-green-500',
+  'drep-profile-gap': 'text-amber-500',
+  'drep-missed-epoch': 'text-red-500',
 };
 
 export function Header() {

@@ -9,7 +9,8 @@ import { UserPrefKey } from '@/types/drep';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export type AlertType = 'alignment-shift' | 'inactivity' | 'new-proposals' | 'vote-activity';
+export type AlertType = 'alignment-shift' | 'inactivity' | 'new-proposals' | 'vote-activity'
+  | 'drep-score-change' | 'drep-profile-gap' | 'drep-missed-epoch';
 
 export interface Alert {
   id: string;
@@ -92,7 +93,7 @@ function getWatchlist(): string[] {
 // ── Hook ────────────────────────────────────────────────────────────────────
 
 export function useAlignmentAlerts() {
-  const { connected, delegatedDrepId, isAuthenticated } = useWallet();
+  const { connected, delegatedDrepId, ownDRepId, isAuthenticated } = useWallet();
   const [allDReps, setAllDReps] = useState<EnrichedDRep[]>([]);
   const [userPrefs, setUserPrefs] = useState<UserPrefKey[]>([]);
   const [voteActivity, setVoteActivity] = useState<VoteActivityItem[]>([]);
@@ -100,6 +101,7 @@ export function useAlignmentAlerts() {
   const [newProposalCount, setNewProposalCount] = useState(0);
   const [lastVisitTime, setLastVisitTime] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [ownDRepScore, setOwnDRepScore] = useState<{ current: number; previous: number | null; profileCompleteness: number } | null>(null);
 
   // Load initial state from localStorage
   useEffect(() => {
@@ -166,6 +168,38 @@ export function useAlignmentAlerts() {
 
     return () => { cancelled = true; };
   }, [delegatedDrepId, userPrefs]);
+
+  // Fetch DRep-specific score data for DRep alerts
+  useEffect(() => {
+    if (!ownDRepId) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const myDrep = allDReps.find(d => d.drepId === ownDRepId);
+        if (!myDrep) return;
+
+        const historyRes = await fetch(`/api/score-history?drepId=${encodeURIComponent(ownDRepId)}`);
+        let previousScore: number | null = null;
+        if (historyRes.ok) {
+          const history = await historyRes.json();
+          if (Array.isArray(history) && history.length >= 2) {
+            previousScore = history[history.length - 2]?.score ?? null;
+          }
+        }
+
+        if (!cancelled) {
+          setOwnDRepScore({
+            current: myDrep.drepScore,
+            previous: previousScore,
+            profileCompleteness: myDrep.profileCompleteness ?? 0,
+          });
+        }
+      } catch { /* ignore */ }
+    })();
+
+    return () => { cancelled = true; };
+  }, [ownDRepId, allDReps]);
 
   // Build all alerts
   const alerts: Alert[] = useMemo(() => {
@@ -268,11 +302,45 @@ export function useAlignmentAlerts() {
       });
     }
 
+    // ── 5. DRep-specific alerts (when viewer is a DRep) ─────────────────
+    if (ownDRepId && ownDRepScore) {
+      // Score change alert
+      if (ownDRepScore.previous !== null) {
+        const delta = ownDRepScore.current - ownDRepScore.previous;
+        if (delta !== 0) {
+          result.push({
+            id: `drep-score-${ownDRepId}-${now}`,
+            type: 'drep-score-change',
+            title: delta > 0 ? 'Your DRep Score improved' : 'Your DRep Score dropped',
+            description: `Score changed from ${ownDRepScore.previous} to ${ownDRepScore.current} (${delta > 0 ? '+' : ''}${delta} pts) since last snapshot.`,
+            link: `/drep/${encodeURIComponent(ownDRepId)}`,
+            timestamp: now,
+            read: false,
+            metadata: { delta, current: ownDRepScore.current, previous: ownDRepScore.previous },
+          });
+        }
+      }
+
+      // Profile gap alert
+      if (ownDRepScore.profileCompleteness < 100) {
+        result.push({
+          id: `drep-profile-${ownDRepId}`,
+          type: 'drep-profile-gap',
+          title: 'Complete your DRep profile',
+          description: `Your Profile Completeness is ${ownDRepScore.profileCompleteness}%. Complete your metadata for an easy score boost.`,
+          link: `/drep/${encodeURIComponent(ownDRepId)}`,
+          timestamp: now,
+          read: false,
+          metadata: { profileCompleteness: ownDRepScore.profileCompleteness },
+        });
+      }
+    }
+
     // Update last visit time
     setLastVisit(now);
 
     return result;
-  }, [loaded, connected, userPrefs, allDReps, delegatedDrepId, voteActivity, lastVisitTime, newProposalCount]);
+  }, [loaded, connected, userPrefs, allDReps, delegatedDrepId, ownDRepId, ownDRepScore, voteActivity, lastVisitTime, newProposalCount]);
 
   // Filter out dismissed alerts
   const activeAlerts = useMemo(

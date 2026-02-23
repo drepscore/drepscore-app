@@ -523,3 +523,36 @@ export function shortenDRepId(
   if (drepId.length <= prefixLength + suffixLength) return drepId;
   return `${drepId.slice(0, prefixLength)}...${drepId.slice(-suffixLength)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Pillar status helpers (for score card redesign)
+// ---------------------------------------------------------------------------
+
+export type PillarStatus = 'strong' | 'needs-work' | 'low';
+
+export function getPillarStatus(value: number): PillarStatus {
+  if (value >= 80) return 'strong';
+  if (value >= 50) return 'needs-work';
+  return 'low';
+}
+
+/**
+ * Return the CIP-119 metadata fields that are missing/empty.
+ */
+export function getMissingProfileFields(metadata: Record<string, unknown> | null): string[] {
+  const missing: string[] = [];
+  if (!metadata) return ['name', 'objectives', 'motivations', 'qualifications', 'bio', 'social links'];
+
+  if (!extractStringValue(metadata.givenName) && !extractStringValue(metadata.name)) missing.push('name');
+  if (!extractStringValue(metadata.objectives)) missing.push('objectives');
+  if (!extractStringValue(metadata.motivations)) missing.push('motivations');
+  if (!extractStringValue(metadata.qualifications)) missing.push('qualifications');
+  if (!extractStringValue(metadata.bio)) missing.push('bio');
+
+  const references = metadata.references;
+  if (!Array.isArray(references) || references.length === 0) {
+    missing.push('social links');
+  }
+
+  return missing;
+}

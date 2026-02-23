@@ -11,9 +11,10 @@ interface ClaimProfileBannerProps {
 }
 
 export function ClaimProfileBanner({ drepId }: ClaimProfileBannerProps) {
-  const { isAuthenticated, sessionAddress } = useWallet();
+  const { isAuthenticated } = useWallet();
 
-  if (isAuthenticated && sessionAddress === drepId) {
+  // Hide banner if user is authenticated (they either are this DRep or aren't)
+  if (isAuthenticated) {
     return null;
   }
 

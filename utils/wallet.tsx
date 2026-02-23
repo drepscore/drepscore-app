@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { BrowserWallet, resolveRewardAddress } from '@meshsdk/core';
 import { getStoredSession, saveSession, clearSession, parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
+import { deriveDRepIdFromStakeAddress, checkDRepExists } from '@/utils/drepId';
 
 interface CIP30Api {
   getUsedAddresses(): Promise<string[]>;
@@ -111,6 +112,7 @@ export interface WalletContextType {
   sessionAddress: string | null;
   isAuthenticated: boolean;
   delegatedDrepId: string | null;
+  ownDRepId: string | null;
   error: WalletError | null;
   availableWallets: string[];
   connect: (walletName: string) => Promise<void>;
@@ -132,6 +134,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [hexAddress, setHexAddress] = useState<string | null>(null);
   const [sessionAddress, setSessionAddress] = useState<string | null>(null);
   const [delegatedDrepId, setDelegatedDrepId] = useState<string | null>(null);
+  const [ownDRepId, setOwnDRepId] = useState<string | null>(null);
   const [error, setError] = useState<WalletError | null>(null);
   const [availableWallets, setAvailableWallets] = useState<string[]>([]);
 
@@ -192,10 +195,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (hexAddresses.length > 0) setHexAddress(hexAddresses[0]);
         setConnected(true);
 
-        // Non-blocking: resolve stake address and look up delegation
+        // Non-blocking: resolve stake address, derive DRep ID, and look up delegation
         try {
           const stakeAddr = resolveRewardAddress(addresses[0]);
           if (stakeAddr) {
+            // Delegation lookup
             fetch('/api/delegation', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -204,6 +208,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               .then(r => r.json())
               .then(({ drepId }) => { if (drepId) setDelegatedDrepId(drepId); })
               .catch(() => {});
+
+            // Derive DRep ID and verify it exists in our database
+            const derivedDRepId = deriveDRepIdFromStakeAddress(stakeAddr);
+            if (derivedDRepId) {
+              checkDRepExists(derivedDRepId).then(exists => {
+                if (exists) setOwnDRepId(derivedDRepId);
+              });
+            }
           }
         } catch {
           // Stake address resolution can fail for script addresses — ignore
@@ -310,6 +322,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         sessionAddress,
         isAuthenticated,
         delegatedDrepId,
+        ownDRepId,
         error,
         availableWallets,
         connect,
