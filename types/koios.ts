@@ -86,6 +86,14 @@ export interface DRepVote {
   meta_url: string | null;
   meta_hash: string | null;
   meta_json: {
+    // CIP-100 nests rationale under body.comment or body.rationale
+    body?: {
+      comment?: string;
+      rationale?: string;
+      motivation?: string;
+      [key: string]: any;
+    };
+    // Flat format fallback
     title?: string;
     abstract?: string;
     motivation?: string;

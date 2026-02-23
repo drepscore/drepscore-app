@@ -31,7 +31,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getEnrichedDReps } from '@/lib/koios';
+import { getEnrichedDReps, blockTimeToEpoch } from '@/lib/koios';
 import { fetchProposals } from '@/utils/koios';
 import { DRepVote } from '@/types/koios';
 import { classifyProposals } from '@/lib/alignment';
@@ -127,7 +127,15 @@ async function fetchRationaleFromUrl(url: string): Promise<string | null> {
 
     try {
       const json = JSON.parse(text);
-      const rationaleText = json.rationale || json.body || json.motivation || json.justification || json.reason;
+      
+      // CIP-100 format: rationale is nested under body.comment or body.rationale
+      if (json.body && typeof json.body === 'object') {
+        const bodyText = json.body.comment || json.body.rationale || json.body.motivation;
+        if (typeof bodyText === 'string' && bodyText.trim()) return bodyText.trim();
+      }
+      
+      // Flat format fallback
+      const rationaleText = json.rationale || json.motivation || json.justification || json.reason;
       if (typeof rationaleText === 'string' && rationaleText.trim()) return rationaleText.trim();
       if (typeof json === 'string') return json.trim();
     } catch {
@@ -356,7 +364,7 @@ export async function GET(request: NextRequest) {
           proposal_tx_hash: vote.proposal_tx_hash,
           proposal_index: vote.proposal_index,
           vote: vote.vote,
-          epoch_no: vote.epoch_no ?? null,
+          epoch_no: vote.epoch_no ?? (vote.block_time ? blockTimeToEpoch(vote.block_time) : null),
           block_time: vote.block_time,
           meta_url: vote.meta_url,
           meta_hash: vote.meta_hash,
@@ -395,16 +403,22 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Upsert inline rationales from meta_json ───────────────────────────
+    // Check both CIP-100 nested format (body.comment/body.rationale) and flat format
     const inlineRationales: SupabaseRationaleRow[] = [];
     for (const { drepId, vote } of allVotesForRationale) {
-      if (vote.meta_json?.rationale) {
+      const rationaleText = 
+        vote.meta_json?.body?.comment ||
+        vote.meta_json?.body?.rationale ||
+        vote.meta_json?.rationale;
+      
+      if (rationaleText && typeof rationaleText === 'string') {
         inlineRationales.push({
           vote_tx_hash: vote.vote_tx_hash,
           drep_id: drepId,
           proposal_tx_hash: vote.proposal_tx_hash,
           proposal_index: vote.proposal_index,
           meta_url: vote.meta_url,
-          rationale_text: vote.meta_json.rationale,
+          rationale_text: rationaleText,
         });
       }
     }

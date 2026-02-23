@@ -361,20 +361,12 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
                     </div>
                   )}
                   
-                  {/* Fallback for rationale submitted but hosted externally */}
+                  {/* Fallback when rationale is submitted but not yet cached */}
                   {vote.hasRationale && !rationaleText && vote.rationaleUrl && (
                     <div className="mt-3">
                       <div className="bg-muted/20 rounded-lg p-3 border border-border/20">
                         <p className="text-xs text-muted-foreground">
-                          Rationale submitted but hosted externally.{' '}
-                          <a
-                            href={vote.rationaleUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline inline-flex items-center gap-1"
-                          >
-                            View <ExternalLink className="h-3 w-3" />
-                          </a>
+                          Rationale pending — will be available shortly.
                         </p>
                       </div>
                     </div>
