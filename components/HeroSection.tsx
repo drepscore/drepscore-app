@@ -16,7 +16,7 @@ export function HeroSection() {
           Discover and delegate to Delegated Representatives who align with your values.
         </p>
         <p className="text-base text-muted-foreground">
-          Compare participation rates, voting history, and decentralization scores to make informed delegation decisions.
+          Compare accountability scores, voting records, and value alignment to make informed delegation decisions.
         </p>
         <div className="flex justify-center">
           <WhatIsDRepModal />

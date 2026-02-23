@@ -337,15 +337,43 @@ export async function fetchDRepDetails(drepId: string) {
   }
 }
 
+/** Page size for proposal_list pagination */
+const PROPOSAL_LIST_PAGE_SIZE = 500;
+
 /**
- * Fetch all proposals (for calculating participation rates)
- * Note: This is a placeholder - actual endpoint may vary based on Koios API updates
+ * Fetch all proposals from /proposal_list with pagination
+ * Returns comprehensive proposal data including type, metadata, and withdrawal amounts
  */
 export async function fetchProposals(): Promise<ProposalListResponse> {
+  const isDev = process.env.NODE_ENV === 'development';
+  const all: ProposalListResponse = [];
+  let offset = 0;
+  let page = 0;
+
   try {
-    // TODO: Update endpoint when available in Koios API
-    // For now, we'll estimate from vote records
-    return [];
+    while (true) {
+      const url = `/proposal_list?limit=${PROPOSAL_LIST_PAGE_SIZE}&offset=${offset}`;
+      const data = await koiosFetch<ProposalListResponse>(url);
+      const pageData = data || [];
+
+      all.push(...pageData);
+      page++;
+
+      if (isDev) {
+        console.log(`[Koios] proposal_list page ${page}: ${pageData.length} proposals (total: ${all.length})`);
+      }
+
+      if (pageData.length < PROPOSAL_LIST_PAGE_SIZE) {
+        break;
+      }
+      offset += PROPOSAL_LIST_PAGE_SIZE;
+    }
+
+    if (isDev && page > 1) {
+      console.log(`[Koios] Fetched ${all.length} proposals from proposal_list (${page} pages)`);
+    }
+
+    return all;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[Koios] Error fetching proposals:', errorMessage);

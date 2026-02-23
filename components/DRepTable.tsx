@@ -28,7 +28,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { ScoreBreakdown } from './ScoreBreakdown';
+import { ScoreBreakdownTooltip } from './ScoreBreakdown';
 import { SocialIcons } from './SocialIcons';
 import { cn } from '@/lib/utils';
 import { AlignmentBreakdown, getAlignmentColor } from '@/lib/alignment';
@@ -130,10 +130,7 @@ export function DRepTable({
             <SortableHeader 
               columnKey="drepScore" 
               label="DRep Score" 
-              tooltip={hasPrefs 
-                ? "Hybrid score: 60% base metrics + 40% value alignment. Hover over the score bar for breakdown."
-                : "A 0-100 score based on Participation (35%), Rationale (30%), and Decentralization (35%). Hover over the score bar to see the breakdown."
-              }
+              tooltip="An objective 0-100 accountability score based on Effective Participation (45%), Rationale (35%), and Consistency (20%). Hover over the score for breakdown."
             />
 
             {/* Match column - only show when user has preferences */}
@@ -147,7 +144,7 @@ export function DRepTable({
                         <Info className="h-3.5 w-3.5 text-muted-foreground ml-1 cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="max-w-xs">How well this DRep aligns with your selected values. Hover badges for breakdown.</p>
+                        <p className="max-w-xs">How well this DRep&apos;s voting record aligns with your selected values, based on classified governance proposals.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -190,8 +187,8 @@ export function DRepTable({
               >
                 {/* DRep Score */}
                 <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col items-center min-w-[40px]">
+                  <ScoreBreakdownTooltip drep={drep}>
+                    <div className="flex flex-col items-center min-w-[40px] cursor-help">
                       <span className="text-xl font-bold tabular-nums text-foreground leading-none">
                         {drep.drepScore ?? 0}
                       </span>
@@ -202,8 +199,7 @@ export function DRepTable({
                         {(drep.drepScore ?? 0) >= 80 ? 'Strong' : (drep.drepScore ?? 0) >= 60 ? 'Good' : 'Low'}
                       </Badge>
                     </div>
-                    <ScoreBreakdown drep={drep} />
-                  </div>
+                  </ScoreBreakdownTooltip>
                 </TableCell>
 
                 {/* Match column - alignment percentage */}

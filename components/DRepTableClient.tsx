@@ -34,8 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { UserPrefKey } from '@/types/drep';
 import { 
-  generateDummyAlignment, 
-  calculateHybridScore,
+  generateDummyAlignment,
   AlignmentBreakdown 
 } from '@/lib/alignment';
 
@@ -172,22 +171,36 @@ export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistTog
     return data;
   }, [initialDReps, allDReps, userPrefs, hasPrefs, filterWellDocumented]);
 
-  // Sorting Logic - uses hybrid score when prefs set
+  // Sorting Logic
+  // When prefs set: Primary = Match % (desc), Secondary = DRep Score (desc)
+  // When no prefs: Primary = DRep Score (desc)
   const sortedDReps = useMemo(() => {
     return [...filteredDReps].sort((a, b) => {
+      // When prefs are set and sorting by drepScore, sort by Match first
+      if (hasPrefs && sortConfig.key === 'drepScore') {
+        const aMatch = alignmentData[a.drepId]?.alignment ?? 50;
+        const bMatch = alignmentData[b.drepId]?.alignment ?? 50;
+        
+        // Primary: Match % (descending)
+        if (aMatch !== bMatch) {
+          return sortConfig.direction === 'asc' ? aMatch - bMatch : bMatch - aMatch;
+        }
+        
+        // Secondary: DRep Score (descending)
+        const aScore = a.drepScore ?? 0;
+        const bScore = b.drepScore ?? 0;
+        return sortConfig.direction === 'asc' ? aScore - bScore : bScore - aScore;
+      }
+
       let aValue: number;
       let bValue: number;
 
       if (sortConfig.key === 'sizeTier') {
-        // Custom ordering for sizeTier
         aValue = sizeTierOrder[a.sizeTier] ?? 0;
         bValue = sizeTierOrder[b.sizeTier] ?? 0;
       } else if (sortConfig.key === 'drepScore') {
-        // Use hybrid score if user prefs exist
-        const aAlignment = alignmentData[a.drepId]?.alignment ?? 50;
-        const bAlignment = alignmentData[b.drepId]?.alignment ?? 50;
-        aValue = calculateHybridScore(a.drepScore ?? 0, aAlignment, hasPrefs);
-        bValue = calculateHybridScore(b.drepScore ?? 0, bAlignment, hasPrefs);
+        aValue = a.drepScore ?? 0;
+        bValue = b.drepScore ?? 0;
       } else {
         aValue = a[sortConfig.key] ?? 0;
         bValue = b[sortConfig.key] ?? 0;
@@ -197,7 +210,7 @@ export function DRepTableClient({ userPrefs = [], watchlist = [], onWatchlistTog
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filteredDReps, sortConfig, userPrefs, alignmentData, hasPrefs]);
+  }, [filteredDReps, sortConfig, alignmentData, hasPrefs]);
 
   // Pagination Logic
   const totalPages = Math.ceil(sortedDReps.length / PAGE_SIZE);

@@ -24,7 +24,9 @@ export interface DRep {
   votingPowerLovelace: string;
   participationRate: number;
   rationaleRate: number;
-  decentralizationScore: number;
+  consistencyScore: number;
+  deliberationModifier: number;
+  effectiveParticipation: number;
   sizeTier: SizeTier;
   delegatorCount: number;
   totalVotes: number;
@@ -34,6 +36,7 @@ export interface DRep {
   isActive: boolean;
   anchorUrl: string | null;
   metadata: Record<string, unknown> | null;
+  epochVoteCounts?: number[];
 }
 
 export interface VoteRecord {

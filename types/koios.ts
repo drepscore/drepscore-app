@@ -92,22 +92,59 @@ export interface DRepVote {
     rationale?: string;
     [key: string]: any;
   } | null;
+  epoch_no?: number;
 }
 
 export type DRepVotesResponse = DRepVote[];
 
-// Proposal Info (for governance actions)
+// Proposal Info (for governance actions from /proposal_list)
 export interface ProposalInfo {
-  tx_hash: string;
-  cert_index: number;
-  block_time: number;
-  proposal_type: string;
+  proposal_tx_hash: string;
+  proposal_index: number;
+  proposal_type: 'TreasuryWithdrawals' | 'ParameterChange' | 'HardForkInitiation' 
+                | 'InfoAction' | 'NoConfidence' | 'NewConstitutionalCommittee' 
+                | 'UpdateConstitution';
   proposal_description: string | null;
   deposit: string;
   return_address: string;
-  rationale_url: string | null;
-  rationale_hash: string | null;
-  epoch_no: number;
+  proposed_epoch: number;
+  ratified_epoch: number | null;
+  enacted_epoch: number | null;
+  dropped_epoch: number | null;
+  expired_epoch: number | null;
+  expiration: number | null;
+  meta_url: string | null;
+  meta_hash: string | null;
+  meta_json: {
+    title?: string;
+    abstract?: string;
+    motivation?: string;
+    rationale?: string;
+    [key: string]: any;
+  } | null;
+  meta_comment: string | null;
+  meta_is_valid: boolean | null;
+  withdrawal: {
+    stake_address: string;
+    amount: string;
+  }[] | null;
+  param_proposal: Record<string, unknown> | null;
+  block_time: number;
 }
 
 export type ProposalListResponse = ProposalInfo[];
+
+// Classified proposal (after processing)
+export interface ClassifiedProposal {
+  txHash: string;
+  index: number;
+  type: ProposalInfo['proposal_type'];
+  title: string;
+  abstract: string;
+  withdrawalAmountAda: number | null;
+  treasuryTier: 'routine' | 'significant' | 'major' | null;
+  paramChanges: Record<string, unknown> | null;
+  relevantPrefs: string[];
+  proposedEpoch: number;
+  blockTime: number;
+}

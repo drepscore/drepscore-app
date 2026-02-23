@@ -6,7 +6,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchDRepDetails, parseMetadataFields } from '@/utils/koios';
-import { calculateParticipationRate, calculateRationaleRate, calculateDecentralizationScore, lovelaceToAda, formatAda, getParticipationColor, getRationaleColor } from '@/utils/scoring';
+import { calculateParticipationRate, calculateRationaleRate, calculateDeliberationModifier, calculateConsistency, calculateEffectiveParticipation, lovelaceToAda, formatAda, getParticipationColor, getRationaleColor } from '@/utils/scoring';
 import { getDRepDisplayName, getDRepPrimaryName, hasCustomMetadata, truncateDescription, getProposalDisplayTitle, extractSocialPlatform } from '@/utils/display';
 import { VoteRecord } from '@/types/drep';
 import { MetricCard } from '@/components/MetricCard';
@@ -15,13 +15,39 @@ import { DelegationButton } from '@/components/DelegationButton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Users, TrendingUp, FileText, Activity, ExternalLink } from 'lucide-react';
+import { ArrowLeft, TrendingUp, FileText, Activity, BarChart3, ExternalLink } from 'lucide-react';
+import { calculateDRepScore } from '@/lib/koios';
+import { getDRepScoreBadgeClass } from '@/utils/scoring';
 import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
 import { ClaimProfileBanner } from '@/components/ClaimProfileBanner';
 import { Suspense } from 'react';
 
 interface DRepDetailPageProps {
   params: Promise<{ drepId: string }>;
+}
+
+function computeEpochVoteCounts(votes: { block_time: number }[]): number[] {
+  if (!votes || votes.length === 0) return [];
+  
+  const epochCounts: Record<number, number> = {};
+  let minEpoch = Infinity;
+  let maxEpoch = -Infinity;
+  
+  for (const vote of votes) {
+    const epoch = Math.floor(vote.block_time / (5 * 24 * 60 * 60));
+    epochCounts[epoch] = (epochCounts[epoch] || 0) + 1;
+    minEpoch = Math.min(minEpoch, epoch);
+    maxEpoch = Math.max(maxEpoch, epoch);
+  }
+  
+  if (minEpoch === Infinity) return [];
+  
+  const counts: number[] = [];
+  for (let e = minEpoch; e <= maxEpoch; e++) {
+    counts.push(epochCounts[e] || 0);
+  }
+  
+  return counts;
 }
 
 async function getDRepData(drepId: string) {
@@ -83,11 +109,16 @@ async function getDRepData(drepId: string) {
 
     const participationRate = calculateParticipationRate(voteRecords.length, totalProposals);
     const rationaleRate = calculateRationaleRate(votes);
+    const deliberationModifier = calculateDeliberationModifier(yesVotes, noVotes, abstainVotes);
+    const effectiveParticipation = calculateEffectiveParticipation(participationRate, deliberationModifier);
+    
+    const epochVoteCounts = computeEpochVoteCounts(votes);
+    const consistencyScore = calculateConsistency(epochVoteCounts);
 
     return {
       drepId: info.drep_id,
       drepHash: info.drep_hash,
-      handle: null, // ADA Handle lookup not yet integrated
+      handle: null,
       name,
       ticker,
       description,
@@ -96,14 +127,9 @@ async function getDRepData(drepId: string) {
       isActive: info.registered && info.amount !== '0',
       participationRate,
       rationaleRate,
-      decentralizationScore: calculateDecentralizationScore(
-        participationRate,
-        rationaleRate,
-        votingPower,
-        yesVotes,
-        noVotes,
-        abstainVotes
-      ),
+      effectiveParticipation,
+      deliberationModifier,
+      consistencyScore,
       anchorUrl: info.anchor_url,
       metadata: metadata?.meta_json?.body || null,
       votes: voteRecords,
@@ -165,33 +191,41 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         </p>
       </div>
 
+      {/* Voting Power Context */}
+      <div className="text-sm text-muted-foreground">
+        <TrendingUp className="inline h-4 w-4 mr-1" />
+        Voting Power: <span className="font-medium">{formatAda(drep.votingPower)} ADA</span>
+      </div>
+
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          title="Voting Power"
-          value={`${formatAda(drep.votingPower)} ADA`}
-          icon={TrendingUp}
-          subtitle="Total delegated stake"
+          title="DRep Score"
+          value={`${calculateDRepScore({ effectiveParticipation: drep.effectiveParticipation, rationaleRate: drep.rationaleRate, consistencyScore: drep.consistencyScore })}`}
+          icon={BarChart3}
+          colorClass={getDRepScoreBadgeClass(calculateDRepScore({ effectiveParticipation: drep.effectiveParticipation, rationaleRate: drep.rationaleRate, consistencyScore: drep.consistencyScore })).includes('green') ? 'text-green-600 dark:text-green-400' : getDRepScoreBadgeClass(calculateDRepScore({ effectiveParticipation: drep.effectiveParticipation, rationaleRate: drep.rationaleRate, consistencyScore: drep.consistencyScore })).includes('amber') ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}
+          subtitle="Accountability score"
         />
         <MetricCard
-          title="Participation Rate"
-          value={`${drep.participationRate}%`}
+          title="Effective Participation"
+          value={`${drep.effectiveParticipation}%`}
           icon={Activity}
-          colorClass={getParticipationColor(drep.participationRate)}
-          subtitle={`${drep.votes.length} votes cast`}
-        />
-        <MetricCard
-          title="Delegators"
-          value={drep.delegatorCount.toLocaleString()}
-          icon={Users}
-          subtitle="Unique delegators"
+          colorClass={getParticipationColor(drep.effectiveParticipation)}
+          subtitle={drep.deliberationModifier < 1.0 ? 'Discounted for uniformity' : `${drep.votes.length} votes cast`}
         />
         <MetricCard
           title="Rationale Rate"
           value={`${drep.rationaleRate}%`}
           icon={FileText}
           colorClass={getRationaleColor(drep.rationaleRate)}
-          subtitle="Votes with rationale"
+          subtitle="Votes with explanation"
+        />
+        <MetricCard
+          title="Consistency"
+          value={`${drep.consistencyScore}%`}
+          icon={Activity}
+          colorClass={drep.consistencyScore >= 70 ? 'text-green-600 dark:text-green-400' : drep.consistencyScore >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}
+          subtitle="Steady engagement over time"
         />
       </div>
 
@@ -261,31 +295,34 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         </Card>
       )}
 
-      {/* Decentralization Insights */}
+      {/* DRep Score Breakdown */}
       <Card>
         <CardHeader>
-          <CardTitle>Governance Engagement Score</CardTitle>
+          <CardTitle>Accountability Score Breakdown</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="text-4xl font-bold">
-                {drep.decentralizationScore}/100
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-lg bg-muted/30">
+                <p className="text-sm text-muted-foreground mb-1">Effective Participation</p>
+                <p className="text-2xl font-bold">{drep.effectiveParticipation}%</p>
+                {drep.deliberationModifier < 1.0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Discounted ({Math.round(drep.deliberationModifier * 100)}%) due to uniform voting
+                  </p>
+                )}
               </div>
-              <div className="flex-1">
-                <div className="h-4 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all"
-                    style={{ width: `${drep.decentralizationScore}%` }}
-                  />
-                </div>
+              <div className="p-4 rounded-lg bg-muted/30">
+                <p className="text-sm text-muted-foreground mb-1">Rationale Rate</p>
+                <p className="text-2xl font-bold">{drep.rationaleRate}%</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/30">
+                <p className="text-sm text-muted-foreground mb-1">Consistency</p>
+                <p className="text-2xl font-bold">{drep.consistencyScore}%</p>
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Based on {drep.delegatorCount.toLocaleString()} delegators and voting power distribution.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Note: Future versions will include stake pool operator links for enhanced transparency.
+              Accountability score measures how consistently this DRep participates, explains their votes, and stays engaged over time.
             </p>
           </div>
         </CardContent>

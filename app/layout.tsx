@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "DRepScore - Find Your Ideal Cardano DRep",
-  description: "Discover and delegate to Cardano DReps aligned with your values. Compare participation rates, voting history, and decentralization scores.",
+  description: "Discover and delegate to Cardano DReps aligned with your values. Compare accountability scores, voting records, and value alignment.",
   keywords: ["Cardano", "DRep", "Governance", "Delegation", "ADA", "Blockchain", "Voting"],
   openGraph: {
     title: "DRepScore - Find Your Ideal Cardano DRep",

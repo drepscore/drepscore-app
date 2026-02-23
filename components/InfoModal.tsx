@@ -87,63 +87,71 @@ export function WhatIsDRepModal() {
 
 export function ParticipationRateModal() {
   return (
-    <InfoModal title="Understanding Participation Rate" triggerVariant="ghost" iconOnly>
+    <InfoModal title="Understanding Effective Participation" triggerVariant="ghost" iconOnly>
       <p>
-        <strong>Participation Rate</strong> measures how actively a DRep engages with governance proposals.
+        <strong>Effective Participation</strong> measures how actively and thoughtfully a DRep engages with governance proposals.
       </p>
       <p>
-        It's calculated as: (Votes Cast / Total Proposals) × 100
+        It's calculated as: (Participation Rate) × (Deliberation Modifier)
       </p>
       <div className="bg-muted p-4 rounded-lg space-y-2">
-        <p className="font-medium">What's a good rate?</p>
-        <ul className="list-disc pl-6 space-y-1">
-          <li><span className="text-green-600 dark:text-green-400">70%+ (Excellent)</span> - Highly engaged, votes on most proposals</li>
-          <li><span className="text-yellow-600 dark:text-yellow-400">40-70% (Good)</span> - Moderately active, votes on important proposals</li>
-          <li><span className="text-red-600 dark:text-red-400">&lt;40% (Poor)</span> - Low engagement, rarely votes</li>
+        <p className="font-medium">Deliberation Modifier</p>
+        <p className="text-sm text-muted-foreground mb-2">
+          This modifier penalizes rubber-stamping (voting the same way on every proposal):
+        </p>
+        <ul className="list-disc pl-6 space-y-1 text-sm">
+          <li>&gt;95% same vote direction: 30% penalty</li>
+          <li>&gt;90% same vote direction: 15% penalty</li>
+          <li>&gt;85% same vote direction: 5% penalty</li>
+          <li>≤85% same vote direction: No penalty</li>
         </ul>
       </div>
       <p>
-        A higher participation rate generally indicates a more committed DRep, but consider their 
-        rationale provision as well—quality matters as much as quantity.
+        A higher effective participation rate indicates a DRep who shows up consistently AND demonstrates 
+        thoughtful consideration rather than voting uniformly on every proposal.
+      </p>
+    </InfoModal>
+  );
+}
+
+export function DRepScoreModal() {
+  return (
+    <InfoModal title="Understanding DRep Score" triggerVariant="ghost" iconOnly>
+      <p>
+        The <strong>DRep Score</strong> is an objective 0-100 accountability metric that measures how well a DRep fulfills their governance responsibilities.
+      </p>
+      <p>
+        Formula: <code className="bg-muted px-2 py-0.5 rounded">Effective Participation (45%) + Rationale (35%) + Consistency (20%)</code>
+      </p>
+      <div className="bg-muted p-4 rounded-lg space-y-3">
+        <div>
+          <p className="font-medium mb-1">Effective Participation (45%)</p>
+          <p className="text-sm text-muted-foreground">
+            How consistently this DRep votes, with a discount applied if they vote uniformly (&gt;85% one direction), which suggests rubber-stamping.
+          </p>
+        </div>
+        <div>
+          <p className="font-medium mb-1">Rationale (35%)</p>
+          <p className="text-sm text-muted-foreground">
+            How often this DRep explains their votes. Transparency and accountability require justification.
+          </p>
+        </div>
+        <div>
+          <p className="font-medium mb-1">Consistency (20%)</p>
+          <p className="text-sm text-muted-foreground">
+            How steadily this DRep participates over time. A DRep who votes consistently across epochs scores higher than one who was active then disappeared.
+          </p>
+        </div>
+      </div>
+      <p className="text-sm text-muted-foreground mt-2">
+        This score is purely objective and doesn't consider your personal preferences. For personalized alignment, see the Match column.
       </p>
     </InfoModal>
   );
 }
 
 export function DecentralizationScoreModal() {
-  return (
-    <InfoModal title="Understanding Governance Engagement Score" triggerVariant="ghost" iconOnly>
-      <p>
-        The <strong>Governance Engagement Score</strong> measures the quality and independence of a DRep's governance participation.
-      </p>
-      <p>
-        A higher score indicates a more engaged, thoughtful, and balanced DRep:
-      </p>
-      <div className="bg-muted p-4 rounded-lg space-y-3">
-        <div>
-          <p className="font-medium mb-1">Activity Score (40%)</p>
-          <p className="text-sm text-muted-foreground">
-            Combines participation rate and rationale provision. Active DReps who explain their votes score higher.
-          </p>
-        </div>
-        <div>
-          <p className="font-medium mb-1">Voting Independence (30%)</p>
-          <p className="text-sm text-muted-foreground">
-            Measures voting pattern diversity. DReps who don't vote the same way on every proposal show independent thinking.
-          </p>
-        </div>
-        <div>
-          <p className="font-medium mb-1">Power Balance (30%)</p>
-          <p className="text-sm text-muted-foreground">
-            Rewards moderate voting power (100K-10M ADA). Penalizes extreme concentration (whale risk) and very low power (inactive).
-          </p>
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground mt-2">
-        Note: This score uses available data since delegator counts are not yet provided by the Koios API.
-      </p>
-    </InfoModal>
-  );
+  return <DRepScoreModal />;
 }
 
 export function RationaleImportanceModal() {

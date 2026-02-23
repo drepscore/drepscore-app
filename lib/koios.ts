@@ -1,7 +1,7 @@
 /**
  * DRep Enrichment and Scoring
  * Computes rolled-up DRep Score (0-100) as primary metric.
- * Philosophy: Encourage decentralization + quality over raw voting power.
+ * Philosophy: Objective accountability - do they show up, explain, and stay engaged?
  */
 
 import {
@@ -13,7 +13,9 @@ import {
 } from '@/utils/koios';
 import {
   calculateParticipationRate,
-  calculateDecentralizationScore,
+  calculateDeliberationModifier,
+  calculateConsistency,
+  calculateEffectiveParticipation,
   lovelaceToAda,
   getSizeTier,
 } from '@/utils/scoring';
@@ -21,27 +23,26 @@ import { isWellDocumented } from '@/utils/documentation';
 import { DRep } from '@/types/drep';
 
 // ---------------------------------------------------------------------------
-// Weighting Philosophy
+// Weighting Philosophy (V2)
 // ---------------------------------------------------------------------------
-// We prioritize quality signals (participation 35%, rationale 30%) and
-// decentralization (35%). This encourages:
-// - Active, thoughtful DReps who vote and explain
-// - Balanced power distribution (not whale-dominated)
-// - Governance quality over sheer stake size
+// DRep Score is purely objective - measures accountability:
+// - Effective Participation (45%): Do they show up? Penalized for rubber-stamping.
+// - Rationale (35%): Do they explain their votes?
+// - Consistency (20%): Do they stay engaged over time?
 // ---------------------------------------------------------------------------
 
 /** Weights for DRep Score components (each 0-1, should sum to 1) */
 export interface DRepWeights {
-  participation: number; // 0-1
+  effectiveParticipation: number;
   rationale: number;
-  decentralization: number;
+  consistency: number;
 }
 
-/** Default: quality signals + decentralization */
+/** Default: accountability-focused weights */
 export const DEFAULT_WEIGHTS: DRepWeights = {
-  participation: 0.35,
-  rationale: 0.30,
-  decentralization: 0.35,
+  effectiveParticipation: 0.45,
+  rationale: 0.35,
+  consistency: 0.20,
 };
 
 /** DRep with computed drepScore (0-100) */
@@ -51,37 +52,66 @@ export interface EnrichedDRep extends DRep {
 
 /**
  * Calculate rolled-up DRep Score (0-100).
- * Default missing metrics to 0 to penalize inactive/unknown DReps and ensure full table coverage.
- * Every DRep gets a score (even if low); never returns undefined/NaN.
+ * Formula: Effective Participation (45%) + Rationale (35%) + Consistency (20%)
+ * 
+ * Effective Participation = participationRate * deliberationModifier
+ * This penalizes rubber-stamping (voting >90% one direction).
  *
- * @param drep - DRep with participationRate, rationaleRate, decentralizationScore
+ * @param drep - DRep with effectiveParticipation, rationaleRate, consistencyScore
  */
 export function calculateDRepScore(
   drep: Pick<
     DRep,
-    'participationRate' | 'rationaleRate' | 'decentralizationScore'
+    'effectiveParticipation' | 'rationaleRate' | 'consistencyScore'
   >,
   weights: DRepWeights = DEFAULT_WEIGHTS
 ): number {
-  // Safely default missing values to 0 to penalize inactive/unknown DReps
-  const participation = drep.participationRate ?? 0;
+  const effectiveParticipation = drep.effectiveParticipation ?? 0;
   const rationale = drep.rationaleRate ?? 0;
-  const decentralization = drep.decentralizationScore ?? 0;
+  const consistency = drep.consistencyScore ?? 0;
 
-  // Combined score (0-1): weighted sum of all components
   const raw =
-    (participation / 100) * weights.participation +
+    (effectiveParticipation / 100) * weights.effectiveParticipation +
     (rationale / 100) * weights.rationale +
-    (decentralization / 100) * weights.decentralization;
+    (consistency / 100) * weights.consistency;
 
   const score = Math.round(raw * 100);
 
-  // Always return 0-100 integer; never undefined/NaN
   return Math.max(0, Math.min(100, Number.isFinite(score) ? score : 0));
 }
 
 /** Batch size for Koios API (drep_info/drep_metadata limit) */
 const BATCH_SIZE = 50;
+
+/**
+ * Compute vote counts per epoch from vote array
+ * Groups votes by epoch_no and returns array of counts
+ */
+function computeEpochVoteCounts(votes: Awaited<ReturnType<typeof fetchDRepVotes>>): number[] {
+  if (!votes || votes.length === 0) return [];
+  
+  const epochCounts: Record<number, number> = {};
+  let minEpoch = Infinity;
+  let maxEpoch = -Infinity;
+  
+  for (const vote of votes) {
+    const epoch = vote.epoch_no;
+    if (epoch !== undefined && epoch !== null) {
+      epochCounts[epoch] = (epochCounts[epoch] || 0) + 1;
+      minEpoch = Math.min(minEpoch, epoch);
+      maxEpoch = Math.max(maxEpoch, epoch);
+    }
+  }
+  
+  if (minEpoch === Infinity) return [];
+  
+  const counts: number[] = [];
+  for (let e = minEpoch; e <= maxEpoch; e++) {
+    counts.push(epochCounts[e] || 0);
+  }
+  
+  return counts;
+}
 
 /** Max concurrent vote fetches to avoid overwhelming the API */
 const VOTE_CONCURRENCY = 5;
@@ -196,15 +226,12 @@ export async function getEnrichedDReps(
         const participationRate = calculateParticipationRate(votes.length, totalProposals);
         const rationaleRate =
           votes.length > 0 ? Math.round((votesWithRationale / votes.length) * 100) : 0;
-        const decentralizationScore =
-          calculateDecentralizationScore(
-            participationRate,
-            rationaleRate,
-            votingPower,
-            yesVotes,
-            noVotes,
-            abstainVotes
-          ) ?? 0; // Stub to 0 if missing; penalize inactive/unknown DReps for full table coverage
+        
+        const deliberationModifier = calculateDeliberationModifier(yesVotes, noVotes, abstainVotes);
+        const effectiveParticipation = calculateEffectiveParticipation(participationRate, deliberationModifier);
+        
+        const epochVoteCounts = computeEpochVoteCounts(votes);
+        const consistencyScore = calculateConsistency(epochVoteCounts);
 
         return {
           drepId: drepInfo.drep_id,
@@ -217,7 +244,9 @@ export async function getEnrichedDReps(
           votingPowerLovelace: drepInfo.amount || '0',
           participationRate,
           rationaleRate,
-          decentralizationScore,
+          consistencyScore,
+          deliberationModifier,
+          effectiveParticipation,
           sizeTier: getSizeTier(votingPower),
           delegatorCount: drepInfo.delegators || 0,
           totalVotes: votes.length,
@@ -227,13 +256,13 @@ export async function getEnrichedDReps(
           isActive: drepInfo.registered && drepInfo.amount !== '0',
           anchorUrl: drepInfo.anchor_url,
           metadata: drepMetadata?.meta_json?.body || null,
+          epochVoteCounts,
         };
       });
 
       allBaseDreps.push(...batchDreps);
     }
 
-    // Recompute participation/decentralization with global totalProposals for consistency
     const globalTotalProposals = Math.max(
       ...allBaseDreps.map((d) => d.totalVotes),
       1
@@ -243,15 +272,11 @@ export async function getEnrichedDReps(
         d.totalVotes,
         globalTotalProposals
       );
-      d.decentralizationScore =
-        calculateDecentralizationScore(
-          d.participationRate,
-          d.rationaleRate,
-          d.votingPower,
-          d.yesVotes,
-          d.noVotes,
-          d.abstainVotes
-        ) ?? 0;
+      d.effectiveParticipation = calculateEffectiveParticipation(
+        d.participationRate,
+        d.deliberationModifier
+      );
+      d.consistencyScore = calculateConsistency(d.epochVoteCounts || []);
     }
 
     // Ensure EVERY DRep gets a drepScore (0-100)

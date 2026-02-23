@@ -47,8 +47,8 @@ export function applyPreferenceBoost(drep: DRep & { drepScore: number }, prefs: 
   if (prefs.includes('strong-decentralization')) {
     // Boost small/medium DReps
     if (drep.sizeTier === 'Small' || drep.sizeTier === 'Medium') boost += 5;
-    // Boost high decentralization score
-    if (drep.decentralizationScore > 60) boost += 3;
+    // Boost consistent DReps
+    if (drep.consistencyScore > 60) boost += 3;
   }
   
   if (prefs.includes('protocol-security-first')) {

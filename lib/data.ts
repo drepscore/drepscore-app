@@ -27,7 +27,9 @@ function transformSupabaseRowToDRep(row: any): EnrichedDRep {
     votingPowerLovelace: info.votingPowerLovelace || '0',
     participationRate: row.participation_rate || 0,
     rationaleRate: row.rationale_rate || 0,
-    decentralizationScore: row.decentralization_score || 0,
+    consistencyScore: row.consistency_score || 0,
+    deliberationModifier: row.deliberation_modifier || 1.0,
+    effectiveParticipation: row.effective_participation || row.participation_rate || 0,
     sizeTier: row.size_tier || 'Small',
     delegatorCount: info.delegatorCount || 0,
     totalVotes: info.totalVotes || 0,
@@ -38,6 +40,7 @@ function transformSupabaseRowToDRep(row: any): EnrichedDRep {
     anchorUrl: info.anchorUrl || null,
     metadata: row.metadata || null,
     drepScore: row.score || 0,
+    epochVoteCounts: info.epochVoteCounts || [],
   };
 }
 

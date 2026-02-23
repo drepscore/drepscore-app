@@ -20,7 +20,9 @@ interface SupabaseDRepRow {
   score: number;
   participation_rate: number;
   rationale_rate: number;
-  decentralization_score: number;
+  consistency_score: number;
+  deliberation_modifier: number;
+  effective_participation: number;
   size_tier: string;
 }
 
@@ -66,12 +68,15 @@ async function syncDReps() {
         abstainVotes: drep.abstainVotes,
         isActive: drep.isActive,
         anchorUrl: drep.anchorUrl,
+        epochVoteCounts: drep.epochVoteCounts,
       },
       votes: [], // Note: We don't cache full votes array for space reasons
       score: drep.drepScore,
       participation_rate: drep.participationRate,
       rationale_rate: drep.rationaleRate,
-      decentralization_score: drep.decentralizationScore,
+      consistency_score: drep.consistencyScore,
+      deliberation_modifier: drep.deliberationModifier,
+      effective_participation: drep.effectiveParticipation,
       size_tier: drep.sizeTier,
     }));
     

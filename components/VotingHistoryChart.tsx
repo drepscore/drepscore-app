@@ -30,7 +30,6 @@ interface VotingHistoryChartProps {
 }
 
 export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
-  const [filter, setFilter] = useState<'all' | 'Governance' | 'Catalyst'>('all');
   const [expandedVotes, setExpandedVotes] = useState<Set<string>>(new Set());
 
   const toggleVoteExpanded = (voteId: string) => {
@@ -45,9 +44,8 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
     });
   };
 
-  const filteredVotes = filter === 'all' 
-    ? votes 
-    : votes.filter(v => v.voteType === filter);
+  // Use all votes (Catalyst filter removed as it's not implemented)
+  const filteredVotes = votes;
 
   // Calculate vote distribution
   const voteDistribution = [
@@ -85,29 +83,9 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
 
   return (
     <div className="space-y-6">
-      {/* Filter buttons */}
-      <div className="flex gap-2">
-        <Button
-          variant={filter === 'all' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFilter('all')}
-        >
-          All Votes ({votes.length})
-        </Button>
-        <Button
-          variant={filter === 'Governance' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFilter('Governance')}
-        >
-          Governance ({votes.filter(v => v.voteType === 'Governance').length})
-        </Button>
-        <Button
-          variant={filter === 'Catalyst' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFilter('Catalyst')}
-        >
-          Catalyst ({votes.filter(v => v.voteType === 'Catalyst').length})
-        </Button>
+      {/* Vote count summary */}
+      <div className="text-sm text-muted-foreground">
+        Showing {votes.length} governance votes
       </div>
 
       {/* Distribution Pie Chart */}
@@ -188,7 +166,6 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
                         }>
                           {vote.vote}
                         </Badge>
-                        <Badge variant="outline">{vote.voteType}</Badge>
                         {vote.hasRationale && (
                           <Badge variant="outline" className="text-green-600 dark:text-green-400">
                             Rationale

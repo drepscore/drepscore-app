@@ -73,77 +73,72 @@ export function calculateRationaleRate(votes: DRepVote[] | VoteRecord[]): number
 }
 
 /**
- * Calculate Governance Engagement Score
- * Measures DRep quality based on activity, voting independence, and power balance
- * (Replaces delegator-based decentralization score since Koios API doesn't provide delegator data)
+ * Calculate deliberation modifier based on vote uniformity
+ * Penalizes rubber-stamping (voting the same way >85% of the time)
  * 
- * @param participationRate Participation rate (0-100)
- * @param rationaleRate Rationale provision rate (0-100)
- * @param votingPowerAda Voting power in ADA
  * @param yesVotes Number of Yes votes
  * @param noVotes Number of No votes
  * @param abstainVotes Number of Abstain votes
- * @returns Governance engagement score (0-100)
+ * @returns Modifier between 0.70 and 1.00
  */
-export function calculateDecentralizationScore(
-  participationRate: number,
-  rationaleRate: number,
-  votingPowerAda: number,
+export function calculateDeliberationModifier(
   yesVotes: number,
   noVotes: number,
   abstainVotes: number
 ): number {
   const totalVotes = yesVotes + noVotes + abstainVotes;
   
-  if (totalVotes === 0) return 0;
+  if (totalVotes <= 10) return 1.0;
   
-  // 1. Activity Score (40%)
-  // Combination of participation rate and rationale provision
-  const activityScore = (participationRate * 0.6 + rationaleRate * 0.4) * 0.4;
+  const dominantCount = Math.max(yesVotes, noVotes, abstainVotes);
+  const dominantRatio = dominantCount / totalVotes;
   
-  // 2. Voting Independence Score (30%)
-  // Calculate entropy of vote distribution (balanced voting = independent thinking)
-  const yesRatio = yesVotes / totalVotes;
-  const noRatio = noVotes / totalVotes;
-  const abstainRatio = abstainVotes / totalVotes;
+  if (dominantRatio > 0.95) return 0.70;
+  if (dominantRatio > 0.90) return 0.85;
+  if (dominantRatio > 0.85) return 0.95;
+  return 1.0;
+}
+
+/**
+ * Calculate consistency score based on voting activity across epochs
+ * Measures how steadily a DRep participates over time
+ * 
+ * @param epochVoteCounts Array of vote counts per epoch
+ * @returns Consistency score (0-100)
+ */
+export function calculateConsistency(epochVoteCounts: number[]): number {
+  if (!epochVoteCounts || epochVoteCounts.length === 0) return 0;
+  if (epochVoteCounts.length === 1) return epochVoteCounts[0] > 0 ? 50 : 0;
   
-  // Calculate Shannon entropy, normalize to 0-1 scale
-  let entropy = 0;
-  if (yesRatio > 0) entropy -= yesRatio * Math.log2(yesRatio);
-  if (noRatio > 0) entropy -= noRatio * Math.log2(noRatio);
-  if (abstainRatio > 0) entropy -= abstainRatio * Math.log2(abstainRatio);
+  const nonZeroEpochs = epochVoteCounts.filter(c => c > 0);
+  if (nonZeroEpochs.length === 0) return 0;
   
-  // Max entropy for 3 categories is log2(3) ≈ 1.585
-  const maxEntropy = Math.log2(3);
-  const normalizedEntropy = entropy / maxEntropy;
-  const independenceScore = normalizedEntropy * 30;
+  const mean = nonZeroEpochs.reduce((a, b) => a + b, 0) / nonZeroEpochs.length;
+  if (mean === 0) return 0;
   
-  // 3. Power Balance Score (30%)
-  // Tier-based scoring: penalize extremes, reward moderate stake
-  let powerScore = 0;
-  if (votingPowerAda < 1000) {
-    // Very low power: likely inactive or new
-    powerScore = 5;
-  } else if (votingPowerAda < 10000) {
-    // Low power: emerging DRep
-    powerScore = 15;
-  } else if (votingPowerAda < 100000) {
-    // Moderate power: healthy engagement (best tier)
-    powerScore = 30;
-  } else if (votingPowerAda < 1000000) {
-    // High power: established DRep
-    powerScore = 25;
-  } else if (votingPowerAda < 10000000) {
-    // Very high power: potential whale risk
-    powerScore = 15;
-  } else {
-    // Extreme power: whale warning
-    powerScore = 5;
-  }
+  const variance = nonZeroEpochs.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / nonZeroEpochs.length;
+  const stdDev = Math.sqrt(variance);
+  const coefficientOfVariation = stdDev / mean;
   
-  const totalScore = activityScore + independenceScore + powerScore;
+  const activeEpochRatio = nonZeroEpochs.length / epochVoteCounts.length;
+  const consistencyFromCV = Math.max(0, 1 - coefficientOfVariation);
+  const combinedScore = (consistencyFromCV * 0.6 + activeEpochRatio * 0.4) * 100;
   
-  return Math.round(Math.max(0, Math.min(100, totalScore)));
+  return Math.round(Math.max(0, Math.min(100, combinedScore)));
+}
+
+/**
+ * Calculate effective participation (participation rate with deliberation modifier)
+ * 
+ * @param participationRate Raw participation rate (0-100)
+ * @param deliberationModifier Modifier from calculateDeliberationModifier (0.70-1.0)
+ * @returns Effective participation rate (0-100)
+ */
+export function calculateEffectiveParticipation(
+  participationRate: number,
+  deliberationModifier: number
+): number {
+  return Math.round(participationRate * deliberationModifier);
 }
 
 /**

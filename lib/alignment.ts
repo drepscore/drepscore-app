@@ -3,11 +3,134 @@
  * Calculates alignment between user preferences and DRep voting behavior
  */
 
-import { DRepVote } from '@/types/koios';
+import { DRepVote, ProposalInfo, ClassifiedProposal } from '@/types/koios';
 import { UserPrefKey } from '@/types/drep';
 import { EnrichedDRep } from '@/lib/koios';
 
 const TREASURY_KEYWORDS = ['treasury', 'withdrawal', 'budget', 'fund', 'spend', 'grant', 'funding'];
+
+// Treasury amount tiers (in ADA)
+const TREASURY_TIER_ROUTINE = 1_000_000;      // < 1M ADA
+const TREASURY_TIER_SIGNIFICANT = 20_000_000; // 1M - 20M ADA
+// > 20M ADA = Major
+
+/**
+ * Classify a proposal based on CIP-1694 type and metadata
+ */
+export function classifyProposal(proposal: ProposalInfo): ClassifiedProposal {
+  const relevantPrefs: UserPrefKey[] = [];
+  let withdrawalAmountAda: number | null = null;
+  let treasuryTier: 'routine' | 'significant' | 'major' | null = null;
+
+  // Map proposal type to relevant preferences
+  switch (proposal.proposal_type) {
+    case 'TreasuryWithdrawals':
+      relevantPrefs.push('treasury-conservative', 'smart-treasury-growth');
+      
+      // Calculate total withdrawal amount
+      if (proposal.withdrawal && proposal.withdrawal.length > 0) {
+        const totalLovelace = proposal.withdrawal.reduce(
+          (sum, w) => sum + BigInt(w.amount || '0'),
+          BigInt(0)
+        );
+        withdrawalAmountAda = Number(totalLovelace / BigInt(1_000_000));
+        
+        // Determine tier
+        if (withdrawalAmountAda < TREASURY_TIER_ROUTINE) {
+          treasuryTier = 'routine';
+        } else if (withdrawalAmountAda < TREASURY_TIER_SIGNIFICANT) {
+          treasuryTier = 'significant';
+        } else {
+          treasuryTier = 'major';
+        }
+      }
+      break;
+
+    case 'ParameterChange':
+      relevantPrefs.push('protocol-security-first');
+      break;
+
+    case 'HardForkInitiation':
+      relevantPrefs.push('protocol-security-first', 'innovation-defi-growth');
+      break;
+
+    case 'NoConfidence':
+    case 'NewConstitutionalCommittee':
+      relevantPrefs.push('strong-decentralization', 'protocol-security-first');
+      break;
+
+    case 'UpdateConstitution':
+      relevantPrefs.push('protocol-security-first', 'responsible-governance');
+      break;
+
+    case 'InfoAction':
+      // For InfoAction, use keyword analysis on title/abstract
+      const searchText = [
+        proposal.meta_json?.title,
+        proposal.meta_json?.abstract,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (searchText.includes('defi') || searchText.includes('innovation') || searchText.includes('growth')) {
+        relevantPrefs.push('innovation-defi-growth');
+      }
+      if (searchText.includes('security') || searchText.includes('stability') || searchText.includes('parameter')) {
+        relevantPrefs.push('protocol-security-first');
+      }
+      if (searchText.includes('treasury') || searchText.includes('fund') || searchText.includes('budget')) {
+        relevantPrefs.push('treasury-conservative', 'smart-treasury-growth');
+      }
+      if (searchText.includes('decentralization') || searchText.includes('governance') || searchText.includes('community')) {
+        relevantPrefs.push('strong-decentralization');
+      }
+      if (searchText.includes('transparent') || searchText.includes('accountability') || searchText.includes('reporting')) {
+        relevantPrefs.push('responsible-governance');
+      }
+      
+      // Default if no keywords matched
+      if (relevantPrefs.length === 0) {
+        relevantPrefs.push('responsible-governance');
+      }
+      break;
+  }
+
+  return {
+    txHash: proposal.proposal_tx_hash,
+    index: proposal.proposal_index,
+    type: proposal.proposal_type,
+    title: proposal.meta_json?.title || `Proposal ${proposal.proposal_tx_hash.slice(0, 8)}...`,
+    abstract: proposal.meta_json?.abstract || '',
+    withdrawalAmountAda,
+    treasuryTier,
+    paramChanges: proposal.param_proposal,
+    relevantPrefs,
+    proposedEpoch: proposal.proposed_epoch,
+    blockTime: proposal.block_time,
+  };
+}
+
+/**
+ * Classify an array of proposals
+ */
+export function classifyProposals(proposals: ProposalInfo[]): ClassifiedProposal[] {
+  return proposals.map(classifyProposal);
+}
+
+/**
+ * Get proposals relevant to a specific preference
+ */
+export function getProposalsForPref(
+  classifiedProposals: ClassifiedProposal[],
+  pref: UserPrefKey
+): ClassifiedProposal[] {
+  return classifiedProposals.filter(p => p.relevantPrefs.includes(pref));
+}
+
+// ============================================================================
+// SCORECARD TYPES
+// ============================================================================
 
 export interface AlignmentBreakdown {
   treasury: number;
@@ -18,16 +141,326 @@ export interface AlignmentBreakdown {
   overall: number;
 }
 
-export interface MismatchAlert {
-  id: string;
+export interface AlignmentScorecard {
+  drepId: string;
+  scores: AlignmentBreakdown;
+  votesAnalyzed: number;
+  calculatedAt: number;
+}
+
+export interface AlignmentShift {
   drepId: string;
   drepName: string;
-  vote: 'Yes' | 'No' | 'Abstain';
-  proposalTitle: string;
-  conflictingPref: UserPrefKey;
-  timestamp: number;
-  severity: 'low' | 'medium' | 'high';
+  previousMatch: number;
+  currentMatch: number;
+  delta: number;
+  categoryShifts: {
+    pref: UserPrefKey;
+    previous: number;
+    current: number;
+    causedBy: string[];
+  }[];
 }
+
+// ============================================================================
+// SCORECARD CALCULATION
+// ============================================================================
+
+interface VoteWithProposal {
+  vote: DRepVote;
+  proposal: ClassifiedProposal | null;
+}
+
+/**
+ * Match votes to classified proposals
+ */
+function matchVotesToProposals(
+  votes: DRepVote[],
+  proposals: ClassifiedProposal[]
+): VoteWithProposal[] {
+  const proposalMap = new Map<string, ClassifiedProposal>();
+  for (const p of proposals) {
+    proposalMap.set(`${p.txHash}-${p.index}`, p);
+  }
+
+  return votes.map(vote => ({
+    vote,
+    proposal: proposalMap.get(`${vote.proposal_tx_hash}-${vote.proposal_index}`) || null,
+  }));
+}
+
+/**
+ * Calculate Treasury Conservative score (0-100)
+ * "No" on Major = 100, "No" on Significant = 90, Routine = 50, "Yes" penalized
+ */
+function calculateTreasuryConservativeScore(votesWithProposals: VoteWithProposal[]): number {
+  const treasuryVotes = votesWithProposals.filter(
+    v => v.proposal?.type === 'TreasuryWithdrawals'
+  );
+
+  if (treasuryVotes.length === 0) return 50;
+
+  let totalScore = 0;
+  for (const { vote, proposal } of treasuryVotes) {
+    const tier = proposal?.treasuryTier || 'routine';
+
+    if (vote.vote === 'No') {
+      if (tier === 'major') totalScore += 100;
+      else if (tier === 'significant') totalScore += 90;
+      else totalScore += 50;
+    } else if (vote.vote === 'Yes') {
+      if (tier === 'major') totalScore += 10;
+      else if (tier === 'significant') totalScore += 30;
+      else totalScore += 50;
+    } else {
+      totalScore += 50;
+    }
+  }
+
+  return Math.round(totalScore / treasuryVotes.length);
+}
+
+/**
+ * Calculate Treasury Growth score (0-100)
+ * "Yes" with rationale = high, "No" without rationale = low
+ */
+function calculateTreasuryGrowthScore(votesWithProposals: VoteWithProposal[]): number {
+  const treasuryVotes = votesWithProposals.filter(
+    v => v.proposal?.type === 'TreasuryWithdrawals'
+  );
+
+  if (treasuryVotes.length === 0) return 50;
+
+  let totalScore = 0;
+  for (const { vote, proposal } of treasuryVotes) {
+    const hasRationale = vote.meta_url || vote.meta_json?.rationale;
+    const tier = proposal?.treasuryTier || 'routine';
+
+    if (vote.vote === 'Yes') {
+      if (hasRationale) {
+        if (tier === 'major') totalScore += 90;
+        else if (tier === 'significant') totalScore += 85;
+        else totalScore += 70;
+      } else {
+        totalScore += 60;
+      }
+    } else if (vote.vote === 'No') {
+      if (hasRationale) {
+        totalScore += 40;
+      } else {
+        totalScore += 20;
+      }
+    } else {
+      totalScore += 50;
+    }
+  }
+
+  return Math.round(totalScore / treasuryVotes.length);
+}
+
+/**
+ * Calculate Decentralization score (0-100)
+ * Based on DRep size tier
+ */
+function calculateDecentralizationScore(drep: EnrichedDRep): number {
+  const tierScores: Record<string, number> = {
+    Small: 95,
+    Medium: 72,
+    Large: 40,
+    Whale: 12,
+  };
+  return tierScores[drep.sizeTier] || 50;
+}
+
+/**
+ * Calculate Protocol Security score (0-100)
+ * Based on participation and rationale on security-related proposals
+ */
+function calculateSecurityScore(
+  drep: EnrichedDRep,
+  votesWithProposals: VoteWithProposal[]
+): number {
+  const securityVotes = votesWithProposals.filter(v =>
+    v.proposal?.relevantPrefs.includes('protocol-security-first')
+  );
+
+  if (securityVotes.length === 0) {
+    return Math.round(drep.participationRate * 0.6 + drep.rationaleRate * 0.4);
+  }
+
+  const cautionVotes = securityVotes.filter(v => v.vote.vote === 'No' || v.vote.vote === 'Abstain').length;
+  const rationalVotes = securityVotes.filter(v => v.vote.meta_url || v.vote.meta_json?.rationale).length;
+
+  const cautionRate = (cautionVotes / securityVotes.length) * 100;
+  const rationalRate = (rationalVotes / securityVotes.length) * 100;
+
+  return Math.round(cautionRate * 0.6 + rationalRate * 0.4);
+}
+
+/**
+ * Calculate Innovation/DeFi score (0-100)
+ * Based on participation and yes votes on info/innovation proposals
+ */
+function calculateInnovationScore(
+  drep: EnrichedDRep,
+  votesWithProposals: VoteWithProposal[]
+): number {
+  const innovationVotes = votesWithProposals.filter(v =>
+    v.proposal?.relevantPrefs.includes('innovation-defi-growth') ||
+    v.proposal?.type === 'InfoAction'
+  );
+
+  if (innovationVotes.length === 0) {
+    return Math.round(drep.participationRate * 0.5 + 25);
+  }
+
+  const yesVotes = innovationVotes.filter(v => v.vote.vote === 'Yes').length;
+  const yesRate = (yesVotes / innovationVotes.length) * 100;
+
+  return Math.round(yesRate * 0.5 + drep.participationRate * 0.5);
+}
+
+/**
+ * Calculate Transparency score (0-100)
+ * Direct mapping from rationale rate
+ */
+function calculateTransparencyScore(drep: EnrichedDRep): number {
+  return drep.rationaleRate;
+}
+
+/**
+ * Calculate full scorecard for a DRep based on classified proposals
+ */
+export function calculateScorecard(
+  drep: EnrichedDRep,
+  votes: DRepVote[],
+  proposals: ClassifiedProposal[],
+  prefs: UserPrefKey[]
+): AlignmentScorecard {
+  const votesWithProposals = matchVotesToProposals(votes, proposals);
+
+  const scores: AlignmentBreakdown = {
+    treasury: 50,
+    decentralization: 50,
+    security: 50,
+    innovation: 50,
+    transparency: 50,
+    overall: 50,
+  };
+
+  // Calculate each category score
+  if (prefs.includes('treasury-conservative')) {
+    scores.treasury = calculateTreasuryConservativeScore(votesWithProposals);
+  } else if (prefs.includes('smart-treasury-growth')) {
+    scores.treasury = calculateTreasuryGrowthScore(votesWithProposals);
+  }
+
+  if (prefs.includes('strong-decentralization')) {
+    scores.decentralization = calculateDecentralizationScore(drep);
+  }
+
+  if (prefs.includes('protocol-security-first')) {
+    scores.security = calculateSecurityScore(drep, votesWithProposals);
+  }
+
+  if (prefs.includes('innovation-defi-growth')) {
+    scores.innovation = calculateInnovationScore(drep, votesWithProposals);
+  }
+
+  if (prefs.includes('responsible-governance')) {
+    scores.transparency = calculateTransparencyScore(drep);
+  }
+
+  // Calculate overall as simple average of selected categories
+  const activeScores: number[] = [];
+  if (prefs.includes('treasury-conservative') || prefs.includes('smart-treasury-growth')) {
+    activeScores.push(scores.treasury);
+  }
+  if (prefs.includes('strong-decentralization')) {
+    activeScores.push(scores.decentralization);
+  }
+  if (prefs.includes('protocol-security-first')) {
+    activeScores.push(scores.security);
+  }
+  if (prefs.includes('innovation-defi-growth')) {
+    activeScores.push(scores.innovation);
+  }
+  if (prefs.includes('responsible-governance')) {
+    activeScores.push(scores.transparency);
+  }
+
+  scores.overall = activeScores.length > 0
+    ? Math.round(activeScores.reduce((a, b) => a + b, 0) / activeScores.length)
+    : 50;
+
+  return {
+    drepId: drep.drepId,
+    scores,
+    votesAnalyzed: votes.length,
+    calculatedAt: Date.now(),
+  };
+}
+
+// ============================================================================
+// SHIFT DETECTION (for alerts)
+// ============================================================================
+
+const SHIFT_THRESHOLD = 8;
+
+/**
+ * Detect alignment shifts between previous and current scorecards
+ */
+export function detectAlignmentShifts(
+  previous: AlignmentScorecard | null,
+  current: AlignmentScorecard,
+  drepName: string,
+  prefs: UserPrefKey[]
+): AlignmentShift | null {
+  if (!previous) return null;
+
+  const delta = current.scores.overall - previous.scores.overall;
+
+  if (delta >= -SHIFT_THRESHOLD) return null;
+
+  const categoryShifts: AlignmentShift['categoryShifts'] = [];
+
+  const checkCategory = (
+    pref: UserPrefKey,
+    scoreKey: keyof AlignmentBreakdown
+  ) => {
+    if (!prefs.includes(pref)) return;
+    const prevScore = previous.scores[scoreKey];
+    const currScore = current.scores[scoreKey];
+    if (currScore < prevScore - 5) {
+      categoryShifts.push({
+        pref,
+        previous: prevScore,
+        current: currScore,
+        causedBy: [],
+      });
+    }
+  };
+
+  checkCategory('treasury-conservative', 'treasury');
+  checkCategory('smart-treasury-growth', 'treasury');
+  checkCategory('strong-decentralization', 'decentralization');
+  checkCategory('protocol-security-first', 'security');
+  checkCategory('innovation-defi-growth', 'innovation');
+  checkCategory('responsible-governance', 'transparency');
+
+  return {
+    drepId: current.drepId,
+    drepName,
+    previousMatch: previous.scores.overall,
+    currentMatch: current.scores.overall,
+    delta,
+    categoryShifts,
+  };
+}
+
+// ============================================================================
+// LEGACY COMPATIBILITY
+// ============================================================================
 
 /**
  * Check if a vote is treasury-related based on metadata keywords
@@ -47,123 +480,14 @@ export function isTreasuryVote(vote: DRepVote): boolean {
 }
 
 /**
- * Calculate alignment breakdown per preference category
+ * Calculate alignment breakdown per preference category (legacy)
  */
 export function calculateAlignmentBreakdown(
   drep: EnrichedDRep,
   votes: DRepVote[],
   prefs: UserPrefKey[]
 ): AlignmentBreakdown {
-  const breakdown: AlignmentBreakdown = {
-    treasury: 50,
-    decentralization: 50,
-    security: 50,
-    innovation: 50,
-    transparency: 50,
-    overall: 50,
-  };
-
-  if (prefs.length === 0) {
-    return breakdown;
-  }
-
-  const treasuryVotes = votes.filter(isTreasuryVote);
-  const hasRationaleVotes = votes.filter(
-    (v) => v.meta_url !== null || v.meta_json?.rationale != null
-  );
-
-  // Treasury Conservative: favor "No" votes on treasury proposals
-  if (prefs.includes('treasury-conservative')) {
-    if (treasuryVotes.length > 0) {
-      const noVotes = treasuryVotes.filter((v) => v.vote === 'No').length;
-      breakdown.treasury = Math.round((noVotes / treasuryVotes.length) * 100);
-    } else {
-      breakdown.treasury = drep.rationaleRate > 50 ? 60 : 50;
-    }
-  }
-
-  // Treasury Growth-Oriented: favor "Yes" votes on treasury with rationale
-  if (prefs.includes('smart-treasury-growth')) {
-    if (treasuryVotes.length > 0) {
-      const yesWithRationale = treasuryVotes.filter(
-        (v) => v.vote === 'Yes' && (v.meta_url || v.meta_json?.rationale)
-      ).length;
-      breakdown.treasury = Math.round((yesWithRationale / treasuryVotes.length) * 100);
-    } else {
-      breakdown.treasury = drep.participationRate > 60 ? 60 : 50;
-    }
-  }
-
-  // Handle conflict: if both treasury prefs selected, average them
-  if (prefs.includes('treasury-conservative') && prefs.includes('smart-treasury-growth')) {
-    const conservativeScore = treasuryVotes.length > 0
-      ? Math.round((treasuryVotes.filter((v) => v.vote === 'No').length / treasuryVotes.length) * 100)
-      : 50;
-    const growthScore = treasuryVotes.length > 0
-      ? Math.round(
-          (treasuryVotes.filter((v) => v.vote === 'Yes' && (v.meta_url || v.meta_json?.rationale)).length /
-            treasuryVotes.length) *
-            100
-        )
-      : 50;
-    breakdown.treasury = Math.round((conservativeScore + growthScore) / 2);
-  }
-
-  // Decentralization First: favor smaller DReps
-  if (prefs.includes('strong-decentralization')) {
-    const tierScores: Record<string, number> = {
-      Small: 95,
-      Medium: 80,
-      Large: 50,
-      Whale: 20,
-    };
-    breakdown.decentralization = tierScores[drep.sizeTier] || 50;
-  }
-
-  // Protocol Security & Stability: high participation + rationale
-  if (prefs.includes('protocol-security-first')) {
-    const securityScore =
-      drep.participationRate * 0.5 + drep.rationaleRate * 0.5;
-    breakdown.security = Math.round(securityScore);
-  }
-
-  // Innovation & DeFi Growth: high participation, yes votes
-  if (prefs.includes('innovation-defi-growth')) {
-    const yesRate = votes.length > 0
-      ? (votes.filter((v) => v.vote === 'Yes').length / votes.length) * 100
-      : 50;
-    breakdown.innovation = Math.round(drep.participationRate * 0.6 + yesRate * 0.4);
-  }
-
-  // Transparency & Accountability: rationale rate
-  if (prefs.includes('responsible-governance')) {
-    breakdown.transparency = drep.rationaleRate;
-  }
-
-  // Calculate overall alignment (weighted average of active prefs)
-  const activeScores: number[] = [];
-  if (prefs.includes('treasury-conservative') || prefs.includes('smart-treasury-growth')) {
-    activeScores.push(breakdown.treasury);
-  }
-  if (prefs.includes('strong-decentralization')) {
-    activeScores.push(breakdown.decentralization);
-  }
-  if (prefs.includes('protocol-security-first')) {
-    activeScores.push(breakdown.security);
-  }
-  if (prefs.includes('innovation-defi-growth')) {
-    activeScores.push(breakdown.innovation);
-  }
-  if (prefs.includes('responsible-governance')) {
-    activeScores.push(breakdown.transparency);
-  }
-
-  breakdown.overall =
-    activeScores.length > 0
-      ? Math.round(activeScores.reduce((a, b) => a + b, 0) / activeScores.length)
-      : 50;
-
-  return breakdown;
+  return calculateScorecard(drep, votes, [], prefs).scores;
 }
 
 /**
@@ -176,95 +500,6 @@ export function calculateAlignment(
 ): number {
   if (prefs.length === 0) return 50;
   return calculateAlignmentBreakdown(drep, votes, prefs).overall;
-}
-
-/**
- * Calculate hybrid score: base_score * 0.6 + alignment * 0.4
- * Only applies hybrid formula when user has preferences set
- */
-export function calculateHybridScore(
-  baseScore: number,
-  alignment: number,
-  hasPrefs: boolean
-): number {
-  if (!hasPrefs) return baseScore;
-  return Math.round(baseScore * 0.6 + alignment * 0.4);
-}
-
-/**
- * Detect mismatches between DRep votes and user preferences
- * Returns recent votes that conflict with user values
- */
-export function detectMismatches(
-  drepId: string,
-  drepName: string,
-  votes: DRepVote[],
-  prefs: UserPrefKey[]
-): MismatchAlert[] {
-  if (prefs.length === 0 || votes.length === 0) return [];
-
-  const alerts: MismatchAlert[] = [];
-  const recentVotes = votes
-    .sort((a, b) => b.block_time - a.block_time)
-    .slice(0, 10);
-
-  for (const vote of recentVotes) {
-    const isTreasury = isTreasuryVote(vote);
-
-    // Treasury Conservative conflict: Yes vote on treasury
-    if (prefs.includes('treasury-conservative') && isTreasury && vote.vote === 'Yes') {
-      alerts.push({
-        id: `${drepId}-${vote.vote_tx_hash}`,
-        drepId,
-        drepName,
-        vote: vote.vote,
-        proposalTitle: vote.meta_json?.title || 'Treasury Proposal',
-        conflictingPref: 'treasury-conservative',
-        timestamp: vote.block_time * 1000,
-        severity: 'medium',
-      });
-    }
-
-    // Treasury Growth conflict: No vote on treasury without rationale
-    if (
-      prefs.includes('smart-treasury-growth') &&
-      isTreasury &&
-      vote.vote === 'No' &&
-      !vote.meta_url &&
-      !vote.meta_json?.rationale
-    ) {
-      alerts.push({
-        id: `${drepId}-${vote.vote_tx_hash}`,
-        drepId,
-        drepName,
-        vote: vote.vote,
-        proposalTitle: vote.meta_json?.title || 'Treasury Proposal',
-        conflictingPref: 'smart-treasury-growth',
-        timestamp: vote.block_time * 1000,
-        severity: 'low',
-      });
-    }
-
-    // Transparency conflict: vote without rationale
-    if (
-      prefs.includes('responsible-governance') &&
-      !vote.meta_url &&
-      !vote.meta_json?.rationale
-    ) {
-      alerts.push({
-        id: `${drepId}-${vote.vote_tx_hash}`,
-        drepId,
-        drepName,
-        vote: vote.vote,
-        proposalTitle: vote.meta_json?.title || 'Governance Proposal',
-        conflictingPref: 'responsible-governance',
-        timestamp: vote.block_time * 1000,
-        severity: 'low',
-      });
-    }
-  }
-
-  return alerts.slice(0, 5);
 }
 
 /**
