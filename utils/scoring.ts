@@ -115,55 +115,59 @@ export function calculateDeliberationModifier(
 }
 
 /**
- * Calculate consistency score based on voting activity across epochs
- * Measures how steadily a DRep participates over time
- * 
+ * Calculate consistency score based on voting activity across epochs.
+ * Normalizes vote counts by proposals available each epoch so DReps aren't
+ * penalized for voting on many proposals in busy epochs.
+ *
  * @param epochVoteCounts Array of vote counts per epoch (index = epoch offset from first active epoch)
- * @param firstEpoch The first epoch in the array (optional, for filtering by active proposal epochs)
- * @param activeProposalEpochs Set of epochs that had proposals (optional, for fair consistency)
+ * @param firstEpoch The first epoch in the array
+ * @param proposalCountsByEpoch Map of epoch -> number of proposals available that epoch
  * @returns Consistency score (0-100)
  */
 export function calculateConsistency(
   epochVoteCounts: number[],
   firstEpoch?: number,
-  activeProposalEpochs?: Set<number>
+  proposalCountsByEpoch?: Map<number, number>
 ): number {
   if (!epochVoteCounts || epochVoteCounts.length === 0) return 0;
   if (epochVoteCounts.length === 1) return epochVoteCounts[0] > 0 ? 50 : 0;
-  
-  // If we have active proposal epochs info, filter to only count those epochs
-  let relevantEpochCounts = epochVoteCounts;
-  let relevantEpochCount = epochVoteCounts.length;
-  
-  if (activeProposalEpochs && activeProposalEpochs.size > 0 && firstEpoch !== undefined) {
-    // Only count epochs that had proposals
-    relevantEpochCounts = [];
+
+  // Normalize vote counts by proposals available per epoch
+  let relevantRates: number[] = [];
+  let relevantEpochCount = 0;
+
+  if (proposalCountsByEpoch && proposalCountsByEpoch.size > 0 && firstEpoch !== undefined) {
     for (let i = 0; i < epochVoteCounts.length; i++) {
       const epoch = firstEpoch + i;
-      if (activeProposalEpochs.has(epoch)) {
-        relevantEpochCounts.push(epochVoteCounts[i]);
+      const proposalCount = proposalCountsByEpoch.get(epoch);
+      if (proposalCount && proposalCount > 0) {
+        relevantEpochCount++;
+        relevantRates.push(Math.min(1, epochVoteCounts[i] / proposalCount));
       }
     }
-    relevantEpochCount = relevantEpochCounts.length;
-    
-    if (relevantEpochCount === 0) return 50; // No proposals in their active period
-    if (relevantEpochCount === 1) return relevantEpochCounts[0] > 0 ? 50 : 0;
+
+    if (relevantEpochCount === 0) return 50;
+    if (relevantEpochCount === 1) return relevantRates[0] > 0 ? 50 : 0;
+  } else {
+    // Fallback: use raw counts when proposal data unavailable
+    relevantRates = epochVoteCounts.map(c => c);
+    relevantEpochCount = epochVoteCounts.length;
   }
-  
-  const nonZeroEpochs = relevantEpochCounts.filter(c => c > 0);
-  if (nonZeroEpochs.length === 0) return 0;
-  
-  const mean = nonZeroEpochs.reduce((a, b) => a + b, 0) / nonZeroEpochs.length;
+
+  const nonZeroRates = relevantRates.filter(r => r > 0);
+  if (nonZeroRates.length === 0) return 0;
+
+  const mean = nonZeroRates.reduce((a, b) => a + b, 0) / nonZeroRates.length;
   if (mean === 0) return 0;
-  
-  const variance = nonZeroEpochs.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / nonZeroEpochs.length;
+
+  const variance = nonZeroRates.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / nonZeroRates.length;
   const stdDev = Math.sqrt(variance);
   const coefficientOfVariation = stdDev / mean;
-  
-  const activeEpochRatio = nonZeroEpochs.length / relevantEpochCount;
+
+  const activeEpochRatio = nonZeroRates.length / relevantEpochCount;
   const consistencyFromCV = Math.max(0, 1 - coefficientOfVariation);
   const combinedScore = (consistencyFromCV * 0.6 + activeEpochRatio * 0.4) * 100;
-  
+
   return Math.round(Math.max(0, Math.min(100, combinedScore)));
 }
 

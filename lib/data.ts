@@ -163,10 +163,11 @@ export async function getAllDReps(): Promise<{
 }
 
 /**
- * Get epochs that had active proposals
- * Used to calculate consistency fairly (only count epochs where voting was possible)
+ * Get proposal counts per epoch.
+ * Returns Map<epoch, proposalCount> so consistency scoring can normalize
+ * vote counts by how many proposals were available each epoch.
  */
-export async function getActiveProposalEpochs(): Promise<Set<number>> {
+export async function getActiveProposalEpochs(): Promise<Map<number, number>> {
   try {
     const supabase = createClient();
     
@@ -175,16 +176,18 @@ export async function getActiveProposalEpochs(): Promise<Set<number>> {
       .select('proposed_epoch')
       .not('proposed_epoch', 'is', null);
     
-    if (error || !rows) return new Set();
+    if (error || !rows) return new Map();
     
-    const epochs = new Set<number>();
+    const counts = new Map<number, number>();
     for (const row of rows) {
-      if (row.proposed_epoch != null) epochs.add(row.proposed_epoch);
+      if (row.proposed_epoch != null) {
+        counts.set(row.proposed_epoch, (counts.get(row.proposed_epoch) || 0) + 1);
+      }
     }
     
-    return epochs;
+    return counts;
   } catch {
-    return new Set();
+    return new Map();
   }
 }
 

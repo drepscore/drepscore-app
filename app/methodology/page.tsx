@@ -106,17 +106,20 @@ export default function MethodologyPage() {
               <div className="border-l-4 border-purple-500 pl-4">
                 <h5 className="font-medium">Consistency (20% weight)</h5>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Measures how steadily a DRep participates <em>across epochs that had active proposals</em>. 
-                  Only epochs where governance actions were available to vote on count toward this score — 
-                  gaps during quiet periods do not penalize a DRep.
+                  Measures how steadily a DRep participates <em>across epochs that had active proposals</em>.
+                  Vote counts are <strong>normalized by the number of proposals available each epoch</strong>,
+                  so a DRep who votes on 39/39 proposals in a busy epoch and 1/1 in a quiet epoch is treated as
+                  perfectly consistent. Only epochs where governance actions existed count.
                 </p>
                 <code className="block bg-muted p-2 rounded text-xs mt-2">
-                  Consistency = 60% × (1 − CV of votes/epoch) + 40% × (active epochs / proposal epochs)
+                  Consistency = 60% × (1 − CV of participation rates) + 40% × (active epochs / proposal epochs)
+                  <br />
+                  Where: participation rate = votes cast / proposals available that epoch (capped at 1.0)
                 </code>
                 <p className="text-sm text-muted-foreground mt-2">
-                  <strong>Why?</strong> A DRep who was highly active for one month then disappeared is less reliable than 
-                  one who votes consistently epoch after epoch. Governance requires sustained engagement. We only measure 
-                  against epochs where proposals were live, so DReps aren&apos;t punished for quiet periods on-chain.
+                  <strong>Why?</strong> A DRep who was highly active for one month then disappeared is less reliable than
+                  one who votes consistently epoch after epoch. Governance requires sustained engagement. Normalizing by
+                  proposals available ensures DReps aren&apos;t penalized for voting a lot during busy governance periods.
                 </p>
               </div>
 
