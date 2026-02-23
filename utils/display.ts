@@ -107,68 +107,104 @@ export function getProposalDisplayTitle(
   return `Governance Action #${proposalIndex} (${shortHash})`;
 }
 
+const PLATFORM_URL_MAP: Record<string, string> = {
+  'twitter.com': 'Twitter/X',
+  'x.com': 'Twitter/X',
+  't.co': 'Twitter/X',
+  'linkedin.com': 'LinkedIn',
+  'lnkd.in': 'LinkedIn',
+  'github.com': 'GitHub',
+  'gitlab.com': 'GitLab',
+  'facebook.com': 'Facebook',
+  'instagram.com': 'Instagram',
+  'youtube.com': 'YouTube',
+  'youtu.be': 'YouTube',
+  'reddit.com': 'Reddit',
+  'medium.com': 'Medium',
+  'discord.com': 'Discord',
+  'discord.gg': 'Discord',
+  'telegram.org': 'Telegram',
+  't.me': 'Telegram',
+  'telegram.me': 'Telegram',
+  'linktr.ee': 'Linktree',
+  'wa.me': 'WhatsApp',
+  'whatsapp.com': 'WhatsApp',
+  'bsky.app': 'Bluesky',
+  'mastodon.social': 'Mastodon',
+  'fosstodon.org': 'Mastodon',
+  'twitch.tv': 'Twitch',
+  'cardano.org': 'Cardano Foundation',
+  'iohk.io': 'IOHK',
+  'emurgo.io': 'EMURGO',
+};
+
 /**
- * Extract social media platform name from URL
+ * Normalize a label into a canonical platform name if possible.
+ * Handles common user-supplied variants (e.g. "X", "Twitter", "Github").
+ */
+const LABEL_ALIAS_MAP: Record<string, string> = {
+  'x': 'Twitter/X',
+  'twitter': 'Twitter/X',
+  'github': 'GitHub',
+  'gitlab': 'GitLab',
+  'linkedin': 'LinkedIn',
+  'facebook': 'Facebook',
+  'instagram': 'Instagram',
+  'youtube': 'YouTube',
+  'reddit': 'Reddit',
+  'medium': 'Medium',
+  'discord': 'Discord',
+  'telegram': 'Telegram',
+  'linktree': 'Linktree',
+  'whatsapp': 'WhatsApp',
+  'bluesky': 'Bluesky',
+  'mastodon': 'Mastodon',
+  'twitch': 'Twitch',
+};
+
+/**
+ * Extract social media platform name from URL.
+ * URL-based detection is always attempted first (most reliable).
+ * The label is used as a fallback only when the URL doesn't match a known domain.
  */
 export function extractSocialPlatform(uri: string, label?: string): string {
-  // If label is provided, is a string, and not generic, use it
-  if (label && typeof label === 'string' && label.toLowerCase() !== 'label' && label.toLowerCase() !== 'link') {
-    return label;
-  }
-
   try {
     const url = new URL(uri);
     const hostname = url.hostname.toLowerCase();
-    
-    // Map common platforms
-    const platformMap: Record<string, string> = {
-      'twitter.com': 'Twitter/X',
-      'x.com': 'Twitter/X',
-      't.co': 'Twitter/X',
-      'linkedin.com': 'LinkedIn',
-      'lnkd.in': 'LinkedIn',
-      'github.com': 'GitHub',
-      'gitlab.com': 'GitLab',
-      'facebook.com': 'Facebook',
-      'instagram.com': 'Instagram',
-      'youtube.com': 'YouTube',
-      'reddit.com': 'Reddit',
-      'medium.com': 'Medium',
-      'discord.com': 'Discord',
-      'discord.gg': 'Discord',
-      'telegram.org': 'Telegram',
-      't.me': 'Telegram',
-      'telegram.me': 'Telegram',
-      'linktr.ee': 'Linktree',
-      'wa.me': 'WhatsApp',
-      'whatsapp.com': 'WhatsApp',
-      'bsky.app': 'Bluesky',
-      'mastodon.social': 'Mastodon',
-      'fosstodon.org': 'Mastodon',
-      'twitch.tv': 'Twitch',
-      'cardano.org': 'Cardano Foundation',
-      'iohk.io': 'IOHK',
-      'emurgo.io': 'EMURGO',
-    };
 
-    // Check for exact matches
-    for (const [domain, platform] of Object.entries(platformMap)) {
+    // Exact and www-prefixed matches
+    for (const [domain, platform] of Object.entries(PLATFORM_URL_MAP)) {
       if (hostname === domain || hostname === `www.${domain}`) {
         return platform;
       }
     }
 
-    // Check for subdomain matches (e.g., blog.example.com)
-    for (const [domain, platform] of Object.entries(platformMap)) {
+    // Subdomain matches (e.g. blog.medium.com)
+    for (const [domain, platform] of Object.entries(PLATFORM_URL_MAP)) {
       if (hostname.endsWith(`.${domain}`)) {
         return platform;
       }
     }
+  } catch {
+    // URL parsing failed — fall through to label handling
+  }
 
-    // Fallback: use domain name (remove www. if present)
+  // URL didn't resolve to a known platform: try to normalize the label
+  if (label && typeof label === 'string') {
+    const normalized = LABEL_ALIAS_MAP[label.toLowerCase().trim()];
+    if (normalized) return normalized;
+    // If label is non-generic, use it as-is (human-readable tooltip)
+    const lower = label.toLowerCase().trim();
+    if (lower !== 'label' && lower !== 'link' && lower !== 'url' && lower.length > 0) {
+      return label;
+    }
+  }
+
+  // Last resort: derive from domain name
+  try {
+    const hostname = new URL(uri).hostname.toLowerCase();
     return hostname.replace(/^www\./, '');
-  } catch (error) {
-    // If URL parsing fails, return the label (if string) or a generic fallback
-    return (label && typeof label === 'string') ? label : 'Link';
+  } catch {
+    return 'Link';
   }
 }
