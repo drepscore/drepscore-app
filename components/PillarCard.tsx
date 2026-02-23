@@ -74,12 +74,14 @@ export function PillarCard({ label, value, weight, maxPoints, status, hint }: Pi
           </span>
         </div>
       </div>
-      {/* Color-coded progress bar */}
-      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+      {/* Color-coded progress bar with tier markers */}
+      <div className="relative h-2 w-full rounded-full bg-muted overflow-hidden">
         <div
           className={`h-full rounded-full transition-all ${config.barColor}`}
           style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
         />
+        <div className="absolute top-0 left-[50%] w-px h-full bg-foreground/15" />
+        <div className="absolute top-0 left-[80%] w-px h-full bg-foreground/15" />
       </div>
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{hint}</p>

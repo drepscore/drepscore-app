@@ -8,12 +8,12 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getProposalDisplayTitle } from '@/utils/display';
 import { getDRepPrimaryName, hasCustomMetadata } from '@/utils/display';
-import { formatAda, getSizeBadgeClass, getDRepScoreBadgeClass, applyRationaleCurve, getPillarStatus, getMissingProfileFields, getEasiestWin } from '@/utils/scoring';
+import { formatAda, getSizeBadgeClass, applyRationaleCurve, getPillarStatus, getMissingProfileFields, getEasiestWin } from '@/utils/scoring';
 import { VoteRecord } from '@/types/drep';
 import { VotingHistoryWithPrefs } from '@/components/VotingHistoryWithPrefs';
 import { InlineDelegationCTA } from '@/components/InlineDelegationCTA';
-import { PillarCard } from '@/components/PillarCard';
 import { ScoreHistoryChart } from '@/components/ScoreHistoryChart';
+import { ScoreCard } from '@/components/ScoreCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -152,12 +152,6 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
     linkChecks.filter(c => c.status === 'broken').map(c => c.uri)
   );
 
-  const scoreColor = drep.drepScore >= 80 
-    ? 'text-green-600 dark:text-green-400' 
-    : drep.drepScore >= 60 
-      ? 'text-amber-600 dark:text-amber-400' 
-      : 'text-red-600 dark:text-red-400';
-
   // Pillar values for the redesigned score card
   const adjustedRationale = applyRationaleCurve(drep.rationaleRate);
   const pillars = [
@@ -169,13 +163,21 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
   const pillarStatuses = pillars.map(p => getPillarStatus(p.value));
   const quickWin = getEasiestWin(pillars);
 
-  // Action hints per pillar
+  // Action hints per pillar — concrete, delegator-friendly counts
   const missingFields = getMissingProfileFields(drep.metadata);
   const participationHint = drep.deliberationModifier < 1.0
     ? `Discounted ${Math.round((1 - drep.deliberationModifier) * 100)}% for uniform voting pattern`
     : `Voted on ${drep.votes.length} proposals`;
-  const rationaleHint = `Rationale measured on binding governance votes only. InfoActions excluded.`;
-  const consistencyHint = `Measures steady participation across epochs with proposals`;
+
+  const bindingVotes = drep.votes.filter(v => v.proposalType !== 'InfoAction');
+  const rationaleCount = bindingVotes.filter(v => v.hasRationale).length;
+  const rationaleHint = `Provided reasoning on ${rationaleCount} of ${bindingVotes.length} binding votes`;
+
+  const epochSet = new Set(drep.votes.map(v => {
+    const d = v.date instanceof Date ? v.date : new Date(v.date);
+    return Math.floor(d.getTime() / (5 * 24 * 60 * 60 * 1000));
+  }));
+  const consistencyHint = `Active in ${epochSet.size} voting periods`;
   const brokenLinkCount = brokenLinks.size;
   const profileHintParts: string[] = [];
   if (missingFields.length > 0) profileHintParts.push(`Missing: ${missingFields.join(', ')}`);
@@ -253,92 +255,30 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         </div>
       </div>
 
-      {/* DRep Score Card - Gamified with status dots, tier distance, colored bars */}
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <CardTitle>DRep Score</CardTitle>
-              {/* Visual pillar dots */}
-              <div className="flex items-center gap-1" title={`${pillarStatuses.filter(s => s === 'strong').length} of 4 pillars at Strong`}>
-                {pillarStatuses.map((s, i) => (
-                  <span
-                    key={i}
-                    className={`h-2.5 w-2.5 rounded-full ${
-                      s === 'strong' ? 'bg-green-500' : s === 'needs-work' ? 'bg-amber-500' : 'bg-red-500'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-4xl font-bold tabular-nums ${scoreColor}`}>
-                {drep.drepScore}
-              </span>
-              <div className="flex flex-col items-end gap-1">
-                <Badge
-                  variant="outline"
-                  className={`text-sm ${getDRepScoreBadgeClass(drep.drepScore)}`}
-                >
-                  {drep.drepScore >= 80 ? 'Strong' : drep.drepScore >= 60 ? 'Good' : 'Low'}
-                </Badge>
-                {percentile > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    Higher than {percentile}% of DReps
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Biggest opportunity callout */}
-          {quickWin && (
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-center gap-2">
-              <span className="text-blue-600 dark:text-blue-400 text-sm">&#x1F4A1;</span>
-              <p className="text-xs font-medium text-blue-800 dark:text-blue-300">
-                Biggest opportunity: {quickWin}
-              </p>
-            </div>
-          )}
-
-          <PillarCard
-            label="Effective Participation"
-            value={drep.effectiveParticipation}
-            weight="40%"
-            maxPoints={40}
-            status={getPillarStatus(drep.effectiveParticipation)}
-            hint={participationHint}
-          />
-          <PillarCard
-            label="Rationale Rate"
-            value={adjustedRationale}
-            weight="25%"
-            maxPoints={25}
-            status={getPillarStatus(adjustedRationale)}
-            hint={rationaleHint}
-          />
-          <PillarCard
-            label="Consistency"
-            value={drep.consistencyScore}
-            weight="20%"
-            maxPoints={20}
-            status={getPillarStatus(drep.consistencyScore)}
-            hint={consistencyHint}
-          />
-          <PillarCard
-            label="Profile Completeness"
-            value={drep.profileCompleteness}
-            weight="15%"
-            maxPoints={15}
-            status={getPillarStatus(drep.profileCompleteness)}
-            hint={profileHint}
-          />
-        </CardContent>
-      </Card>
+      {/* DRep Score Card — Hero component with ring, range bar, share */}
+      <ScoreCard
+        drep={drep}
+        adjustedRationale={adjustedRationale}
+        pillars={pillars}
+        pillarStatuses={pillarStatuses}
+        quickWin={quickWin}
+        percentile={percentile}
+        participationHint={participationHint}
+        rationaleHint={rationaleHint}
+        consistencyHint={consistencyHint}
+        profileHint={profileHint}
+      />
 
       {/* Score History Chart */}
       <ScoreHistoryChart history={scoreHistory} />
+
+      {/* About Section */}
+      <AboutSection 
+        description={drep.description}
+        bio={drep.metadata?.bio}
+        email={drep.metadata?.email}
+        references={drep.metadata?.references as Array<{ uri: string; label?: string }> | undefined}
+      />
 
       {/* DRep Dashboard - Only visible to the DRep owner or admin in simulate mode */}
       <Suspense fallback={null}>
@@ -364,14 +304,6 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
       <Suspense fallback={<DetailPageSkeleton />}>
         <VotingHistoryWithPrefs votes={drep.votes} />
       </Suspense>
-
-      {/* About Section */}
-      <AboutSection 
-        description={drep.description}
-        bio={drep.metadata?.bio}
-        email={drep.metadata?.email}
-        references={drep.metadata?.references as Array<{ uri: string; label?: string }> | undefined}
-      />
 
       {/* Claim Profile Banner */}
       <ClaimProfileBanner drepId={drep.drepId} />

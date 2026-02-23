@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Sparkles, AlertCircle, ArrowUpRight, ArrowDownRight, Minus, FileText } from 'lucide-react';
+import { Sparkles, AlertCircle, ArrowUpRight, ArrowDownRight, Minus, FileText, CheckCircle2, ExternalLink } from 'lucide-react';
 import { VoteRecord } from '@/types/drep';
 import { type ScoreSnapshot } from '@/lib/data';
 import { type Recommendation, generateRecommendations, getMissingRationaleVotes } from '@/utils/recommendations';
@@ -43,7 +43,9 @@ const PRIORITY_CONFIG = {
 const IMPORTANCE_BADGE: Record<string, string> = {
   HardForkInitiation: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   NoConfidence: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  NewCommittee: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   NewConstitutionalCommittee: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  NewConstitution: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   UpdateConstitution: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   ParameterChange: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   TreasuryWithdrawals: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
@@ -77,6 +79,15 @@ export function DRepDashboard({ drep, scoreHistory, isSimulated }: DRepDashboard
 
   return (
     <Card className="border-2 border-primary/20">
+      {/* Claim success banner */}
+      {claimed && !isSimulated && (
+        <div className="bg-green-50 dark:bg-green-950/20 border-b border-green-200 dark:border-green-800 px-4 py-2.5 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+          <p className="text-xs font-medium text-green-800 dark:text-green-300">
+            Profile claimed! Your DRep Dashboard is now active.
+          </p>
+        </div>
+      )}
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
@@ -127,6 +138,19 @@ export function DRepDashboard({ drep, scoreHistory, isSimulated }: DRepDashboard
           <div className="text-center py-4">
             <p className="text-sm text-muted-foreground">
               All pillars are performing well. Keep up the great work!
+            </p>
+          </div>
+        )}
+
+        {/* Metadata guidance */}
+        {recommendations.some(r => r.pillar === 'profile') && (
+          <div className="bg-muted/40 rounded-lg p-3 flex items-start gap-2">
+            <ExternalLink className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              To update your DRep profile metadata (name, objectives, social links), use a wallet that supports CIP-119 metadata editing such as{' '}
+              <a href="https://gov.tools" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">gov.tools</a>
+              {' '}or your wallet&apos;s governance section.{' '}
+              <a href="/methodology" className="underline hover:text-foreground">Learn more about scoring</a>.
             </p>
           </div>
         )}

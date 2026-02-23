@@ -242,7 +242,8 @@ export function calculateProfileCompleteness(
 
 const CRITICAL_PROPOSAL_TYPES = [
   'HardForkInitiation', 'NoConfidence',
-  'NewConstitutionalCommittee', 'UpdateConstitution',
+  'NewCommittee', 'NewConstitutionalCommittee',
+  'NewConstitution', 'UpdateConstitution',
 ];
 
 const RATIONALE_EXEMPT_TYPES = ['InfoAction'];

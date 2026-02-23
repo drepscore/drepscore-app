@@ -70,7 +70,9 @@ const PROPOSAL_TYPE_CONFIG: Record<string, { label: string; icon: typeof Landmar
   HardForkInitiation: { label: 'Hard Fork', icon: Zap },
   InfoAction: { label: 'Info', icon: Eye },
   NoConfidence: { label: 'No Confidence', icon: Scale },
+  NewCommittee: { label: 'Committee', icon: Scale },
   NewConstitutionalCommittee: { label: 'Committee', icon: Scale },
+  NewConstitution: { label: 'Constitution', icon: Scale },
   UpdateConstitution: { label: 'Constitution', icon: Scale },
 };
 

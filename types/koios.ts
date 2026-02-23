@@ -110,8 +110,8 @@ export interface ProposalInfo {
   proposal_tx_hash: string;
   proposal_index: number;
   proposal_type: 'TreasuryWithdrawals' | 'ParameterChange' | 'HardForkInitiation' 
-                | 'InfoAction' | 'NoConfidence' | 'NewConstitutionalCommittee' 
-                | 'UpdateConstitution';
+                | 'InfoAction' | 'NoConfidence' | 'NewCommittee' | 'NewConstitution'
+                | 'NewConstitutionalCommittee' | 'UpdateConstitution';
   proposal_description: string | null;
   deposit: string;
   return_address: string;

@@ -28,8 +28,10 @@ const PROPOSAL_TYPE_LABELS: Record<string, { label: string; icon: typeof Landmar
   HardForkInitiation: { label: 'Hard Fork', icon: Zap },
   InfoAction: { label: 'Info Action', icon: Eye },
   NoConfidence: { label: 'No Confidence', icon: Scale },
+  NewCommittee: { label: 'Constitutional Committee', icon: Scale },
   NewConstitutionalCommittee: { label: 'Constitutional Committee', icon: Scale },
-  UpdateConstitution: { label: 'Constitution Update', icon: Scale },
+  NewConstitution: { label: 'Constitution', icon: Scale },
+  UpdateConstitution: { label: 'Constitution', icon: Scale },
 };
 
 const TREASURY_TIER_LABELS: Record<string, string> = {
