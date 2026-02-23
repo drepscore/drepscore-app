@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@/utils/wallet';
 import { getUserPrefs } from '@/utils/userPrefs';
+import { resolveRewardAddress } from '@meshsdk/core';
 import { computeOverallAlignment, getAlignmentColor } from '@/lib/alignment';
 import { EnrichedDRep } from '@/lib/koios';
 import { UserPrefKey } from '@/types/drep';
@@ -26,10 +27,12 @@ function isDismissedThisSession(): boolean {
 }
 
 export function DelegationInsightBanner() {
-  const { connected, delegatedDrepId } = useWallet();
+  const { connected, isAuthenticated, delegatedDrepId: walletDelegatedDrepId, sessionAddress } = useWallet();
+  const isVisible = connected || isAuthenticated;
   const [dismissed, setDismissed] = useState(true);
   const [userPrefs, setUserPrefs] = useState<UserPrefKey[]>([]);
   const [allDReps, setAllDReps] = useState<EnrichedDRep[]>([]);
+  const [resolvedDrepId, setResolvedDrepId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,8 +41,36 @@ export function DelegationInsightBanner() {
     setDismissed(isDismissedThisSession());
   }, []);
 
+  // Use delegatedDrepId from active wallet connection, or fetch it from session address
   useEffect(() => {
-    if (!connected) return;
+    if (walletDelegatedDrepId) {
+      setResolvedDrepId(walletDelegatedDrepId);
+      return;
+    }
+    if (!sessionAddress) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        // sessionAddress is a payment address; derive the stake address for delegation lookup
+        const stakeAddress = resolveRewardAddress(sessionAddress);
+        if (!stakeAddress) return;
+
+        const res = await fetch('/api/delegation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stakeAddress }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.drepId) setResolvedDrepId(data.drepId);
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [walletDelegatedDrepId, sessionAddress]);
+
+  useEffect(() => {
+    if (!isVisible) return;
 
     let cancelled = false;
     (async () => {
@@ -55,17 +86,17 @@ export function DelegationInsightBanner() {
       }
     })();
     return () => { cancelled = true; };
-  }, [connected]);
+  }, [isVisible]);
 
   const insight = useMemo(() => {
-    if (!delegatedDrepId || userPrefs.length === 0 || allDReps.length === 0) return null;
+    if (!resolvedDrepId || userPrefs.length === 0 || allDReps.length === 0) return null;
 
-    const myDrep = allDReps.find(d => d.drepId === delegatedDrepId);
+    const myDrep = allDReps.find(d => d.drepId === resolvedDrepId);
     if (!myDrep) return null;
 
     const myAlignment = computeOverallAlignment(myDrep, userPrefs);
     const betterCount = allDReps.filter(
-      d => d.drepId !== delegatedDrepId && computeOverallAlignment(d, userPrefs) > myAlignment
+      d => d.drepId !== resolvedDrepId && computeOverallAlignment(d, userPrefs) > myAlignment
     ).length;
 
     const now = Math.floor(Date.now() / 1000);
@@ -85,7 +116,7 @@ export function DelegationInsightBanner() {
     };
   }, [delegatedDrepId, userPrefs, allDReps]);
 
-  if (!connected) return null;
+  if (!isVisible) return null;
   if (dismissed) return null;
   if (loading) return null;
 

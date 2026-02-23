@@ -71,13 +71,13 @@ export function ScoreBreakdownTooltip({ drep, children }: ScoreBreakdownProps) {
                     <span>{comp.label}</span>
                     <span className="font-medium">{comp.value}/100 ({Math.round(comp.weight * 100)}%)</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{comp.description}</p>
+                  <p className="text-xs text-background/70">{comp.description}</p>
                   <p className="text-xs">Contributes: <span className="font-semibold">{points} pts</span></p>
                 </div>
               );
             })}
             {hasRubberStampDiscount && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 pt-1 border-t">
+              <p className="text-xs text-amber-300 pt-1 border-t border-background/20">
                 Note: Participation discounted due to &gt;{deliberationModifier === 0.70 ? '95' : deliberationModifier === 0.85 ? '90' : '85'}% uniform voting pattern.
               </p>
             )}
