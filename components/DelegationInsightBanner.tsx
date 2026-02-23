@@ -29,7 +29,7 @@ function isDismissedThisSession(): boolean {
 export function DelegationInsightBanner() {
   const { connected, isAuthenticated, delegatedDrepId: walletDelegatedDrepId, sessionAddress } = useWallet();
   const isVisible = connected || isAuthenticated;
-  const [dismissed, setDismissed] = useState(true);
+  const [dismissed, setDismissed] = useState(false);
   const [userPrefs, setUserPrefs] = useState<UserPrefKey[]>([]);
   const [allDReps, setAllDReps] = useState<EnrichedDRep[]>([]);
   const [resolvedDrepId, setResolvedDrepId] = useState<string | null>(null);
