@@ -1,13 +1,14 @@
 /**
  * DRep Detail Page
- * Shows comprehensive information about a specific DRep
+ * Shows comprehensive information about a specific DRep.
+ * All data is read from Supabase (populated by the sync cron).
  */
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { fetchDRepDetails, parseMetadataFields } from '@/utils/koios';
-import { calculateParticipationRate, calculateRationaleRate, calculateDeliberationModifier, calculateConsistency, calculateEffectiveParticipation, lovelaceToAda, formatAda, getSizeTier, getSizeBadgeClass } from '@/utils/scoring';
-import { getDRepPrimaryName, hasCustomMetadata, getProposalDisplayTitle } from '@/utils/display';
+import { getProposalDisplayTitle } from '@/utils/display';
+import { getDRepPrimaryName, hasCustomMetadata } from '@/utils/display';
+import { formatAda, getSizeBadgeClass, getDRepScoreBadgeClass } from '@/utils/scoring';
 import { VoteRecord } from '@/types/drep';
 import { VotingHistoryChart } from '@/components/VotingHistoryChart';
 import { InlineDelegationCTA } from '@/components/InlineDelegationCTA';
@@ -15,119 +16,66 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Vote, TrendingUp } from 'lucide-react';
-import { calculateDRepScore } from '@/lib/koios';
-import { getDRepScoreBadgeClass } from '@/utils/scoring';
+import { ArrowLeft, TrendingUp } from 'lucide-react';
 import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
 import { ClaimProfileBanner } from '@/components/ClaimProfileBanner';
 import { AboutSection } from '@/components/AboutSection';
 import { SocialIconsLarge } from '@/components/SocialIconsLarge';
-import { getGlobalTotalProposals, getActiveProposalEpochs, getProposalsByIds, getRationalesByVoteTxHashes, getDRepById } from '@/lib/data';
+import {
+  getDRepById,
+  getVotesByDRepId,
+  getProposalsByIds,
+  getRationalesByVoteTxHashes,
+} from '@/lib/data';
 import { Suspense } from 'react';
 
 interface DRepDetailPageProps {
   params: Promise<{ drepId: string }>;
 }
 
-function computeEpochVoteCounts(votes: { block_time: number }[]): { counts: number[]; firstEpoch: number | undefined } {
-  if (!votes || votes.length === 0) return { counts: [], firstEpoch: undefined };
-  
-  const epochCounts: Record<number, number> = {};
-  let minEpoch = Infinity;
-  let maxEpoch = -Infinity;
-  
-  for (const vote of votes) {
-    const epoch = Math.floor(vote.block_time / (5 * 24 * 60 * 60));
-    epochCounts[epoch] = (epochCounts[epoch] || 0) + 1;
-    minEpoch = Math.min(minEpoch, epoch);
-    maxEpoch = Math.max(maxEpoch, epoch);
-  }
-  
-  if (minEpoch === Infinity) return { counts: [], firstEpoch: undefined };
-  
-  const counts: number[] = [];
-  for (let e = minEpoch; e <= maxEpoch; e++) {
-    counts.push(epochCounts[e] || 0);
-  }
-  
-  return { counts, firstEpoch: minEpoch };
-}
-
 async function getDRepData(drepId: string) {
   const isDev = process.env.NODE_ENV === 'development';
-  
+
   try {
     const decodedId = decodeURIComponent(drepId);
-    
+
     if (isDev) {
-      console.log(`[DRepScore] Fetching details for DRep: ${decodedId}`);
+      console.log(`[DRepProfile] Loading DRep: ${decodedId}`);
     }
 
-    // Note: Detail pages fetch directly from Koios to get full vote history
-    // The Supabase cache doesn't store individual votes (space optimization)
-    // Primary performance win is on homepage which doesn't need vote details
-    const { info, metadata, votes } = await fetchDRepDetails(decodedId);
+    // All data from Supabase -- no Koios calls at page load
+    const [cachedDRep, votes] = await Promise.all([
+      getDRepById(decodedId),
+      getVotesByDRepId(decodedId),
+    ]);
 
-    if (!info) {
+    if (!cachedDRep) {
       if (isDev) {
-        console.warn(`[DRepScore] No info found for DRep: ${decodedId}`);
+        console.warn(`[DRepProfile] DRep not found in Supabase: ${decodedId}`);
       }
       return null;
     }
 
     if (isDev) {
-      console.log(`[DRepScore] Found ${votes.length} votes for DRep ${decodedId}`);
+      console.log(`[DRepProfile] Found ${votes.length} votes for DRep ${decodedId}`);
     }
 
-    const cachedProposals = await getProposalsByIds(
-      votes.map(v => ({ txHash: v.proposal_tx_hash, index: v.proposal_index }))
-    );
-    let cachedRationales = await getRationalesByVoteTxHashes(votes.map(v => v.vote_tx_hash));
-    
-    // Fetch rationales for recent votes that have meta_url but aren't cached yet
-    const votesNeedingRationale = votes
-      .filter(v => v.meta_url && !v.meta_json?.rationale && !cachedRationales.has(v.vote_tx_hash))
-      .sort((a, b) => b.block_time - a.block_time)
-      .slice(0, 15);
-    
-    if (votesNeedingRationale.length > 0) {
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
-          || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-        
-        const res = await fetch(`${baseUrl}/api/rationale`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            votes: votesNeedingRationale.map(v => ({
-              voteTxHash: v.vote_tx_hash,
-              drepId: decodedId,
-              proposalTxHash: v.proposal_tx_hash,
-              proposalIndex: v.proposal_index,
-              metaUrl: v.meta_url,
-            })),
-          }),
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          for (const result of data.results || []) {
-            if (result.rationaleText) {
-              cachedRationales.set(result.voteTxHash, result.rationaleText);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[DRepScore] Rationale fetch failed:', err);
-      }
-    }
-    
+    // Enrich votes with proposal metadata and rationale text from Supabase
+    const [cachedProposals, cachedRationales] = await Promise.all([
+      getProposalsByIds(
+        votes.map(v => ({ txHash: v.proposal_tx_hash, index: v.proposal_index }))
+      ),
+      getRationalesByVoteTxHashes(votes.map(v => v.vote_tx_hash)),
+    ]);
+
     const voteRecords: VoteRecord[] = votes.map((vote, index) => {
-      const cachedProposal = cachedProposals.get(`${vote.proposal_tx_hash}-${vote.proposal_index}`);
-      const title = cachedProposal?.title || vote.meta_json?.title || null;
-      const abstract = cachedProposal?.abstract || vote.meta_json?.abstract || null;
-      const rationaleText = cachedRationales.get(vote.vote_tx_hash) || vote.meta_json?.rationale || null;
-      
+      const cachedProposal = cachedProposals.get(
+        `${vote.proposal_tx_hash}-${vote.proposal_index}`
+      );
+      const title = cachedProposal?.title || null;
+      const abstract = cachedProposal?.abstract || null;
+      const rationaleText = cachedRationales.get(vote.vote_tx_hash) || null;
+
       return {
         id: `${vote.vote_tx_hash}-${index}`,
         proposalTxHash: vote.proposal_tx_hash,
@@ -136,69 +84,38 @@ async function getDRepData(drepId: string) {
         date: new Date(vote.block_time * 1000),
         vote: vote.vote,
         title: getProposalDisplayTitle(title, vote.proposal_tx_hash, vote.proposal_index),
-        abstract: abstract,
+        abstract,
         hasRationale: vote.meta_url !== null || rationaleText !== null,
         rationaleUrl: vote.meta_url,
-        rationaleText: rationaleText,
-        voteType: 'Governance',
+        rationaleText,
+        voteType: 'Governance' as const,
       };
     });
 
-    const votingPower = lovelaceToAda(info.amount || '0');
-    const delegatorCount = info.delegators || 0;
-    
-    // Use the global max vote count so participation rate matches the main table
-    const globalTotalProposals = await getGlobalTotalProposals();
-    const totalProposals = Math.max(globalTotalProposals, votes.length, 1);
-
-    // Calculate vote distribution
-    const yesVotes = votes.filter(v => v.vote === 'Yes').length;
-    const noVotes = votes.filter(v => v.vote === 'No').length;
-    const abstainVotes = votes.filter(v => v.vote === 'Abstain').length;
-
-    // Parse metadata fields with fallback logic
-    const { name, ticker, description } = parseMetadataFields(metadata);
-
-    const participationRate = calculateParticipationRate(voteRecords.length, totalProposals);
-    const rationaleRate = calculateRationaleRate(votes);
-    const deliberationModifier = calculateDeliberationModifier(yesVotes, noVotes, abstainVotes);
-    const effectiveParticipation = calculateEffectiveParticipation(participationRate, deliberationModifier);
-    
-    const { counts: epochVoteCounts, firstEpoch } = computeEpochVoteCounts(votes);
-    const activeProposalEpochs = await getActiveProposalEpochs();
-    const consistencyScore = calculateConsistency(epochVoteCounts, firstEpoch, activeProposalEpochs);
-
-    const sizeTier = getSizeTier(votingPower);
-    
-    // Use the cached DRep score from Supabase to ensure consistency with the table
-    // Fall back to local calculation only if cache miss
-    const cachedDRep = await getDRepById(decodedId);
-    const drepScore = cachedDRep?.drepScore ?? calculateDRepScore({ effectiveParticipation, rationaleRate, consistencyScore });
-
     return {
-      drepId: info.drep_id,
-      drepHash: info.drep_hash,
-      handle: null,
-      name,
-      ticker,
-      description,
-      votingPower,
-      delegatorCount,
-      sizeTier,
-      drepScore,
-      isActive: info.registered && info.amount !== '0',
-      participationRate,
-      rationaleRate,
-      effectiveParticipation,
-      deliberationModifier,
-      consistencyScore,
-      anchorUrl: info.anchor_url,
-      metadata: metadata?.meta_json?.body || null,
+      drepId: cachedDRep.drepId,
+      drepHash: cachedDRep.drepHash,
+      handle: cachedDRep.handle,
+      name: cachedDRep.name,
+      ticker: cachedDRep.ticker,
+      description: cachedDRep.description,
+      votingPower: cachedDRep.votingPower,
+      delegatorCount: cachedDRep.delegatorCount,
+      sizeTier: cachedDRep.sizeTier,
+      drepScore: cachedDRep.drepScore,
+      isActive: cachedDRep.isActive,
+      participationRate: cachedDRep.participationRate,
+      rationaleRate: cachedDRep.rationaleRate,
+      effectiveParticipation: cachedDRep.effectiveParticipation,
+      deliberationModifier: cachedDRep.deliberationModifier,
+      consistencyScore: cachedDRep.consistencyScore,
+      anchorUrl: cachedDRep.anchorUrl,
+      metadata: cachedDRep.metadata,
       votes: voteRecords,
-      activeEpoch: info.active_epoch,
+      activeEpoch: (cachedDRep as any).activeEpoch ?? null,
     };
   } catch (error) {
-    console.error('[DRepScore] Error fetching DRep details:', error);
+    console.error('[DRepProfile] Error loading DRep data:', error);
     return null;
   }
 }
@@ -358,7 +275,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         description={drep.description}
         bio={drep.metadata?.bio}
         email={drep.metadata?.email}
-        references={drep.metadata?.references}
+        references={drep.metadata?.references as Array<{ uri: string; label?: string }> | undefined}
       />
 
       {/* Claim Profile Banner */}

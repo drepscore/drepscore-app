@@ -149,12 +149,14 @@ async function fetchVotesBatched(
  * @param wellDocumentedOnly - If true, filter to well-documented DReps only (default view)
  */
 export async function getEnrichedDReps(
-  wellDocumentedOnly: boolean = true
+  wellDocumentedOnly: boolean = true,
+  options?: { includeRawVotes?: boolean }
 ): Promise<{
   dreps: EnrichedDRep[];
   allDReps: EnrichedDRep[];
   error: boolean;
   totalAvailable: number;
+  rawVotesMap?: Record<string, Awaited<ReturnType<typeof fetchDRepVotes>>>;
 }> {
   const isDev = process.env.NODE_ENV === 'development';
 
@@ -185,6 +187,7 @@ export async function getEnrichedDReps(
 
     const allBaseDreps: DRep[] = [];
     let maxVoteCount = 1;
+    const allRawVotes: Record<string, Awaited<ReturnType<typeof fetchDRepVotes>>> = {};
 
     for (let offset = 0; offset < allDrepIds.length; offset += BATCH_SIZE) {
       const batchIds = allDrepIds.slice(offset, offset + BATCH_SIZE);
@@ -203,6 +206,10 @@ export async function getEnrichedDReps(
       });
 
       const votesMap = await fetchVotesBatched(sortedInfo.map((i) => i.drep_id));
+
+      if (options?.includeRawVotes) {
+        Object.assign(allRawVotes, votesMap);
+      }
 
       const batchVoteCounts = Object.values(votesMap).map((v) => v.length);
       maxVoteCount = Math.max(maxVoteCount, ...batchVoteCounts, 1);
@@ -307,6 +314,7 @@ export async function getEnrichedDReps(
       allDReps: sorted,
       error: false,
       totalAvailable,
+      ...(options?.includeRawVotes ? { rawVotesMap: allRawVotes } : {}),
     };
   } catch (error) {
     console.error('[DRepScore] Error in getEnrichedDReps:', error);

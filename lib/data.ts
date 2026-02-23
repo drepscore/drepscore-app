@@ -324,6 +324,47 @@ export async function getRationalesByVoteTxHashes(
 }
 
 /**
+ * Row shape returned from the drep_votes table
+ */
+export interface DRepVoteRow {
+  vote_tx_hash: string;
+  drep_id: string;
+  proposal_tx_hash: string;
+  proposal_index: number;
+  vote: 'Yes' | 'No' | 'Abstain';
+  epoch_no: number | null;
+  block_time: number;
+  meta_url: string | null;
+  meta_hash: string | null;
+}
+
+/**
+ * Get all votes for a specific DRep from Supabase
+ * Ordered by block_time DESC (most recent first)
+ */
+export async function getVotesByDRepId(drepId: string): Promise<DRepVoteRow[]> {
+  try {
+    const supabase = createClient();
+
+    const { data: rows, error } = await supabase
+      .from('drep_votes')
+      .select('*')
+      .eq('drep_id', drepId)
+      .order('block_time', { ascending: false });
+
+    if (error) {
+      console.warn('[Data] getVotesByDRepId query failed:', error.message);
+      return [];
+    }
+
+    return (rows as DRepVoteRow[]) || [];
+  } catch (err) {
+    console.error('[Data] getVotesByDRepId error:', err);
+    return [];
+  }
+}
+
+/**
  * Get a single DRep by ID
  * Returns DRep data or null if not found
  */
@@ -364,9 +405,6 @@ export async function getDRepById(drepId: string): Promise<EnrichedDRep | null> 
   } catch (error: any) {
     console.error('[Data] Cache read failed for DRep:', drepId, error.message);
     
-    // For detail page, we could fallback to Koios fetchDRepDetails
-    // but that would require restructuring the detail page
-    // For now, return null and let the page handle it
     return null;
   }
 }
