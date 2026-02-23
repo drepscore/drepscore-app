@@ -366,11 +366,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(`[Sync] Upserting ${voteRows.length} individual votes...`);
+    // Deduplicate votes by vote_tx_hash -- same safeguard as proposals
+    const dedupedVoteRows = [...new Map(voteRows.map(r => [r.vote_tx_hash, r])).values()];
+    if (dedupedVoteRows.length !== voteRows.length) {
+      console.log(`[Sync] Deduplicated votes: ${voteRows.length} → ${dedupedVoteRows.length}`);
+    }
 
-    const voteBatches = Math.ceil(voteRows.length / BATCH_SIZE);
-    for (let i = 0; i < voteRows.length; i += BATCH_SIZE) {
-      const batch = voteRows.slice(i, i + BATCH_SIZE);
+    console.log(`[Sync] Upserting ${dedupedVoteRows.length} individual votes...`);
+
+    const voteBatches = Math.ceil(dedupedVoteRows.length / BATCH_SIZE);
+    for (let i = 0; i < dedupedVoteRows.length; i += BATCH_SIZE) {
+      const batch = dedupedVoteRows.slice(i, i + BATCH_SIZE);
       const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
 
       const { error: upsertError } = await supabase
@@ -439,7 +445,7 @@ export async function GET(request: NextRequest) {
       const classifiedProposals = classifyProposals(rawProposals);
       console.log(`[Sync] Classified ${classifiedProposals.length} proposals`);
 
-      const proposalRows: SupabaseProposalRow[] = classifiedProposals.map((p) => ({
+      const rawProposalRows: SupabaseProposalRow[] = classifiedProposals.map((p) => ({
         tx_hash: p.txHash,
         proposal_index: p.index,
         proposal_type: p.type,
@@ -452,6 +458,17 @@ export async function GET(request: NextRequest) {
         proposed_epoch: p.proposedEpoch,
         block_time: p.blockTime,
       }));
+
+      // Deduplicate by (tx_hash, proposal_index) -- Koios may return the same proposal
+      // multiple times, and PostgreSQL's ON CONFLICT DO UPDATE rejects duplicate keys
+      // within the same batch command.
+      const proposalRows = [...new Map(
+        rawProposalRows.map(row => [`${row.tx_hash}-${row.proposal_index}`, row])
+      ).values()];
+
+      if (rawProposalRows.length !== proposalRows.length) {
+        console.log(`[Sync] Deduplicated proposals: ${rawProposalRows.length} → ${proposalRows.length}`);
+      }
 
       const proposalBatches = Math.ceil(proposalRows.length / BATCH_SIZE);
       for (let i = 0; i < proposalRows.length; i += BATCH_SIZE) {
