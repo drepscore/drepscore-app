@@ -2,11 +2,14 @@
 
 /**
  * Voting History Chart Component
- * Displays voting analytics with custom donut and area chart
+ * Displays voting analytics with custom donut and area chart,
+ * plus clickable vote cards with alignment flags and detail sheet.
  */
 
-import { useState } from 'react';
-import { VoteRecord } from '@/types/drep';
+import { useState, useMemo } from 'react';
+import { VoteRecord, UserPrefKey, VoteAlignment } from '@/types/drep';
+import { evaluateVoteAlignment } from '@/lib/alignment';
+import { VoteDetailSheet } from '@/components/VoteDetailSheet';
 import {
   AreaChart,
   Area,
@@ -25,10 +28,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Shield,
+  Zap,
+  Landmark,
+  Eye,
+  Scale,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
 
 interface VotingHistoryChartProps {
   votes: VoteRecord[];
+  userPrefs?: UserPrefKey[];
 }
 
 interface DonutSegment {
@@ -37,6 +52,16 @@ interface DonutSegment {
   color: string;
   percentage: number;
 }
+
+const PROPOSAL_TYPE_CONFIG: Record<string, { label: string; icon: typeof Landmark }> = {
+  TreasuryWithdrawals: { label: 'Treasury', icon: Landmark },
+  ParameterChange: { label: 'Param Change', icon: Shield },
+  HardForkInitiation: { label: 'Hard Fork', icon: Zap },
+  InfoAction: { label: 'Info', icon: Eye },
+  NoConfidence: { label: 'No Confidence', icon: Scale },
+  NewConstitutionalCommittee: { label: 'Committee', icon: Scale },
+  UpdateConstitution: { label: 'Constitution', icon: Scale },
+};
 
 function VoteDonut({ segments, total }: { segments: DonutSegment[]; total: number }) {
   const size = 160;
@@ -51,7 +76,6 @@ function VoteDonut({ segments, total }: { segments: DonutSegment[]; total: numbe
     <div className="flex items-center gap-6">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="transform -rotate-90">
-          {/* Background circle */}
           <circle
             cx={center}
             cy={center}
@@ -61,7 +85,6 @@ function VoteDonut({ segments, total }: { segments: DonutSegment[]; total: numbe
             strokeWidth={strokeWidth}
             className="text-muted/20"
           />
-          {/* Segments */}
           {segments.map((segment, i) => {
             const segmentLength = (segment.percentage / 100) * circumference;
             const offset = currentOffset;
@@ -86,14 +109,12 @@ function VoteDonut({ segments, total }: { segments: DonutSegment[]; total: numbe
             );
           })}
         </svg>
-        {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-3xl font-bold tabular-nums">{total}</span>
           <span className="text-xs text-muted-foreground">votes</span>
         </div>
       </div>
       
-      {/* Legend */}
       <div className="space-y-2">
         {segments.map((segment, i) => (
           <div key={i} className="flex items-center gap-2">
@@ -112,23 +133,40 @@ function VoteDonut({ segments, total }: { segments: DonutSegment[]; total: numbe
   );
 }
 
-export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
-  const [expandedVotes, setExpandedVotes] = useState<Set<string>>(new Set());
+function AlignmentFlag({ alignment }: { alignment: VoteAlignment }) {
+  if (alignment.status === 'neutral') return null;
+
+  const isAligned = alignment.status === 'aligned';
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="shrink-0">
+            {isAligned ? (
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-orange-500" />
+            )}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-xs">
+          <p className="font-medium text-xs mb-1">
+            {isAligned ? 'Aligned with your preferences' : 'Differs from your preferences'}
+          </p>
+          {alignment.reasons.map((r, i) => (
+            <p key={i} className="text-xs text-muted-foreground">{r}</p>
+          ))}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChartProps) {
   const [showAllVotes, setShowAllVotes] = useState(false);
+  const [selectedVote, setSelectedVote] = useState<VoteRecord | null>(null);
 
-  const toggleVoteExpanded = (voteId: string) => {
-    setExpandedVotes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(voteId)) {
-        newSet.delete(voteId);
-      } else {
-        newSet.add(voteId);
-      }
-      return newSet;
-    });
-  };
-
-  // Calculate vote distribution
   const yesCount = votes.filter(v => v.vote === 'Yes').length;
   const noCount = votes.filter(v => v.vote === 'No').length;
   const abstainCount = votes.filter(v => v.vote === 'Abstain').length;
@@ -140,7 +178,6 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
     { name: 'Abstain', value: abstainCount, color: '#f59e0b', percentage: total > 0 ? (abstainCount / total) * 100 : 0 },
   ];
 
-  // Monthly aggregation for area chart
   const monthlyVotes = votes.reduce((acc, vote) => {
     const month = vote.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
     if (!acc[month]) {
@@ -151,9 +188,27 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
     return acc;
   }, {} as Record<string, { month: string; dateObj: Date; Yes: number; No: number; Abstain: number; total: number }>);
 
-  // Sort chronologically so right = most recent
   const monthlyData = Object.values(monthlyVotes).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
   const visibleVotes = showAllVotes ? votes : votes.slice(0, 10);
+
+  // Pre-compute alignments for visible votes
+  const alignments = useMemo(() => {
+    const map = new Map<string, VoteAlignment>();
+    for (const vote of visibleVotes) {
+      map.set(
+        vote.id,
+        evaluateVoteAlignment(
+          vote.vote,
+          vote.hasRationale,
+          vote.proposalType,
+          vote.treasuryTier,
+          vote.relevantPrefs,
+          userPrefs
+        )
+      );
+    }
+    return map;
+  }, [visibleVotes, userPrefs]);
 
   if (votes.length === 0) {
     return (
@@ -172,20 +227,18 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
 
   return (
     <div className="space-y-6">
-      {/* Voting Analytics - Side by side on desktop */}
+      {/* Voting Analytics */}
       <Card>
         <CardHeader>
           <CardTitle>Voting Analytics</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Donut Chart */}
             <div className="flex flex-col items-center lg:items-start">
               <p className="text-sm font-medium text-muted-foreground mb-4">Vote Distribution</p>
               <VoteDonut segments={segments} total={total} />
             </div>
             
-            {/* Area Chart */}
             {monthlyData.length > 1 && (
               <div className="flex flex-col">
                 <p className="text-sm font-medium text-muted-foreground mb-4">Activity Over Time</p>
@@ -228,30 +281,9 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
                           fontSize: '12px'
                         }}
                       />
-                      <Area 
-                        type="monotone" 
-                        dataKey="Yes" 
-                        stackId="1"
-                        stroke="#10b981" 
-                        fill="url(#gradientYes)"
-                        strokeWidth={2}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="No" 
-                        stackId="1"
-                        stroke="#ef4444" 
-                        fill="url(#gradientNo)"
-                        strokeWidth={2}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="Abstain" 
-                        stackId="1"
-                        stroke="#f59e0b" 
-                        fill="url(#gradientAbstain)"
-                        strokeWidth={2}
-                      />
+                      <Area type="monotone" dataKey="Yes" stackId="1" stroke="#10b981" fill="url(#gradientYes)" strokeWidth={2} />
+                      <Area type="monotone" dataKey="No" stackId="1" stroke="#ef4444" fill="url(#gradientNo)" strokeWidth={2} />
+                      <Area type="monotone" dataKey="Abstain" stackId="1" stroke="#f59e0b" fill="url(#gradientAbstain)" strokeWidth={2} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -270,20 +302,21 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
           </span>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {visibleVotes.map((vote) => {
-              const isExpanded = expandedVotes.has(vote.id);
-              const rationaleText = vote.rationaleText;
-              const shouldTruncate = rationaleText && rationaleText.length > 150;
-              const displayRationale = rationaleText && shouldTruncate && !isExpanded
-                ? rationaleText.slice(0, 150) + '...'
-                : rationaleText;
+              const alignment = alignments.get(vote.id) || { status: 'neutral' as const, reasons: [] };
+              const typeConfig = vote.proposalType ? PROPOSAL_TYPE_CONFIG[vote.proposalType] : null;
+              const TypeIcon = typeConfig?.icon;
 
               return (
-                <div key={vote.id} className="border-b pb-4 last:border-0 last:pb-0">
+                <button
+                  key={vote.id}
+                  onClick={() => setSelectedVote(vote)}
+                  className="w-full text-left border rounded-lg p-3 hover:bg-muted/40 transition-colors cursor-pointer group"
+                >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1 flex-1 min-w-0">
-                      {/* Vote badge + date */}
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      {/* Vote badge + type + date + alignment */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant={
                           vote.vote === 'Yes' ? 'default' : 
@@ -292,6 +325,12 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
                         } className="shrink-0">
                           {vote.vote}
                         </Badge>
+                        {typeConfig && (
+                          <Badge variant="outline" className="text-xs gap-1 shrink-0">
+                            {TypeIcon && <TypeIcon className="h-3 w-3" />}
+                            {typeConfig.label}
+                          </Badge>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           {vote.date.toLocaleDateString('en-US', { 
                             year: 'numeric', 
@@ -302,76 +341,52 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
                       </div>
                       
                       {/* Proposal title */}
-                      <p className="font-medium text-sm">
+                      <p className="font-medium text-sm group-hover:text-primary transition-colors">
                         {vote.title || 'Untitled Proposal'}
                       </p>
                       
-                      {/* Abstract */}
+                      {/* Abstract - 2 lines */}
                       {vote.abstract && (
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {vote.abstract}
                         </p>
                       )}
+
+                      {/* Inline rationale preview */}
+                      {vote.rationaleText && (
+                        <div className="bg-muted/30 rounded p-2 mt-1">
+                          <p className="text-xs text-foreground/80 line-clamp-2">
+                            <span className="font-semibold text-muted-foreground">Rationale: </span>
+                            {vote.rationaleText}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     
-                    {/* GovTool proposal link */}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <a
-                            href={`https://gov.tools/governance_actions/${vote.proposalTxHash}#${vote.proposalIndex}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 rounded-lg hover:bg-muted transition-colors shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>View proposal on GovTool</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    {/* Right side: alignment flag + external link */}
+                    <div className="flex flex-col items-center gap-2 shrink-0 pt-0.5">
+                      <AlignmentFlag alignment={alignment} />
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={`https://gov.tools/governance_actions/${vote.proposalTxHash}#${vote.proposalIndex}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>View on GovTool</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </div>
-                  
-                  {/* Inline Rationale Display */}
-                  {rationaleText && (
-                    <div className="mt-3">
-                      <div className="bg-muted/30 rounded-lg p-3 border border-border/30">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                          Rationale
-                        </p>
-                        <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
-                          {displayRationale}
-                        </p>
-                        {shouldTruncate && (
-                          <button
-                            onClick={() => toggleVoteExpanded(vote.id)}
-                            className="text-xs text-primary hover:underline flex items-center gap-1 mt-2 font-medium"
-                          >
-                            {isExpanded ? (
-                              <>Show less <ChevronUp className="h-3 w-3" /></>
-                            ) : (
-                              <>Read more <ChevronDown className="h-3 w-3" /></>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Fallback when rationale is submitted but not yet cached */}
-                  {vote.hasRationale && !rationaleText && vote.rationaleUrl && (
-                    <div className="mt-3">
-                      <div className="bg-muted/20 rounded-lg p-3 border border-border/20">
-                        <p className="text-xs text-muted-foreground">
-                          Rationale pending — will be available shortly.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -394,6 +409,14 @@ export function VotingHistoryChart({ votes }: VotingHistoryChartProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Vote Detail Sheet */}
+      <VoteDetailSheet
+        vote={selectedVote}
+        open={!!selectedVote}
+        onOpenChange={(open) => { if (!open) setSelectedVote(null); }}
+        userPrefs={userPrefs}
+      />
     </div>
   );
 }

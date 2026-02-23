@@ -23,7 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Shield, User, Settings2, LogOut, TrendingDown, Wallet, Info, BookOpen } from 'lucide-react';
+import { Bell, Shield, User, Settings2, LogOut, TrendingDown, Wallet, Info, BookOpen, ScrollText } from 'lucide-react';
 
 export function Header() {
   const { isAuthenticated, sessionAddress, logout } = useWallet();
@@ -83,6 +83,10 @@ export function Header() {
         </Link>
 
         <nav className="flex items-center space-x-2 sm:space-x-4">
+          <Link href="/proposals" className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ScrollText className="h-4 w-4" />
+            <span>Proposals</span>
+          </Link>
           <Link href="/methodology" className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <BookOpen className="h-4 w-4" />
             <span>Methodology</span>

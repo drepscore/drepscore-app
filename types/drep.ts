@@ -52,6 +52,17 @@ export interface VoteRecord {
   rationaleUrl: string | null;
   rationaleText: string | null;
   voteType: 'Governance' | 'Catalyst';
+  proposalType: string | null;
+  treasuryTier: string | null;
+  withdrawalAmount: number | null;
+  relevantPrefs: string[];
+}
+
+export type VoteAlignmentStatus = 'aligned' | 'unaligned' | 'neutral';
+
+export interface VoteAlignment {
+  status: VoteAlignmentStatus;
+  reasons: string[];
 }
 
 export interface KoiosError {

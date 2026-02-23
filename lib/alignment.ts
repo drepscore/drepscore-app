@@ -459,6 +459,109 @@ export function detectAlignmentShifts(
 }
 
 // ============================================================================
+// PER-VOTE ALIGNMENT EVALUATION
+// ============================================================================
+
+export interface VoteAlignmentResult {
+  status: 'aligned' | 'unaligned' | 'neutral';
+  reasons: string[];
+}
+
+/**
+ * Evaluate a single vote's alignment with user preferences.
+ * This is the atomic unit that rolls up into the match score.
+ */
+export function evaluateVoteAlignment(
+  vote: 'Yes' | 'No' | 'Abstain',
+  hasRationale: boolean,
+  proposalType: string | null,
+  treasuryTier: string | null,
+  relevantPrefs: string[],
+  userPrefs: UserPrefKey[]
+): VoteAlignmentResult {
+  if (userPrefs.length === 0) return { status: 'neutral', reasons: [] };
+
+  const matchingPrefs = userPrefs.filter(p => relevantPrefs.includes(p));
+  if (matchingPrefs.length === 0) return { status: 'neutral', reasons: [] };
+
+  const reasons: string[] = [];
+  let alignedCount = 0;
+  let unalignedCount = 0;
+
+  for (const pref of matchingPrefs) {
+    switch (pref) {
+      case 'treasury-conservative':
+        if (proposalType === 'TreasuryWithdrawals') {
+          if (vote === 'No') {
+            alignedCount++;
+            reasons.push('Voted No on treasury spend');
+          } else if (vote === 'Yes') {
+            unalignedCount++;
+            reasons.push('Voted Yes on treasury spend');
+          }
+        }
+        break;
+
+      case 'smart-treasury-growth':
+        if (proposalType === 'TreasuryWithdrawals') {
+          if (vote === 'Yes' && hasRationale) {
+            alignedCount++;
+            reasons.push('Supported treasury spend with rationale');
+          } else if (vote === 'Yes' && !hasRationale) {
+            unalignedCount++;
+            reasons.push('Supported treasury spend without rationale');
+          } else if (vote === 'No' && !hasRationale) {
+            unalignedCount++;
+            reasons.push('Rejected treasury spend without rationale');
+          }
+        }
+        break;
+
+      case 'protocol-security-first':
+        if (vote === 'No' || vote === 'Abstain') {
+          alignedCount++;
+          reasons.push('Cautious vote on security-relevant proposal');
+        } else {
+          unalignedCount++;
+          reasons.push('Approved security-relevant proposal');
+        }
+        break;
+
+      case 'innovation-defi-growth':
+        if (vote === 'Yes') {
+          alignedCount++;
+          reasons.push('Supported innovation/growth proposal');
+        } else if (vote === 'No') {
+          unalignedCount++;
+          reasons.push('Voted against innovation/growth proposal');
+        }
+        break;
+
+      case 'responsible-governance':
+        if (hasRationale) {
+          alignedCount++;
+          reasons.push('Provided on-chain rationale');
+        } else {
+          unalignedCount++;
+          reasons.push('No on-chain rationale provided');
+        }
+        break;
+
+      // strong-decentralization is DRep-level, not per-vote
+    }
+  }
+
+  if (alignedCount === 0 && unalignedCount === 0) {
+    return { status: 'neutral', reasons };
+  }
+
+  return {
+    status: alignedCount >= unalignedCount ? 'aligned' : 'unaligned',
+    reasons,
+  };
+}
+
+// ============================================================================
 // LEGACY COMPATIBILITY
 // ============================================================================
 

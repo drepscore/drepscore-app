@@ -512,6 +512,61 @@ export async function GET(request: NextRequest) {
     console.error('[Sync] Error syncing proposals:', message);
   }
 
+  // ── Generate AI summaries for proposals without one ──────────────────────
+  let aiSummaryCount = 0;
+  const AI_SUMMARY_MAX_PER_SYNC = 10;
+
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      const { data: unsummarized } = await supabase
+        .from('proposals')
+        .select('tx_hash, proposal_index, title, abstract, proposal_type, withdrawal_amount')
+        .is('ai_summary', null)
+        .not('abstract', 'is', null)
+        .limit(AI_SUMMARY_MAX_PER_SYNC);
+
+      if (unsummarized && unsummarized.length > 0) {
+        const { default: Anthropic } = await import('@anthropic-ai/sdk');
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+        console.log(`[Sync] Generating AI summaries for ${unsummarized.length} proposals...`);
+
+        for (const row of unsummarized) {
+          try {
+            const amountContext = row.withdrawal_amount
+              ? `\nWithdrawal Amount: ${Number(row.withdrawal_amount).toLocaleString()} ADA`
+              : '';
+
+            const msg = await anthropic.messages.create({
+              model: 'claude-3-5-haiku-latest',
+              max_tokens: 200,
+              messages: [{
+                role: 'user',
+                content: `Summarize this Cardano governance proposal in 2-3 sentences for a casual ADA holder. Focus on what it does, who it affects, and why it matters. Be concise and neutral.\n\nTitle: ${row.title || 'Untitled'}\nType: ${row.proposal_type}${amountContext}\nDescription: ${(row.abstract || '').slice(0, 2000)}`,
+              }],
+            });
+
+            const summary = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
+
+            if (summary) {
+              await supabase
+                .from('proposals')
+                .update({ ai_summary: summary })
+                .eq('tx_hash', row.tx_hash)
+                .eq('proposal_index', row.proposal_index);
+              aiSummaryCount++;
+            }
+          } catch (aiErr) {
+            console.error(`[Sync] AI summary error for ${row.tx_hash}:`, aiErr);
+          }
+        }
+        console.log(`[Sync] Generated ${aiSummaryCount} AI summaries`);
+      }
+    } catch (err) {
+      console.error('[Sync] AI summary phase failed:', err);
+    }
+  }
+
   const durationSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
   const hasErrors = errorCount > 0 || proposalErrorCount > 0 || voteErrorCount > 0;
 
@@ -530,12 +585,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  console.log(`[Sync] Complete — ${successCount} DReps, ${voteSuccessCount} votes, ${proposalSuccessCount} proposals synced in ${durationSeconds}s`);
+  console.log(`[Sync] Complete — ${successCount} DReps, ${voteSuccessCount} votes, ${proposalSuccessCount} proposals, ${aiSummaryCount} AI summaries synced in ${durationSeconds}s`);
   return NextResponse.json({
     success: true,
     dreps: { synced: successCount, total: rows.length },
     votes: { synced: voteSuccessCount },
     proposals: { synced: proposalSuccessCount },
+    aiSummaries: aiSummaryCount,
     durationSeconds,
     timestamp: new Date().toISOString(),
   });

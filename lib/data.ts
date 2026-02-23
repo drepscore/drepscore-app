@@ -215,6 +215,7 @@ export interface CachedProposal {
   proposalType: string | null;
   withdrawalAmount: number | null;
   treasuryTier: string | null;
+  relevantPrefs: string[];
 }
 
 /**
@@ -238,7 +239,7 @@ export async function getProposalsByIds(
     
     const { data: rows, error } = await supabase
       .from('proposals')
-      .select('tx_hash, proposal_index, title, abstract, proposal_type, withdrawal_amount, treasury_tier')
+      .select('tx_hash, proposal_index, title, abstract, proposal_type, withdrawal_amount, treasury_tier, relevant_prefs')
       .in('tx_hash', txHashes);
     
     if (error) {
@@ -265,6 +266,7 @@ export async function getProposalsByIds(
           proposalType: row.proposal_type,
           withdrawalAmount: row.withdrawal_amount,
           treasuryTier: row.treasury_tier,
+          relevantPrefs: row.relevant_prefs || [],
         });
       }
     }
@@ -396,5 +398,226 @@ export async function getDRepById(drepId: string): Promise<EnrichedDRep | null> 
     console.error('[Data] Cache read failed for DRep:', drepId, error.message);
     
     return null;
+  }
+}
+
+// ============================================================================
+// PROPOSALS SECTION DATA
+// ============================================================================
+
+export interface ProposalWithVoteSummary {
+  txHash: string;
+  proposalIndex: number;
+  title: string | null;
+  abstract: string | null;
+  proposalType: string;
+  withdrawalAmount: number | null;
+  treasuryTier: string | null;
+  relevantPrefs: string[];
+  proposedEpoch: number | null;
+  blockTime: number | null;
+  aiSummary: string | null;
+  yesCount: number;
+  noCount: number;
+  abstainCount: number;
+  totalVotes: number;
+}
+
+/**
+ * Get all proposals with vote summary counts.
+ * Fetches proposals from Supabase and aggregates votes.
+ */
+export async function getAllProposalsWithVoteSummary(): Promise<ProposalWithVoteSummary[]> {
+  try {
+    const supabase = createClient();
+
+    // Fetch all proposals
+    const { data: proposals, error: pError } = await supabase
+      .from('proposals')
+      .select('*')
+      .order('block_time', { ascending: false });
+
+    if (pError || !proposals) {
+      console.warn('[Data] getAllProposals query failed:', pError?.message);
+      return [];
+    }
+
+    // Fetch vote counts grouped by proposal
+    const { data: voteCounts, error: vError } = await supabase
+      .from('drep_votes')
+      .select('proposal_tx_hash, proposal_index, vote');
+
+    if (vError) {
+      console.warn('[Data] vote counts query failed:', vError.message);
+    }
+
+    // Aggregate vote counts per proposal
+    const countMap = new Map<string, { yes: number; no: number; abstain: number }>();
+    if (voteCounts) {
+      for (const v of voteCounts) {
+        const key = `${v.proposal_tx_hash}-${v.proposal_index}`;
+        const entry = countMap.get(key) || { yes: 0, no: 0, abstain: 0 };
+        if (v.vote === 'Yes') entry.yes++;
+        else if (v.vote === 'No') entry.no++;
+        else entry.abstain++;
+        countMap.set(key, entry);
+      }
+    }
+
+    return proposals.map((p: any) => {
+      const key = `${p.tx_hash}-${p.proposal_index}`;
+      const counts = countMap.get(key) || { yes: 0, no: 0, abstain: 0 };
+      return {
+        txHash: p.tx_hash,
+        proposalIndex: p.proposal_index,
+        title: p.title,
+        abstract: p.abstract,
+        proposalType: p.proposal_type,
+        withdrawalAmount: p.withdrawal_amount,
+        treasuryTier: p.treasury_tier,
+        relevantPrefs: p.relevant_prefs || [],
+        proposedEpoch: p.proposed_epoch,
+        blockTime: p.block_time,
+        aiSummary: p.ai_summary || null,
+        yesCount: counts.yes,
+        noCount: counts.no,
+        abstainCount: counts.abstain,
+        totalVotes: counts.yes + counts.no + counts.abstain,
+      };
+    });
+  } catch (err) {
+    console.error('[Data] getAllProposalsWithVoteSummary error:', err);
+    return [];
+  }
+}
+
+export interface ProposalVoteDetail {
+  voteTxHash: string;
+  drepId: string;
+  drepName: string | null;
+  vote: 'Yes' | 'No' | 'Abstain';
+  blockTime: number;
+  rationaleText: string | null;
+  metaUrl: string | null;
+}
+
+/**
+ * Get a single proposal with full metadata.
+ */
+export async function getProposalByKey(
+  txHash: string,
+  proposalIndex: number
+): Promise<ProposalWithVoteSummary | null> {
+  try {
+    const supabase = createClient();
+
+    const { data: row, error } = await supabase
+      .from('proposals')
+      .select('*')
+      .eq('tx_hash', txHash)
+      .eq('proposal_index', proposalIndex)
+      .single();
+
+    if (error || !row) return null;
+
+    // Get vote counts
+    const { data: votes } = await supabase
+      .from('drep_votes')
+      .select('vote')
+      .eq('proposal_tx_hash', txHash)
+      .eq('proposal_index', proposalIndex);
+
+    let yes = 0, no = 0, abstain = 0;
+    if (votes) {
+      for (const v of votes) {
+        if (v.vote === 'Yes') yes++;
+        else if (v.vote === 'No') no++;
+        else abstain++;
+      }
+    }
+
+    return {
+      txHash: row.tx_hash,
+      proposalIndex: row.proposal_index,
+      title: row.title,
+      abstract: row.abstract,
+      proposalType: row.proposal_type,
+      withdrawalAmount: row.withdrawal_amount,
+      treasuryTier: row.treasury_tier,
+      relevantPrefs: row.relevant_prefs || [],
+      proposedEpoch: row.proposed_epoch,
+      blockTime: row.block_time,
+      aiSummary: row.ai_summary || null,
+      yesCount: yes,
+      noCount: no,
+      abstainCount: abstain,
+      totalVotes: yes + no + abstain,
+    };
+  } catch (err) {
+    console.error('[Data] getProposalByKey error:', err);
+    return null;
+  }
+}
+
+/**
+ * Get all votes for a specific proposal, enriched with DRep names and rationale.
+ */
+export async function getVotesByProposal(
+  txHash: string,
+  proposalIndex: number
+): Promise<ProposalVoteDetail[]> {
+  try {
+    const supabase = createClient();
+
+    const { data: votes, error } = await supabase
+      .from('drep_votes')
+      .select('vote_tx_hash, drep_id, vote, block_time, meta_url')
+      .eq('proposal_tx_hash', txHash)
+      .eq('proposal_index', proposalIndex)
+      .order('block_time', { ascending: false });
+
+    if (error || !votes) return [];
+
+    // Fetch DRep names
+    const drepIds = [...new Set(votes.map(v => v.drep_id))];
+    const { data: dreps } = await supabase
+      .from('dreps')
+      .select('id, info')
+      .in('id', drepIds);
+
+    const drepNameMap = new Map<string, string | null>();
+    if (dreps) {
+      for (const d of dreps) {
+        drepNameMap.set(d.id, (d.info as any)?.name || null);
+      }
+    }
+
+    // Fetch rationale text
+    const voteTxHashes = votes.map(v => v.vote_tx_hash);
+    const { data: rationales } = await supabase
+      .from('vote_rationales')
+      .select('vote_tx_hash, rationale_text')
+      .in('vote_tx_hash', voteTxHashes)
+      .not('rationale_text', 'is', null);
+
+    const rationaleMap = new Map<string, string>();
+    if (rationales) {
+      for (const r of rationales) {
+        if (r.rationale_text) rationaleMap.set(r.vote_tx_hash, r.rationale_text);
+      }
+    }
+
+    return votes.map(v => ({
+      voteTxHash: v.vote_tx_hash,
+      drepId: v.drep_id,
+      drepName: drepNameMap.get(v.drep_id) || null,
+      vote: v.vote as 'Yes' | 'No' | 'Abstain',
+      blockTime: v.block_time,
+      rationaleText: rationaleMap.get(v.vote_tx_hash) || null,
+      metaUrl: v.meta_url,
+    }));
+  } catch (err) {
+    console.error('[Data] getVotesByProposal error:', err);
+    return [];
   }
 }

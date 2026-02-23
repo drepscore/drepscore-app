@@ -10,7 +10,7 @@ import { getProposalDisplayTitle } from '@/utils/display';
 import { getDRepPrimaryName, hasCustomMetadata } from '@/utils/display';
 import { formatAda, getSizeBadgeClass, getDRepScoreBadgeClass } from '@/utils/scoring';
 import { VoteRecord } from '@/types/drep';
-import { VotingHistoryChart } from '@/components/VotingHistoryChart';
+import { VotingHistoryWithPrefs } from '@/components/VotingHistoryWithPrefs';
 import { InlineDelegationCTA } from '@/components/InlineDelegationCTA';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -89,6 +89,10 @@ async function getDRepData(drepId: string) {
         rationaleUrl: vote.meta_url,
         rationaleText,
         voteType: 'Governance' as const,
+        proposalType: cachedProposal?.proposalType || null,
+        treasuryTier: cachedProposal?.treasuryTier || null,
+        withdrawalAmount: cachedProposal?.withdrawalAmount || null,
+        relevantPrefs: cachedProposal?.relevantPrefs || [],
       };
     });
 
@@ -268,7 +272,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
 
       {/* Voting History */}
       <Suspense fallback={<DetailPageSkeleton />}>
-        <VotingHistoryChart votes={drep.votes} />
+        <VotingHistoryWithPrefs votes={drep.votes} />
       </Suspense>
 
       {/* About Section */}
