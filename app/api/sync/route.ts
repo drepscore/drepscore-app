@@ -538,7 +538,7 @@ export async function GET(request: NextRequest) {
               : '';
 
             const msg = await anthropic.messages.create({
-              model: 'claude-3-5-haiku-latest',
+              model: 'claude-sonnet-4-5',
               max_tokens: 200,
               messages: [{
                 role: 'user',
