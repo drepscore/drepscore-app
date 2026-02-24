@@ -31,3 +31,24 @@ export interface PushSubscriptionData {
 }
 
 export type SupabaseUserUpdate = Partial<Omit<SupabaseUser, 'wallet_address'>>;
+
+export interface PollResponse {
+  id: string;
+  proposal_tx_hash: string;
+  proposal_index: number;
+  wallet_address: string;
+  stake_address: string | null;
+  delegated_drep_id: string | null;
+  vote: 'yes' | 'no' | 'abstain';
+  initial_vote: 'yes' | 'no' | 'abstain';
+  created_at: string;
+  updated_at: string;
+  vote_count: number;
+}
+
+export interface PollResultsResponse {
+  community: { yes: number; no: number; abstain: number; total: number };
+  delegators?: { yes: number; no: number; abstain: number; total: number };
+  userVote: 'yes' | 'no' | 'abstain' | null;
+  hasVoted: boolean;
+}

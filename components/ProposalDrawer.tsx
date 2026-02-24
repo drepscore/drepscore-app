@@ -20,6 +20,7 @@ import {
   Vote,
 } from 'lucide-react';
 import { RationaleAssistant } from '@/components/RationaleAssistant';
+import { DelegatorPulse } from '@/components/DelegatorPulse';
 
 interface ProposalDrawerProps {
   open: boolean;
@@ -164,6 +165,13 @@ export function ProposalDrawer({ open, onOpenChange, proposal, drepId }: Proposa
               </p>
             )}
           </Section>
+
+          {/* Delegator Pulse */}
+          <DelegatorPulse
+            txHash={proposal.txHash}
+            proposalIndex={proposal.proposalIndex}
+            drepId={drepId}
+          />
 
           {/* Rationale Assistant */}
           <div className="border-t pt-4">

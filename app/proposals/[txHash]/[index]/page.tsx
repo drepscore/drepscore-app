@@ -16,6 +16,7 @@ import {
 } from '@/components/ProposalStatusBadge';
 import { getProposalStatus } from '@/utils/proposalPriority';
 import { DRepVoteCallout } from '@/components/DRepVoteCallout';
+import { SentimentPoll } from '@/components/SentimentPoll';
 
 interface ProposalDetailPageProps {
   params: Promise<{ txHash: string; index: string }>;
@@ -136,6 +137,9 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
 
       {/* DRep Vote Callout */}
       <DRepVoteCallout txHash={txHash} proposalIndex={proposalIndex} />
+
+      {/* Community Sentiment Poll */}
+      <SentimentPoll txHash={txHash} proposalIndex={proposalIndex} isOpen={isOpen} />
 
       {/* AI Summary / Abstract */}
       <ProposalDescription aiSummary={proposal.aiSummary} abstract={proposal.abstract} />
