@@ -721,8 +721,8 @@ export async function GET(request: NextRequest) {
       if (!Array.isArray(refs)) continue;
       for (const ref of refs) {
         if (ref && typeof ref === 'object' && 'uri' in ref) {
-          const uri = (ref as { uri: string }).uri;
-          if (uri && uri.startsWith('http')) {
+          const uri = (ref as { uri: unknown }).uri;
+          if (typeof uri === 'string' && uri.startsWith('http')) {
             allLinks.push({ drep_id: drep.drepId, uri });
           }
         }
