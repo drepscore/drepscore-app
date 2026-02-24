@@ -72,8 +72,15 @@ function isValidUrl(url: string) {
 export function SocialIcons({ metadata }: SocialIconsProps) {
   if (!metadata) return null;
 
-  const references = (metadata.references as Array<{ label: string; uri: string }> | undefined) || [];
+  const rawReferences = (metadata.references as Array<{ label: string; uri: string }> | undefined) || [];
   const email = metadata.email as string | undefined;
+
+  const seenUris = new Set<string>();
+  const references = rawReferences.filter(ref => {
+    if (!isValidUrl(ref.uri) || seenUris.has(ref.uri)) return false;
+    seenUris.add(ref.uri);
+    return true;
+  });
 
   if (references.length === 0 && !email) return null;
 

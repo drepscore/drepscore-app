@@ -67,6 +67,7 @@ export function Header() {
   const { alerts, unreadCount, dismissAlert } = useAlignmentAlerts();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-6)}`;
 
@@ -79,6 +80,18 @@ export function Header() {
       .then(data => { if (data?.display_name) setDisplayName(data.display_name); })
       .catch(() => {});
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !sessionAddress) { setIsAdmin(false); return; }
+    fetch('/api/admin/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: sessionAddress }),
+    })
+      .then(r => r.json())
+      .then(d => setIsAdmin(d.isAdmin === true))
+      .catch(() => setIsAdmin(false));
+  }, [isAuthenticated, sessionAddress]);
 
   useEffect(() => {
     const handler = () => setWalletModalOpen(true);
@@ -102,10 +115,10 @@ export function Header() {
             <BookOpen className="h-4 w-4" />
             <span>Methodology</span>
           </Link>
-          {ownDRepId && (
+          {(ownDRepId || isAdmin) && (
             <Link href="/dashboard" className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
               <Sparkles className="h-4 w-4" />
-              <span>My Dashboard</span>
+              <span>{ownDRepId ? 'My Dashboard' : 'Dashboard'}</span>
             </Link>
           )}
           
@@ -201,11 +214,11 @@ export function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {ownDRepId && (
+                  {(ownDRepId || isAdmin) && (
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard" className="cursor-pointer">
                         <Sparkles className="h-4 w-4 mr-2" />
-                        My DRep Dashboard
+                        {ownDRepId ? 'My DRep Dashboard' : 'DRep Dashboard'}
                       </Link>
                     </DropdownMenuItem>
                   )}
