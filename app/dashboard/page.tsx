@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@/utils/wallet';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import {
   Sparkles,
   TrendingUp,
@@ -26,6 +27,8 @@ import {
   XCircle,
   Users,
   BarChart3,
+  Search,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { ScoreHistoryChart } from '@/components/ScoreHistoryChart';
 import { DRepDashboard } from '@/components/DRepDashboard';
@@ -70,11 +73,49 @@ interface DashboardData {
 
 type PageState = 'loading' | 'no-wallet' | 'not-drep' | 'ready' | 'error';
 
+interface DRepListItem {
+  drepId: string;
+  name: string | null;
+  drepScore: number;
+}
+
 export default function MyDRepPage() {
-  const { connected, isAuthenticated, ownDRepId, connecting } = useWallet();
+  const { connected, isAuthenticated, ownDRepId, sessionAddress, connecting } = useWallet();
   const [state, setState] = useState<PageState>('loading');
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedDRepId, setSelectedDRepId] = useState<string | null>(null);
+  const [drepList, setDrepList] = useState<DRepListItem[]>([]);
+
+  // Check admin status
+  useEffect(() => {
+    if (!isAuthenticated || !sessionAddress) { setIsAdmin(false); return; }
+    fetch('/api/admin/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: sessionAddress }),
+    })
+      .then(r => r.json())
+      .then(d => setIsAdmin(d.isAdmin === true))
+      .catch(() => setIsAdmin(false));
+  }, [isAuthenticated, sessionAddress]);
+
+  // Fetch DRep list for admin switcher
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch('/api/dreps')
+      .then(r => r.json())
+      .then(d => {
+        const all = (d.allDReps || d.dreps || []) as any[];
+        setDrepList(all.map((dr: any) => ({
+          drepId: dr.drepId,
+          name: dr.name,
+          drepScore: dr.drepScore ?? 0,
+        })));
+      })
+      .catch(() => {});
+  }, [isAdmin]);
 
   const fetchDashboard = useCallback(async (drepId: string) => {
     setState('loading');
@@ -97,6 +138,9 @@ export default function MyDRepPage() {
     }
   }, []);
 
+  // Determine which DRep to load
+  const activeDRepId = selectedDRepId || ownDRepId;
+
   useEffect(() => {
     if (connecting) return;
 
@@ -105,18 +149,45 @@ export default function MyDRepPage() {
       return;
     }
 
-    if (!ownDRepId) {
+    // Admin without own DRep can still use the switcher
+    if (!activeDRepId && !isAdmin) {
       setState('not-drep');
       return;
     }
 
-    fetchDashboard(ownDRepId);
-  }, [connected, isAuthenticated, ownDRepId, connecting, fetchDashboard]);
+    if (activeDRepId) {
+      fetchDashboard(activeDRepId);
+    } else {
+      // Admin with no DRep selected yet — show ready state with no data
+      setState('not-drep');
+    }
+  }, [connected, isAuthenticated, activeDRepId, isAdmin, connecting, fetchDashboard]);
+
+  const handleDRepSelect = (drepId: string) => {
+    setSelectedDRepId(drepId);
+  };
 
   if (state === 'loading' || connecting) return <DashboardSkeleton />;
   if (state === 'no-wallet') return <ConnectWalletCTA />;
-  if (state === 'not-drep') return <NotADRepCTA />;
+  if (state === 'not-drep' && !isAdmin) return <NotADRepCTA />;
   if (state === 'error') return <ErrorState message={error} />;
+
+  // Admin with no DRep selected yet — show switcher only
+  if (!data && isAdmin) {
+    return (
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        <AdminDRepSwitcher
+          drepList={drepList}
+          selectedDRepId={selectedDRepId}
+          onSelect={handleDRepSelect}
+        />
+        <div className="text-center py-16 text-muted-foreground text-sm">
+          Select a DRep above to view their dashboard.
+        </div>
+      </div>
+    );
+  }
+
   if (!data) return <DashboardSkeleton />;
 
   const { drep, scoreHistory, percentile } = data;
@@ -126,17 +197,35 @@ export default function MyDRepPage() {
   const missingFields = getMissingProfileFields(drep.metadata);
   const profileHealthy = missingFields.length === 0 && drep.brokenLinks.length === 0;
 
+  const isViewingOther = isAdmin && selectedDRepId && selectedDRepId !== ownDRepId;
+
   return (
     <div className="container mx-auto px-4 py-6 max-w-6xl">
+      {/* Admin DRep Switcher */}
+      {isAdmin && (
+        <AdminDRepSwitcher
+          drepList={drepList}
+          selectedDRepId={activeDRepId}
+          onSelect={handleDRepSelect}
+        />
+      )}
+
       {/* Hero Bar */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-1">
           <Shield className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">My DRep Dashboard</h1>
+          <h1 className="text-2xl font-bold">
+            {isViewingOther ? 'DRep Dashboard' : 'My DRep Dashboard'}
+          </h1>
+          {isViewingOther && (
+            <Badge variant="outline" className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+              Admin View
+            </Badge>
+          )}
           {drep.isActive && <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Active</Badge>}
         </div>
         <p className="text-sm text-muted-foreground">
-          {drep.name || drep.drepId.slice(0, 20) + '…'} — Your governance performance at a glance
+          {drep.name || drep.drepId.slice(0, 20) + '…'} — {isViewingOther ? 'Viewing as admin' : 'Your governance performance at a glance'}
         </p>
       </div>
 
@@ -459,6 +548,100 @@ function ErrorState({ message }: { message: string | null }) {
           </Button>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function AdminDRepSwitcher({
+  drepList,
+  selectedDRepId,
+  onSelect,
+}: {
+  drepList: DRepListItem[];
+  selectedDRepId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!query) return drepList.slice(0, 50);
+    const q = query.toLowerCase();
+    return drepList
+      .filter(d => (d.name?.toLowerCase().includes(q)) || d.drepId.toLowerCase().includes(q))
+      .slice(0, 50);
+  }, [drepList, query]);
+
+  const selectedName = drepList.find(d => d.drepId === selectedDRepId)?.name;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div className="mb-6" ref={dropdownRef}>
+      <div className="flex items-center gap-2 mb-2">
+        <Badge variant="outline" className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+          Admin
+        </Badge>
+        <span className="text-xs text-muted-foreground">View any DRep&apos;s dashboard</span>
+      </div>
+      <div className="relative max-w-md">
+        <Button
+          variant="outline"
+          className="w-full justify-between text-sm"
+          onClick={() => setOpen(!open)}
+        >
+          <span className="truncate">
+            {selectedDRepId
+              ? (selectedName || selectedDRepId.slice(0, 20) + '…')
+              : 'Select a DRep…'}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+        {open && (
+          <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg">
+            <div className="p-2 border-b">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or DRep ID…"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  className="pl-9 h-9 text-sm"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="max-h-60 overflow-y-auto p-1">
+              {filtered.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No DReps found</p>
+              ) : (
+                filtered.map(d => (
+                  <button
+                    key={d.drepId}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-sm hover:bg-accent transition-colors flex items-center justify-between gap-2 ${
+                      d.drepId === selectedDRepId ? 'bg-accent' : ''
+                    }`}
+                    onClick={() => { onSelect(d.drepId); setOpen(false); setQuery(''); }}
+                  >
+                    <span className="truncate">{d.name || d.drepId.slice(0, 24) + '…'}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums shrink-0">{d.drepScore}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

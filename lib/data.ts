@@ -757,3 +757,26 @@ export async function getSocialLinkChecks(drepId: string): Promise<SocialLinkChe
     return [];
   }
 }
+
+// ============================================================================
+// CLAIM STATUS
+// ============================================================================
+
+/**
+ * Check if a DRep has been claimed by any user.
+ */
+export async function isDRepClaimed(drepId: string): Promise<boolean> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('wallet_address')
+      .eq('claimed_drep_id', drepId)
+      .limit(1);
+
+    if (error) return false;
+    return (data?.length ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}

@@ -12,6 +12,7 @@ export interface SupabaseUser {
   delegation_history: DelegationRecord[];
   push_subscriptions: PushSubscriptionData;
   last_active: string;
+  claimed_drep_id?: string;
 }
 
 export interface DelegationRecord {

@@ -714,8 +714,9 @@ export async function GET(request: NextRequest) {
     const STALE_DAYS = 14;
     const staleThreshold = new Date(Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-    // Collect all DRep social URIs
+    // Collect all DRep social URIs (deduplicated per DRep)
     const allLinks: { drep_id: string; uri: string }[] = [];
+    const seenLinkKeys = new Set<string>();
     for (const drep of allDReps) {
       const refs = drep.metadata?.references;
       if (!Array.isArray(refs)) continue;
@@ -723,6 +724,9 @@ export async function GET(request: NextRequest) {
         if (ref && typeof ref === 'object' && 'uri' in ref) {
           const uri = (ref as { uri: unknown }).uri;
           if (typeof uri === 'string' && uri.startsWith('http')) {
+            const key = `${drep.drepId}|${uri}`;
+            if (seenLinkKeys.has(key)) continue;
+            seenLinkKeys.add(key);
             allLinks.push({ drep_id: drep.drepId, uri });
           }
         }

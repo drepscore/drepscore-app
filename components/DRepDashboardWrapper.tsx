@@ -1,19 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useWallet } from '@/utils/wallet';
-import { DRepDashboard } from '@/components/DRepDashboard';
 import { VoteRecord } from '@/types/drep';
 import { type ScoreSnapshot } from '@/lib/data';
 import { generateRecommendations } from '@/utils/recommendations';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Lock, Sparkles, ArrowRight } from 'lucide-react';
+import { Lock, Sparkles, ArrowRight, Wallet } from 'lucide-react';
 
 interface DRepDashboardWrapperProps {
   drepId: string;
+  isClaimed: boolean;
   drep: {
     drepId: string;
     effectiveParticipation: number;
@@ -29,42 +27,10 @@ interface DRepDashboardWrapperProps {
   scoreHistory: ScoreSnapshot[];
 }
 
-export function DRepDashboardWrapper({ drepId, drep, scoreHistory }: DRepDashboardWrapperProps) {
-  const { isAuthenticated, ownDRepId, sessionAddress } = useWallet();
-  const searchParams = useSearchParams();
-  const [isAdmin, setIsAdmin] = useState(false);
+export function DRepDashboardWrapper({ drepId, isClaimed, drep, scoreHistory }: DRepDashboardWrapperProps) {
+  const { isAuthenticated, ownDRepId } = useWallet();
 
   const isOwner = isAuthenticated && ownDRepId === drepId;
-  const simulateRequested = searchParams.get('simulate') === 'true';
-
-  useEffect(() => {
-    if (!isAuthenticated || !sessionAddress || !simulateRequested) {
-      setIsAdmin(false);
-      return;
-    }
-
-    fetch('/api/admin/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: sessionAddress }),
-    })
-      .then(r => r.json())
-      .then(data => setIsAdmin(data.isAdmin === true))
-      .catch(() => setIsAdmin(false));
-  }, [isAuthenticated, sessionAddress, simulateRequested]);
-
-  const isSimulated = !isOwner && isAdmin && simulateRequested;
-
-  // Admin simulate mode still shows inline dashboard on public profile
-  if (isSimulated) {
-    return (
-      <DRepDashboard
-        drep={drep}
-        scoreHistory={scoreHistory}
-        isSimulated
-      />
-    );
-  }
 
   // Owner: banner pointing to dedicated dashboard
   if (isOwner) {
@@ -90,7 +56,34 @@ export function DRepDashboardWrapper({ drepId, drep, scoreHistory }: DRepDashboa
     );
   }
 
-  // Non-owner teaser
+  // Unclaimed DRep: show claim CTA
+  if (!isClaimed) {
+    return (
+      <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-5">
+          <div className="flex items-center gap-3">
+            <Wallet className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-semibold text-sm">Is this your DRep profile?</p>
+              <p className="text-xs text-muted-foreground">
+                Claim it to access your personalized DRep Dashboard with score insights, recommendations, and more.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={() => window.dispatchEvent(new Event('openWalletConnect'))}
+          >
+            <Wallet className="h-4 w-4" /> Connect Wallet to Claim
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Claimed by someone else: show recommendation teaser
   const recs = generateRecommendations(drep);
   if (recs.length === 0) return null;
 
@@ -111,7 +104,7 @@ export function DRepDashboardWrapper({ drepId, drep, scoreHistory }: DRepDashboa
             <p className="text-xs text-muted-foreground">
               {recs.length} improvement recommendation{recs.length > 1 ? 's' : ''} available
               {totalGain > 0 && ` (+${totalGain} pts potential)`}.
-              {' '}Connect as this DRep to see your action plan.
+              {' '}This DRep has already claimed their dashboard.
             </p>
           </div>
         </div>

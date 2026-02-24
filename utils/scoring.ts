@@ -250,10 +250,13 @@ export function calculateProfileCompleteness(
   const references = metadata.references;
   if (Array.isArray(references)) {
     let validCount = 0;
+    const seenUris = new Set<string>();
     for (const ref of references) {
       if (ref && typeof ref === 'object' && 'uri' in ref) {
         const { uri, label } = ref as { uri: string; label?: string };
-        if (uri && isValidatedSocialLink(uri, label)) {
+        if (!uri || seenUris.has(uri)) continue;
+        seenUris.add(uri);
+        if (isValidatedSocialLink(uri, label)) {
           if (brokenUris && brokenUris.has(uri)) continue;
           validCount++;
         }

@@ -79,7 +79,12 @@ export function SocialIconsLarge({ metadata, references: propReferences, brokenL
   
   if (references.length === 0) return null;
 
-  const validRefs = references.filter(ref => isValidUrl(ref.uri));
+  const seenUris = new Set<string>();
+  const validRefs = references.filter(ref => {
+    if (!isValidUrl(ref.uri) || seenUris.has(ref.uri)) return false;
+    seenUris.add(ref.uri);
+    return true;
+  });
   if (validRefs.length === 0) return null;
 
   return (

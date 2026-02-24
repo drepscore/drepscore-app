@@ -22,7 +22,6 @@ import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
 import { ClaimProfileBanner } from '@/components/ClaimProfileBanner';
 import { DRepDashboardWrapper } from '@/components/DRepDashboardWrapper';
 import { CopyableAddress } from '@/components/CopyableAddress';
-import { AdminSimulateToggle } from '@/components/AdminSimulateToggle';
 import { AboutSection } from '@/components/AboutSection';
 import { SocialIconsLarge } from '@/components/SocialIconsLarge';
 import {
@@ -33,6 +32,7 @@ import {
   getScoreHistory,
   getDRepPercentile,
   getSocialLinkChecks,
+  isDRepClaimed,
 } from '@/lib/data';
 import { Suspense } from 'react';
 
@@ -146,10 +146,11 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
     notFound();
   }
 
-  const [scoreHistory, percentile, linkChecks] = await Promise.all([
+  const [scoreHistory, percentile, linkChecks, isClaimed] = await Promise.all([
     getScoreHistory(drep.drepId),
     getDRepPercentile(drep.drepScore),
     getSocialLinkChecks(drep.drepId),
+    isDRepClaimed(drep.drepId),
   ]);
 
   const brokenLinks = new Set(
@@ -280,10 +281,11 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         references={drep.metadata?.references as Array<{ uri: string; label?: string }> | undefined}
       />
 
-      {/* DRep Dashboard - Only visible to the DRep owner or admin in simulate mode */}
+      {/* DRep Dashboard CTA */}
       <Suspense fallback={null}>
         <DRepDashboardWrapper
           drepId={drep.drepId}
+          isClaimed={isClaimed}
           drep={{
             drepId: drep.drepId,
             effectiveParticipation: drep.effectiveParticipation,
@@ -308,10 +310,6 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
       {/* Claim Profile Banner */}
       <ClaimProfileBanner drepId={drep.drepId} />
 
-      {/* Admin simulate toggle (floating pill, only visible for admin wallets) */}
-      <Suspense fallback={null}>
-        <AdminSimulateToggle />
-      </Suspense>
     </div>
   );
 }
