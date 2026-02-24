@@ -6,6 +6,7 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { getProposalDisplayTitle } from '@/utils/display';
 import { getDRepPrimaryName, hasCustomMetadata } from '@/utils/display';
 import { formatAda, getSizeBadgeClass, applyRationaleCurve, getPillarStatus, getMissingProfileFields, getEasiestWin, getReliabilityHintFromStored } from '@/utils/scoring';
@@ -33,10 +34,45 @@ import {
   getSocialLinkChecks,
   isDRepClaimed,
 } from '@/lib/data';
+import { BASE_URL } from '@/lib/constants';
 import { Suspense } from 'react';
 
 interface DRepDetailPageProps {
   params: Promise<{ drepId: string }>;
+}
+
+export async function generateMetadata({ params }: DRepDetailPageProps): Promise<Metadata> {
+  const { drepId } = await params;
+  const decodedId = decodeURIComponent(drepId);
+  const drep = await getDRepById(decodedId);
+  
+  if (!drep) {
+    return {
+      title: 'DRep Not Found — DRepScore',
+    };
+  }
+  
+  const name = getDRepPrimaryName(drep);
+  const title = `${name} — DRepScore ${drep.drepScore}/100`;
+  const description = `Participation: ${drep.effectiveParticipation}% · Rationale: ${drep.rationaleRate}% · Reliability: ${drep.reliabilityScore}% · Profile: ${drep.profileCompleteness}%`;
+  const ogImageUrl = `${BASE_URL}/api/og/drep/${encodeURIComponent(drepId)}`;
+  
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'profile',
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${name} DRepScore card` }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImageUrl],
+    },
+  };
 }
 
 async function getDRepData(drepId: string) {

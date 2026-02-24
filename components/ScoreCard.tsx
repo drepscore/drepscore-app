@@ -2,11 +2,25 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Lightbulb, Share2, Check } from 'lucide-react';
-import { getDRepScoreBadgeClass, type PillarStatus } from '@/utils/scoring';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Lightbulb, Check, Copy, ChevronDown } from 'lucide-react';
+import { type PillarStatus } from '@/utils/scoring';
+import { useWallet } from '@/utils/wallet';
 import { ScoreRing } from '@/components/ScoreRing';
 import { PillarCard } from '@/components/PillarCard';
+
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
 
 interface ScoreCardProps {
   drep: {
@@ -38,18 +52,38 @@ export function ScoreCard({
   drep, adjustedRationale, pillars, pillarStatuses, quickWin,
   percentile, participationHint, rationaleHint, reliabilityHint, profileHint,
 }: ScoreCardProps) {
-  const [shared, setShared] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { isAuthenticated, ownDRepId } = useWallet();
+  
+  const isOwnProfile = isAuthenticated && ownDRepId === drep.drepId;
+  
+  const getPageUrl = () => {
+    if (typeof window !== 'undefined') {
+      return window.location.href;
+    }
+    return `https://drepscore-app.vercel.app/drep/${encodeURIComponent(drep.drepId)}`;
+  };
 
-  const handleShare = () => {
+  const getTweetText = () => {
     const name = drep.name || 'This DRep';
-    const text = [
-      `${name} scored ${drep.drepScore}/100 on $drepscore`,
-      `Participation: ${drep.effectiveParticipation}% | Rationale: ${adjustedRationale}% | Reliability: ${drep.reliabilityScore}% | Profile: ${drep.profileCompleteness}%`,
-      `See the full report: https://drepscore-app.vercel.app/drep/${encodeURIComponent(drep.drepId)}`,
-    ].join('\n');
-    navigator.clipboard.writeText(text).then(() => {
-      setShared(true);
-      setTimeout(() => setShared(false), 2000);
+    if (isOwnProfile) {
+      return `My DRepScore is ${drep.drepScore}/100! 🎯\n\nParticipation: ${drep.effectiveParticipation}% | Rationale: ${adjustedRationale}% | Reliability: ${drep.reliabilityScore}%\n\nSee my full report on @drepscore:`;
+    }
+    return `${name} scored ${drep.drepScore}/100 on @drepscore!\n\nCheck out their governance track record:`;
+  };
+
+  const handleShareOnX = () => {
+    const url = getPageUrl();
+    const text = getTweetText();
+    const tweetUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    window.open(tweetUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyLink = () => {
+    const url = getPageUrl();
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     });
   };
 
@@ -72,13 +106,24 @@ export function ScoreCard({
               ))}
             </div>
           </div>
-          <button
-            onClick={handleShare}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-md border border-transparent hover:border-border"
-          >
-            {shared ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Share2 className="h-3.5 w-3.5" />}
-            {shared ? 'Copied!' : 'Share'}
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-md border border-transparent hover:border-border">
+                {isOwnProfile ? 'Share My Score' : 'Share'}
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleShareOnX} className="gap-2 cursor-pointer">
+                <XIcon className="h-3.5 w-3.5" />
+                Share on X
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCopyLink} className="gap-2 cursor-pointer">
+                {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? 'Copied!' : 'Copy link'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
