@@ -14,7 +14,7 @@ interface ScoreCardProps {
     name: string | null;
     drepScore: number;
     effectiveParticipation: number;
-    consistencyScore: number;
+    reliabilityScore: number;
     profileCompleteness: number;
   };
   adjustedRationale: number;
@@ -24,7 +24,7 @@ interface ScoreCardProps {
   percentile: number;
   participationHint: string;
   rationaleHint: string;
-  consistencyHint: string;
+  reliabilityHint: string;
   profileHint: string;
 }
 
@@ -36,7 +36,7 @@ function getCardGradient(score: number): string {
 
 export function ScoreCard({
   drep, adjustedRationale, pillars, pillarStatuses, quickWin,
-  percentile, participationHint, rationaleHint, consistencyHint, profileHint,
+  percentile, participationHint, rationaleHint, reliabilityHint, profileHint,
 }: ScoreCardProps) {
   const [shared, setShared] = useState(false);
 
@@ -44,7 +44,7 @@ export function ScoreCard({
     const name = drep.name || 'This DRep';
     const text = [
       `${name} scored ${drep.drepScore}/100 on $drepscore`,
-      `Participation: ${drep.effectiveParticipation}% | Rationale: ${adjustedRationale}% | Consistency: ${drep.consistencyScore}% | Profile: ${drep.profileCompleteness}%`,
+      `Participation: ${drep.effectiveParticipation}% | Rationale: ${adjustedRationale}% | Reliability: ${drep.reliabilityScore}% | Profile: ${drep.profileCompleteness}%`,
       `See the full report: https://drepscore-app.vercel.app/drep/${encodeURIComponent(drep.drepId)}`,
     ].join('\n');
     navigator.clipboard.writeText(text).then(() => {
@@ -53,7 +53,7 @@ export function ScoreCard({
     });
   };
 
-  const hints = [participationHint, rationaleHint, consistencyHint, profileHint];
+  const hints = [participationHint, rationaleHint, reliabilityHint, profileHint];
 
   return (
     <Card className={getCardGradient(drep.drepScore)}>

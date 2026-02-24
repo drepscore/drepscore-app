@@ -52,7 +52,11 @@ interface SupabaseDRepRow {
   score: number;
   participation_rate: number;
   rationale_rate: number;
-  consistency_score: number;
+  reliability_score: number;
+  reliability_streak: number;
+  reliability_recency: number;
+  reliability_longest_gap: number;
+  reliability_tenure: number;
   deliberation_modifier: number;
   effective_participation: number;
   size_tier: string;
@@ -71,6 +75,10 @@ interface SupabaseProposalRow {
   relevant_prefs: string[];
   proposed_epoch: number;
   block_time: number;
+  expired_epoch: number | null;
+  ratified_epoch: number | null;
+  enacted_epoch: number | null;
+  dropped_epoch: number | null;
 }
 
 interface SupabaseVoteRow {
@@ -338,7 +346,11 @@ export async function GET(request: NextRequest) {
     score: drep.drepScore,
     participation_rate: drep.participationRate,
     rationale_rate: drep.rationaleRate,
-    consistency_score: drep.consistencyScore,
+    reliability_score: drep.reliabilityScore,
+    reliability_streak: drep.reliabilityStreak,
+    reliability_recency: drep.reliabilityRecency,
+    reliability_longest_gap: drep.reliabilityLongestGap,
+    reliability_tenure: drep.reliabilityTenure,
     deliberation_modifier: drep.deliberationModifier,
     effective_participation: drep.effectiveParticipation,
     size_tier: drep.sizeTier,
@@ -497,6 +509,10 @@ export async function GET(request: NextRequest) {
         relevant_prefs: p.relevantPrefs,
         proposed_epoch: p.proposedEpoch,
         block_time: p.blockTime,
+        expired_epoch: p.expiredEpoch,
+        ratified_epoch: p.ratifiedEpoch,
+        enacted_epoch: p.enactedEpoch,
+        dropped_epoch: p.droppedEpoch,
       }));
 
       // Deduplicate by (tx_hash, proposal_index) -- Koios may return the same proposal
@@ -666,7 +682,7 @@ export async function GET(request: NextRequest) {
       score: drep.drepScore,
       effective_participation: drep.effectiveParticipation,
       rationale_rate: drep.rationaleRate,
-      consistency_score: drep.consistencyScore,
+      reliability_score: drep.reliabilityScore,
       profile_completeness: drep.profileCompleteness,
       snapshot_date: today,
     }));
@@ -734,6 +750,9 @@ export async function GET(request: NextRequest) {
         .filter(l => !freshSet.has(`${l.drep_id}|${l.uri}`))
         .slice(0, LINK_CHECK_LIMIT);
 
+      const isTwitterUrl = (url: string) =>
+        /^https?:\/\/(www\.)?(twitter\.com|x\.com)\//i.test(url);
+
       for (const link of toCheck) {
         let status = 'broken';
         let httpStatus: number | null = null;
@@ -741,17 +760,43 @@ export async function GET(request: NextRequest) {
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 5000);
-          const res = await fetch(link.uri, {
-            method: 'HEAD',
-            redirect: 'follow',
-            signal: controller.signal,
-            headers: { 'User-Agent': 'DRepScore-LinkChecker/1.0' },
-          });
-          clearTimeout(timeout);
-          httpStatus = res.status;
-          status = res.ok ? 'valid' : 'broken';
+
+          if (isTwitterUrl(link.uri)) {
+            // X/Twitter returns 200 for non-existent accounts; use GET + body inspection
+            const res = await fetch(link.uri, {
+              method: 'GET',
+              redirect: 'follow',
+              signal: controller.signal,
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; DRepScore/1.0)',
+                'Accept': 'text/html',
+              },
+            });
+            clearTimeout(timeout);
+            httpStatus = res.status;
+            if (!res.ok) {
+              status = 'broken';
+            } else {
+              const body = await res.text();
+              const soft404 =
+                body.includes('This account doesn') ||
+                body.includes('Account suspended') ||
+                body.includes('"error"') ||
+                (body.includes('"users":[]') && body.length < 500);
+              status = soft404 ? 'broken' : 'valid';
+            }
+          } else {
+            const res = await fetch(link.uri, {
+              method: 'HEAD',
+              redirect: 'follow',
+              signal: controller.signal,
+              headers: { 'User-Agent': 'DRepScore-LinkChecker/1.0' },
+            });
+            clearTimeout(timeout);
+            httpStatus = res.status;
+            status = res.ok ? 'valid' : 'broken';
+          }
         } catch {
-          // Timeout, DNS fail, network error
           status = 'broken';
         }
 

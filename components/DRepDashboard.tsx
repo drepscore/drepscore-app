@@ -22,7 +22,7 @@ interface DRepDashboardProps {
     drepId: string;
     effectiveParticipation: number;
     rationaleRate: number;
-    consistencyScore: number;
+    reliabilityScore: number;
     profileCompleteness: number;
     deliberationModifier: number;
     metadata: Record<string, unknown> | null;

@@ -20,7 +20,11 @@ interface SupabaseDRepRow {
   score: number;
   participation_rate: number;
   rationale_rate: number;
-  consistency_score: number;
+  reliability_score: number;
+  reliability_streak: number;
+  reliability_recency: number;
+  reliability_longest_gap: number;
+  reliability_tenure: number;
   deliberation_modifier: number;
   effective_participation: number;
   size_tier: string;
@@ -74,7 +78,11 @@ async function syncDReps() {
       score: drep.drepScore,
       participation_rate: drep.participationRate,
       rationale_rate: drep.rationaleRate,
-      consistency_score: drep.consistencyScore,
+      reliability_score: drep.reliabilityScore,
+      reliability_streak: drep.reliabilityStreak,
+      reliability_recency: drep.reliabilityRecency,
+      reliability_longest_gap: drep.reliabilityLongestGap,
+      reliability_tenure: drep.reliabilityTenure,
       deliberation_modifier: drep.deliberationModifier,
       effective_participation: drep.effectiveParticipation,
       size_tier: drep.sizeTier,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -10,11 +10,13 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   Legend,
+  ReferenceDot,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TrendingUp } from 'lucide-react';
 import type { ScoreSnapshot } from '@/lib/data';
+import { getScoreAttribution, type DayAttribution } from '@/utils/attribution';
 
 interface ScoreHistoryChartProps {
   history: ScoreSnapshot[];
@@ -25,8 +27,55 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function AttributionTooltipContent({ active, payload, label, attributionMap }: any) {
+  if (!active || !payload?.length) return null;
+
+  const scoreEntry = payload.find((p: any) => p.dataKey === 'Score');
+  const rawDate = scoreEntry?.payload?.rawDate;
+  const attribution: DayAttribution | undefined = rawDate ? attributionMap.get(rawDate) : undefined;
+
+  return (
+    <div className="rounded-lg border bg-card p-3 shadow-md text-sm max-w-[280px]">
+      <p className="font-medium text-card-foreground mb-1">{label}</p>
+      {payload.map((entry: any) => (
+        <div key={entry.dataKey} className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            {entry.dataKey}
+          </span>
+          <span className="font-mono tabular-nums">{entry.value}</span>
+        </div>
+      ))}
+      {attribution && attribution.totalDelta !== 0 && (
+        <div className="mt-2 pt-2 border-t border-border">
+          <p className={`text-xs font-medium ${attribution.totalDelta > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {attribution.totalDelta > 0 ? '+' : ''}{attribution.totalDelta} pts from previous
+          </p>
+          {attribution.pillars
+            .filter(p => Math.abs(p.weightedDelta) >= 0.5)
+            .sort((a, b) => Math.abs(b.weightedDelta) - Math.abs(a.weightedDelta))
+            .map(p => (
+              <p key={p.key} className="text-xs text-muted-foreground">
+                {p.label}: {p.weightedDelta > 0 ? '+' : ''}{p.weightedDelta.toFixed(1)} pts
+                <span className="opacity-60"> ({p.prev}→{p.curr})</span>
+              </p>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ScoreHistoryChart({ history }: ScoreHistoryChartProps) {
   const [showPillars, setShowPillars] = useState(false);
+
+  const attributions = useMemo(() => getScoreAttribution(history), [history]);
+  const attributionMap = useMemo(() => {
+    const map = new Map<string, DayAttribution>();
+    for (const a of attributions) map.set(a.date, a);
+    return map;
+  }, [attributions]);
 
   if (history.length === 0) {
     return (
@@ -52,9 +101,14 @@ export function ScoreHistoryChart({ history }: ScoreHistoryChartProps) {
     Score: s.score,
     Participation: s.effectiveParticipation,
     Rationale: s.rationaleRate,
-    Consistency: s.consistencyScore,
+    Reliability: s.reliabilityScore,
     Profile: s.profileCompleteness,
   }));
+
+  const significantDays = chartData.filter(d => {
+    const attr = attributionMap.get(d.rawDate);
+    return attr?.isSignificant;
+  });
 
   const latest = history[history.length - 1];
   const first = history[0];
@@ -109,12 +163,7 @@ export function ScoreHistoryChart({ history }: ScoreHistoryChartProps) {
                   className="fill-muted-foreground"
                 />
                 <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
+                  content={<AttributionTooltipContent attributionMap={attributionMap} />}
                 />
                 <Line
                   type="monotone"
@@ -129,10 +178,21 @@ export function ScoreHistoryChart({ history }: ScoreHistoryChartProps) {
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
                     <Line type="monotone" dataKey="Participation" stroke="hsl(var(--chart-2))" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
                     <Line type="monotone" dataKey="Rationale" stroke="hsl(var(--chart-3))" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="Consistency" stroke="hsl(var(--chart-4))" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="Reliability" stroke="hsl(var(--chart-4))" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
                     <Line type="monotone" dataKey="Profile" stroke="hsl(var(--chart-5))" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
                   </>
                 )}
+                {significantDays.map(d => (
+                  <ReferenceDot
+                    key={d.rawDate}
+                    x={d.date}
+                    y={d.Score}
+                    r={8}
+                    fill={attributionMap.get(d.rawDate)!.totalDelta > 0 ? 'hsl(142 71% 45%)' : 'hsl(0 84% 60%)'}
+                    fillOpacity={0.3}
+                    stroke="none"
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>

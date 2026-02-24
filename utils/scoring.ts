@@ -114,61 +114,91 @@ export function calculateDeliberationModifier(
   return 1.0;
 }
 
+export interface ReliabilityResult {
+  score: number;
+  streak: number;
+  recency: number;
+  longestGap: number;
+  tenure: number;
+}
+
 /**
- * Calculate consistency score based on voting activity across epochs.
- * Normalizes vote counts by proposals available each epoch so DReps aren't
- * penalized for voting on many proposals in busy epochs.
+ * Calculate reliability score — "Can I count on this DRep to keep showing up?"
  *
- * @param epochVoteCounts Array of vote counts per epoch (index = epoch offset from first active epoch)
- * @param firstEpoch The first epoch in the array
- * @param proposalCountsByEpoch Map of epoch -> number of proposals available that epoch
- * @returns Consistency score (0-100)
+ * Four orthogonal components (none overlap with Participation):
+ *   Active Streak  (35%) — consecutive recent epochs with votes
+ *   Recency        (30%) — exponential decay since last vote
+ *   Gap Penalty    (20%) — penalises longest disappearance
+ *   Tenure         (15%) — time since first vote (diminishing returns)
+ *
+ * Returns both the combined 0-100 score and the raw component values
+ * so they can be stored and used in hints/dashboard breakdowns.
  */
-export function calculateConsistency(
+export function calculateReliability(
   epochVoteCounts: number[],
-  firstEpoch?: number,
-  proposalCountsByEpoch?: Map<number, number>
-): number {
-  if (!epochVoteCounts || epochVoteCounts.length === 0) return 0;
-  if (epochVoteCounts.length === 1) return epochVoteCounts[0] > 0 ? 50 : 0;
+  firstEpoch: number | undefined,
+  currentEpoch: number,
+  proposalEpochs?: Map<number, number>
+): ReliabilityResult {
+  const zero: ReliabilityResult = { score: 0, streak: 0, recency: 999, longestGap: 0, tenure: 0 };
+  if (!epochVoteCounts || epochVoteCounts.length === 0 || firstEpoch === undefined) return zero;
 
-  // Normalize vote counts by proposals available per epoch
-  let relevantRates: number[] = [];
-  let relevantEpochCount = 0;
-
-  if (proposalCountsByEpoch && proposalCountsByEpoch.size > 0 && firstEpoch !== undefined) {
-    for (let i = 0; i < epochVoteCounts.length; i++) {
-      const epoch = firstEpoch + i;
-      const proposalCount = proposalCountsByEpoch.get(epoch);
-      if (proposalCount && proposalCount > 0) {
-        relevantEpochCount++;
-        relevantRates.push(Math.min(1, epochVoteCounts[i] / proposalCount));
-      }
-    }
-
-    if (relevantEpochCount === 0) return 50;
-    if (relevantEpochCount === 1) return relevantRates[0] > 0 ? 50 : 0;
-  } else {
-    // Fallback: use raw counts when proposal data unavailable
-    relevantRates = epochVoteCounts.map(c => c);
-    relevantEpochCount = epochVoteCounts.length;
+  const votedEpochs = new Set<number>();
+  for (let i = 0; i < epochVoteCounts.length; i++) {
+    if (epochVoteCounts[i] > 0) votedEpochs.add(firstEpoch + i);
   }
+  if (votedEpochs.size === 0) return zero;
 
-  const nonZeroRates = relevantRates.filter(r => r > 0);
-  if (nonZeroRates.length === 0) return 0;
+  const hasProposalData = proposalEpochs && proposalEpochs.size > 0;
+  const epochHadProposals = (e: number) => !hasProposalData || (proposalEpochs!.get(e) ?? 0) > 0;
 
-  const mean = nonZeroRates.reduce((a, b) => a + b, 0) / nonZeroRates.length;
-  if (mean === 0) return 0;
+  const lastVotedEpoch = Math.max(...votedEpochs);
 
-  const variance = nonZeroRates.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / nonZeroRates.length;
-  const stdDev = Math.sqrt(variance);
-  const coefficientOfVariation = stdDev / mean;
+  // 1. Active Streak — consecutive epochs with votes counting backwards
+  let streak = 0;
+  for (let e = currentEpoch; e >= firstEpoch; e--) {
+    if (!epochHadProposals(e)) continue;
+    if (votedEpochs.has(e)) { streak++; } else { break; }
+  }
+  const streakScore = Math.min(100, streak * 10);
 
-  const activeEpochRatio = nonZeroRates.length / relevantEpochCount;
-  const consistencyFromCV = Math.max(0, 1 - coefficientOfVariation);
-  const combinedScore = (consistencyFromCV * 0.6 + activeEpochRatio * 0.4) * 100;
+  // 2. Recency — exponential decay from last vote
+  const recency = Math.max(0, currentEpoch - lastVotedEpoch);
+  const recencyScore = Math.round(100 * Math.exp(-recency / 5));
 
-  return Math.round(Math.max(0, Math.min(100, combinedScore)));
+  // 3. Gap Penalty — longest run of proposal-epochs without a vote
+  let longestGap = 0;
+  let currentGap = 0;
+  for (let e = firstEpoch; e <= currentEpoch; e++) {
+    if (!epochHadProposals(e)) continue;
+    if (votedEpochs.has(e)) {
+      longestGap = Math.max(longestGap, currentGap);
+      currentGap = 0;
+    } else {
+      currentGap++;
+    }
+  }
+  longestGap = Math.max(longestGap, currentGap);
+  const gapScore = Math.max(0, 100 - longestGap * 12);
+
+  // 4. Tenure — epochs since first vote, diminishing returns
+  const tenure = Math.max(0, currentEpoch - firstEpoch);
+  const tenureScore = Math.min(100, Math.round(20 + 80 * (1 - Math.exp(-tenure / 30))));
+
+  const reliability = Math.round(
+    streakScore * 0.35 +
+    recencyScore * 0.30 +
+    gapScore * 0.20 +
+    tenureScore * 0.15
+  );
+
+  return {
+    score: Math.max(0, Math.min(100, reliability)),
+    streak,
+    recency,
+    longestGap,
+    tenure,
+  };
 }
 
 /**
@@ -527,6 +557,50 @@ export function shortenDRepId(
 ): string {
   if (drepId.length <= prefixLength + suffixLength) return drepId;
   return `${drepId.slice(0, prefixLength)}...${drepId.slice(-suffixLength)}`;
+}
+
+/**
+ * Compute human-readable reliability hint from stored component values.
+ * Prefers stored values; falls back to recomputing from epoch data.
+ */
+export function getReliabilityHintFromStored(
+  streak: number,
+  recency: number
+): string {
+  if (recency > 5) return `Last voted ${recency} epochs ago`;
+  if (streak >= 3) return `${streak}-epoch active streak`;
+  if (recency === 0) return 'Voted this epoch';
+  return `Last voted ${recency} epoch${recency === 1 ? '' : 's'} ago`;
+}
+
+/**
+ * Legacy: Compute reliability hint from raw vote data.
+ * Use getReliabilityHintFromStored when stored values are available.
+ */
+export function getReliabilityHint(
+  epochVoteCounts: number[],
+  firstEpoch: number | undefined,
+  currentEpoch: number
+): string {
+  if (!epochVoteCounts || epochVoteCounts.length === 0 || firstEpoch === undefined) {
+    return 'No voting history';
+  }
+
+  const votedEpochs = new Set<number>();
+  for (let i = 0; i < epochVoteCounts.length; i++) {
+    if (epochVoteCounts[i] > 0) votedEpochs.add(firstEpoch + i);
+  }
+  if (votedEpochs.size === 0) return 'No voting history';
+
+  const lastVotedEpoch = Math.max(...votedEpochs);
+  const epochsSince = currentEpoch - lastVotedEpoch;
+
+  let streak = 0;
+  for (let e = currentEpoch; e >= firstEpoch; e--) {
+    if (votedEpochs.has(e)) { streak++; } else if (streak > 0) { break; }
+  }
+
+  return getReliabilityHintFromStored(streak, epochsSince);
 }
 
 // ---------------------------------------------------------------------------

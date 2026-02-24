@@ -3,7 +3,7 @@
 /**
  * Score Breakdown Component
  * Provides tooltip content for DRep Score breakdown
- * Shows: Effective Participation (40%), Rationale (25%), Consistency (20%), Profile (15%)
+ * Shows: Rationale (35%), Effective Participation (30%), Reliability (20%), Profile (15%)
  */
 
 import { EnrichedDRep } from '@/lib/koios';
@@ -22,16 +22,16 @@ interface ScoreBreakdownProps {
 }
 
 export const WEIGHTS = {
-  effectiveParticipation: 0.40,
-  rationale: 0.25,
-  consistency: 0.20,
+  effectiveParticipation: 0.30,
+  rationale: 0.35,
+  reliability: 0.20,
   profileCompleteness: 0.15,
 };
 
 export function ScoreBreakdownTooltip({ drep, children }: ScoreBreakdownProps) {
   const safeEffectiveParticipation = drep.effectiveParticipation ?? 0;
   const safeRationale = drep.rationaleRate ?? 0;
-  const safeConsistency = drep.consistencyScore ?? 0;
+  const safeReliability = drep.reliabilityScore ?? 0;
   const safeProfileCompleteness = drep.profileCompleteness ?? 0;
   const deliberationModifier = drep.deliberationModifier ?? 1.0;
   const hasRubberStampDiscount = deliberationModifier < 1.0;
@@ -50,10 +50,10 @@ export function ScoreBreakdownTooltip({ drep, children }: ScoreBreakdownProps) {
       description: 'Weighted by proposal importance. InfoActions excluded. Curve-adjusted to reward consistent effort.',
     },
     {
-      label: 'Consistency',
-      value: safeConsistency,
-      weight: WEIGHTS.consistency,
-      description: 'How steadily this DRep participates over time.',
+      label: 'Reliability',
+      value: safeReliability,
+      weight: WEIGHTS.reliability,
+      description: 'Can delegators count on this DRep to keep showing up? Measures voting streak, recency, and gaps.',
     },
     {
       label: 'Profile Completeness',

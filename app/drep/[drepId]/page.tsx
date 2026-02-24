@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getProposalDisplayTitle } from '@/utils/display';
 import { getDRepPrimaryName, hasCustomMetadata } from '@/utils/display';
-import { formatAda, getSizeBadgeClass, applyRationaleCurve, getPillarStatus, getMissingProfileFields, getEasiestWin } from '@/utils/scoring';
+import { formatAda, getSizeBadgeClass, applyRationaleCurve, getPillarStatus, getMissingProfileFields, getEasiestWin, getReliabilityHintFromStored } from '@/utils/scoring';
 import { VoteRecord } from '@/types/drep';
 import { VotingHistoryWithPrefs } from '@/components/VotingHistoryWithPrefs';
 import { InlineDelegationCTA } from '@/components/InlineDelegationCTA';
@@ -121,7 +121,11 @@ async function getDRepData(drepId: string) {
       rationaleRate: cachedDRep.rationaleRate,
       effectiveParticipation: cachedDRep.effectiveParticipation,
       deliberationModifier: cachedDRep.deliberationModifier,
-      consistencyScore: cachedDRep.consistencyScore,
+      reliabilityScore: cachedDRep.reliabilityScore,
+      reliabilityStreak: cachedDRep.reliabilityStreak,
+      reliabilityRecency: cachedDRep.reliabilityRecency,
+      reliabilityLongestGap: cachedDRep.reliabilityLongestGap,
+      reliabilityTenure: cachedDRep.reliabilityTenure,
       profileCompleteness: cachedDRep.profileCompleteness,
       anchorUrl: cachedDRep.anchorUrl,
       metadata: cachedDRep.metadata,
@@ -155,9 +159,9 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
   // Pillar values for the redesigned score card
   const adjustedRationale = applyRationaleCurve(drep.rationaleRate);
   const pillars = [
-    { value: drep.effectiveParticipation, label: 'Effective Participation', weight: '40%', maxPoints: 40 },
-    { value: adjustedRationale, label: 'Rationale Rate', weight: '25%', maxPoints: 25 },
-    { value: drep.consistencyScore, label: 'Consistency', weight: '20%', maxPoints: 20 },
+    { value: drep.effectiveParticipation, label: 'Effective Participation', weight: '30%', maxPoints: 30 },
+    { value: adjustedRationale, label: 'Rationale Rate', weight: '35%', maxPoints: 35 },
+    { value: drep.reliabilityScore, label: 'Reliability', weight: '20%', maxPoints: 20 },
     { value: drep.profileCompleteness, label: 'Profile Completeness', weight: '15%', maxPoints: 15 },
   ];
   const pillarStatuses = pillars.map(p => getPillarStatus(p.value));
@@ -173,11 +177,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
   const rationaleCount = bindingVotes.filter(v => v.hasRationale).length;
   const rationaleHint = `Provided reasoning on ${rationaleCount} of ${bindingVotes.length} binding votes`;
 
-  const epochSet = new Set(drep.votes.map(v => {
-    const d = v.date instanceof Date ? v.date : new Date(v.date);
-    return Math.floor(d.getTime() / (5 * 24 * 60 * 60 * 1000));
-  }));
-  const consistencyHint = `Active in ${epochSet.size} voting periods`;
+  const reliabilityHint = getReliabilityHintFromStored(drep.reliabilityStreak, drep.reliabilityRecency);
   const brokenLinkCount = brokenLinks.size;
   const profileHintParts: string[] = [];
   if (missingFields.length > 0) profileHintParts.push(`Missing: ${missingFields.join(', ')}`);
@@ -265,7 +265,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         percentile={percentile}
         participationHint={participationHint}
         rationaleHint={rationaleHint}
-        consistencyHint={consistencyHint}
+        reliabilityHint={reliabilityHint}
         profileHint={profileHint}
       />
 
@@ -288,7 +288,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
             drepId: drep.drepId,
             effectiveParticipation: drep.effectiveParticipation,
             rationaleRate: drep.rationaleRate,
-            consistencyScore: drep.consistencyScore,
+            reliabilityScore: drep.reliabilityScore,
             profileCompleteness: drep.profileCompleteness,
             deliberationModifier: drep.deliberationModifier,
             metadata: drep.metadata,

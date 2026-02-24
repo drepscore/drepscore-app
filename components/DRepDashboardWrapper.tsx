@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useWallet } from '@/utils/wallet';
 import { DRepDashboard } from '@/components/DRepDashboard';
 import { VoteRecord } from '@/types/drep';
 import { type ScoreSnapshot } from '@/lib/data';
 import { generateRecommendations } from '@/utils/recommendations';
 import { Card, CardContent } from '@/components/ui/card';
-import { Lock, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Lock, Sparkles, ArrowRight } from 'lucide-react';
 
 interface DRepDashboardWrapperProps {
   drepId: string;
@@ -16,7 +18,7 @@ interface DRepDashboardWrapperProps {
     drepId: string;
     effectiveParticipation: number;
     rationaleRate: number;
-    consistencyScore: number;
+    reliabilityScore: number;
     profileCompleteness: number;
     deliberationModifier: number;
     metadata: Record<string, unknown> | null;
@@ -52,19 +54,43 @@ export function DRepDashboardWrapper({ drepId, drep, scoreHistory }: DRepDashboa
   }, [isAuthenticated, sessionAddress, simulateRequested]);
 
   const isSimulated = !isOwner && isAdmin && simulateRequested;
-  const showDashboard = isOwner || isSimulated;
 
-  if (showDashboard) {
+  // Admin simulate mode still shows inline dashboard on public profile
+  if (isSimulated) {
     return (
       <DRepDashboard
         drep={drep}
         scoreHistory={scoreHistory}
-        isSimulated={isSimulated}
+        isSimulated
       />
     );
   }
 
-  // Teaser card for non-owners
+  // Owner: banner pointing to dedicated dashboard
+  if (isOwner) {
+    return (
+      <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
+        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-5">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-semibold text-sm">This is your DRep profile</p>
+              <p className="text-xs text-muted-foreground">
+                View your full dashboard with personalized insights and recommendations.
+              </p>
+            </div>
+          </div>
+          <Link href="/dashboard">
+            <Button size="sm" className="gap-2">
+              Open Dashboard <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Non-owner teaser
   const recs = generateRecommendations(drep);
   if (recs.length === 0) return null;
 

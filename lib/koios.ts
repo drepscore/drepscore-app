@@ -14,7 +14,7 @@ import {
 import {
   calculateParticipationRate,
   calculateDeliberationModifier,
-  calculateConsistency,
+  calculateReliability,
   calculateEffectiveParticipation,
   calculateProfileCompleteness,
   calculateWeightedRationaleRate,
@@ -30,13 +30,14 @@ import { DRep } from '@/types/drep';
 import { getActiveProposalEpochs, getActualProposalCount } from '@/lib/data';
 
 // ---------------------------------------------------------------------------
-// Weighting Philosophy (V2)
+// Weighting Philosophy (V3 — Rationale-Forward)
 // ---------------------------------------------------------------------------
-// DRep Score is purely objective - measures accountability:
-// - Effective Participation (40%): Do they show up? Penalized for rubber-stamping.
-// - Rationale (25%): Do they explain their votes? Weighted by proposal importance,
-//   curved to reward initial effort, quality threshold to prevent gaming.
-// - Consistency (20%): Do they stay engaged over time?
+// DRep Score measures accountability with rationale as the highest signal:
+// - Rationale (35%): Do they explain their votes? Highest weight because
+//   explaining governance decisions is what separates engaged DReps.
+// - Effective Participation (30%): Do they show up? Penalized for rubber-stamping.
+// - Reliability (20%): Can delegators count on them to keep showing up?
+//   Streak, recency, gap penalty, tenure — orthogonal to participation.
 // - Profile Completeness (15%): Do they invest in their public CIP-119 profile?
 // ---------------------------------------------------------------------------
 
@@ -44,15 +45,15 @@ import { getActiveProposalEpochs, getActualProposalCount } from '@/lib/data';
 export interface DRepWeights {
   effectiveParticipation: number;
   rationale: number;
-  consistency: number;
+  reliability: number;
   profileCompleteness: number;
 }
 
-/** Default: accountability-focused weights */
+/** Default: rationale-forward weights */
 export const DEFAULT_WEIGHTS: DRepWeights = {
-  effectiveParticipation: 0.40,
-  rationale: 0.25,
-  consistency: 0.20,
+  effectiveParticipation: 0.30,
+  rationale: 0.35,
+  reliability: 0.20,
   profileCompleteness: 0.15,
 };
 
@@ -70,27 +71,27 @@ export interface EnrichedDRep extends DRep {
 
 /**
  * Calculate rolled-up DRep Score (0-100).
- * Formula: Effective Participation (40%) + Adjusted Rationale (25%)
- *          + Consistency (20%) + Profile Completeness (15%)
+ * Formula: Rationale (35%) + Effective Participation (30%)
+ *          + Reliability (20%) + Profile Completeness (15%)
  *
  * rationaleRate is the raw weighted rate; the forgiving curve is applied here.
  */
 export function calculateDRepScore(
   drep: Pick<
     DRep,
-    'effectiveParticipation' | 'rationaleRate' | 'consistencyScore' | 'profileCompleteness'
+    'effectiveParticipation' | 'rationaleRate' | 'reliabilityScore' | 'profileCompleteness'
   >,
   weights: DRepWeights = DEFAULT_WEIGHTS
 ): number {
   const effectiveParticipation = drep.effectiveParticipation ?? 0;
   const rationale = applyRationaleCurve(drep.rationaleRate ?? 0);
-  const consistency = drep.consistencyScore ?? 0;
+  const reliability = drep.reliabilityScore ?? 0;
   const profile = drep.profileCompleteness ?? 0;
 
   const raw =
     (effectiveParticipation / 100) * weights.effectiveParticipation +
     (rationale / 100) * weights.rationale +
-    (consistency / 100) * weights.consistency +
+    (reliability / 100) * weights.reliability +
     (profile / 100) * weights.profileCompleteness;
 
   const score = Math.round(raw * 100);
@@ -207,13 +208,15 @@ export async function getEnrichedDReps(
       return { dreps: [], allDReps: [], error: true, totalAvailable: 0 };
     }
 
-    // Fetch epochs that had proposals for consistency scoring
+    const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
+
+    // Fetch epochs that had proposals for reliability scoring
     const [activeProposalEpochs, actualProposalCount] = await Promise.all([
       getActiveProposalEpochs(),
       getActualProposalCount(),
     ]);
     if (isDev) {
-      console.log(`[DRepScore] Active proposal epochs: ${activeProposalEpochs.size} epochs, actual proposals: ${actualProposalCount}`);
+      console.log(`[DRepScore] Current epoch: ${currentEpoch}, active proposal epochs: ${activeProposalEpochs.size}, actual proposals: ${actualProposalCount}`);
     }
 
     const drepList = await fetchAllDReps();
@@ -295,7 +298,8 @@ export async function getEnrichedDReps(
         const effectiveParticipation = calculateEffectiveParticipation(participationRate, deliberationModifier);
 
         const { counts: epochVoteCounts, firstEpoch } = computeEpochVoteCounts(votes);
-        const consistencyScore = calculateConsistency(epochVoteCounts, firstEpoch, activeProposalEpochs);
+        const reliabilityResult = calculateReliability(epochVoteCounts, firstEpoch, currentEpoch, activeProposalEpochs);
+        const reliabilityScore = reliabilityResult.score;
 
         // V2: Profile completeness from CIP-119 metadata
         const metadataBody = drepMetadata?.meta_json?.body || null;
@@ -312,7 +316,11 @@ export async function getEnrichedDReps(
           votingPowerLovelace: drepInfo.amount || '0',
           participationRate,
           rationaleRate,
-          consistencyScore,
+          reliabilityScore,
+          reliabilityStreak: reliabilityResult.streak,
+          reliabilityRecency: reliabilityResult.recency,
+          reliabilityLongestGap: reliabilityResult.longestGap,
+          reliabilityTenure: reliabilityResult.tenure,
           deliberationModifier,
           effectiveParticipation,
           sizeTier: getSizeTier(votingPower),

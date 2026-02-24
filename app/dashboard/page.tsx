@@ -1,0 +1,464 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
+import { useWallet } from '@/utils/wallet';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
+import {
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Shield,
+  ExternalLink,
+  Wallet,
+  ArrowRight,
+  Activity,
+  Clock,
+  Zap,
+  Award,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Users,
+  BarChart3,
+} from 'lucide-react';
+import { ScoreHistoryChart } from '@/components/ScoreHistoryChart';
+import { DRepDashboard } from '@/components/DRepDashboard';
+import { formatAda, getPillarStatus, applyRationaleCurve, getMissingProfileFields } from '@/utils/scoring';
+import type { ScoreSnapshot } from '@/lib/data';
+import type { VoteRecord } from '@/types/drep';
+
+interface DashboardDRep {
+  drepId: string;
+  drepHash: string;
+  handle: string | null;
+  name: string | null;
+  ticker: string | null;
+  description: string | null;
+  votingPower: number;
+  votingPowerLovelace: string;
+  delegatorCount: number;
+  sizeTier: string;
+  drepScore: number;
+  isActive: boolean;
+  participationRate: number;
+  rationaleRate: number;
+  effectiveParticipation: number;
+  deliberationModifier: number;
+  reliabilityScore: number;
+  reliabilityStreak: number;
+  reliabilityRecency: number;
+  reliabilityLongestGap: number;
+  reliabilityTenure: number;
+  profileCompleteness: number;
+  anchorUrl: string | null;
+  metadata: Record<string, unknown> | null;
+  votes: VoteRecord[];
+  brokenLinks: string[];
+}
+
+interface DashboardData {
+  drep: DashboardDRep;
+  scoreHistory: ScoreSnapshot[];
+  percentile: number;
+}
+
+type PageState = 'loading' | 'no-wallet' | 'not-drep' | 'ready' | 'error';
+
+export default function MyDRepPage() {
+  const { connected, isAuthenticated, ownDRepId, connecting } = useWallet();
+  const [state, setState] = useState<PageState>('loading');
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDashboard = useCallback(async (drepId: string) => {
+    setState('loading');
+    try {
+      const res = await fetch(`/api/dashboard?drepId=${encodeURIComponent(drepId)}`);
+      if (!res.ok) {
+        if (res.status === 404) { setState('not-drep'); return; }
+        throw new Error('Failed to load dashboard');
+      }
+      const json = await res.json();
+      json.drep.votes = json.drep.votes.map((v: any) => ({
+        ...v,
+        date: new Date(v.date),
+      }));
+      setData(json);
+      setState('ready');
+    } catch (err: any) {
+      setError(err.message);
+      setState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (connecting) return;
+
+    if (!connected || !isAuthenticated) {
+      setState('no-wallet');
+      return;
+    }
+
+    if (!ownDRepId) {
+      setState('not-drep');
+      return;
+    }
+
+    fetchDashboard(ownDRepId);
+  }, [connected, isAuthenticated, ownDRepId, connecting, fetchDashboard]);
+
+  if (state === 'loading' || connecting) return <DashboardSkeleton />;
+  if (state === 'no-wallet') return <ConnectWalletCTA />;
+  if (state === 'not-drep') return <NotADRepCTA />;
+  if (state === 'error') return <ErrorState message={error} />;
+  if (!data) return <DashboardSkeleton />;
+
+  const { drep, scoreHistory, percentile } = data;
+  const prevSnapshot = scoreHistory.length >= 2 ? scoreHistory[scoreHistory.length - 2] : null;
+  const scoreChange = prevSnapshot ? drep.drepScore - prevSnapshot.score : null;
+  const adjustedRationale = applyRationaleCurve(drep.rationaleRate);
+  const missingFields = getMissingProfileFields(drep.metadata);
+  const profileHealthy = missingFields.length === 0 && drep.brokenLinks.length === 0;
+
+  return (
+    <div className="container mx-auto px-4 py-6 max-w-6xl">
+      {/* Hero Bar */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-1">
+          <Shield className="h-5 w-5 text-primary" />
+          <h1 className="text-2xl font-bold">My DRep Dashboard</h1>
+          {drep.isActive && <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Active</Badge>}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {drep.name || drep.drepId.slice(0, 20) + '…'} — Your governance performance at a glance
+        </p>
+      </div>
+
+      {/* Score Hero */}
+      <Card className="mb-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            {/* Score + Change */}
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <div className="text-5xl font-bold tabular-nums">{drep.drepScore}</div>
+                <div className="text-xs text-muted-foreground mt-1">DRep Score</div>
+              </div>
+              {scoreChange !== null && (
+                <div className={`flex items-center gap-1 text-sm font-medium ${
+                  scoreChange > 0 ? 'text-green-600 dark:text-green-400' :
+                  scoreChange < 0 ? 'text-red-600 dark:text-red-400' :
+                  'text-muted-foreground'
+                }`}>
+                  {scoreChange > 0 ? <TrendingUp className="h-4 w-4" /> :
+                   scoreChange < 0 ? <TrendingDown className="h-4 w-4" /> :
+                   <Minus className="h-4 w-4" />}
+                  {scoreChange > 0 ? '+' : ''}{scoreChange} pts
+                </div>
+              )}
+              <div className="text-sm text-muted-foreground">
+                Top <span className="font-semibold text-foreground">{Math.max(1, Math.round(100 - percentile))}%</span> of DReps
+              </div>
+            </div>
+
+            {/* Quick Pillar Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center w-full md:w-auto">
+              <PillarMini label="Participation" value={drep.effectiveParticipation} weight={30} />
+              <PillarMini label="Rationale" value={adjustedRationale} weight={35} />
+              <PillarMini label="Reliability" value={drep.reliabilityScore} weight={20} />
+              <PillarMini label="Profile" value={drep.profileCompleteness} weight={15} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Two-Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column — Main Content (2/3) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Score Trend */}
+          <ScoreHistoryChart history={scoreHistory} />
+
+          {/* Recommendations + Missing Rationale */}
+          <DRepDashboard drep={drep} scoreHistory={scoreHistory} />
+        </div>
+
+        {/* Right Column — Sidebar (1/3) */}
+        <div className="space-y-6">
+          {/* Reliability Breakdown */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Reliability Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ReliabilityStat
+                icon={<Zap className="h-3.5 w-3.5" />}
+                label="Active Streak"
+                value={`${drep.reliabilityStreak} epoch${drep.reliabilityStreak !== 1 ? 's' : ''}`}
+                detail="Consecutive epochs with votes"
+              />
+              <ReliabilityStat
+                icon={<Clock className="h-3.5 w-3.5" />}
+                label="Last Voted"
+                value={drep.reliabilityRecency === 0 ? 'This epoch' : `${drep.reliabilityRecency} epoch${drep.reliabilityRecency !== 1 ? 's' : ''} ago`}
+                detail="Recency of activity"
+              />
+              <ReliabilityStat
+                icon={<Activity className="h-3.5 w-3.5" />}
+                label="Longest Gap"
+                value={`${drep.reliabilityLongestGap} epoch${drep.reliabilityLongestGap !== 1 ? 's' : ''}`}
+                detail="Longest period without voting"
+              />
+              <ReliabilityStat
+                icon={<Award className="h-3.5 w-3.5" />}
+                label="Tenure"
+                value={`${drep.reliabilityTenure} epoch${drep.reliabilityTenure !== 1 ? 's' : ''}`}
+                detail="Time since first vote"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Delegator Summary */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                At a Glance
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <GlanceStat label="Delegators" value={drep.delegatorCount.toLocaleString()} />
+              <GlanceStat label="Voting Power" value={formatAda(drep.votingPower)} />
+              <GlanceStat label="Total Votes" value={drep.votes.length.toString()} />
+              <GlanceStat label="Size Tier" value={drep.sizeTier} />
+            </CardContent>
+          </Card>
+
+          {/* Profile Health Check */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                {profileHealthy
+                  ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  : <AlertTriangle className="h-4 w-4 text-amber-500" />}
+                Profile Health
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {profileHealthy ? (
+                <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                  All profile fields complete and links verified
+                </p>
+              ) : (
+                <>
+                  {missingFields.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1">
+                        Missing fields ({missingFields.length})
+                      </p>
+                      <ul className="text-xs text-muted-foreground space-y-0.5">
+                        {missingFields.map(f => (
+                          <li key={f} className="flex items-center gap-1.5">
+                            <XCircle className="h-3 w-3 text-amber-500 shrink-0" />
+                            <span className="capitalize">{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {drep.brokenLinks.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">
+                        Broken links ({drep.brokenLinks.length})
+                      </p>
+                      <ul className="text-xs text-muted-foreground space-y-0.5">
+                        {drep.brokenLinks.map(link => (
+                          <li key={link} className="flex items-center gap-1.5 truncate">
+                            <XCircle className="h-3 w-3 text-red-500 shrink-0" />
+                            <span className="truncate">{link}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground pt-1 border-t">
+                    Update your profile via{' '}
+                    <a href="https://gov.tools" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">gov.tools</a>
+                    {' '}or your wallet&apos;s governance section.
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Peer Benchmark */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Peer Benchmark
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground">Your Score</span>
+                  <span className="text-xs font-semibold">{drep.drepScore}/100</span>
+                </div>
+                <Progress value={drep.drepScore} className="h-2" />
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Percentile Rank</span>
+                <span className="font-semibold">Top {Math.max(1, Math.round(100 - percentile))}%</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground pt-2 border-t">
+                {percentile >= 90
+                  ? 'Excellent — you\'re among the top-performing DReps.'
+                  : percentile >= 70
+                  ? 'Strong performance. Focus on your weakest pillar to climb higher.'
+                  : percentile >= 50
+                  ? 'Above average. Check your recommendations for quick wins.'
+                  : 'Room to grow. Your action plan highlights the fastest improvements.'}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Public Profile Link */}
+          <Card>
+            <CardContent className="pt-6">
+              <Link href={`/drep/${encodeURIComponent(drep.drepId)}`} className="flex items-center justify-between text-sm hover:underline">
+                <span>View Public Profile</span>
+                <ExternalLink className="h-4 w-4" />
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PillarMini({ label, value, weight }: { label: string; value: number; weight: number }) {
+  const status = getPillarStatus(value);
+  const colorClass = status === 'strong' ? 'text-green-600 dark:text-green-400' :
+                     status === 'needs-work' ? 'text-amber-600 dark:text-amber-400' :
+                     'text-red-600 dark:text-red-400';
+  return (
+    <div>
+      <div className={`text-lg font-bold tabular-nums ${colorClass}`}>{value}%</div>
+      <div className="text-[10px] text-muted-foreground">{label} ({weight}%)</div>
+    </div>
+  );
+}
+
+function ReliabilityStat({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 text-muted-foreground">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-xs font-medium">{label}</span>
+          <span className="text-xs font-semibold tabular-nums">{value}</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function GlanceStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm font-semibold">{value}</span>
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="container mx-auto px-4 py-6 max-w-6xl">
+      <Skeleton className="h-8 w-64 mb-2" />
+      <Skeleton className="h-4 w-96 mb-8" />
+      <Skeleton className="h-40 w-full mb-6" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Skeleton className="h-[300px] w-full" />
+          <Skeleton className="h-[250px] w-full" />
+        </div>
+        <div className="space-y-6">
+          <Skeleton className="h-[200px] w-full" />
+          <Skeleton className="h-[180px] w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConnectWalletCTA() {
+  return (
+    <div className="container mx-auto px-4 py-16 max-w-lg text-center">
+      <Card className="border-2 border-dashed">
+        <CardContent className="pt-8 pb-8 space-y-4">
+          <Wallet className="h-12 w-12 mx-auto text-muted-foreground" />
+          <h2 className="text-xl font-bold">Connect Your Wallet</h2>
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+            Connect a Cardano wallet that holds your DRep credentials to access your personalized dashboard.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Use the wallet button in the header to connect.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function NotADRepCTA() {
+  return (
+    <div className="container mx-auto px-4 py-16 max-w-lg text-center">
+      <Card className="border-2 border-dashed">
+        <CardContent className="pt-8 pb-8 space-y-4">
+          <Shield className="h-12 w-12 mx-auto text-muted-foreground" />
+          <h2 className="text-xl font-bold">No DRep Profile Found</h2>
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+            The wallet you connected doesn&apos;t have a registered DRep profile in our system.
+            If you&apos;re a DRep, make sure you&apos;re using the wallet associated with your DRep registration.
+          </p>
+          <Link href="/">
+            <Button variant="outline" className="gap-2 mt-2">
+              Browse DReps <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string | null }) {
+  return (
+    <div className="container mx-auto px-4 py-16 max-w-lg text-center">
+      <Card className="border-2 border-destructive/30">
+        <CardContent className="pt-8 pb-8 space-y-4">
+          <h2 className="text-xl font-bold">Something Went Wrong</h2>
+          <p className="text-sm text-muted-foreground">
+            {message || 'Failed to load your dashboard. Please try again.'}
+          </p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

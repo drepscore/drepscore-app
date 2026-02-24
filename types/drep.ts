@@ -24,7 +24,11 @@ export interface DRep {
   votingPowerLovelace: string;
   participationRate: number;
   rationaleRate: number;
-  consistencyScore: number;
+  reliabilityScore: number;
+  reliabilityStreak: number;
+  reliabilityRecency: number;
+  reliabilityLongestGap: number;
+  reliabilityTenure: number;
   deliberationModifier: number;
   effectiveParticipation: number;
   sizeTier: SizeTier;

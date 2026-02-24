@@ -63,7 +63,7 @@ const ALERT_COLORS: Record<AlertType, string> = {
 };
 
 export function Header() {
-  const { isAuthenticated, sessionAddress, logout } = useWallet();
+  const { isAuthenticated, sessionAddress, ownDRepId, logout } = useWallet();
   const { alerts, unreadCount, dismissAlert } = useAlignmentAlerts();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -102,6 +102,12 @@ export function Header() {
             <BookOpen className="h-4 w-4" />
             <span>Methodology</span>
           </Link>
+          {ownDRepId && (
+            <Link href="/dashboard" className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+              <Sparkles className="h-4 w-4" />
+              <span>My Dashboard</span>
+            </Link>
+          )}
           
           {isAuthenticated && sessionAddress ? (
             <>
@@ -195,6 +201,14 @@ export function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {ownDRepId && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard" className="cursor-pointer">
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        My DRep Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="cursor-pointer">
                       <User className="h-4 w-4 mr-2" />

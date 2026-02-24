@@ -108,6 +108,10 @@ export function classifyProposal(proposal: ProposalInfo): ClassifiedProposal {
     relevantPrefs,
     proposedEpoch: proposal.proposed_epoch,
     blockTime: proposal.block_time,
+    ratifiedEpoch: proposal.ratified_epoch ?? null,
+    enactedEpoch: proposal.enacted_epoch ?? null,
+    droppedEpoch: proposal.dropped_epoch ?? null,
+    expiredEpoch: proposal.expired_epoch ?? null,
   };
 }
 

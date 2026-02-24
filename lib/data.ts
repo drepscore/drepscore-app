@@ -27,7 +27,11 @@ function transformSupabaseRowToDRep(row: any): EnrichedDRep {
     votingPowerLovelace: info.votingPowerLovelace || '0',
     participationRate: row.participation_rate || 0,
     rationaleRate: row.rationale_rate || 0,
-    consistencyScore: row.consistency_score || 0,
+    reliabilityScore: row.reliability_score || 0,
+    reliabilityStreak: row.reliability_streak ?? 0,
+    reliabilityRecency: row.reliability_recency ?? 0,
+    reliabilityLongestGap: row.reliability_longest_gap ?? 0,
+    reliabilityTenure: row.reliability_tenure ?? 0,
     deliberationModifier: row.deliberation_modifier || 1.0,
     effectiveParticipation: row.effective_participation || row.participation_rate || 0,
     sizeTier: row.size_tier || 'Small',
@@ -163,28 +167,42 @@ export async function getAllDReps(): Promise<{
 }
 
 /**
- * Get proposal counts per epoch.
- * Returns Map<epoch, proposalCount> so consistency scoring can normalize
- * vote counts by how many proposals were available each epoch.
+ * Get proposal counts per epoch using lifecycle-aware counting.
+ * Each proposal is counted in every epoch it was active (from proposed_epoch
+ * through the earliest of expired/ratified/dropped epoch, or current epoch).
+ * Returns Map<epoch, proposalCount> for reliability scoring.
  */
 export async function getActiveProposalEpochs(): Promise<Map<number, number>> {
   try {
     const supabase = createClient();
-    
+
     const { data: rows, error } = await supabase
       .from('proposals')
-      .select('proposed_epoch')
+      .select('proposed_epoch, expired_epoch, ratified_epoch, dropped_epoch')
       .not('proposed_epoch', 'is', null);
-    
+
     if (error || !rows) return new Map();
-    
+
+    // Derive current epoch from timestamp
+    const SHELLEY_GENESIS = 1596491091;
+    const EPOCH_LEN = 432000;
+    const SHELLEY_BASE = 209;
+    const currentEpoch = Math.floor((Date.now() / 1000 - SHELLEY_GENESIS) / EPOCH_LEN) + SHELLEY_BASE;
+
     const counts = new Map<number, number>();
     for (const row of rows) {
-      if (row.proposed_epoch != null) {
-        counts.set(row.proposed_epoch, (counts.get(row.proposed_epoch) || 0) + 1);
+      if (row.proposed_epoch == null) continue;
+      const start = row.proposed_epoch;
+      // End epoch is the earliest lifecycle termination, or current epoch
+      const endEpoch = Math.min(
+        ...[row.expired_epoch, row.ratified_epoch, row.dropped_epoch, currentEpoch]
+          .filter((e): e is number => e != null)
+      );
+      for (let e = start; e <= endEpoch; e++) {
+        counts.set(e, (counts.get(e) || 0) + 1);
       }
     }
-    
+
     return counts;
   } catch {
     return new Map();
@@ -650,7 +668,7 @@ export interface ScoreSnapshot {
   score: number;
   effectiveParticipation: number;
   rationaleRate: number;
-  consistencyScore: number;
+  reliabilityScore: number;
   profileCompleteness: number;
 }
 
@@ -663,7 +681,7 @@ export async function getScoreHistory(drepId: string): Promise<ScoreSnapshot[]> 
 
     const { data: rows, error } = await supabase
       .from('drep_score_history')
-      .select('snapshot_date, score, effective_participation, rationale_rate, consistency_score, profile_completeness')
+      .select('snapshot_date, score, effective_participation, rationale_rate, reliability_score, profile_completeness')
       .eq('drep_id', drepId)
       .order('snapshot_date', { ascending: true });
 
@@ -674,7 +692,7 @@ export async function getScoreHistory(drepId: string): Promise<ScoreSnapshot[]> 
       score: r.score ?? 0,
       effectiveParticipation: r.effective_participation ?? 0,
       rationaleRate: r.rationale_rate ?? 0,
-      consistencyScore: r.consistency_score ?? 0,
+      reliabilityScore: r.reliability_score ?? 0,
       profileCompleteness: r.profile_completeness ?? 0,
     }));
   } catch (err) {

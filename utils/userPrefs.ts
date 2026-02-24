@@ -48,7 +48,7 @@ export function applyPreferenceBoost(drep: DRep & { drepScore: number }, prefs: 
     // Boost small/medium DReps
     if (drep.sizeTier === 'Small' || drep.sizeTier === 'Medium') boost += 5;
     // Boost consistent DReps
-    if (drep.consistencyScore > 60) boost += 3;
+    if (drep.reliabilityScore > 60) boost += 3;
   }
   
   if (prefs.includes('protocol-security-first')) {

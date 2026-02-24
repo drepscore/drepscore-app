@@ -165,4 +165,8 @@ export interface ClassifiedProposal {
   relevantPrefs: string[];
   proposedEpoch: number;
   blockTime: number;
+  ratifiedEpoch: number | null;
+  enactedEpoch: number | null;
+  droppedEpoch: number | null;
+  expiredEpoch: number | null;
 }
