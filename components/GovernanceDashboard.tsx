@@ -10,6 +10,13 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScoreRing } from '@/components/ScoreRing';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { TYPE_EXPLAINERS } from '@/utils/proposalPriority';
+import {
   Shield,
   Wallet,
   Vote,
@@ -88,10 +95,27 @@ const VOTE_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string; bg
   Abstain: { icon: MinusCircle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30' },
 };
 
-const PRIORITY_STYLES: Record<string, string> = {
-  critical: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  important: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  standard: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+const PRIORITY_STYLES: Record<string, { className: string; tooltip: string }> = {
+  critical: {
+    className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    tooltip: 'Critical: Fundamentally changes the network or governance structure. Requires careful attention.',
+  },
+  important: {
+    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    tooltip: 'Important: Changes protocol parameters that affect fees, rewards, or block sizes.',
+  },
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  TreasuryWithdrawals: 'Treasury',
+  ParameterChange: 'Params',
+  HardForkInitiation: 'Hard Fork',
+  NoConfidence: 'No Confidence',
+  NewCommittee: 'Committee',
+  NewConstitutionalCommittee: 'Committee',
+  NewConstitution: 'Constitution',
+  UpdateConstitution: 'Constitution',
+  InfoAction: 'Info',
 };
 
 export function GovernanceDashboard() {
@@ -235,7 +259,7 @@ function DelegationHealthCard({ health }: { health: DashboardData['delegationHea
             <p className="text-xs text-muted-foreground">Score: {health.drepScore}/100</p>
           </div>
           <Link href={`/drep/${encodeURIComponent(health.drepId)}`}>
-            <Button variant="outline" size="sm" className="gap-1 text-xs">
+            <Button variant="outline" size="sm" className="gap-1 text-xs hover:text-primary hover:bg-primary/10">
               Profile <ExternalLink className="h-3 w-3" />
             </Button>
           </Link>
@@ -293,7 +317,7 @@ function RepresentationScoreCard({ rep }: { rep: DashboardData['representationSc
             Each poll vote you cast builds this score.
           </p>
           <Link href="/proposals">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2 hover:text-primary hover:bg-primary/10">
               <Vote className="h-3.5 w-3.5" />
               Vote on Proposals
             </Button>
@@ -363,6 +387,46 @@ function RepresentationScoreCard({ rep }: { rep: DashboardData['representationSc
   );
 }
 
+function DeadlineBadge({ epochsRemaining }: { epochsRemaining: number | null }) {
+  if (epochsRemaining === null) return null;
+
+  const days = epochsRemaining * 5;
+  let style: string;
+  let label: string;
+
+  if (epochsRemaining <= 0) {
+    style = 'text-red-600 dark:text-red-400 border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20';
+    label = 'Expiring';
+  } else if (epochsRemaining <= 2) {
+    style = 'text-red-600 dark:text-red-400 border-red-300 dark:border-red-800';
+    label = `~${days}d left`;
+  } else if (epochsRemaining <= 4) {
+    style = 'text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800';
+    label = `~${days}d left`;
+  } else {
+    style = 'text-muted-foreground border-border';
+    label = `~${days}d left`;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="outline" className={`text-[10px] shrink-0 gap-0.5 cursor-help ${style}`}>
+          <Clock className="h-2.5 w-2.5" />
+          {label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[200px]">
+        <p className="text-xs">
+          {epochsRemaining <= 0
+            ? 'This proposal is expiring this epoch.'
+            : `Expires in ~${epochsRemaining} epoch${epochsRemaining !== 1 ? 's' : ''} (~${days} days)`}
+        </p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function ActiveProposalsSection({ proposals }: { proposals: DashboardData['activeProposals'] }) {
   const needsVoteCount = useMemo(
     () => proposals.filter(p => !p.userVote).length,
@@ -385,6 +449,8 @@ function ActiveProposalsSection({ proposals }: { proposals: DashboardData['activ
     );
   }
 
+  const priorityConfig = PRIORITY_STYLES;
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -401,49 +467,90 @@ function ActiveProposalsSection({ proposals }: { proposals: DashboardData['activ
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-1">
-          {proposals.map((p) => (
-            <Link
-              key={`${p.txHash}-${p.proposalIndex}`}
-              href={`/proposals/${p.txHash}/${p.proposalIndex}`}
-              className="flex items-center gap-2 text-sm hover:bg-muted/50 rounded px-2 py-2 -mx-2 transition-colors"
-            >
-              {/* Vote status indicator */}
-              {p.userVote ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-              ) : (
-                <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
-              )}
+        <TooltipProvider delayDuration={300}>
+          <div className="space-y-1">
+            {proposals.map((p) => {
+              const typeLabel = TYPE_LABELS[p.proposalType] || p.proposalType;
+              const typeExplainer = TYPE_EXPLAINERS[p.proposalType];
+              const priority = priorityConfig[p.priority];
 
-              <span className="truncate flex-1">
-                {p.title || `Proposal ${p.txHash.slice(0, 12)}...`}
-              </span>
+              return (
+                <Link
+                  key={`${p.txHash}-${p.proposalIndex}`}
+                  href={`/proposals/${p.txHash}/${p.proposalIndex}`}
+                  className="flex items-center gap-2 text-sm hover:bg-muted/50 rounded px-2 py-2 -mx-2 transition-colors"
+                >
+                  {p.userVote ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                  ) : (
+                    <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                  )}
 
-              {/* Priority */}
-              <Badge variant="outline" className={`text-[10px] shrink-0 ${PRIORITY_STYLES[p.priority] || ''}`}>
-                {p.priority}
-              </Badge>
+                  <span className="truncate flex-1">
+                    {p.title || `Proposal ${p.txHash.slice(0, 12)}...`}
+                  </span>
 
-              {/* Deadline */}
-              {p.epochsRemaining !== null && p.epochsRemaining <= 2 && (
-                <Badge variant="outline" className="text-[10px] shrink-0 gap-0.5 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800">
-                  <Clock className="h-2.5 w-2.5" />
-                  {p.epochsRemaining}e
-                </Badge>
-              )}
+                  {/* Proposal type */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="text-[10px] shrink-0 cursor-help bg-muted/50 text-muted-foreground border-border">
+                        {typeLabel}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[260px]">
+                      <p className="text-xs">{typeExplainer || p.proposalType}</p>
+                    </TooltipContent>
+                  </Tooltip>
 
-              {/* Your vote + DRep vote */}
-              {p.userVote && <VoteBadge vote={p.userVote} label="You" />}
-              {p.drepVote && <VoteBadge vote={p.drepVote} label="DRep" />}
+                  {/* Priority -- only shown for critical/important */}
+                  {priority && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className={`text-[10px] shrink-0 cursor-help ${priority.className}`}>
+                          {p.priority === 'critical' ? 'Critical' : 'Important'}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[240px]">
+                        <p className="text-xs">{priority.tooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
 
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            </Link>
-          ))}
-        </div>
+                  {/* Deadline */}
+                  <DeadlineBadge epochsRemaining={p.epochsRemaining} />
+
+                  {/* Vote badges */}
+                  {p.userVote && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help"><VoteBadge vote={p.userVote} label="You" /></span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p className="text-xs">Your poll vote on this proposal</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {p.drepVote && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help"><VoteBadge vote={p.drepVote} label="DRep" /></span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p className="text-xs">Your DRep&apos;s on-chain governance vote</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        </TooltipProvider>
 
         <div className="mt-3 pt-3 border-t">
           <Link href="/proposals">
-            <Button variant="outline" size="sm" className="w-full gap-1">
+            <Button variant="outline" size="sm" className="w-full gap-1 hover:text-primary hover:bg-primary/10">
               View All Proposals
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -488,7 +595,7 @@ function PollHistorySection({ history }: { history: DashboardData['pollHistory']
             You haven&apos;t voted in any polls yet. Head to the proposals page to share your opinion.
           </p>
           <Link href="/proposals" className="mt-3 inline-block">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2 hover:text-primary hover:bg-primary/10">
               <Vote className="h-3.5 w-3.5" />
               Browse Proposals
             </Button>

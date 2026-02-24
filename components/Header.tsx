@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useWallet } from '@/utils/wallet';
 import { useAlignmentAlerts, AlertType } from '@/hooks/useAlignmentAlerts';
@@ -72,11 +73,17 @@ const ALERT_COLORS: Record<AlertType, string> = {
 export function Header() {
   const { isAuthenticated, sessionAddress, address, connected, ownDRepId, logout } = useWallet();
   const { alerts, unreadCount, dismissAlert } = useAlignmentAlerts();
+  const pathname = usePathname();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-6)}`;
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  const navLinkClass = (href: string) =>
+    `hidden sm:flex items-center gap-1 text-sm transition-colors ${
+      isActive(href) ? 'font-medium text-primary' : 'text-muted-foreground hover:text-foreground'
+    }`;
 
   useEffect(() => {
     if (!isAuthenticated) { setDisplayName(null); return; }
@@ -115,22 +122,22 @@ export function Header() {
         </Link>
 
         <nav className="flex items-center space-x-2 sm:space-x-4">
-          <Link href="/proposals" className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/proposals" className={navLinkClass('/proposals')}>
             <ScrollText className="h-4 w-4" />
             <span>Proposals</span>
           </Link>
-          <Link href="/methodology" className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/methodology" className={navLinkClass('/methodology')}>
             <BookOpen className="h-4 w-4" />
             <span>Methodology</span>
           </Link>
           {isAuthenticated && (
-            <Link href="/governance" className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+            <Link href="/governance" className={navLinkClass('/governance')}>
               <Vote className="h-4 w-4" />
               <span>My Governance</span>
             </Link>
           )}
           {(ownDRepId || isAdmin) && (
-            <Link href="/dashboard" className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/dashboard" className={navLinkClass('/dashboard')}>
               <Sparkles className="h-4 w-4" />
               <span>DRep Dashboard</span>
             </Link>
