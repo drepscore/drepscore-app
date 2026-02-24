@@ -72,23 +72,21 @@ function isValidUrl(url: string) {
 export function SocialIcons({ metadata }: SocialIconsProps) {
   if (!metadata) return null;
 
-  const rawReferences = (metadata.references as Array<{ label: string; uri: string }> | undefined) || [];
+  const references = (metadata.references as Array<{ label: string; uri: string }> | undefined) || [];
   const email = metadata.email as string | undefined;
 
+  if (references.length === 0 && !email) return null;
+
   const seenUris = new Set<string>();
-  const references = rawReferences.filter(ref => {
+  const dedupedRefs = references.filter(ref => {
     if (!isValidUrl(ref.uri) || seenUris.has(ref.uri)) return false;
     seenUris.add(ref.uri);
     return true;
   });
 
-  if (references.length === 0 && !email) return null;
-
   return (
     <div className="flex items-center gap-1 mt-1 flex-wrap">
-      {references.slice(0, 6).map((ref, i) => {
-        if (!isValidUrl(ref.uri)) return null;
-
+      {dedupedRefs.slice(0, 6).map((ref, i) => {
         const platform = extractSocialPlatform(ref.uri, ref.label);
         return (
           <TooltipProvider key={i}>

@@ -118,7 +118,7 @@ export function Header() {
           {(ownDRepId || isAdmin) && (
             <Link href="/dashboard" className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
               <Sparkles className="h-4 w-4" />
-              <span>{ownDRepId ? 'My Dashboard' : 'Dashboard'}</span>
+              <span>My Dashboard</span>
             </Link>
           )}
           
@@ -218,7 +218,7 @@ export function Header() {
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard" className="cursor-pointer">
                         <Sparkles className="h-4 w-4 mr-2" />
-                        {ownDRepId ? 'My DRep Dashboard' : 'DRep Dashboard'}
+                        My DRep Dashboard
                       </Link>
                     </DropdownMenuItem>
                   )}
