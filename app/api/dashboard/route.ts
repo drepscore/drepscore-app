@@ -116,6 +116,7 @@ export async function GET(request: NextRequest) {
         metadata: cachedDRep.metadata,
         votes,
         brokenLinks,
+        updatedAt: cachedDRep.updatedAt,
       },
       scoreHistory,
       percentile,

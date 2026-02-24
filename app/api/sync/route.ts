@@ -90,6 +90,7 @@ interface SupabaseProposalRow {
   ratified_epoch: number | null;
   enacted_epoch: number | null;
   dropped_epoch: number | null;
+  expiration_epoch: number | null;
 }
 
 interface SupabaseVoteRow {
@@ -563,6 +564,7 @@ export async function GET(request: NextRequest) {
         ratified_epoch: p.ratifiedEpoch,
         enacted_epoch: p.enactedEpoch,
         dropped_epoch: p.droppedEpoch,
+        expiration_epoch: p.expirationEpoch,
       }));
 
       // Deduplicate by (tx_hash, proposal_index) -- Koios may return the same proposal

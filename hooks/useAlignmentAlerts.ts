@@ -10,7 +10,8 @@ import { UserPrefKey } from '@/types/drep';
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export type AlertType = 'alignment-shift' | 'inactivity' | 'new-proposals' | 'vote-activity'
-  | 'drep-score-change' | 'drep-profile-gap' | 'drep-missed-epoch';
+  | 'drep-score-change' | 'drep-profile-gap' | 'drep-missed-epoch'
+  | 'drep-pending-proposals' | 'drep-urgent-deadline';
 
 export interface Alert {
   id: string;
@@ -102,6 +103,7 @@ export function useAlignmentAlerts() {
   const [lastVisitTime, setLastVisitTime] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [ownDRepScore, setOwnDRepScore] = useState<{ current: number; previous: number | null; profileCompleteness: number } | null>(null);
+  const [inboxData, setInboxData] = useState<{ pendingCount: number; criticalCount: number; urgentCount: number; potentialGain: number } | null>(null);
 
   // Load initial state from localStorage
   useEffect(() => {
@@ -200,6 +202,30 @@ export function useAlignmentAlerts() {
 
     return () => { cancelled = true; };
   }, [ownDRepId, allDReps]);
+
+  // Fetch inbox data for DRep-specific alerts
+  useEffect(() => {
+    if (!ownDRepId) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/dashboard/inbox?drepId=${encodeURIComponent(ownDRepId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          setInboxData({
+            pendingCount: data.pendingCount || 0,
+            criticalCount: data.criticalCount || 0,
+            urgentCount: data.urgentCount || 0,
+            potentialGain: data.scoreImpact?.potentialGain || 0,
+          });
+        }
+      } catch { /* ignore */ }
+    })();
+
+    return () => { cancelled = true; };
+  }, [ownDRepId]);
 
   // Build all alerts
   const alerts: Alert[] = useMemo(() => {
@@ -336,11 +362,45 @@ export function useAlignmentAlerts() {
       }
     }
 
+    // ── 6. Inbox alerts (pending proposals, urgent deadlines) ────────
+    if (ownDRepId && inboxData) {
+      if (inboxData.pendingCount > 0) {
+        const hasCritical = inboxData.criticalCount > 0;
+        result.push({
+          id: `drep-pending-${ownDRepId}-${inboxData.pendingCount}`,
+          type: 'drep-pending-proposals',
+          title: hasCritical
+            ? `${inboxData.criticalCount} critical proposal${inboxData.criticalCount !== 1 ? 's' : ''} need your vote`
+            : `${inboxData.pendingCount} proposal${inboxData.pendingCount !== 1 ? 's' : ''} need your vote`,
+          description: inboxData.potentialGain > 0
+            ? `Voting with rationale could boost your score by +${inboxData.potentialGain} pts.`
+            : `Open proposals are awaiting your vote.`,
+          link: '/dashboard/inbox',
+          timestamp: now,
+          read: false,
+          metadata: { pendingCount: inboxData.pendingCount, criticalCount: inboxData.criticalCount },
+        });
+      }
+
+      if (inboxData.urgentCount > 0) {
+        result.push({
+          id: `drep-urgent-${ownDRepId}-${inboxData.urgentCount}`,
+          type: 'drep-urgent-deadline',
+          title: `${inboxData.urgentCount} proposal${inboxData.urgentCount !== 1 ? 's' : ''} expiring soon`,
+          description: `These proposals will expire within 2 epochs. Vote before they close.`,
+          link: '/dashboard/inbox',
+          timestamp: now,
+          read: false,
+          metadata: { urgentCount: inboxData.urgentCount },
+        });
+      }
+    }
+
     // Update last visit time
     setLastVisit(now);
 
     return result;
-  }, [loaded, connected, userPrefs, allDReps, delegatedDrepId, ownDRepId, ownDRepScore, voteActivity, lastVisitTime, newProposalCount]);
+  }, [loaded, connected, userPrefs, allDReps, delegatedDrepId, ownDRepId, ownDRepScore, voteActivity, lastVisitTime, newProposalCount, inboxData]);
 
   // Filter out dismissed alerts
   const activeAlerts = useMemo(

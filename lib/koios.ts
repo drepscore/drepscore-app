@@ -67,6 +67,8 @@ export interface EnrichedDRep extends DRep {
   alignmentInnovation: number | null;
   alignmentTransparency: number | null;
   lastVoteTime: number | null;
+  /** ISO timestamp of when this DRep's data was last synced from Koios into the cache */
+  updatedAt: string | null;
 }
 
 /**
@@ -334,6 +336,7 @@ export async function getEnrichedDReps(
           metadata: metadataBody as Record<string, unknown> | null,
           epochVoteCounts,
           profileCompleteness,
+          updatedAt: null,
         };
       });
 
@@ -356,6 +359,7 @@ export async function getEnrichedDReps(
         alignmentInnovation: null,
         alignmentTransparency: null,
         lastVoteTime: null,
+        updatedAt: null,
       };
     });
 

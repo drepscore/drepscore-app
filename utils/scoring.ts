@@ -620,8 +620,14 @@ export function getPillarStatus(value: number): PillarStatus {
 
 /**
  * Return the CIP-119 metadata fields that are missing/empty.
+ * Social link checking mirrors calculateProfileCompleteness() logic:
+ * - 0 validated links -> missing 'social links'
+ * - 1 validated link -> missing 'a second social link (2+ recommended)'
  */
-export function getMissingProfileFields(metadata: Record<string, unknown> | null): string[] {
+export function getMissingProfileFields(
+  metadata: Record<string, unknown> | null,
+  brokenUris?: Set<string>
+): string[] {
   const missing: string[] = [];
   if (!metadata) return ['name', 'objectives', 'motivations', 'qualifications', 'bio', 'social links'];
 
@@ -634,6 +640,22 @@ export function getMissingProfileFields(metadata: Record<string, unknown> | null
   const references = metadata.references;
   if (!Array.isArray(references) || references.length === 0) {
     missing.push('social links');
+  } else {
+    let validCount = 0;
+    const seenUris = new Set<string>();
+    for (const ref of references) {
+      if (ref && typeof ref === 'object' && 'uri' in ref) {
+        const { uri, label } = ref as { uri: string; label?: string };
+        if (!uri || seenUris.has(uri)) continue;
+        seenUris.add(uri);
+        if (isValidatedSocialLink(uri, label)) {
+          if (brokenUris && brokenUris.has(uri)) continue;
+          validCount++;
+        }
+      }
+    }
+    if (validCount === 0) missing.push('social links');
+    else if (validCount === 1) missing.push('a second social link (2+ recommended)');
   }
 
   return missing;

@@ -53,6 +53,7 @@ function transformSupabaseRowToDRep(row: any): EnrichedDRep {
     alignmentInnovation: row.alignment_innovation ?? null,
     alignmentTransparency: row.alignment_transparency ?? null,
     lastVoteTime: row.last_vote_time ?? null,
+    updatedAt: row.updated_at ?? null,
   };
 }
 
@@ -666,6 +667,131 @@ export async function getVotesByProposal(
   } catch (err) {
     console.error('[Data] getVotesByProposal error:', err);
     return [];
+  }
+}
+
+// ============================================================================
+// GOVERNANCE INBOX
+// ============================================================================
+
+export interface OpenProposal {
+  txHash: string;
+  proposalIndex: number;
+  title: string | null;
+  abstract: string | null;
+  aiSummary: string | null;
+  proposalType: string;
+  withdrawalAmount: number | null;
+  treasuryTier: string | null;
+  relevantPrefs: string[];
+  proposedEpoch: number | null;
+  expirationEpoch: number | null;
+  blockTime: number | null;
+  yesCount: number;
+  noCount: number;
+  abstainCount: number;
+  totalVotes: number;
+}
+
+/**
+ * Get open proposals that a specific DRep has NOT voted on.
+ * "Open" = no ratified, enacted, dropped, or expired epoch set.
+ */
+export async function getOpenProposalsForDRep(drepId: string): Promise<OpenProposal[]> {
+  try {
+    const supabase = createClient();
+
+    // Fetch open proposals
+    const { data: proposals, error: pError } = await supabase
+      .from('proposals')
+      .select('*')
+      .is('ratified_epoch', null)
+      .is('enacted_epoch', null)
+      .is('dropped_epoch', null)
+      .is('expired_epoch', null)
+      .order('block_time', { ascending: false });
+
+    if (pError || !proposals || proposals.length === 0) return [];
+
+    // Fetch this DRep's votes to determine which proposals are already voted on
+    const { data: drepVotes, error: vError } = await supabase
+      .from('drep_votes')
+      .select('proposal_tx_hash, proposal_index')
+      .eq('drep_id', drepId);
+
+    const votedKeys = new Set<string>();
+    if (!vError && drepVotes) {
+      for (const v of drepVotes) {
+        votedKeys.add(`${v.proposal_tx_hash}-${v.proposal_index}`);
+      }
+    }
+
+    // Fetch vote counts for open proposals
+    const openTxHashes = proposals.map((p: any) => p.tx_hash);
+    const { data: allVotes } = await supabase
+      .from('drep_votes')
+      .select('proposal_tx_hash, proposal_index, vote')
+      .in('proposal_tx_hash', openTxHashes);
+
+    const countMap = new Map<string, { yes: number; no: number; abstain: number }>();
+    if (allVotes) {
+      for (const v of allVotes) {
+        const key = `${v.proposal_tx_hash}-${v.proposal_index}`;
+        const entry = countMap.get(key) || { yes: 0, no: 0, abstain: 0 };
+        if (v.vote === 'Yes') entry.yes++;
+        else if (v.vote === 'No') entry.no++;
+        else entry.abstain++;
+        countMap.set(key, entry);
+      }
+    }
+
+    // Filter to proposals the DRep hasn't voted on
+    return proposals
+      .filter((p: any) => !votedKeys.has(`${p.tx_hash}-${p.proposal_index}`))
+      .map((p: any) => {
+        const key = `${p.tx_hash}-${p.proposal_index}`;
+        const counts = countMap.get(key) || { yes: 0, no: 0, abstain: 0 };
+        return {
+          txHash: p.tx_hash,
+          proposalIndex: p.proposal_index,
+          title: p.title,
+          abstract: p.abstract,
+          aiSummary: p.ai_summary || null,
+          proposalType: p.proposal_type,
+          withdrawalAmount: p.withdrawal_amount,
+          treasuryTier: p.treasury_tier,
+          relevantPrefs: p.relevant_prefs || [],
+          proposedEpoch: p.proposed_epoch,
+          expirationEpoch: p.expiration_epoch ?? null,
+          blockTime: p.block_time,
+          yesCount: counts.yes,
+          noCount: counts.no,
+          abstainCount: counts.abstain,
+          totalVotes: counts.yes + counts.no + counts.abstain,
+        };
+      });
+  } catch (err) {
+    console.error('[Data] getOpenProposalsForDRep error:', err);
+    return [];
+  }
+}
+
+/**
+ * Get proposals the DRep voted on in the current epoch (for streak tracking).
+ */
+export async function getVotedThisEpoch(drepId: string, currentEpoch: number): Promise<number> {
+  try {
+    const supabase = createClient();
+    const { count, error } = await supabase
+      .from('drep_votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('drep_id', drepId)
+      .eq('epoch_no', currentEpoch);
+
+    if (error) return 0;
+    return count || 0;
+  } catch {
+    return 0;
   }
 }
 

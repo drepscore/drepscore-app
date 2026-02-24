@@ -112,6 +112,7 @@ export function classifyProposal(proposal: ProposalInfo): ClassifiedProposal {
     enactedEpoch: proposal.enacted_epoch ?? null,
     droppedEpoch: proposal.dropped_epoch ?? null,
     expiredEpoch: proposal.expired_epoch ?? null,
+    expirationEpoch: proposal.expiration ?? null,
   };
 }
 

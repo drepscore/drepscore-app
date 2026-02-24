@@ -169,4 +169,5 @@ export interface ClassifiedProposal {
   enactedEpoch: number | null;
   droppedEpoch: number | null;
   expiredEpoch: number | null;
+  expirationEpoch: number | null;
 }

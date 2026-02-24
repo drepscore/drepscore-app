@@ -34,21 +34,25 @@ export function generateRecommendations(drep: DRepData): Recommendation[] {
 
   // --- Profile Completeness ---
   if (drep.profileCompleteness < 100) {
-    const missing = getMissingProfileFields(drep.metadata);
-    const pointsPerField: Record<string, number> = {
-      name: 15, objectives: 20, motivations: 15,
-      qualifications: 10, bio: 10, 'social links': 25,
-    };
-    const gain = missing.reduce((sum, f) => sum + (pointsPerField[f] || 5), 0);
-    const weightedGain = Math.round(Math.min(gain, 100 - drep.profileCompleteness) * 0.15);
+    const brokenUris = new Set<string>(drep.brokenLinks ?? []);
+    const missing = getMissingProfileFields(drep.metadata, brokenUris);
+    if (missing.length > 0) {
+      const pointsPerField: Record<string, number> = {
+        name: 15, objectives: 20, motivations: 15,
+        qualifications: 10, bio: 10, 'social links': 25,
+        'a second social link (2+ recommended)': 5,
+      };
+      const gain = missing.reduce((sum, f) => sum + (pointsPerField[f] || 5), 0);
+      const weightedGain = Math.round(Math.min(gain, 100 - drep.profileCompleteness) * 0.15);
 
-    recs.push({
-      pillar: 'profile',
-      priority: drep.profileCompleteness < 50 ? 'high' : 'medium',
-      title: 'Complete your profile metadata',
-      description: `Missing: ${missing.join(', ')}. This is the easiest improvement — no on-chain transactions needed.`,
-      potentialGain: Math.max(1, weightedGain),
-    });
+      recs.push({
+        pillar: 'profile',
+        priority: drep.profileCompleteness < 50 ? 'high' : 'medium',
+        title: 'Complete your profile metadata',
+        description: `Missing: ${missing.join(', ')}. This is the easiest improvement — no on-chain transactions needed.`,
+        potentialGain: Math.max(1, weightedGain),
+      });
+    }
   }
 
   // --- Broken Social Links ---

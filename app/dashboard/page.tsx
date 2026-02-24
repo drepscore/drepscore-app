@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { ScoreHistoryChart } from '@/components/ScoreHistoryChart';
 import { DRepDashboard } from '@/components/DRepDashboard';
+import { GovernanceInboxWidget } from '@/components/GovernanceInboxWidget';
 import { formatAda, getPillarStatus, applyRationaleCurve, getMissingProfileFields } from '@/utils/scoring';
 import type { ScoreSnapshot } from '@/lib/data';
 import type { VoteRecord } from '@/types/drep';
@@ -63,6 +64,7 @@ interface DashboardDRep {
   metadata: Record<string, unknown> | null;
   votes: VoteRecord[];
   brokenLinks: string[];
+  updatedAt: string | null;
 }
 
 interface DashboardData {
@@ -72,6 +74,19 @@ interface DashboardData {
 }
 
 type PageState = 'loading' | 'no-wallet' | 'not-drep' | 'ready' | 'error';
+
+function formatRelativeTime(iso: string | null): string | null {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return null;
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 2) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 interface DRepListItem {
   drepId: string;
@@ -195,8 +210,10 @@ export default function MyDRepPage() {
   const prevSnapshot = scoreHistory.length >= 2 ? scoreHistory[scoreHistory.length - 2] : null;
   const scoreChange = prevSnapshot ? drep.drepScore - prevSnapshot.score : null;
   const adjustedRationale = applyRationaleCurve(drep.rationaleRate);
-  const missingFields = getMissingProfileFields(drep.metadata);
+  const brokenUris = new Set<string>(drep.brokenLinks);
+  const missingFields = getMissingProfileFields(drep.metadata, brokenUris);
   const profileHealthy = missingFields.length === 0 && drep.brokenLinks.length === 0;
+  const lastSynced = formatRelativeTime(drep.updatedAt);
 
   const isViewingOther = isAdmin && selectedDRepId && selectedDRepId !== ownDRepId;
 
@@ -230,6 +247,9 @@ export default function MyDRepPage() {
         </p>
       </div>
 
+      {/* Governance Inbox Widget */}
+      <GovernanceInboxWidget drepId={drep.drepId} />
+
       {/* Score Hero */}
       <Card className="mb-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
         <CardContent className="pt-6">
@@ -239,6 +259,9 @@ export default function MyDRepPage() {
               <div className="text-center">
                 <div className="text-5xl font-bold tabular-nums">{drep.drepScore}</div>
                 <div className="text-xs text-muted-foreground mt-1">DRep Score</div>
+                {lastSynced && (
+                  <div className="text-[10px] text-muted-foreground/60 mt-0.5">Updated {lastSynced}</div>
+                )}
               </div>
               {scoreChange !== null && (
                 <div className={`flex items-center gap-1 text-sm font-medium ${
@@ -330,6 +353,11 @@ export default function MyDRepPage() {
               <GlanceStat label="Voting Power" value={formatAda(drep.votingPower)} />
               <GlanceStat label="Total Votes" value={drep.votes.length.toString()} />
               <GlanceStat label="Size Tier" value={drep.sizeTier} />
+              {lastSynced && (
+                <p className="text-[10px] text-muted-foreground/60 pt-1 border-t border-border/40">
+                  Data updated {lastSynced}
+                </p>
+              )}
             </CardContent>
           </Card>
 
