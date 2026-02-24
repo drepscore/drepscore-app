@@ -95,7 +95,7 @@ interface DRepListItem {
 }
 
 export default function MyDRepPage() {
-  const { connected, isAuthenticated, ownDRepId, sessionAddress, address, connecting } = useWallet();
+  const { connected, isAuthenticated, reconnecting, ownDRepId, sessionAddress, address, connecting } = useWallet();
   const [state, setState] = useState<PageState>('loading');
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +106,7 @@ export default function MyDRepPage() {
   // Check admin status — use sessionAddress if authenticated, fall back to connected address
   const adminCheckAddress = sessionAddress || address;
   useEffect(() => {
-    if (!connected || !adminCheckAddress) { setIsAdmin(false); return; }
+    if (!adminCheckAddress) { setIsAdmin(false); return; }
     fetch('/api/admin/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -115,7 +115,7 @@ export default function MyDRepPage() {
       .then(r => r.json())
       .then(d => setIsAdmin(d.isAdmin === true))
       .catch(() => setIsAdmin(false));
-  }, [connected, adminCheckAddress]);
+  }, [adminCheckAddress]);
 
   // Fetch DRep list for admin switcher
   useEffect(() => {
@@ -158,9 +158,9 @@ export default function MyDRepPage() {
   const activeDRepId = selectedDRepId || ownDRepId;
 
   useEffect(() => {
-    if (connecting) return;
+    if (connecting || reconnecting) return;
 
-    if (!connected || (!isAuthenticated && !isAdmin)) {
+    if (!isAuthenticated && !isAdmin) {
       setState('no-wallet');
       return;
     }
@@ -177,13 +177,13 @@ export default function MyDRepPage() {
       // Admin with no DRep selected yet — show ready state with no data
       setState('not-drep');
     }
-  }, [connected, isAuthenticated, activeDRepId, isAdmin, connecting, fetchDashboard]);
+  }, [connected, isAuthenticated, reconnecting, activeDRepId, isAdmin, connecting, fetchDashboard]);
 
   const handleDRepSelect = (drepId: string) => {
     setSelectedDRepId(drepId);
   };
 
-  if (state === 'loading' || connecting) return <DashboardSkeleton />;
+  if (state === 'loading' || connecting || reconnecting) return <DashboardSkeleton />;
   if (state === 'no-wallet') return <ConnectWalletCTA />;
   if (state === 'not-drep' && !isAdmin) return <NotADRepCTA />;
   if (state === 'error') return <ErrorState message={error} />;

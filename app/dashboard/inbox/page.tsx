@@ -97,7 +97,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function InboxPage() {
-  const { connected, isAuthenticated, ownDRepId, connecting } = useWallet();
+  const { connected, isAuthenticated, reconnecting, ownDRepId, connecting } = useWallet();
   const [data, setData] = useState<InboxData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>('priority');
@@ -109,7 +109,7 @@ export default function InboxPage() {
   const drepId = ownDRepId;
 
   useEffect(() => {
-    if (connecting || !connected || !drepId) return;
+    if (connecting || reconnecting || !drepId) return;
     let cancelled = false;
 
     (async () => {
@@ -123,7 +123,7 @@ export default function InboxPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [connecting, connected, drepId]);
+  }, [connecting, reconnecting, drepId]);
 
   const handleSort = useCallback((field: SortField) => {
     if (sortField === field) {
@@ -177,8 +177,8 @@ export default function InboxPage() {
     return list;
   }, [data, typeFilter, sortField, sortDir]);
 
-  if (connecting) return <InboxSkeleton />;
-  if (!connected || !isAuthenticated) return <ConnectWalletCTA />;
+  if (connecting || reconnecting) return <InboxSkeleton />;
+  if (!isAuthenticated) return <ConnectWalletCTA />;
   if (!drepId) return <NotADRepCTA />;
   if (loading) return <InboxSkeleton />;
 

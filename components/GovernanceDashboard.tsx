@@ -95,12 +95,13 @@ const PRIORITY_STYLES: Record<string, string> = {
 };
 
 export function GovernanceDashboard() {
-  const { connected, isAuthenticated, delegatedDrepId, address } = useWallet();
+  const { connected, isAuthenticated, reconnecting, delegatedDrepId, address } = useWallet();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (reconnecting) return;
     if (!isAuthenticated) {
       setLoading(false);
       return;
@@ -122,9 +123,11 @@ export function GovernanceDashboard() {
       .then(setData)
       .catch(() => setError('Could not load your governance dashboard.'))
       .finally(() => setLoading(false));
-  }, [isAuthenticated, delegatedDrepId]);
+  }, [isAuthenticated, delegatedDrepId, reconnecting]);
 
-  if (!connected) {
+  if (reconnecting || (loading && isAuthenticated)) return <DashboardSkeleton />;
+
+  if (!isAuthenticated) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4">
         <Wallet className="h-12 w-12 text-muted-foreground" />
@@ -139,18 +142,6 @@ export function GovernanceDashboard() {
           <Wallet className="h-4 w-4" />
           Connect Wallet
         </Button>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <Shield className="h-12 w-12 text-muted-foreground" />
-        <h2 className="text-xl font-semibold">Sign In Required</h2>
-        <p className="text-muted-foreground text-center max-w-md">
-          Your wallet is connected but not signed in. Please sign a message to verify ownership.
-        </p>
       </div>
     );
   }

@@ -90,7 +90,7 @@ export function Header() {
 
   const adminCheckAddress = sessionAddress || address;
   useEffect(() => {
-    if (!connected || !adminCheckAddress) { setIsAdmin(false); return; }
+    if (!adminCheckAddress) { setIsAdmin(false); return; }
     fetch('/api/admin/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -99,7 +99,7 @@ export function Header() {
       .then(r => r.json())
       .then(d => setIsAdmin(d.isAdmin === true))
       .catch(() => setIsAdmin(false));
-  }, [connected, adminCheckAddress]);
+  }, [adminCheckAddress]);
 
   useEffect(() => {
     const handler = () => setWalletModalOpen(true);

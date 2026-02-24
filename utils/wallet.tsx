@@ -104,10 +104,13 @@ function getCardanoApi(name: string): { enable(): Promise<CIP30Api> } | undefine
   return (window as any).cardano?.[name];
 }
 
+const WALLET_NAME_KEY = 'drepscore_wallet_name';
+
 export interface WalletContextType {
   wallet: BrowserWallet | null;
   connected: boolean;
   connecting: boolean;
+  reconnecting: boolean;
   address: string | null;
   sessionAddress: string | null;
   isAuthenticated: boolean;
@@ -131,6 +134,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletName, setWalletName] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
   const [hexAddress, setHexAddress] = useState<string | null>(null);
   const [sessionAddress, setSessionAddress] = useState<string | null>(null);
@@ -166,6 +170,79 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Auto-reconnect: if we have a valid session and a stored wallet name, silently reconnect
+  useEffect(() => {
+    const token = getStoredSession();
+    const storedWallet = localStorage.getItem(WALLET_NAME_KEY);
+    if (!token || !storedWallet) return;
+
+    const payload = parseSessionToken(token);
+    if (!payload || isSessionExpired(payload)) return;
+
+    let cancelled = false;
+    setReconnecting(true);
+
+    (async () => {
+      try {
+        const browserWallet = await BrowserWallet.enable(storedWallet);
+        if (cancelled) return;
+
+        let addresses = await browserWallet.getUsedAddresses();
+        if (!addresses || addresses.length === 0) {
+          addresses = await browserWallet.getUnusedAddresses();
+        }
+
+        const rawApi = await getCardanoApi(storedWallet)?.enable();
+        let hexAddresses: string[] = [];
+        if (rawApi) {
+          hexAddresses = await rawApi.getUsedAddresses();
+          if (!hexAddresses || hexAddresses.length === 0) {
+            hexAddresses = await rawApi.getUnusedAddresses();
+          }
+        }
+
+        if (cancelled) return;
+
+        if (addresses && addresses.length > 0) {
+          setWallet(browserWallet);
+          setWalletName(storedWallet);
+          setAddress(addresses[0]);
+          if (hexAddresses.length > 0) setHexAddress(hexAddresses[0]);
+          setConnected(true);
+
+          try {
+            const stakeAddr = resolveRewardAddress(addresses[0]);
+            if (stakeAddr) {
+              fetch('/api/delegation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stakeAddress: stakeAddr }),
+              })
+                .then(r => r.json())
+                .then(({ drepId }) => { if (!cancelled && drepId) setDelegatedDrepId(drepId); })
+                .catch(() => {});
+
+              const derivedDRepId = deriveDRepIdFromStakeAddress(stakeAddr);
+              if (derivedDRepId) {
+                checkDRepExists(derivedDRepId).then(exists => {
+                  if (!cancelled && exists) setOwnDRepId(derivedDRepId);
+                });
+              }
+            }
+          } catch { /* ignore stake resolution failures */ }
+        }
+      } catch {
+        // Wallet extension unavailable — clear stored name but preserve session
+        localStorage.removeItem(WALLET_NAME_KEY);
+      } finally {
+        if (!cancelled) setReconnecting(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const connect = async (name: string) => {
     setConnecting(true);
     setError(null);
@@ -195,6 +272,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setAddress(addresses[0]);
         if (hexAddresses.length > 0) setHexAddress(hexAddresses[0]);
         setConnected(true);
+        localStorage.setItem(WALLET_NAME_KEY, name);
 
         // Non-blocking: resolve stake address, derive DRep ID, and look up delegation
         try {
@@ -239,7 +317,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setAddress(null);
     setHexAddress(null);
     setDelegatedDrepId(null);
+    setOwnDRepId(null);
     setError(null);
+    localStorage.removeItem(WALLET_NAME_KEY);
   };
 
   const signMessage = useCallback(async (message: string): Promise<{ signature: string; key: string } | null> => {
@@ -311,6 +391,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     clearSession();
     setSessionAddress(null);
+    localStorage.removeItem(WALLET_NAME_KEY);
   }, []);
 
   const refreshDelegation = useCallback(() => {
@@ -336,6 +417,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         wallet,
         connected,
         connecting,
+        reconnecting,
         address,
         sessionAddress,
         isAuthenticated,
