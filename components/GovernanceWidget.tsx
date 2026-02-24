@@ -159,13 +159,23 @@ export function GovernanceWidget() {
           </div>
         )}
 
-        {/* CTA */}
-        <Link href="/proposals">
-          <Button variant="outline" size="sm" className="w-full gap-1">
-            View All Proposals
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Button>
-        </Link>
+        {/* CTAs */}
+        <div className="flex gap-2">
+          {delegatedDrepId && (
+            <Link href="/governance" className="flex-1">
+              <Button variant="default" size="sm" className="w-full gap-1">
+                My Governance
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          )}
+          <Link href="/proposals" className={delegatedDrepId ? 'flex-1' : 'w-full'}>
+            <Button variant="outline" size="sm" className="w-full gap-1">
+              {delegatedDrepId ? 'Proposals' : 'View All Proposals'}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );

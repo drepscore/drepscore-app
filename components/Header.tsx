@@ -123,10 +123,16 @@ export function Header() {
             <BookOpen className="h-4 w-4" />
             <span>Methodology</span>
           </Link>
+          {isAuthenticated && (
+            <Link href="/governance" className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+              <Vote className="h-4 w-4" />
+              <span>My Governance</span>
+            </Link>
+          )}
           {(ownDRepId || isAdmin) && (
-            <Link href="/dashboard" className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+            <Link href="/dashboard" className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <Sparkles className="h-4 w-4" />
-              <span>My Dashboard</span>
+              <span>DRep Dashboard</span>
             </Link>
           )}
           
@@ -222,11 +228,17 @@ export function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/governance" className="cursor-pointer">
+                      <Vote className="h-4 w-4 mr-2" />
+                      My Governance
+                    </Link>
+                  </DropdownMenuItem>
                   {(ownDRepId || isAdmin) && (
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard" className="cursor-pointer">
                         <Sparkles className="h-4 w-4 mr-2" />
-                        My DRep Dashboard
+                        DRep Dashboard
                       </Link>
                     </DropdownMenuItem>
                   )}
