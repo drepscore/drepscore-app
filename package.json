@@ -16,7 +16,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@icons-pack/react-simple-icons": "^13.11.2",
-    "@meshsdk/core": "^1.9.0-beta.98",
+    "@meshsdk/core": "^1.9.0-beta.99",
     "@meshsdk/react": "^1.9.0-beta.98",
     "@supabase/supabase-js": "^2.97.0",
     "@vercel/analytics": "^1.6.1",
@@ -35,7 +35,8 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -30,8 +30,11 @@ import {
   Loader2,
   Pencil,
   Check,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import { CopyableAddress } from '@/components/CopyableAddress';
+import { subscribeToPush, unsubscribeFromPush, isPushSubscribed } from '@/lib/pushSubscription';
 
 const PREF_LABELS: Record<UserPrefKey, string> = {
   'treasury-conservative': 'Treasury Conservative',
@@ -53,6 +56,32 @@ export default function ProfilePage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushToggling, setPushToggling] = useState(false);
+
+  // Check push subscription status
+  useEffect(() => {
+    isPushSubscribed().then(setPushEnabled);
+  }, []);
+
+  const handlePushToggle = async () => {
+    const token = getStoredSession();
+    if (!token) return;
+    setPushToggling(true);
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush(token);
+        setPushEnabled(false);
+      } else {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const ok = await subscribeToPush(token);
+          if (ok) setPushEnabled(true);
+        }
+      }
+    } catch { /* ignore */ }
+    setPushToggling(false);
+  };
 
   // Fetch DRep data for watchlist name lookup
   useEffect(() => {
@@ -383,6 +412,44 @@ export default function ProfilePage() {
               <Plus className="h-4 w-4" />
               Add Wallet (Coming Soon)
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Push Notifications
+            </CardTitle>
+            <CardDescription>Get notified about critical governance events</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">Browser notifications</p>
+                <p className="text-xs text-muted-foreground">
+                  {pushEnabled
+                    ? 'You\'ll be notified about critical proposals and DRep activity.'
+                    : 'Enable to receive alerts even when DRepScore is closed.'}
+                </p>
+              </div>
+              <Button
+                variant={pushEnabled ? 'outline' : 'default'}
+                size="sm"
+                onClick={handlePushToggle}
+                disabled={pushToggling}
+                className="gap-1.5 shrink-0"
+              >
+                {pushToggling ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : pushEnabled ? (
+                  <BellOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Bell className="h-3.5 w-3.5" />
+                )}
+                {pushEnabled ? 'Disable' : 'Enable'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

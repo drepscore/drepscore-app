@@ -15,14 +15,15 @@ function getLocalWatchlist(): string[] {
 
 interface ProposalsPageClientProps {
   proposals: ProposalWithVoteSummary[];
+  currentEpoch: number;
 }
 
-export function ProposalsPageClient({ proposals }: ProposalsPageClientProps) {
+export function ProposalsPageClient({ proposals, currentEpoch }: ProposalsPageClientProps) {
   const [watchlist, setWatchlist] = useState<string[]>([]);
 
   useEffect(() => {
     setWatchlist(getLocalWatchlist());
   }, []);
 
-  return <ProposalsListClient proposals={proposals} watchlist={watchlist} />;
+  return <ProposalsListClient proposals={proposals} watchlist={watchlist} currentEpoch={currentEpoch} />;
 }

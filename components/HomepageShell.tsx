@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { DRepTableClient } from '@/components/DRepTableClient';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
+import { GovernanceWidget } from '@/components/GovernanceWidget';
 
 const WalletConnectModal = dynamic(
   () => import('@/components/WalletConnectModal').then(mod => mod.WalletConnectModal),
@@ -186,6 +187,8 @@ export function HomepageShell() {
         open={walletModalOpen}
         onOpenChange={setWalletModalOpen}
       />
+
+      <GovernanceWidget />
 
       <DRepTableClient
         userPrefs={userPrefs}

@@ -51,6 +51,8 @@ const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
   'drep-missed-epoch': Clock,
   'drep-pending-proposals': Vote,
   'drep-urgent-deadline': Clock,
+  'critical-proposal-open': AlertTriangle,
+  'drep-missing-votes': Vote,
 };
 
 const ALERT_COLORS: Record<AlertType, string> = {
@@ -63,6 +65,8 @@ const ALERT_COLORS: Record<AlertType, string> = {
   'drep-missed-epoch': 'text-red-500',
   'drep-pending-proposals': 'text-blue-500',
   'drep-urgent-deadline': 'text-red-500',
+  'critical-proposal-open': 'text-red-500',
+  'drep-missing-votes': 'text-amber-500',
 };
 
 export function Header() {

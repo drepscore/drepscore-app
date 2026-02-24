@@ -1,12 +1,21 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getProposalByKey, getVotesByProposal } from '@/lib/data';
+import { blockTimeToEpoch } from '@/lib/koios';
 import { ProposalVotersWithContext } from '@/components/ProposalVotersWithContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProposalDescription } from '@/components/ProposalDescription';
 import { ArrowLeft, ExternalLink, Shield, Zap, Landmark, Eye, Scale } from 'lucide-react';
+import {
+  ProposalStatusBadge,
+  PriorityBadge,
+  DeadlineBadge,
+  TypeExplainerTooltip,
+} from '@/components/ProposalStatusBadge';
+import { getProposalStatus } from '@/utils/proposalPriority';
+import { DRepVoteCallout } from '@/components/DRepVoteCallout';
 
 interface ProposalDetailPageProps {
   params: Promise<{ txHash: string; index: string }>;
@@ -43,12 +52,16 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
 
   if (!proposal) notFound();
 
+  const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
   const config = TYPE_CONFIG[proposal.proposalType];
   const TypeIcon = config?.icon;
   const total = proposal.totalVotes;
   const yp = total > 0 ? Math.round((proposal.yesCount / total) * 100) : 0;
   const np = total > 0 ? Math.round((proposal.noCount / total) * 100) : 0;
   const ap = total > 0 ? Math.round((proposal.abstainCount / total) * 100) : 0;
+
+  const status = getProposalStatus(proposal);
+  const isOpen = status === 'open';
 
   const date = proposal.blockTime
     ? new Date(proposal.blockTime * 1000).toLocaleDateString('en-US', {
@@ -69,12 +82,20 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
       {/* Header */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
+          <ProposalStatusBadge
+            ratifiedEpoch={proposal.ratifiedEpoch}
+            enactedEpoch={proposal.enactedEpoch}
+            droppedEpoch={proposal.droppedEpoch}
+            expiredEpoch={proposal.expiredEpoch}
+          />
+          <PriorityBadge proposalType={proposal.proposalType} />
           {config && (
             <Badge variant="outline" className={`gap-1 ${config.color}`}>
               {TypeIcon && <TypeIcon className="h-3.5 w-3.5" />}
               {config.label}
             </Badge>
           )}
+          <TypeExplainerTooltip proposalType={proposal.proposalType} />
           {proposal.treasuryTier && (
             <Badge variant="outline">
               {TREASURY_TIER_LABELS[proposal.treasuryTier] || proposal.treasuryTier}
@@ -82,6 +103,9 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
           )}
           {proposal.proposedEpoch && (
             <Badge variant="secondary">Epoch {proposal.proposedEpoch}</Badge>
+          )}
+          {isOpen && (
+            <DeadlineBadge expirationEpoch={proposal.expirationEpoch} currentEpoch={currentEpoch} />
           )}
         </div>
 
@@ -109,6 +133,9 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
           </p>
         )}
       </div>
+
+      {/* DRep Vote Callout */}
+      <DRepVoteCallout txHash={txHash} proposalIndex={proposalIndex} />
 
       {/* AI Summary / Abstract */}
       <ProposalDescription aiSummary={proposal.aiSummary} abstract={proposal.abstract} />

@@ -1,15 +1,11 @@
 'use client';
 
-/**
- * Inline Delegation CTA Component
- * Compact delegation button for the DRep profile header
- */
-
-import { useState } from 'react';
 import { useWallet } from '@/utils/wallet';
+import { useDelegation } from '@/hooks/useDelegation';
 import { Button } from '@/components/ui/button';
-import { Vote, Wallet, RefreshCw, CheckCircle } from 'lucide-react';
+import { Vote, Wallet, CheckCircle, Loader2, ExternalLink } from 'lucide-react';
 import { DelegationRisksModal } from './InfoModal';
+import confetti from 'canvas-confetti';
 
 interface InlineDelegationCTAProps {
   drepId: string;
@@ -17,34 +13,23 @@ interface InlineDelegationCTAProps {
 }
 
 export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAProps) {
-  const { connected, wallet, isAuthenticated, delegatedDrepId } = useWallet();
-  const [delegating, setDelegating] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [needsReconnect, setNeedsReconnect] = useState(false);
-
-  const handleDelegate = async () => {
-    // If authenticated but wallet not connected in this session, prompt reconnect
-    if (isAuthenticated && !connected) {
-      setNeedsReconnect(true);
-      return;
-    }
-
-    if (!wallet || !connected) return;
-
-    setDelegating(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setSuccess(true);
-    } catch (err) {
-      console.error('Delegation failed:', err);
-    } finally {
-      setDelegating(false);
-    }
-  };
+  const { connected, isAuthenticated } = useWallet();
+  const { phase, delegate, reset, isProcessing, delegatedDrepId, canDelegate } = useDelegation();
 
   const isAlreadyDelegated = !!delegatedDrepId && delegatedDrepId === drepId;
 
-  if (isAlreadyDelegated && !success) {
+  const handleDelegate = async () => {
+    if (!canDelegate) {
+      window.dispatchEvent(new Event('openWalletConnect'));
+      return;
+    }
+    const result = await delegate(drepId);
+    if (result) {
+      confetti({ particleCount: 60, spread: 50, origin: { y: 0.8 } });
+    }
+  };
+
+  if (isAlreadyDelegated && phase.status !== 'success') {
     return (
       <div className="flex flex-col gap-2 p-4 border border-primary/20 rounded-lg bg-primary/5 text-center">
         <CheckCircle className="h-5 w-5 text-primary mx-auto" />
@@ -56,56 +41,55 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
     );
   }
 
-  if (success) {
+  if (phase.status === 'success') {
     return (
-      <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
+      <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-center space-y-1">
         <p className="text-sm font-medium text-green-600 dark:text-green-400">
           Delegation submitted!
         </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Changes take effect in a few epochs.
+        <p className="text-xs text-muted-foreground">
+          Changes take effect in 1-2 epochs.
         </p>
+        <a
+          href={`https://cardanoscan.io/transaction/${phase.txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+        >
+          View tx <ExternalLink className="h-3 w-3" />
+        </a>
       </div>
     );
   }
 
-  // Show reconnect prompt if user clicked delegate while authenticated but not connected
-  if (needsReconnect && isAuthenticated && !connected) {
+  if (phase.status === 'error') {
     return (
-      <div className="flex flex-col gap-2 p-4 border rounded-lg bg-card">
-        <div className="text-center space-y-2">
-          <p className="text-sm font-medium">Wallet session expired</p>
-          <p className="text-xs text-muted-foreground">
-            Please reconnect your wallet using the button in the header to delegate.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => setNeedsReconnect(false)}
-          className="gap-2 w-full"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Dismiss
+      <div className="flex flex-col gap-2 p-4 border border-destructive/20 rounded-lg bg-destructive/5 text-center">
+        <p className="text-sm text-destructive">{phase.hint}</p>
+        <Button variant="outline" size="sm" onClick={reset}>
+          Try Again
         </Button>
       </div>
     );
   }
 
-  // Determine button state based on authentication (not just connection)
-  const canDelegate = isAuthenticated || connected;
-
   return (
     <div className="flex flex-col gap-2 p-4 border rounded-lg bg-card">
       <Button
-        onClick={canDelegate ? handleDelegate : undefined}
-        disabled={!canDelegate || delegating}
+        onClick={handleDelegate}
+        disabled={isProcessing}
         className="gap-2 w-full"
         size="lg"
       >
-        {canDelegate ? (
+        {isProcessing ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {phase.status === 'signing' ? 'Sign in wallet...' : 'Processing...'}
+          </>
+        ) : canDelegate ? (
           <>
             <Vote className="h-4 w-4" />
-            {delegating ? 'Processing...' : 'Delegate to this DRep'}
+            {delegatedDrepId ? 'Switch to this DRep' : 'Delegate to this DRep'}
           </>
         ) : (
           <>

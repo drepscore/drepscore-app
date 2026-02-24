@@ -461,6 +461,11 @@ export interface ProposalWithVoteSummary {
   abstainCount: number;
   totalVotes: number;
   voterDrepIds: string[];
+  ratifiedEpoch: number | null;
+  enactedEpoch: number | null;
+  droppedEpoch: number | null;
+  expiredEpoch: number | null;
+  expirationEpoch: number | null;
 }
 
 /**
@@ -525,6 +530,11 @@ export async function getAllProposalsWithVoteSummary(): Promise<ProposalWithVote
         abstainCount: counts.abstain,
         totalVotes: counts.yes + counts.no + counts.abstain,
         voterDrepIds: [...counts.drepIds],
+        ratifiedEpoch: p.ratified_epoch ?? null,
+        enactedEpoch: p.enacted_epoch ?? null,
+        droppedEpoch: p.dropped_epoch ?? null,
+        expiredEpoch: p.expired_epoch ?? null,
+        expirationEpoch: p.expiration_epoch ?? null,
       };
     });
   } catch (err) {
@@ -598,6 +608,11 @@ export async function getProposalByKey(
       abstainCount: abstain,
       totalVotes: yes + no + abstain,
       voterDrepIds: [...drepIds],
+      ratifiedEpoch: row.ratified_epoch ?? null,
+      enactedEpoch: row.enacted_epoch ?? null,
+      droppedEpoch: row.dropped_epoch ?? null,
+      expiredEpoch: row.expired_epoch ?? null,
+      expirationEpoch: row.expiration_epoch ?? null,
     };
   } catch (err) {
     console.error('[Data] getProposalByKey error:', err);

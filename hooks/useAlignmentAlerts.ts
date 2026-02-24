@@ -11,7 +11,8 @@ import { UserPrefKey } from '@/types/drep';
 
 export type AlertType = 'alignment-shift' | 'inactivity' | 'new-proposals' | 'vote-activity'
   | 'drep-score-change' | 'drep-profile-gap' | 'drep-missed-epoch'
-  | 'drep-pending-proposals' | 'drep-urgent-deadline';
+  | 'drep-pending-proposals' | 'drep-urgent-deadline'
+  | 'critical-proposal-open' | 'drep-missing-votes';
 
 export interface Alert {
   id: string;
@@ -104,6 +105,7 @@ export function useAlignmentAlerts() {
   const [loaded, setLoaded] = useState(false);
   const [ownDRepScore, setOwnDRepScore] = useState<{ current: number; previous: number | null; profileCompleteness: number } | null>(null);
   const [inboxData, setInboxData] = useState<{ pendingCount: number; criticalCount: number; urgentCount: number; potentialGain: number } | null>(null);
+  const [govSummary, setGovSummary] = useState<{ openCount: number; criticalOpenCount: number; drepVotedCount?: number; drepMissingCount?: number } | null>(null);
 
   // Load initial state from localStorage
   useEffect(() => {
@@ -226,6 +228,30 @@ export function useAlignmentAlerts() {
 
     return () => { cancelled = true; };
   }, [ownDRepId]);
+
+  // Fetch governance summary for ADA holder alerts (delegators)
+  useEffect(() => {
+    if (!connected || !delegatedDrepId) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/governance/summary?drepId=${encodeURIComponent(delegatedDrepId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          setGovSummary({
+            openCount: data.openCount || 0,
+            criticalOpenCount: data.criticalOpenCount || 0,
+            drepVotedCount: data.drepVotedCount,
+            drepMissingCount: data.drepMissingCount,
+          });
+        }
+      } catch { /* ignore */ }
+    })();
+
+    return () => { cancelled = true; };
+  }, [connected, delegatedDrepId]);
 
   // Build all alerts
   const alerts: Alert[] = useMemo(() => {
@@ -396,11 +422,40 @@ export function useAlignmentAlerts() {
       }
     }
 
+    // ── 7. ADA Holder governance alerts ──────────────────────────────
+    if (govSummary && delegatedDrepId) {
+      if (govSummary.criticalOpenCount > 0) {
+        result.push({
+          id: `critical-open-${govSummary.criticalOpenCount}`,
+          type: 'critical-proposal-open',
+          title: `${govSummary.criticalOpenCount} critical proposal${govSummary.criticalOpenCount !== 1 ? 's' : ''} open`,
+          description: 'A high-impact governance proposal (Hard Fork, No Confidence, or Constitution change) is currently open for voting.',
+          link: '/proposals',
+          timestamp: now,
+          read: false,
+          metadata: { criticalCount: govSummary.criticalOpenCount },
+        });
+      }
+
+      if (govSummary.drepMissingCount != null && govSummary.drepMissingCount > 0) {
+        result.push({
+          id: `drep-missing-${delegatedDrepId}-${govSummary.drepMissingCount}`,
+          type: 'drep-missing-votes',
+          title: `Your DRep hasn't voted on ${govSummary.drepMissingCount} proposal${govSummary.drepMissingCount !== 1 ? 's' : ''}`,
+          description: `${govSummary.drepMissingCount} of ${govSummary.openCount} open proposals are still awaiting your DRep's vote.`,
+          link: `/drep/${encodeURIComponent(delegatedDrepId)}?tab=votes`,
+          timestamp: now,
+          read: false,
+          metadata: { missingCount: govSummary.drepMissingCount, openCount: govSummary.openCount },
+        });
+      }
+    }
+
     // Update last visit time
     setLastVisit(now);
 
     return result;
-  }, [loaded, connected, userPrefs, allDReps, delegatedDrepId, ownDRepId, ownDRepScore, voteActivity, lastVisitTime, newProposalCount, inboxData]);
+  }, [loaded, connected, userPrefs, allDReps, delegatedDrepId, ownDRepId, ownDRepScore, voteActivity, lastVisitTime, newProposalCount, inboxData, govSummary]);
 
   // Filter out dismissed alerts
   const activeAlerts = useMemo(

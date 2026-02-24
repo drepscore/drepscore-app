@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet, WalletError } from '@/utils/wallet';
+import { subscribeToPush } from '@/lib/pushSubscription';
+import { getStoredSession } from '@/lib/supabaseAuth';
 import {
   Dialog,
   DialogContent,
@@ -88,9 +90,12 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
   const handlePushPrompt = async (enable: boolean) => {
     if (enable && 'Notification' in window) {
       const permission = await Notification.requestPermission();
-      if (permission === 'granted' && 'serviceWorker' in navigator) {
-        setPushRequested(true);
-        // TODO: Register push subscription and save to Supabase
+      if (permission === 'granted') {
+        const token = getStoredSession();
+        if (token) {
+          const ok = await subscribeToPush(token);
+          if (ok) setPushRequested(true);
+        }
       }
     }
     setStep('success');

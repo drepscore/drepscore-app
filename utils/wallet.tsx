@@ -121,6 +121,7 @@ export interface WalletContextType {
   authenticate: () => Promise<boolean>;
   logout: () => void;
   clearError: () => void;
+  refreshDelegation: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -312,6 +313,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setSessionAddress(null);
   }, []);
 
+  const refreshDelegation = useCallback(() => {
+    if (!address) return;
+    try {
+      const stakeAddr = resolveRewardAddress(address);
+      if (stakeAddr) {
+        fetch('/api/delegation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stakeAddress: stakeAddr }),
+        })
+          .then(r => r.json())
+          .then(({ drepId }) => { setDelegatedDrepId(drepId || null); })
+          .catch(() => {});
+      }
+    } catch { /* ignore */ }
+  }, [address]);
+
   return (
     <WalletContext.Provider
       value={{
@@ -331,6 +349,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         authenticate,
         logout,
         clearError,
+        refreshDelegation,
       }}
     >
       {children}

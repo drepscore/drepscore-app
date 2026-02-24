@@ -970,6 +970,53 @@ export async function GET(request: NextRequest) {
     console.warn('[Sync] Social link check phase skipped:', err);
   }
 
+  // ── Push notification dispatch (non-blocking) ─────────────────────────────
+  let pushSent = 0;
+  try {
+    if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+      const { getProposalPriority } = await import('@/utils/proposalPriority');
+
+      // Check for critical open proposals
+      const { data: openCritical } = await supabase
+        .from('proposals')
+        .select('tx_hash, proposal_index, title, proposal_type')
+        .is('ratified_epoch', null)
+        .is('enacted_epoch', null)
+        .is('dropped_epoch', null)
+        .is('expired_epoch', null);
+
+      const criticalProposals = (openCritical || []).filter(
+        (p: any) => getProposalPriority(p.proposal_type) === 'critical'
+      );
+
+      if (criticalProposals.length > 0) {
+        const newest = criticalProposals[0];
+        const baseUrl = process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : 'http://localhost:3000';
+        const pushRes = await fetch(`${baseUrl}/api/push/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'critical-proposal-open',
+            proposalTitle: newest.title,
+            txHash: newest.tx_hash,
+            index: newest.proposal_index,
+          }),
+        });
+        if (pushRes.ok) {
+          const pushData = await pushRes.json();
+          pushSent = pushData.sent || 0;
+          if (pushSent > 0) {
+            console.log(`[Sync] Push notifications sent: ${pushSent}`);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Sync] Push notification phase skipped:', err);
+  }
+
   const durationSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
   const hasErrors = errorCount > 0 || proposalErrorCount > 0 || voteErrorCount > 0;
 

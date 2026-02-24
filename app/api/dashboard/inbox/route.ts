@@ -15,20 +15,9 @@ import {
   calculateParticipationRate,
   applyRationaleCurve,
 } from '@/utils/scoring';
+import { getProposalPriority } from '@/utils/proposalPriority';
 
 export const dynamic = 'force-dynamic';
-
-const CRITICAL_TYPES = [
-  'HardForkInitiation', 'NoConfidence',
-  'NewCommittee', 'NewConstitutionalCommittee',
-  'NewConstitution', 'UpdateConstitution',
-];
-
-function getProposalPriority(type: string): 'critical' | 'important' | 'standard' {
-  if (CRITICAL_TYPES.includes(type)) return 'critical';
-  if (type === 'ParameterChange') return 'important';
-  return 'standard';
-}
 
 export async function GET(request: NextRequest) {
   const drepId = request.nextUrl.searchParams.get('drepId');

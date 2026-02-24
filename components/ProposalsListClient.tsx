@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { ProposalWithVoteSummary } from '@/lib/data';
 import { useWallet } from '@/utils/wallet';
@@ -26,12 +26,24 @@ import {
   Search,
   Heart,
   UserCheck,
+  CheckCircle2,
+  XCircle,
+  MinusCircle,
+  CircleDashed,
 } from 'lucide-react';
 import { stripMarkdown } from '@/utils/text';
+import {
+  ProposalStatusBadge,
+  PriorityBadge,
+  DeadlineBadge,
+  TypeExplainerTooltip,
+} from '@/components/ProposalStatusBadge';
+import { getProposalStatus } from '@/utils/proposalPriority';
 
 interface ProposalsListClientProps {
   proposals: ProposalWithVoteSummary[];
   watchlist?: string[];
+  currentEpoch: number;
 }
 
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof Landmark; color: string }> = {
@@ -53,6 +65,11 @@ const TREASURY_TIER_LABELS: Record<string, string> = {
 };
 
 type SortKey = 'date' | 'votes' | 'title';
+type StatusTab = 'open' | 'closed' | 'all';
+
+interface DRepVoteMap {
+  [key: string]: 'Yes' | 'No' | 'Abstain';
+}
 
 function VoteMiniBar({ yes, no, abstain }: { yes: number; no: number; abstain: number }) {
   const total = yes + no + abstain;
@@ -75,13 +92,61 @@ function VoteMiniBar({ yes, no, abstain }: { yes: number; no: number; abstain: n
   );
 }
 
-export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsListClientProps) {
+function DRepVoteIndicator({ vote }: { vote: 'Yes' | 'No' | 'Abstain' | null }) {
+  if (!vote) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+        <CircleDashed className="h-3 w-3" />
+        Not voted
+      </span>
+    );
+  }
+
+  const config = {
+    Yes: { icon: CheckCircle2, className: 'text-green-600 dark:text-green-400' },
+    No: { icon: XCircle, className: 'text-red-600 dark:text-red-400' },
+    Abstain: { icon: MinusCircle, className: 'text-amber-600 dark:text-amber-400' },
+  }[vote];
+
+  const Icon = config.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${config.className}`}>
+      <Icon className="h-3 w-3" />
+      {vote}
+    </span>
+  );
+}
+
+export function ProposalsListClient({ proposals, watchlist = [], currentEpoch }: ProposalsListClientProps) {
   const { delegatedDrepId } = useWallet();
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [searchQuery, setSearchQuery] = useState('');
   const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
   const [showMyDrepOnly, setShowMyDrepOnly] = useState(false);
+  const [statusTab, setStatusTab] = useState<StatusTab>('open');
+  const [drepVotes, setDrepVotes] = useState<DRepVoteMap>({});
+
+  // Fetch delegated DRep's votes client-side for the vote indicator
+  useEffect(() => {
+    if (!delegatedDrepId) {
+      setDrepVotes({});
+      return;
+    }
+    fetch(`/api/drep/${delegatedDrepId}/votes`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.votes) {
+          const map: DRepVoteMap = {};
+          for (const v of data.votes) {
+            map[`${v.proposalTxHash}-${v.proposalIndex}`] = v.vote;
+          }
+          setDrepVotes(map);
+        }
+      })
+      .catch(() => {});
+  }, [delegatedDrepId]);
 
   const preserveScroll = useCallback((fn: () => void) => {
     const y = window.scrollY;
@@ -94,8 +159,25 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
     return [...set].sort();
   }, [proposals]);
 
+  const statusCounts = useMemo(() => {
+    let open = 0, closed = 0;
+    for (const p of proposals) {
+      const s = getProposalStatus(p);
+      if (s === 'open') open++;
+      else closed++;
+    }
+    return { open, closed, all: proposals.length };
+  }, [proposals]);
+
   const filtered = useMemo(() => {
     let result = proposals;
+
+    // Status tab filter
+    if (statusTab === 'open') {
+      result = result.filter(p => getProposalStatus(p) === 'open');
+    } else if (statusTab === 'closed') {
+      result = result.filter(p => getProposalStatus(p) !== 'open');
+    }
 
     // Search filter
     if (searchQuery.trim()) {
@@ -113,7 +195,7 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
       result = result.filter(p => p.proposalType === typeFilter);
     }
 
-    // Watchlist filter: proposals where at least one watchlisted DRep voted
+    // Watchlist filter
     if (showWatchlistOnly && watchlist.length > 0) {
       const wSet = new Set(watchlist);
       result = result.filter(p => p.voterDrepIds.some(id => wSet.has(id)));
@@ -137,10 +219,29 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
       }
     });
     return result;
-  }, [proposals, typeFilter, sortKey, searchQuery, showWatchlistOnly, showMyDrepOnly, watchlist, delegatedDrepId]);
+  }, [proposals, typeFilter, sortKey, searchQuery, showWatchlistOnly, showMyDrepOnly, watchlist, delegatedDrepId, statusTab]);
 
   return (
     <div className="space-y-4">
+      {/* Status Tabs */}
+      <div className="flex gap-1 border-b">
+        {(['open', 'closed', 'all'] as StatusTab[]).map(tab => (
+          <button
+            key={tab}
+            onClick={() => preserveScroll(() => setStatusTab(tab))}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              statusTab === tab
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab === 'open' ? `Open (${statusCounts.open})` :
+             tab === 'closed' ? `Closed (${statusCounts.closed})` :
+             `All (${statusCounts.all})`}
+          </button>
+        ))}
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -180,7 +281,6 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
           </SelectContent>
         </Select>
 
-        {/* Quick Filters */}
         {delegatedDrepId && (
           <Button
             variant={showMyDrepOnly ? 'default' : 'outline'}
@@ -221,9 +321,14 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
               })
             : null;
 
+          const status = getProposalStatus(p);
+          const isOpen = status === 'open';
+          const voteKey = `${p.txHash}-${p.proposalIndex}`;
+          const drepVote = delegatedDrepId ? (drepVotes[voteKey] || null) : null;
+
           return (
             <Link
-              key={`${p.txHash}-${p.proposalIndex}`}
+              key={voteKey}
               href={`/proposals/${p.txHash}/${p.proposalIndex}`}
             >
               <Card className="hover:bg-muted/30 transition-colors cursor-pointer group mb-3">
@@ -232,22 +337,30 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
                     <div className="flex-1 min-w-0 space-y-2">
                       {/* Badges row */}
                       <div className="flex items-center gap-2 flex-wrap">
+                        <ProposalStatusBadge
+                          ratifiedEpoch={p.ratifiedEpoch}
+                          enactedEpoch={p.enactedEpoch}
+                          droppedEpoch={p.droppedEpoch}
+                          expiredEpoch={p.expiredEpoch}
+                        />
+                        <PriorityBadge proposalType={p.proposalType} />
                         {config && (
                           <Badge variant="outline" className={`gap-1 ${config.color}`}>
                             {TypeIcon && <TypeIcon className="h-3 w-3" />}
                             {config.label}
                           </Badge>
                         )}
+                        <TypeExplainerTooltip proposalType={p.proposalType} />
                         {p.treasuryTier && (
                           <Badge variant="outline" className="text-xs">
                             {TREASURY_TIER_LABELS[p.treasuryTier] || p.treasuryTier}
                           </Badge>
                         )}
+                        {isOpen && (
+                          <DeadlineBadge expirationEpoch={p.expirationEpoch} currentEpoch={currentEpoch} />
+                        )}
                         {date && (
                           <span className="text-xs text-muted-foreground">{date}</span>
-                        )}
-                        {p.proposedEpoch && (
-                          <span className="text-xs text-muted-foreground">Epoch {p.proposedEpoch}</span>
                         )}
                       </div>
 
@@ -263,8 +376,17 @@ export function ProposalsListClient({ proposals, watchlist = [] }: ProposalsList
                         </p>
                       )}
 
-                      {/* Vote bar */}
-                      <VoteMiniBar yes={p.yesCount} no={p.noCount} abstain={p.abstainCount} />
+                      {/* Bottom row: vote bar + DRep indicator */}
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <VoteMiniBar yes={p.yesCount} no={p.noCount} abstain={p.abstainCount} />
+                        </div>
+                        {delegatedDrepId && (
+                          <div className="shrink-0">
+                            <DRepVoteIndicator vote={drepVote} />
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />
