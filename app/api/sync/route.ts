@@ -44,6 +44,17 @@ export const dynamic = 'force-dynamic';
 // Vercel function timeout: allow up to 5 minutes for full sync
 export const maxDuration = 300;
 
+/**
+ * Trim a string to at most maxLen characters, cutting at the last word
+ * boundary before the limit so summaries never end mid-word.
+ */
+function truncateToWordBoundary(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  const trimmed = text.slice(0, maxLen);
+  const lastSpace = trimmed.lastIndexOf(' ');
+  return lastSpace > 0 ? trimmed.slice(0, lastSpace) : trimmed;
+}
+
 interface SupabaseDRepRow {
   id: string;
   metadata: Record<string, unknown>;
@@ -633,16 +644,19 @@ export async function GET(request: NextRequest) {
 
             const msg = await anthropic.messages.create({
               model: 'claude-sonnet-4-5',
-              max_tokens: 200,
+              max_tokens: 80,
               messages: [{
                 role: 'user',
-                content: `Summarize this Cardano governance proposal in 2-3 sentences for a casual ADA holder. Focus on what it does, who it affects, and why it matters. Be concise and neutral. Do not include any URLs, links, IPFS hashes, or transaction hashes in the summary.\n\nTitle: ${row.title || 'Untitled'}\nType: ${row.proposal_type}${amountContext}\nDescription: ${(row.abstract || '').slice(0, 2000)}`,
+                content: `Summarize this Cardano governance proposal in 1-2 short sentences for a casual ADA holder. Plain language, no jargon. Neutral tone. No URLs or hashes. Your entire response must be 160 characters or fewer.\n\nTitle: ${row.title || 'Untitled'}\nType: ${row.proposal_type}${amountContext}\nDescription: ${(row.abstract || '').slice(0, 2000)}`,
               }],
             });
 
             const rawSummary = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
             const summary = rawSummary
-              ? rawSummary.replace(/https?:\/\/\S+/g, '').replace(/ipfs:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim()
+              ? truncateToWordBoundary(
+                  rawSummary.replace(/https?:\/\/\S+/g, '').replace(/ipfs:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim(),
+                  160
+                )
               : null;
 
             if (summary) {
@@ -661,6 +675,96 @@ export async function GET(request: NextRequest) {
       }
     } catch (err) {
       console.error('[Sync] AI summary phase failed:', err);
+    }
+
+    // ── Generate AI summaries for rationales without one ───────────────────
+    let rationaleAiSummaryCount = 0;
+    const RATIONALE_SUMMARY_MAX_PER_SYNC = 20;
+
+    try {
+      const { data: unsummarizedRationales } = await supabase
+        .from('vote_rationales')
+        .select('vote_tx_hash, drep_id, proposal_tx_hash, proposal_index, rationale_text')
+        .is('ai_summary', null)
+        .not('rationale_text', 'is', null)
+        .neq('rationale_text', '')
+        .limit(RATIONALE_SUMMARY_MAX_PER_SYNC);
+
+      if (unsummarizedRationales && unsummarizedRationales.length > 0) {
+        // Fetch proposal titles for context
+        const proposalKeys = unsummarizedRationales.map(r => ({
+          txHash: r.proposal_tx_hash,
+          index: r.proposal_index,
+        }));
+        const proposalTitles = new Map<string, string>();
+        const txHashes = [...new Set(proposalKeys.map(k => k.txHash))];
+        if (txHashes.length > 0) {
+          const { data: proposalRows } = await supabase
+            .from('proposals')
+            .select('tx_hash, proposal_index, title')
+            .in('tx_hash', txHashes);
+          if (proposalRows) {
+            for (const p of proposalRows) {
+              proposalTitles.set(`${p.tx_hash}-${p.proposal_index}`, p.title || 'Untitled');
+            }
+          }
+        }
+
+        // Fetch vote direction for context
+        const voteTxHashes = unsummarizedRationales.map(r => r.vote_tx_hash);
+        const voteDirections = new Map<string, string>();
+        const { data: voteRows } = await supabase
+          .from('drep_votes')
+          .select('vote_tx_hash, vote')
+          .in('vote_tx_hash', voteTxHashes);
+        if (voteRows) {
+          for (const v of voteRows) {
+            voteDirections.set(v.vote_tx_hash, v.vote);
+          }
+        }
+
+        const { default: Anthropic } = await import('@anthropic-ai/sdk');
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+        console.log(`[Sync] Generating AI summaries for ${unsummarizedRationales.length} rationales...`);
+
+        for (const row of unsummarizedRationales) {
+          try {
+            const proposalTitle = proposalTitles.get(`${row.proposal_tx_hash}-${row.proposal_index}`) || 'this proposal';
+            const voteDirection = voteDirections.get(row.vote_tx_hash) || 'voted';
+
+            const msg = await anthropic.messages.create({
+              model: 'claude-sonnet-4-5',
+              max_tokens: 80,
+              messages: [{
+                role: 'user',
+                content: `Summarize this DRep's rationale for voting ${voteDirection} on "${proposalTitle}" in 1-2 neutral sentences. Plain language, no editorializing. No URLs or hashes. Your entire response must be 160 characters or fewer.\n\nRationale: ${(row.rationale_text || '').slice(0, 1500)}`,
+              }],
+            });
+
+            const rawSummary = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
+            const summary = rawSummary
+              ? truncateToWordBoundary(
+                  rawSummary.replace(/https?:\/\/\S+/g, '').replace(/ipfs:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim(),
+                  160
+                )
+              : null;
+
+            if (summary) {
+              await supabase
+                .from('vote_rationales')
+                .update({ ai_summary: summary })
+                .eq('vote_tx_hash', row.vote_tx_hash);
+              rationaleAiSummaryCount++;
+            }
+          } catch (aiErr) {
+            console.error(`[Sync] Rationale AI summary error for ${row.vote_tx_hash}:`, aiErr);
+          }
+        }
+        console.log(`[Sync] Generated ${rationaleAiSummaryCount} rationale AI summaries`);
+      }
+    } catch (err) {
+      console.error('[Sync] Rationale AI summary phase failed:', err);
     }
   }
 

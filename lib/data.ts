@@ -309,13 +309,18 @@ export async function getProposalsByIds(
   }
 }
 
+export interface RationaleRecord {
+  rationaleText: string | null;
+  rationaleAiSummary: string | null;
+}
+
 /**
- * Get cached rationale text for votes by their tx hashes
+ * Get cached rationale text and AI summary for votes by their tx hashes
  */
 export async function getRationalesByVoteTxHashes(
   voteTxHashes: string[]
-): Promise<Map<string, string>> {
-  const result = new Map<string, string>();
+): Promise<Map<string, RationaleRecord>> {
+  const result = new Map<string, RationaleRecord>();
   
   if (voteTxHashes.length === 0) return result;
   
@@ -324,9 +329,8 @@ export async function getRationalesByVoteTxHashes(
     
     const { data: rows, error } = await supabase
       .from('vote_rationales')
-      .select('vote_tx_hash, rationale_text')
-      .in('vote_tx_hash', voteTxHashes)
-      .not('rationale_text', 'is', null);
+      .select('vote_tx_hash, rationale_text, ai_summary')
+      .in('vote_tx_hash', voteTxHashes);
     
     if (error) {
       console.warn('[Data] getRationalesByVoteTxHashes query failed:', error.message);
@@ -336,7 +340,10 @@ export async function getRationalesByVoteTxHashes(
     if (!rows) return result;
     
     for (const row of rows) {
-      if (row.rationale_text) result.set(row.vote_tx_hash, row.rationale_text);
+      result.set(row.vote_tx_hash, {
+        rationaleText: row.rationale_text || null,
+        rationaleAiSummary: row.ai_summary || null,
+      });
     }
     
     return result;
@@ -532,6 +539,7 @@ export interface ProposalVoteDetail {
   vote: 'Yes' | 'No' | 'Abstain';
   blockTime: number;
   rationaleText: string | null;
+  rationaleAiSummary: string | null;
   metaUrl: string | null;
 }
 
@@ -629,18 +637,19 @@ export async function getVotesByProposal(
       }
     }
 
-    // Fetch rationale text
+    // Fetch rationale text and AI summaries
     const voteTxHashes = votes.map(v => v.vote_tx_hash);
     const { data: rationales } = await supabase
       .from('vote_rationales')
-      .select('vote_tx_hash, rationale_text')
-      .in('vote_tx_hash', voteTxHashes)
-      .not('rationale_text', 'is', null);
+      .select('vote_tx_hash, rationale_text, ai_summary')
+      .in('vote_tx_hash', voteTxHashes);
 
-    const rationaleMap = new Map<string, string>();
+    const rationaleTextMap = new Map<string, string>();
+    const rationaleAiSummaryMap = new Map<string, string>();
     if (rationales) {
       for (const r of rationales) {
-        if (r.rationale_text) rationaleMap.set(r.vote_tx_hash, r.rationale_text);
+        if (r.rationale_text) rationaleTextMap.set(r.vote_tx_hash, r.rationale_text);
+        if (r.ai_summary) rationaleAiSummaryMap.set(r.vote_tx_hash, r.ai_summary);
       }
     }
 
@@ -650,7 +659,8 @@ export async function getVotesByProposal(
       drepName: drepNameMap.get(v.drep_id) || null,
       vote: v.vote as 'Yes' | 'No' | 'Abstain',
       blockTime: v.block_time,
-      rationaleText: rationaleMap.get(v.vote_tx_hash) || null,
+      rationaleText: rationaleTextMap.get(v.vote_tx_hash) || null,
+      rationaleAiSummary: rationaleAiSummaryMap.get(v.vote_tx_hash) || null,
       metaUrl: v.meta_url,
     }));
   } catch (err) {

@@ -438,19 +438,19 @@ export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChart
                         {vote.title || 'Untitled Proposal'}
                       </p>
                       
-                      {/* Abstract - 2 lines */}
-                      {vote.abstract && (
+                      {/* Proposal summary */}
+                      {(vote.aiSummary || vote.abstract) && (
                         <p className="text-xs text-muted-foreground line-clamp-2">
-                          {stripMarkdown(vote.abstract)}
+                          {stripMarkdown(vote.aiSummary || vote.abstract || '')}
                         </p>
                       )}
 
-                      {/* Inline rationale preview */}
-                      {vote.rationaleText && (
+                      {/* Rationale summary */}
+                      {(vote.rationaleAiSummary || vote.rationaleText) && (
                         <div className="bg-muted/30 rounded p-2 mt-1">
                           <p className="text-xs text-foreground/80 line-clamp-2">
                             <span className="font-semibold text-muted-foreground">Rationale: </span>
-                            {stripMarkdown(vote.rationaleText)}
+                            {stripMarkdown(vote.rationaleAiSummary || vote.rationaleText || '')}
                           </p>
                         </div>
                       )}

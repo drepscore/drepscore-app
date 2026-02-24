@@ -57,6 +57,7 @@ export interface VoteRecord {
   hasRationale: boolean;
   rationaleUrl: string | null;
   rationaleText: string | null;
+  rationaleAiSummary: string | null;
   voteType: 'Governance' | 'Catalyst';
   proposalType: string | null;
   treasuryTier: string | null;

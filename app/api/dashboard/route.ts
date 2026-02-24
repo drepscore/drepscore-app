@@ -58,7 +58,9 @@ export async function GET(request: NextRequest) {
       const key = `${vote.proposal_tx_hash}-${vote.proposal_index}`;
       const cachedProposal = cachedProposals.get(key);
       const title = cachedProposal?.title || null;
-      const rationaleText = cachedRationales.get(vote.vote_tx_hash) || null;
+      const rationaleRecord = cachedRationales.get(vote.vote_tx_hash) ?? null;
+      const rationaleText = rationaleRecord?.rationaleText || null;
+      const rationaleAiSummary = rationaleRecord?.rationaleAiSummary || null;
 
       return {
         id: `${vote.vote_tx_hash}-${index}`,
@@ -73,6 +75,7 @@ export async function GET(request: NextRequest) {
         hasRationale: vote.meta_url !== null || rationaleText !== null,
         rationaleUrl: vote.meta_url,
         rationaleText,
+        rationaleAiSummary,
         voteType: 'Governance' as const,
         proposalType: cachedProposal?.proposalType || null,
         treasuryTier: cachedProposal?.treasuryTier || null,

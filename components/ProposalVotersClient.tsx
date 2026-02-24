@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ChevronDown, ChevronUp, ChevronRight, Search, Heart, UserCheck } from 'lucide-react';
 import { CopyableAddress } from '@/components/CopyableAddress';
-import { MarkdownContent } from '@/components/MarkdownContent';
 
 interface ProposalVotersClientProps {
   votes: ProposalVoteDetail[];
@@ -27,7 +26,6 @@ export function ProposalVotersClient({
   const router = useRouter();
   const [filter, setFilter] = useState<VoteFilter>('all');
   const [showAll, setShowAll] = useState(false);
-  const [expandedRationales, setExpandedRationales] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
 
@@ -58,14 +56,6 @@ export function ProposalVotersClient({
   }, [votes, filter, searchQuery, showWatchlistOnly, watchlist, delegatedDrepId]);
 
   const visible = showAll ? filtered : filtered.slice(0, 20);
-
-  const toggleRationale = (txHash: string) => {
-    setExpandedRationales(prev => {
-      const next = new Set(prev);
-      if (next.has(txHash)) next.delete(txHash); else next.add(txHash);
-      return next;
-    });
-  };
 
   const yesCt = votes.filter(v => v.vote === 'Yes').length;
   const noCt = votes.filter(v => v.vote === 'No').length;
@@ -131,8 +121,6 @@ export function ProposalVotersClient({
       <CardContent>
         <div className="space-y-2">
           {visible.map((v) => {
-            const isExpanded = expandedRationales.has(v.voteTxHash);
-            const hasLongRationale = v.rationaleText && v.rationaleText.length > 200;
             const isMyDrep = delegatedDrepId === v.drepId;
 
             return (
@@ -174,32 +162,17 @@ export function ProposalVotersClient({
                       })}
                     </p>
 
-                    {/* Rationale */}
-                    {v.rationaleText && (
-                      <div className="mt-2">
-                        {hasLongRationale && !isExpanded ? (
-                          <p className="text-xs text-foreground/80 leading-relaxed">
-                            {v.rationaleText.slice(0, 200)}...
-                          </p>
-                        ) : (
-                          <MarkdownContent content={v.rationaleText} className="text-xs text-foreground/80 leading-relaxed" />
-                        )}
-                        {hasLongRationale && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); toggleRationale(v.voteTxHash); }}
-                            className="text-xs text-primary hover:underline flex items-center gap-1 mt-1 font-medium"
-                          >
-                            {isExpanded ? (
-                              <>Show less <ChevronUp className="h-3 w-3" /></>
-                            ) : (
-                              <>Read more <ChevronDown className="h-3 w-3" /></>
-                            )}
-                          </button>
-                        )}
+                    {/* Rationale AI summary */}
+                    {v.rationaleAiSummary && (
+                      <div className="bg-muted/30 rounded p-2 mt-2">
+                        <p className="text-xs text-foreground/80 line-clamp-2">
+                          <span className="font-semibold text-muted-foreground">Rationale: </span>
+                          {v.rationaleAiSummary}
+                        </p>
                       </div>
                     )}
 
-                    {v.metaUrl && !v.rationaleText && (
+                    {v.metaUrl && !v.rationaleAiSummary && !v.rationaleText && (
                       <p className="text-xs text-muted-foreground mt-1">
                         Rationale submitted but not yet indexed. Check back soon.
                       </p>

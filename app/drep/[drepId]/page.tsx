@@ -81,7 +81,9 @@ async function getDRepData(drepId: string) {
       const title = cachedProposal?.title || null;
       const abstract = cachedProposal?.abstract || null;
       const aiSummary = cachedProposal?.aiSummary ?? null;
-      const rationaleText = cachedRationales.get(vote.vote_tx_hash) || null;
+      const rationaleRecord = cachedRationales.get(vote.vote_tx_hash) ?? null;
+      const rationaleText = rationaleRecord?.rationaleText || null;
+      const rationaleAiSummary = rationaleRecord?.rationaleAiSummary || null;
 
       return {
         id: `${vote.vote_tx_hash}-${index}`,
@@ -96,6 +98,7 @@ async function getDRepData(drepId: string) {
         hasRationale: vote.meta_url !== null || rationaleText !== null,
         rationaleUrl: vote.meta_url,
         rationaleText,
+        rationaleAiSummary,
         voteType: 'Governance' as const,
         proposalType: cachedProposal?.proposalType || null,
         treasuryTier: cachedProposal?.treasuryTier || null,
