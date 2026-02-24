@@ -80,7 +80,7 @@ interface DRepListItem {
 }
 
 export default function MyDRepPage() {
-  const { connected, isAuthenticated, ownDRepId, sessionAddress, connecting } = useWallet();
+  const { connected, isAuthenticated, ownDRepId, sessionAddress, address, connecting } = useWallet();
   const [state, setState] = useState<PageState>('loading');
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,18 +88,19 @@ export default function MyDRepPage() {
   const [selectedDRepId, setSelectedDRepId] = useState<string | null>(null);
   const [drepList, setDrepList] = useState<DRepListItem[]>([]);
 
-  // Check admin status
+  // Check admin status — use sessionAddress if authenticated, fall back to connected address
+  const adminCheckAddress = sessionAddress || address;
   useEffect(() => {
-    if (!isAuthenticated || !sessionAddress) { setIsAdmin(false); return; }
+    if (!connected || !adminCheckAddress) { setIsAdmin(false); return; }
     fetch('/api/admin/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: sessionAddress }),
+      body: JSON.stringify({ address: adminCheckAddress }),
     })
       .then(r => r.json())
       .then(d => setIsAdmin(d.isAdmin === true))
       .catch(() => setIsAdmin(false));
-  }, [isAuthenticated, sessionAddress]);
+  }, [connected, adminCheckAddress]);
 
   // Fetch DRep list for admin switcher
   useEffect(() => {
@@ -144,7 +145,7 @@ export default function MyDRepPage() {
   useEffect(() => {
     if (connecting) return;
 
-    if (!connected || !isAuthenticated) {
+    if (!connected || (!isAuthenticated && !isAdmin)) {
       setState('no-wallet');
       return;
     }

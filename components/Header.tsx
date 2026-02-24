@@ -26,7 +26,6 @@ import {
   Bell,
   Shield,
   User,
-  Settings2,
   LogOut,
   TrendingDown,
   Wallet,
@@ -63,7 +62,7 @@ const ALERT_COLORS: Record<AlertType, string> = {
 };
 
 export function Header() {
-  const { isAuthenticated, sessionAddress, ownDRepId, logout } = useWallet();
+  const { isAuthenticated, sessionAddress, address, connected, ownDRepId, logout } = useWallet();
   const { alerts, unreadCount, dismissAlert } = useAlignmentAlerts();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -81,17 +80,18 @@ export function Header() {
       .catch(() => {});
   }, [isAuthenticated]);
 
+  const adminCheckAddress = sessionAddress || address;
   useEffect(() => {
-    if (!isAuthenticated || !sessionAddress) { setIsAdmin(false); return; }
+    if (!connected || !adminCheckAddress) { setIsAdmin(false); return; }
     fetch('/api/admin/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: sessionAddress }),
+      body: JSON.stringify({ address: adminCheckAddress }),
     })
       .then(r => r.json())
       .then(d => setIsAdmin(d.isAdmin === true))
       .catch(() => setIsAdmin(false));
-  }, [isAuthenticated, sessionAddress]);
+  }, [connected, adminCheckAddress]);
 
   useEffect(() => {
     const handler = () => setWalletModalOpen(true);
@@ -227,13 +227,6 @@ export function Header() {
                       <User className="h-4 w-4 mr-2" />
                       Profile
                     </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => window.dispatchEvent(new Event('openPreferencesWizard'))}
-                    className="cursor-pointer"
-                  >
-                    <Settings2 className="h-4 w-4 mr-2" />
-                    Change Preferences
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-destructive">

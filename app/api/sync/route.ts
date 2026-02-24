@@ -109,7 +109,17 @@ const RATIONALE_MAX_CONTENT_SIZE = 50000; // 50KB
 const RATIONALE_CONCURRENCY = 3;
 // Cap IPFS fetches per sync run so the function stays within Vercel's timeout.
 // Each subsequent sync incrementally fetches more. ~30 fetches * 5s / 3 concurrency = ~50s.
-const RATIONALE_MAX_PER_SYNC = 50;
+const RATIONALE_MAX_PER_SYNC = 100;
+
+function extractJsonLdString(val: unknown): string | null {
+  if (typeof val === 'string') return val.trim() || null;
+  if (val && typeof val === 'object' && '@value' in (val as Record<string, unknown>)) {
+    const v = (val as Record<string, unknown>)['@value'];
+    if (typeof v === 'string') return v.trim() || null;
+  }
+  if (Array.isArray(val) && val.length > 0) return extractJsonLdString(val[0]);
+  return null;
+}
 
 async function fetchRationaleFromUrl(url: string): Promise<string | null> {
   try {
@@ -138,17 +148,22 @@ async function fetchRationaleFromUrl(url: string): Promise<string | null> {
 
     try {
       const json = JSON.parse(text);
-      
-      // CIP-100 format: rationale is nested under body.comment or body.rationale
+
+      // CIP-100 JSON-LD: body.comment, body.rationale, body.motivation (may be string or {\"@value\": ...})
       if (json.body && typeof json.body === 'object') {
-        const bodyText = json.body.comment || json.body.rationale || json.body.motivation;
-        if (typeof bodyText === 'string' && bodyText.trim()) return bodyText.trim();
+        for (const key of ['comment', 'rationale', 'motivation']) {
+          const extracted = extractJsonLdString(json.body[key]);
+          if (extracted) return extracted;
+        }
       }
-      
+
       // Flat format fallback
-      const rationaleText = json.rationale || json.motivation || json.justification || json.reason;
-      if (typeof rationaleText === 'string' && rationaleText.trim()) return rationaleText.trim();
-      if (typeof json === 'string') return json.trim();
+      for (const key of ['rationale', 'motivation', 'justification', 'reason', 'comment']) {
+        const extracted = extractJsonLdString(json[key]);
+        if (extracted) return extracted;
+      }
+
+      if (typeof json === 'string' && json.trim()) return json.trim();
     } catch {
       if (text.trim() && !text.includes('<!DOCTYPE') && !text.includes('<html')) {
         return text.trim();
@@ -179,12 +194,13 @@ async function fetchAndCacheRationales(
 
   if (votesNeedingFetch.length === 0) return { fetched: 0, cached: 0 };
 
-  // Check which ones are already cached
+  // Check which ones already have successful rationale (non-null text only — retry failures)
   const txHashes = votesNeedingFetch.map(v => v.vote.vote_tx_hash);
   const { data: existingRows } = await supabase
     .from('vote_rationales')
     .select('vote_tx_hash')
-    .in('vote_tx_hash', txHashes.slice(0, 1000)); // Supabase IN limit
+    .in('vote_tx_hash', txHashes.slice(0, 1000))
+    .not('rationale_text', 'is', null);
 
   const alreadyCached = new Set((existingRows || []).map(r => r.vote_tx_hash));
   const allUncached = votesNeedingFetch.filter(v => !alreadyCached.has(v.vote.vote_tx_hash));
@@ -218,11 +234,14 @@ async function fetchAndCacheRationales(
     rationaleRows.push(...results);
   }
 
-  // Upsert rationales (including null text to mark them as attempted)
-  if (rationaleRows.length > 0) {
+  const successRows = rationaleRows.filter(r => r.rationale_text !== null);
+  const failCount = rationaleRows.length - successRows.length;
+  console.log(`[Sync] Rationale URL fetch results: ${successRows.length} succeeded, ${failCount} failed (will retry next sync)`);
+
+  if (successRows.length > 0) {
     const BATCH_SIZE = 100;
-    for (let i = 0; i < rationaleRows.length; i += BATCH_SIZE) {
-      const batch = rationaleRows.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < successRows.length; i += BATCH_SIZE) {
+      const batch = successRows.slice(i, i + BATCH_SIZE);
       const { error } = await supabase
         .from('vote_rationales')
         .upsert(batch, { onConflict: 'vote_tx_hash' });
@@ -232,7 +251,7 @@ async function fetchAndCacheRationales(
     }
   }
 
-  return { fetched: rationaleRows.length, cached: alreadyCached.size };
+  return { fetched: successRows.length, cached: alreadyCached.size };
 }
 
 // ── Main Sync Handler ─────────────────────────────────────────────────────────
@@ -446,15 +465,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ── Rationale diagnostics ─────────────────────────────────────────────
+    const votesWithMetaUrl = allVotesForRationale.filter(v => v.vote.meta_url);
+    const votesWithMetaJson = allVotesForRationale.filter(v => v.vote.meta_json != null);
+    console.log(`[Sync] Rationale diagnostics: ${allVotesForRationale.length} total votes, ${votesWithMetaUrl.length} have meta_url, ${votesWithMetaJson.length} have meta_json`);
+
+    // Log sample meta_urls for manual verification
+    if (votesWithMetaUrl.length > 0) {
+      const samples = votesWithMetaUrl.slice(0, 3).map(v => `  ${v.vote.vote_tx_hash.slice(0, 12)}... → ${v.vote.meta_url}`);
+      console.log(`[Sync] Sample meta_urls:\n${samples.join('\n')}`);
+    }
+
     // ── Upsert inline rationales from meta_json ───────────────────────────
-    // Check both CIP-100 nested format (body.comment/body.rationale) and flat format
     const inlineRationales: SupabaseRationaleRow[] = [];
     for (const { drepId, vote } of allVotesForRationale) {
-      const rationaleText = 
+      const rationaleText =
         vote.meta_json?.body?.comment ||
         vote.meta_json?.body?.rationale ||
         vote.meta_json?.rationale;
-      
+
       if (rationaleText && typeof rationaleText === 'string') {
         inlineRationales.push({
           vote_tx_hash: vote.vote_tx_hash,
@@ -467,8 +496,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    console.log(`[Sync] Inline rationales from meta_json: ${inlineRationales.length} (expected ~0 if Koios doesn't return meta_json)`);
+
     if (inlineRationales.length > 0) {
-      console.log(`[Sync] Upserting ${inlineRationales.length} inline rationales...`);
       for (let i = 0; i < inlineRationales.length; i += BATCH_SIZE) {
         const batch = inlineRationales.slice(i, i + BATCH_SIZE);
         const { error } = await supabase
@@ -480,10 +510,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ── Clean up previously cached null rationales so they get retried ────
+    const { count: purgedNulls } = await supabase
+      .from('vote_rationales')
+      .delete({ count: 'exact' })
+      .is('rationale_text', null);
+    if (purgedNulls && purgedNulls > 0) {
+      console.log(`[Sync] Purged ${purgedNulls} null-rationale rows (will retry fetches)`);
+    }
+
     // ── Fetch rationales from meta_url for uncached votes ─────────────────
     try {
       const rationaleResult = await fetchAndCacheRationales(allVotesForRationale, supabase);
-      console.log(`[Sync] Rationales: ${rationaleResult.fetched} fetched, ${rationaleResult.cached} already cached`);
+      console.log(`[Sync] Rationales: ${rationaleResult.fetched} new, ${rationaleResult.cached} already cached`);
     } catch (err) {
       console.error('[Sync] Rationale fetch phase failed:', err);
     }

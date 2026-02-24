@@ -1,114 +1,94 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@/utils/wallet';
-import { VoteRecord } from '@/types/drep';
-import { type ScoreSnapshot } from '@/lib/data';
-import { generateRecommendations } from '@/utils/recommendations';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Lock, Sparkles, ArrowRight, Wallet } from 'lucide-react';
+import { Sparkles, ArrowRight, Wallet, Share2, Check } from 'lucide-react';
 
 interface DRepDashboardWrapperProps {
   drepId: string;
+  drepName: string;
   isClaimed: boolean;
-  drep: {
-    drepId: string;
-    effectiveParticipation: number;
-    rationaleRate: number;
-    reliabilityScore: number;
-    profileCompleteness: number;
-    deliberationModifier: number;
-    metadata: Record<string, unknown> | null;
-    votes: VoteRecord[];
-    drepScore: number;
-    brokenLinks?: string[];
-  };
-  scoreHistory: ScoreSnapshot[];
 }
 
-export function DRepDashboardWrapper({ drepId, isClaimed, drep, scoreHistory }: DRepDashboardWrapperProps) {
+export function DRepDashboardWrapper({ drepId, drepName, isClaimed }: DRepDashboardWrapperProps) {
   const { isAuthenticated, ownDRepId } = useWallet();
+  const [copied, setCopied] = useState(false);
 
   const isOwner = isAuthenticated && ownDRepId === drepId;
+  const profileUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/drep/${drepId}`
+    : `/drep/${drepId}`;
 
-  // Owner: banner pointing to dedicated dashboard
+  const handleShare = async () => {
+    const shareData = {
+      title: `${drepName} — DRepScore`,
+      text: `Check out ${drepName}'s DRep scorecard on DRepScore`,
+      url: profileUrl,
+    };
+
+    if (navigator.share) {
+      try { await navigator.share(shareData); return; } catch { /* user cancelled */ }
+    }
+
+    await navigator.clipboard.writeText(profileUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareButton = (
+    <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleShare}>
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
+      {copied ? 'Copied!' : 'Share'}
+    </Button>
+  );
+
   if (isOwner) {
     return (
-      <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
-        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-5">
-          <div className="flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <div>
-              <p className="font-semibold text-sm">This is your DRep profile</p>
-              <p className="text-xs text-muted-foreground">
-                View your full dashboard with personalized insights and recommendations.
-              </p>
-            </div>
-          </div>
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <Sparkles className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-sm font-medium truncate">Your DRep profile</span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {shareButton}
           <Link href="/dashboard">
-            <Button size="sm" className="gap-2">
-              Open Dashboard <ArrowRight className="h-4 w-4" />
+            <Button size="sm" className="gap-1.5 text-xs">
+              Open Dashboard <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </Link>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
-  // Unclaimed DRep: show claim CTA
   if (!isClaimed) {
     return (
-      <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-5">
-          <div className="flex items-center gap-3">
-            <Wallet className="h-5 w-5 text-primary" />
-            <div>
-              <p className="font-semibold text-sm">Is this your DRep profile?</p>
-              <p className="text-xs text-muted-foreground">
-                Claim it to access your personalized DRep Dashboard with score insights, recommendations, and more.
-              </p>
-            </div>
-          </div>
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-muted-foreground/25 px-4 py-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <Wallet className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm text-muted-foreground truncate">Is this your DRep? Claim it to access insights.</span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {shareButton}
           <Button
             size="sm"
             variant="outline"
-            className="gap-2"
+            className="gap-1.5 text-xs"
             onClick={() => window.dispatchEvent(new Event('openWalletConnect'))}
           >
-            <Wallet className="h-4 w-4" /> Connect Wallet to Claim
+            <Wallet className="h-3.5 w-3.5" /> Claim
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
-  // Claimed by someone else: show recommendation teaser
-  const recs = generateRecommendations(drep);
-  if (recs.length === 0) return null;
-
-  const totalGain = recs.reduce((sum, r) => sum + r.potentialGain, 0);
-
+  // Claimed by someone else — just show share
   return (
-    <Card className="border-dashed border-2 border-muted-foreground/20">
-      <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-full bg-primary/10">
-            <Lock className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <p className="font-semibold text-sm flex items-center gap-2">
-              DRep Dashboard
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {recs.length} improvement recommendation{recs.length > 1 ? 's' : ''} available
-              {totalGain > 0 && ` (+${totalGain} pts potential)`}.
-              {' '}This DRep has already claimed their dashboard.
-            </p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex items-center justify-end px-1 py-1">
+      {shareButton}
+    </div>
   );
 }

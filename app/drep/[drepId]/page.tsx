@@ -19,7 +19,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, TrendingUp } from 'lucide-react';
 import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
-import { ClaimProfileBanner } from '@/components/ClaimProfileBanner';
 import { DRepDashboardWrapper } from '@/components/DRepDashboardWrapper';
 import { CopyableAddress } from '@/components/CopyableAddress';
 import { AboutSection } from '@/components/AboutSection';
@@ -256,6 +255,15 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         </div>
       </div>
 
+      {/* Claim / Owner banner + Share — compact strip */}
+      <Suspense fallback={null}>
+        <DRepDashboardWrapper
+          drepId={drep.drepId}
+          drepName={getDRepPrimaryName(drep)}
+          isClaimed={isClaimed}
+        />
+      </Suspense>
+
       {/* DRep Score Card — Hero component with ring, range bar, share */}
       <ScoreCard
         drep={drep}
@@ -281,34 +289,10 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         references={drep.metadata?.references as Array<{ uri: string; label?: string }> | undefined}
       />
 
-      {/* DRep Dashboard CTA */}
-      <Suspense fallback={null}>
-        <DRepDashboardWrapper
-          drepId={drep.drepId}
-          isClaimed={isClaimed}
-          drep={{
-            drepId: drep.drepId,
-            effectiveParticipation: drep.effectiveParticipation,
-            rationaleRate: drep.rationaleRate,
-            reliabilityScore: drep.reliabilityScore,
-            profileCompleteness: drep.profileCompleteness,
-            deliberationModifier: drep.deliberationModifier,
-            metadata: drep.metadata,
-            votes: drep.votes,
-            drepScore: drep.drepScore,
-            brokenLinks: [...brokenLinks],
-          }}
-          scoreHistory={scoreHistory}
-        />
-      </Suspense>
-
       {/* Voting History */}
       <Suspense fallback={<DetailPageSkeleton />}>
         <VotingHistoryWithPrefs votes={drep.votes} />
       </Suspense>
-
-      {/* Claim Profile Banner */}
-      <ClaimProfileBanner drepId={drep.drepId} />
 
     </div>
   );
