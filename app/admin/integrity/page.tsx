@@ -7,12 +7,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 
 export default function AdminIntegrityPage() {
-  const { address, connected } = useWallet();
+  const { address, connected, sessionAddress } = useWallet();
+  const adminAddress = sessionAddress || address;
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!connected || !address) {
+    if (!connected || !adminAddress) {
       setIsAdmin(false);
       setChecking(false);
       return;
@@ -21,13 +22,13 @@ export default function AdminIntegrityPage() {
     fetch('/api/admin/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address }),
+      body: JSON.stringify({ address: adminAddress }),
     })
       .then(r => r.json())
       .then(data => setIsAdmin(data.isAdmin === true))
       .catch(() => setIsAdmin(false))
       .finally(() => setChecking(false));
-  }, [address, connected]);
+  }, [adminAddress, connected]);
 
   if (checking) {
     return (
@@ -58,7 +59,7 @@ export default function AdminIntegrityPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <IntegrityDashboard adminAddress={address!} />
+      <IntegrityDashboard adminAddress={adminAddress!} />
     </div>
   );
 }

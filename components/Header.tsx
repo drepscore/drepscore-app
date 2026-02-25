@@ -40,6 +40,7 @@ import {
   Sparkles,
   UserCircle,
   Clock,
+  Activity,
 } from 'lucide-react';
 
 const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
@@ -255,6 +256,17 @@ export function Header() {
                       Profile
                     </Link>
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/integrity" className="cursor-pointer">
+                          <Activity className="h-4 w-4 mr-2" />
+                          Data Integrity
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-destructive">
                     <LogOut className="h-4 w-4 mr-2" />
