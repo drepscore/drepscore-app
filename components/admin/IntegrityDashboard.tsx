@@ -6,9 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   RefreshCw, CheckCircle2, XCircle, AlertTriangle, Activity,
-  Database, Shield, Clock, TrendingUp, Zap,
+  Database, Shield, Clock, TrendingUp, Zap, Info, ChevronDown, ChevronUp,
+  RotateCw, Wrench, Lightbulb,
 } from 'lucide-react';
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 interface IntegrityData {
   timestamp: string;
@@ -47,9 +56,122 @@ interface IntegrityData {
   alerts: { level: 'critical' | 'warning'; metric: string; value: string; threshold: string }[];
 }
 
-function MetricCard({ title, value, subtitle, icon: Icon, status }: {
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmt(n: number | string): string {
+  return Number(n).toLocaleString();
+}
+
+function pct1(n: number): string {
+  return n % 1 === 0 ? `${n}%` : `${n.toFixed(1)}%`;
+}
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return 'never';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ${hrs % 24}h ago`;
+}
+
+function formatDuration(ms: number | null): string {
+  if (ms === null) return '—';
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.round((ms % 60000) / 1000);
+  return `${mins}m ${secs}s`;
+}
+
+function coverageStatus(pct: number): 'good' | 'warning' | 'critical' {
+  if (pct >= 99) return 'good';
+  if (pct >= 95) return 'warning';
+  return 'critical';
+}
+
+const ALERT_HINTS: Record<string, string> = {
+  'Vote power coverage': 'Auto-heals on nightly full sync.',
+  'Hash mismatch rate': 'Review mismatches — DReps may have changed rationale content post-vote.',
+  'Proposal AI summary coverage': 'Auto-heals slowly (10/run). Run bootstrap-ai-summaries.ts for bulk.',
+  'Fast sync stale': 'Check Vercel cron logs for failures.',
+  'Full sync stale': 'Check Vercel function logs — may be timing out.',
+};
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+function InfoTip({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Info className="h-3 w-3 text-muted-foreground/60 cursor-help inline-block ml-1" />
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[260px] text-xs">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function SectionHeader({ icon: Icon, title, description }: {
+  icon: React.ElementType; title: string; description: string;
+}) {
+  return (
+    <div className="mb-2">
+      <h3 className="text-sm font-semibold flex items-center gap-1.5">
+        <Icon className="h-4 w-4" /> {title}
+      </h3>
+      <p className="text-[11px] text-muted-foreground mt-0.5">{description}</p>
+    </div>
+  );
+}
+
+function GuidanceNote({ type, children }: {
+  type: 'auto-heals' | 'action-needed' | 'expected'; children: React.ReactNode;
+}) {
+  const config = {
+    'auto-heals': { icon: RotateCw, label: 'Auto-heals', cls: 'text-green-600 bg-green-500/10 border-green-500/20' },
+    'action-needed': { icon: Wrench, label: 'Action needed', cls: 'text-amber-600 bg-amber-500/10 border-amber-500/20' },
+    'expected': { icon: Lightbulb, label: 'Expected', cls: 'text-blue-600 bg-blue-500/10 border-blue-500/20' },
+  }[type];
+  const BadgeIcon = config.icon;
+  return (
+    <div className="flex items-start gap-2 text-[11px] leading-relaxed">
+      <Badge variant="outline" className={`${config.cls} text-[9px] px-1.5 py-0 mt-0.5 shrink-0 gap-1`}>
+        <BadgeIcon className="h-2.5 w-2.5" /> {config.label}
+      </Badge>
+      <span className="text-muted-foreground">{children}</span>
+    </div>
+  );
+}
+
+function GuidancePanel({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen(!open)}
+        className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+      >
+        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        {open ? 'Hide guidance' : 'What should I do?'}
+      </button>
+      {open && (
+        <Card className="mt-1.5 border-dashed">
+          <CardContent className="pt-3 pb-2.5 px-3 space-y-2">
+            {children}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({ title, value, subtitle, icon: Icon, status, tooltip }: {
   title: string; value: string | number; subtitle?: string;
-  icon: React.ElementType; status?: 'good' | 'warning' | 'critical';
+  icon: React.ElementType; status?: 'good' | 'warning' | 'critical'; tooltip?: string;
 }) {
   const statusColors = {
     good: 'text-green-500',
@@ -62,7 +184,10 @@ function MetricCard({ title, value, subtitle, icon: Icon, status }: {
       <CardContent className="pt-4 pb-3 px-4">
         <div className="flex items-start justify-between">
           <div className="space-y-0.5">
-            <p className="text-xs text-muted-foreground">{title}</p>
+            <p className="text-xs text-muted-foreground">
+              {title}
+              {tooltip && <InfoTip text={tooltip} />}
+            </p>
             <p className={`text-2xl font-bold ${status ? statusColors[status] : ''}`}>{value}</p>
             {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
           </div>
@@ -74,8 +199,6 @@ function MetricCard({ title, value, subtitle, icon: Icon, status }: {
 }
 
 function SyncRow({ entry }: { entry: IntegrityData['sync_history'][0] }) {
-  const time = new Date(entry.started_at);
-  const dur = entry.duration_ms ? `${(entry.duration_ms / 1000).toFixed(1)}s` : '—';
   return (
     <tr className="border-b border-border/50 text-xs">
       <td className="py-1.5 pr-3">
@@ -84,23 +207,33 @@ function SyncRow({ entry }: { entry: IntegrityData['sync_history'][0] }) {
         </Badge>
       </td>
       <td className="py-1.5 pr-3 text-muted-foreground">
-        {time.toLocaleDateString()} {time.toLocaleTimeString()}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="cursor-default">{relativeTime(entry.started_at)}</span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            {new Date(entry.started_at).toLocaleString()}
+          </TooltipContent>
+        </Tooltip>
       </td>
-      <td className="py-1.5 pr-3 font-mono">{dur}</td>
+      <td className="py-1.5 pr-3 font-mono">{formatDuration(entry.duration_ms)}</td>
       <td className="py-1.5">
         {entry.success
           ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-          : <XCircle className="h-3.5 w-3.5 text-red-500" />}
+          : <Tooltip>
+              <TooltipTrigger asChild>
+                <XCircle className="h-3.5 w-3.5 text-red-500 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[300px] text-xs">
+                {entry.error_message || 'Unknown error'}
+              </TooltipContent>
+            </Tooltip>}
       </td>
     </tr>
   );
 }
 
-function coverageStatus(pct: number): 'good' | 'warning' | 'critical' {
-  if (pct >= 99) return 'good';
-  if (pct >= 95) return 'warning';
-  return 'critical';
-}
+// ── Main Component ───────────────────────────────────────────────────────────
 
 export function IntegrityDashboard({ adminAddress }: { adminAddress: string }) {
   const [data, setData] = useState<IntegrityData | null>(null);
@@ -155,6 +288,7 @@ export function IntegrityDashboard({ adminAddress }: { adminAddress: string }) {
   const hv = data.hash_verification;
   const cs = data.canonical_summaries;
   const stats = data.system_stats;
+  const vpPct = parseFloat(vpc.coverage_pct);
   const proposalAiPct = ai.proposals_with_abstract > 0
     ? Math.round(ai.proposals_with_summary / ai.proposals_with_abstract * 100) : 100;
   const rationaleAiPct = ai.rationales_with_text > 0
@@ -163,209 +297,321 @@ export function IntegrityDashboard({ adminAddress }: { adminAddress: string }) {
     ? Math.round(cs.with_canonical_summary / cs.total_proposals * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Alerts Banner */}
-      {data.alerts.length > 0 && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <span className="text-sm font-semibold text-amber-500">
-                {data.alerts.length} alert{data.alerts.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="space-y-1">
-              {data.alerts.map((a, i) => (
-                <div key={i} className="text-xs flex items-center gap-2">
-                  <Badge variant={a.level === 'critical' ? 'destructive' : 'secondary'} className="text-[10px]">
-                    {a.level}
-                  </Badge>
-                  <span className="text-foreground">{a.metric}: <strong>{a.value}</strong></span>
-                  <span className="text-muted-foreground">(threshold: {a.threshold})</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+    <TooltipProvider delayDuration={200}>
+      <div className="space-y-6">
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold">Data Integrity</h2>
-          <p className="text-xs text-muted-foreground">
-            Last updated: {new Date(data.timestamp).toLocaleString()}
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
-
-      {/* Data Coverage Metrics */}
-      <div>
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-          <Database className="h-4 w-4" /> Data Coverage
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard
-            title="Vote Power" value={`${vpc.coverage_pct}%`}
-            subtitle={`${vpc.with_power.toLocaleString()} / ${vpc.total_votes.toLocaleString()}`}
-            icon={Zap} status={coverageStatus(parseFloat(vpc.coverage_pct))}
-          />
-          <MetricCard
-            title="Canonical Summaries" value={`${canonicalPct}%`}
-            subtitle={`${cs.with_canonical_summary} / ${cs.total_proposals}`}
-            icon={CheckCircle2} status={coverageStatus(canonicalPct)}
-          />
-          <MetricCard
-            title="AI Proposals" value={`${proposalAiPct}%`}
-            subtitle={`${ai.proposals_with_summary} / ${ai.proposals_with_abstract}`}
-            icon={TrendingUp} status={coverageStatus(proposalAiPct)}
-          />
-          <MetricCard
-            title="AI Rationales" value={`${rationaleAiPct}%`}
-            subtitle={`${ai.rationales_with_summary} / ${ai.rationales_with_text}`}
-            icon={TrendingUp} status={coverageStatus(rationaleAiPct)}
-          />
-        </div>
-      </div>
-
-      {/* Power Source Breakdown */}
-      <div>
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-          <Zap className="h-4 w-4" /> Power Source
-        </h3>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-                <span>Exact: <strong>{vpc.exact_count.toLocaleString()}</strong></span>
+        {/* ── Alerts Banner ───────────────────────────────────────────────── */}
+        {data.alerts.length > 0 && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-semibold text-amber-500">
+                  {data.alerts.length} alert{data.alerts.length !== 1 ? 's' : ''}
+                </span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span>Nearest: <strong>{vpc.nearest_count.toLocaleString()}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                <span>NULL: <strong>{vpc.null_power}</strong></span>
-              </div>
-            </div>
-            <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden flex">
-              <div className="bg-green-500 h-full" style={{ width: `${vpc.total_votes ? vpc.exact_count / vpc.total_votes * 100 : 0}%` }} />
-              <div className="bg-amber-500 h-full" style={{ width: `${vpc.total_votes ? vpc.nearest_count / vpc.total_votes * 100 : 0}%` }} />
-              <div className="bg-red-500 h-full" style={{ width: `${vpc.total_votes ? vpc.null_power / vpc.total_votes * 100 : 0}%` }} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Hash Integrity */}
-      <div>
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-          <Shield className="h-4 w-4" /> Hash Integrity
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard title="Verified" value={hv.rationale_verified} icon={CheckCircle2} status="good" />
-          <MetricCard
-            title="Mismatch" value={hv.rationale_mismatch}
-            subtitle={`${hv.mismatch_rate_pct}% rate`}
-            icon={AlertTriangle} status={hv.rationale_mismatch > 0 ? 'warning' : 'good'}
-          />
-          <MetricCard title="Pending" value={hv.rationale_pending} icon={Clock} />
-          <MetricCard title="Unreachable" value={hv.rationale_unreachable} icon={XCircle}
-            status={hv.rationale_unreachable > 100 ? 'warning' : undefined}
-          />
-        </div>
-      </div>
-
-      {/* Sync Health */}
-      <div>
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-          <Activity className="h-4 w-4" /> Sync Health
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-          {(['fast', 'full'] as const).map(type => {
-            const s = data.sync_health[type];
-            if (!s) return (
-              <Card key={type}>
-                <CardContent className="pt-4 pb-3 px-4">
-                  <p className="text-xs text-muted-foreground">{type} sync</p>
-                  <p className="text-sm text-muted-foreground mt-1">No data yet</p>
-                </CardContent>
-              </Card>
-            );
-            const staleOk = type === 'fast' ? (s.stale_minutes ?? 999) <= 90 : (s.stale_minutes ?? 999) <= 1560;
-            return (
-              <Card key={type}>
-                <CardContent className="pt-4 pb-3 px-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground capitalize">{type} sync</p>
-                    <Badge variant={staleOk ? 'secondary' : 'destructive'} className="text-[10px]">
-                      {s.stale_minutes != null ? `${s.stale_minutes}m ago` : 'never'}
-                    </Badge>
+              <div className="space-y-1.5">
+                {data.alerts.map((a, i) => (
+                  <div key={i} className="text-xs">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={a.level === 'critical' ? 'destructive' : 'secondary'} className="text-[10px]">
+                        {a.level}
+                      </Badge>
+                      <span className="text-foreground">{a.metric}: <strong>{a.value}</strong></span>
+                      <span className="text-muted-foreground">(threshold: {a.threshold})</span>
+                    </div>
+                    {ALERT_HINTS[a.metric] && (
+                      <p className="text-[10px] text-muted-foreground ml-[52px] mt-0.5 italic">
+                        {ALERT_HINTS[a.metric]}
+                      </p>
+                    )}
                   </div>
-                  <div className="mt-1.5 flex items-center gap-3 text-xs">
-                    {s.last_success
-                      ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                      : <XCircle className="h-3.5 w-3.5 text-red-500" />}
-                    <span className="font-mono">{s.last_duration_ms ? `${(s.last_duration_ms / 1000).toFixed(1)}s` : '—'}</span>
-                    <span className="text-muted-foreground">
-                      {s.success_count} ok / {s.failure_count} fail
-                    </span>
-                  </div>
-                  {s.last_error && (
-                    <p className="text-[10px] text-red-400 mt-1 truncate">{s.last_error}</p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Sync History Table */}
-        {data.sync_history.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2 pt-3 px-4">
-              <CardTitle className="text-xs font-medium text-muted-foreground">Recent Sync Runs</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-[10px] text-muted-foreground border-b border-border">
-                    <th className="text-left pb-1">Type</th>
-                    <th className="text-left pb-1">Time</th>
-                    <th className="text-left pb-1">Duration</th>
-                    <th className="text-left pb-1">OK</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.sync_history.slice(0, 10).map(entry => (
-                    <SyncRow key={entry.id} entry={entry} />
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}
-      </div>
 
-      {/* System Stats */}
-      <div>
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-          <Database className="h-4 w-4" /> System Scale
-        </h3>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          <MetricCard title="DReps" value={stats.total_dreps.toLocaleString()} icon={Database} />
-          <MetricCard title="Votes" value={stats.total_votes.toLocaleString()} icon={Activity} />
-          <MetricCard title="Proposals" value={stats.total_proposals} icon={TrendingUp} />
-          <MetricCard title="Rationales" value={stats.total_rationales.toLocaleString()} icon={Shield} />
-          <MetricCard title="Snapshots" value={stats.total_power_snapshots.toLocaleString()} icon={Clock} />
-          <MetricCard title="DReps w/ Snaps" value={stats.dreps_with_snapshots} icon={Zap} />
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold">Data Integrity</h2>
+            <p className="text-xs text-muted-foreground">
+              Updated {relativeTime(data.timestamp)}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-default ml-1 underline decoration-dotted">
+                    ({new Date(data.timestamp).toLocaleTimeString()})
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {new Date(data.timestamp).toLocaleString()}
+                </TooltipContent>
+              </Tooltip>
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
+
+        {/* ── Data Coverage ───────────────────────────────────────────────── */}
+        <div>
+          <SectionHeader
+            icon={Database}
+            title="Data Coverage"
+            description="How complete is the enriched data layer powering the app."
+          />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MetricCard
+              title="Vote Power" value={pct1(vpPct)}
+              subtitle={`${fmt(vpc.with_power)} / ${fmt(vpc.total_votes)}`}
+              icon={Zap} status={coverageStatus(vpPct)}
+              tooltip="Percentage of votes with voting power attributed from Koios power history."
+            />
+            <MetricCard
+              title="Canonical Summaries" value={pct1(canonicalPct)}
+              subtitle={`${fmt(cs.with_canonical_summary)} / ${fmt(cs.total_proposals)}`}
+              icon={CheckCircle2} status={coverageStatus(canonicalPct)}
+              tooltip="Percentage of proposals with official vote tally from Koios /proposal_voting_summary."
+            />
+            <MetricCard
+              title="AI Proposals" value={pct1(proposalAiPct)}
+              subtitle={`${fmt(ai.proposals_with_summary)} / ${fmt(ai.proposals_with_abstract)}`}
+              icon={TrendingUp} status={coverageStatus(proposalAiPct)}
+              tooltip="Percentage of proposals (with abstracts) that have an AI-generated summary."
+            />
+            <MetricCard
+              title="AI Rationales" value={pct1(rationaleAiPct)}
+              subtitle={`${fmt(ai.rationales_with_summary)} / ${fmt(ai.rationales_with_text)}`}
+              icon={TrendingUp} status={coverageStatus(rationaleAiPct)}
+              tooltip="Percentage of rationales (with text) that have an AI-generated summary."
+            />
+          </div>
+          <GuidancePanel>
+            <GuidanceNote type="auto-heals">
+              <strong>Vote Power</strong> — Full sync runs a two-tier power backfill nightly. If stuck for 2+ days,
+              run <code className="bg-muted px-1 rounded text-[10px]">npx tsx scripts/bootstrap-ai-summaries.ts</code> (Part 1).
+            </GuidanceNote>
+            <GuidanceNote type="auto-heals">
+              <strong>Canonical Summaries</strong> — Full sync fetches vote tallies for all proposals nightly. New proposals covered on next run.
+            </GuidanceNote>
+            <GuidanceNote type="auto-heals">
+              <strong>AI Proposals/Rationales</strong> — Full sync generates 10 proposal + 20 rationale summaries per run. For bulk catch-up,
+              run <code className="bg-muted px-1 rounded text-[10px]">npx tsx scripts/bootstrap-ai-summaries.ts</code>.
+            </GuidanceNote>
+          </GuidancePanel>
+        </div>
+
+        {/* ── Power Source ────────────────────────────────────────────────── */}
+        <div>
+          <SectionHeader
+            icon={Zap}
+            title="Power Source"
+            description="Breakdown of how vote power was attributed — exact epoch match vs nearest."
+          />
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex gap-4 text-xs flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                  <span>Exact: <strong>{fmt(vpc.exact_count)}</strong></span>
+                  <InfoTip text="Power matched to the exact epoch the vote was cast in." />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  <span>Nearest: <strong>{fmt(vpc.nearest_count)}</strong></span>
+                  <InfoTip text="Power from the closest available epoch (within 1-2 epochs)." />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                  <span>NULL: <strong>{fmt(vpc.null_power)}</strong></span>
+                  <InfoTip text="No power data available from Koios for this vote's epoch range." />
+                </div>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden flex">
+                <div className="bg-green-500 h-full" style={{ width: `${vpc.total_votes ? vpc.exact_count / vpc.total_votes * 100 : 0}%` }} />
+                <div className="bg-amber-500 h-full" style={{ width: `${vpc.total_votes ? vpc.nearest_count / vpc.total_votes * 100 : 0}%` }} />
+                <div className="bg-red-500 h-full" style={{ width: `${vpc.total_votes ? vpc.null_power / vpc.total_votes * 100 : 0}%` }} />
+              </div>
+            </CardContent>
+          </Card>
+          <GuidancePanel>
+            <GuidanceNote type="auto-heals">
+              <strong>NULL votes</strong> — Nightly backfill attempts to fill these. If count is stuck, Koios may not have power history for those epochs.
+            </GuidanceNote>
+            <GuidanceNote type="expected">
+              <strong>Nearest-epoch</strong> — These are acceptable. They use the closest available epoch data (within 1-2 epochs of the actual vote).
+            </GuidanceNote>
+          </GuidancePanel>
+        </div>
+
+        {/* ── Hash Integrity ──────────────────────────────────────────────── */}
+        <div>
+          <SectionHeader
+            icon={Shield}
+            title="Hash Integrity"
+            description="On-chain hash verification of DRep rationale content."
+          />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MetricCard
+              title="Verified" value={fmt(hv.rationale_verified)} icon={CheckCircle2} status="good"
+              tooltip="Rationales where fetched content hash matches the on-chain hash."
+            />
+            <MetricCard
+              title="Mismatch" value={fmt(hv.rationale_mismatch)}
+              subtitle={`${hv.mismatch_rate_pct}% rate`}
+              icon={AlertTriangle} status={hv.rationale_mismatch > 0 ? 'warning' : 'good'}
+              tooltip="Rationales where content was modified after the on-chain hash was recorded."
+            />
+            <MetricCard
+              title="Pending" value={fmt(hv.rationale_pending)} icon={Clock}
+              tooltip="Rationales that haven't been hash-checked yet."
+            />
+            <MetricCard
+              title="Unreachable" value={fmt(hv.rationale_unreachable)} icon={XCircle}
+              status={hv.rationale_unreachable > 100 ? 'warning' : undefined}
+              tooltip="URLs that returned errors (404, timeout, CORS) when attempting verification."
+            />
+          </div>
+          <GuidancePanel>
+            <GuidanceNote type="auto-heals">
+              <strong>Pending</strong> — Full sync verifies up to 50 hashes per run. For bulk catch-up,
+              run <code className="bg-muted px-1 rounded text-[10px]">npx tsx scripts/bootstrap-hash-verify.ts</code>.
+            </GuidanceNote>
+            <GuidanceNote type="action-needed">
+              <strong>Mismatch</strong> — A DRep changed their rationale content after voting. If growing, review the specific mismatches. Users already see a warning shield icon on affected votes.
+            </GuidanceNote>
+            <GuidanceNote type="expected">
+              <strong>Unreachable</strong> — URLs that returned errors (404, timeout). The system won&apos;t re-check these. No action needed unless the count grows unexpectedly.
+            </GuidanceNote>
+          </GuidancePanel>
+        </div>
+
+        {/* ── Sync Health ─────────────────────────────────────────────────── */}
+        <div>
+          <SectionHeader
+            icon={Activity}
+            title="Sync Health"
+            description="Status of automated data pipelines (fast: every 30min, full: nightly 2AM)."
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            {(['fast', 'full'] as const).map(type => {
+              const s = data.sync_health[type];
+              if (!s) return (
+                <Card key={type}>
+                  <CardContent className="pt-4 pb-3 px-4">
+                    <p className="text-xs text-muted-foreground capitalize">{type} sync</p>
+                    <p className="text-sm text-muted-foreground mt-1">No data yet — waiting for first run</p>
+                  </CardContent>
+                </Card>
+              );
+              const staleOk = type === 'fast' ? (s.stale_minutes ?? 999) <= 90 : (s.stale_minutes ?? 999) <= 1560;
+              return (
+                <Card key={type}>
+                  <CardContent className="pt-4 pb-3 px-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground capitalize">{type} sync</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Badge variant={staleOk ? 'secondary' : 'destructive'} className="text-[10px] cursor-default">
+                              {relativeTime(s.last_run)}
+                            </Badge>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          {s.last_run ? new Date(s.last_run).toLocaleString() : 'Never run'}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-3 text-xs">
+                      {s.last_success
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        : <XCircle className="h-3.5 w-3.5 text-red-500" />}
+                      <span className="font-mono">{formatDuration(s.last_duration_ms)}</span>
+                      <span className="text-muted-foreground">
+                        {fmt(s.success_count)} ok / {fmt(s.failure_count)} fail
+                      </span>
+                    </div>
+                    {s.last_error && (
+                      <p className="text-[10px] text-red-400 mt-1 truncate">{s.last_error}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <GuidancePanel>
+            <GuidanceNote type="action-needed">
+              <strong>Fast sync stale &gt; 90min</strong> — Check Vercel cron logs. Likely a deployment issue or cron misconfiguration in vercel.json.
+            </GuidanceNote>
+            <GuidanceNote type="action-needed">
+              <strong>Full sync stale &gt; 26hr</strong> — Check Vercel function logs. The full sync may be timing out (known issue with Phase 5 complexity).
+            </GuidanceNote>
+            <GuidanceNote type="action-needed">
+              <strong>Last sync failed</strong> — Check the error message above. Common causes: Koios rate limits, Supabase connection issues, Vercel function timeout.
+            </GuidanceNote>
+          </GuidancePanel>
+
+          {data.sync_history.length > 0 && (
+            <Card className="mt-3">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <CardTitle className="text-xs font-medium text-muted-foreground">Recent Sync Runs</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-[10px] text-muted-foreground border-b border-border">
+                      <th className="text-left pb-1">Type</th>
+                      <th className="text-left pb-1">When</th>
+                      <th className="text-left pb-1">Duration</th>
+                      <th className="text-left pb-1">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.sync_history.slice(0, 10).map(entry => (
+                      <SyncRow key={entry.id} entry={entry} />
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* ── System Scale ────────────────────────────────────────────────── */}
+        <div>
+          <SectionHeader
+            icon={Database}
+            title="System Scale"
+            description="Total row counts across all tables."
+          />
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+            <MetricCard title="DReps" value={fmt(stats.total_dreps)} icon={Database}
+              tooltip="Total DRep records in the database."
+            />
+            <MetricCard title="Votes" value={fmt(stats.total_votes)} icon={Activity}
+              tooltip="Total individual vote records across all DReps and proposals."
+            />
+            <MetricCard title="Proposals" value={fmt(stats.total_proposals)} icon={TrendingUp}
+              tooltip="Total governance proposals tracked."
+            />
+            <MetricCard title="Rationales" value={fmt(stats.total_rationales)} icon={Shield}
+              tooltip="Total vote rationale documents fetched from DRep metadata URLs."
+            />
+            <MetricCard title="Snapshots" value={fmt(stats.total_power_snapshots)} icon={Clock}
+              tooltip="Total epoch-level voting power snapshots stored for DReps."
+            />
+            <MetricCard title="DReps w/ Snaps" value={fmt(stats.dreps_with_snapshots)} icon={Zap}
+              tooltip="Number of unique DReps that have at least one power snapshot."
+            />
+          </div>
+        </div>
+
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

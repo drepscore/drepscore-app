@@ -7,46 +7,27 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 
 export default function AdminIntegrityPage() {
-  const { address, connected, sessionAddress } = useWallet();
+  const { address, sessionAddress } = useWallet();
   const adminAddress = sessionAddress || address;
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // #region agent log
-    console.log('[DEBUG-454e0d] Effect fired:', { connected, address, sessionAddress, adminAddress });
-    // #endregion
     if (!adminAddress) {
-      // #region agent log
-      console.log('[DEBUG-454e0d] Early return: no adminAddress');
-      // #endregion
       setIsAdmin(false);
       setChecking(false);
       return;
     }
 
     setChecking(true);
-    // #region agent log
-    console.log('[DEBUG-454e0d] Calling /api/admin/check with:', adminAddress?.substring(0, 20) + '...');
-    // #endregion
     fetch('/api/admin/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address: adminAddress }),
     })
       .then(r => r.json())
-      .then(data => {
-        // #region agent log
-        console.log('[DEBUG-454e0d] API response:', { isAdmin: data.isAdmin, addressSent: adminAddress?.substring(0, 20) });
-        // #endregion
-        setIsAdmin(data.isAdmin === true);
-      })
-      .catch((err) => {
-        // #region agent log
-        console.log('[DEBUG-454e0d] API error:', String(err));
-        // #endregion
-        setIsAdmin(false);
-      })
+      .then(data => setIsAdmin(data.isAdmin === true))
+      .catch(() => setIsAdmin(false))
       .finally(() => setChecking(false));
   }, [adminAddress]);
 
