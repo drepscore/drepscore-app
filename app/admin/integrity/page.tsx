@@ -16,9 +16,9 @@ export default function AdminIntegrityPage() {
     // #region agent log
     console.log('[DEBUG-454e0d] Effect fired:', { connected, address, sessionAddress, adminAddress });
     // #endregion
-    if (!connected || !adminAddress) {
+    if (!adminAddress) {
       // #region agent log
-      console.log('[DEBUG-454e0d] Early return:', { connected, adminAddress });
+      console.log('[DEBUG-454e0d] Early return: no adminAddress');
       // #endregion
       setIsAdmin(false);
       setChecking(false);
@@ -48,7 +48,7 @@ export default function AdminIntegrityPage() {
         setIsAdmin(false);
       })
       .finally(() => setChecking(false));
-  }, [adminAddress, connected]);
+  }, [adminAddress]);
 
   if (checking) {
     return (
@@ -67,7 +67,7 @@ export default function AdminIntegrityPage() {
             <Shield className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <h2 className="text-lg font-semibold mb-1">Admin Access Required</h2>
             <p className="text-sm text-muted-foreground">
-              {connected
+              {adminAddress
                 ? 'This wallet is not authorized to access the admin dashboard.'
                 : 'Connect an admin wallet to access this page.'}
             </p>
