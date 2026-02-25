@@ -7,7 +7,7 @@
  * Calculates alignment data and hybrid scores based on user preferences
  */
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { DRepTable, DRepAlignmentData } from '@/components/DRepTable';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorBanner } from '@/components/ErrorBanner';
@@ -220,9 +220,20 @@ export function DRepTableClient({
     setCurrentPage(1); // Reset to first page on sort
   };
 
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1); // Reset to first page on search
+    const val = e.target.value;
+    setSearchQuery(val);
+    setCurrentPage(1);
+
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (val.length >= 3) {
+      searchTimerRef.current = setTimeout(() => {
+        import('@/lib/posthog').then(({ posthog }) => {
+          posthog.capture('drep_table_searched', { query: val, result_count: sortedDReps.length });
+        }).catch(() => {});
+      }, 1000);
+    }
   };
 
   const handleReset = () => {

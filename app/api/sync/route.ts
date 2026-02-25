@@ -51,6 +51,8 @@ interface SupabaseDRepRow {
   effective_participation: number;
   size_tier: string;
   profile_completeness: number;
+  anchor_url: string | null;
+  anchor_hash: string | null;
 }
 
 interface SupabaseProposalRow {
@@ -284,6 +286,15 @@ export async function GET(request: NextRequest) {
 
   console.log('[Sync] Starting full daily sync...');
 
+  // Write sync_log start record
+  let syncLogId: number | null = null;
+  try {
+    const { data: logRow } = await supabase.from('sync_log')
+      .insert({ sync_type: 'full', started_at: new Date().toISOString(), success: false })
+      .select('id').single();
+    syncLogId = logRow?.id ?? null;
+  } catch { /* sync_log write is best-effort */ }
+
   // ═══ PHASE 1: Parallel Koios fetches ═══════════════════════════════════════
   // Fetch proposals + bulk votes in parallel (the two heaviest API calls)
 
@@ -365,6 +376,8 @@ export async function GET(request: NextRequest) {
     deliberation_modifier: drep.deliberationModifier,
     effective_participation: drep.effectiveParticipation,
     size_tier: drep.sizeTier, profile_completeness: drep.profileCompleteness,
+    anchor_url: drep.anchorUrl || null,
+    anchor_hash: drep.anchorHash || null,
   }));
 
   // FIX: Upsert ALL votes from bulkVotesMap directly (not just those from enriched DReps)
@@ -964,6 +977,33 @@ export async function GET(request: NextRequest) {
   const hasErrors = drepResult.errors > 0 || voteResult.errors > 0 || proposalResult.errors > 0;
 
   console.log(`[Sync] Complete in ${duration}s — DReps: ${drepResult.success}, Votes: ${voteResult.success}, Proposals: ${proposalResult.success}${pushSent > 0 ? `, Push: ${pushSent}` : ''}`);
+
+  const metrics = {
+    dreps_synced: drepResult.success, drep_errors: drepResult.errors,
+    votes_synced: voteResult.success, vote_errors: voteResult.errors,
+    proposals_synced: proposalResult.success, proposal_errors: proposalResult.errors,
+    push_sent: pushSent,
+  };
+
+  // Finalize sync_log record
+  if (syncLogId) {
+    try {
+      await supabase.from('sync_log').update({
+        finished_at: new Date().toISOString(),
+        duration_ms: Date.now() - startTime,
+        success: !hasErrors,
+        metrics,
+      }).eq('id', syncLogId);
+    } catch { /* best-effort */ }
+  }
+
+  // PostHog server-side event
+  try {
+    const { captureServerEvent } = await import('@/lib/posthog-server');
+    captureServerEvent(hasErrors ? 'sync_failed' : 'sync_completed', {
+      sync_type: 'full', duration_ms: Date.now() - startTime, ...metrics,
+    });
+  } catch { /* posthog optional */ }
 
   return NextResponse.json({
     success: !hasErrors,

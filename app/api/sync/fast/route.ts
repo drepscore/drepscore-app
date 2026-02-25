@@ -40,6 +40,14 @@ export async function GET(request: NextRequest) {
 
   console.log('[FastSync] Starting...');
 
+  let syncLogId: number | null = null;
+  try {
+    const { data: logRow } = await supabase.from('sync_log')
+      .insert({ sync_type: 'fast', started_at: new Date().toISOString(), success: false })
+      .select('id').single();
+    syncLogId = logRow?.id ?? null;
+  } catch { /* best-effort */ }
+
   // ── Fetch proposals from Koios ─────────────────────────────────────────────
 
   let proposalCount = 0;
@@ -195,7 +203,23 @@ export async function GET(request: NextRequest) {
   }
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+  const durationMs = Date.now() - startTime;
   console.log(`[FastSync] Complete in ${duration}s — ${proposalCount} proposals, ${voteCount} votes${pushSent > 0 ? `, ${pushSent} push` : ''}`);
+
+  const metrics = { proposals_synced: proposalCount, votes_synced: voteCount, push_sent: pushSent };
+
+  if (syncLogId) {
+    try {
+      await supabase.from('sync_log').update({
+        finished_at: new Date().toISOString(), duration_ms: durationMs, success: true, metrics,
+      }).eq('id', syncLogId);
+    } catch { /* best-effort */ }
+  }
+
+  try {
+    const { captureServerEvent } = await import('@/lib/posthog-server');
+    captureServerEvent('sync_completed', { sync_type: 'fast', duration_ms: durationMs, ...metrics });
+  } catch { /* posthog optional */ }
 
   return NextResponse.json({
     success: true,

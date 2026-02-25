@@ -1,13 +1,13 @@
 'use client';
 
-/**
- * Client-side providers wrapper.
- * Placed at the root layout level so WalletProvider is available
- * to all pages (e.g. DelegationButton on the DRep detail page).
- */
-
+import { useEffect } from 'react';
 import { WalletProvider } from '@/utils/wallet';
+import { initPostHog } from '@/lib/posthog';
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    initPostHog();
+  }, []);
+
   return <WalletProvider>{children}</WalletProvider>;
 }

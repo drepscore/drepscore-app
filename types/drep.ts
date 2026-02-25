@@ -39,6 +39,7 @@ export interface DRep {
   abstainVotes: number;
   isActive: boolean;
   anchorUrl: string | null;
+  anchorHash: string | null;
   metadata: Record<string, unknown> | null;
   epochVoteCounts?: number[];
   profileCompleteness: number;

@@ -55,10 +55,22 @@ export function useDelegation() {
       }
 
       setPhase({ status: 'success', txHash: result.txHash });
+
+      import('@/lib/posthog').then(({ posthog }) => {
+        posthog.capture('delegation_completed', {
+          drep_id: drepId,
+          previous_drep_id: delegatedDrepId || null,
+          tx_hash: result.txHash,
+        });
+      }).catch(() => {});
+
       return result;
     } catch (err) {
       if (err instanceof DelegationError) {
         setPhase({ status: 'error', code: err.code, message: err.message, hint: err.hint });
+        import('@/lib/posthog').then(({ posthog }) => {
+          posthog.capture('delegation_failed', { drep_id: drepId, error_code: err.code });
+        }).catch(() => {});
       } else {
         setPhase({ status: 'error', code: 'unknown', message: String(err), hint: 'Something went wrong. Please try again.' });
       }

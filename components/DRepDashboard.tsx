@@ -73,7 +73,15 @@ export function DRepDashboard({ drep, scoreHistory, isSimulated }: DRepDashboard
       body: JSON.stringify({ sessionToken: session, drepId: drep.drepId }),
     })
       .then(r => r.json())
-      .then(data => { if (data.claimed) setClaimed(true); })
+      .then(data => {
+        if (data.claimed) {
+          setClaimed(true);
+          import('@/lib/posthog').then(({ posthog }) => {
+            posthog.capture('drep_profile_claimed', { drep_id: drep.drepId });
+            posthog.identify(drep.drepId, { segment: 'drep', is_drep: true });
+          }).catch(() => {});
+        }
+      })
       .catch(() => {});
   }, [drep.drepId, isSimulated, claimed]);
 

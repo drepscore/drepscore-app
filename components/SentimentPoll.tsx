@@ -121,6 +121,14 @@ export function SentimentPoll({ txHash, proposalIndex, isOpen }: SentimentPollPr
       });
       setRevealed(true);
       setChangingVote(false);
+
+      import('@/lib/posthog').then(({ posthog }) => {
+        posthog.capture('sentiment_voted', {
+          proposal_tx_hash: txHash,
+          proposal_index: proposalIndex,
+          vote_direction: vote,
+        });
+      }).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Vote failed');
     } finally {

@@ -11,6 +11,10 @@
     {
       "path": "/api/sync?secret=1dec210e-18e5-406b-8143-45a8710dd330",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/admin/integrity/alert?secret=1dec210e-18e5-406b-8143-45a8710dd330",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

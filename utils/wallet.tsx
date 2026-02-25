@@ -274,6 +274,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setConnected(true);
         localStorage.setItem(WALLET_NAME_KEY, name);
 
+        try {
+          const { posthog } = await import('@/lib/posthog');
+          posthog.capture('wallet_connected', { wallet_type: name });
+          posthog.identify(addresses[0], { segment: 'holder', wallet_type: name });
+        } catch { /* posthog optional */ }
+
         // Non-blocking: resolve stake address, derive DRep ID, and look up delegation
         try {
           const stakeAddr = resolveRewardAddress(addresses[0]);

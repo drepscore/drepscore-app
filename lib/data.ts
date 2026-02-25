@@ -42,6 +42,7 @@ function transformSupabaseRowToDRep(row: any): EnrichedDRep {
     abstainVotes: info.abstainVotes || 0,
     isActive: info.isActive || false,
     anchorUrl: info.anchorUrl || null,
+    anchorHash: row.anchor_hash || null,
     metadata: row.metadata || null,
     drepScore: row.score || 0,
     epochVoteCounts: info.epochVoteCounts || [],

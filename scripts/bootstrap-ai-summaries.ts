@@ -80,13 +80,14 @@ async function main() {
   console.log(`  ${uniqueIds.length} DReps need power backfill (top DReps first)\n`);
 
   let exactTotal = 0, nearestTotal = 0, koiosErrors = 0;
+  const PARALLEL = 10;
 
   for (let i = 0; i < uniqueIds.length; i++) {
     const drepId = uniqueIds[i];
+    const drepStart = Date.now();
     try {
       const history = await fetchDRepVotingPowerHistory(drepId);
       if (history.length > 0) {
-        // Cache in power snapshots
         const snapRows = history.map(h => ({
           drep_id: drepId, epoch_no: h.epoch_no,
           amount_lovelace: parseInt(h.amount, 10) || 0,
@@ -96,40 +97,58 @@ async function main() {
 
         const historyEpochs = new Set(history.map(h => h.epoch_no));
 
-        // Tier 1: exact epoch match
-        for (const snap of snapRows) {
-          const { count } = await supabase.from('drep_votes')
-            .update({ voting_power_lovelace: snap.amount_lovelace, power_source: 'exact' }, { count: 'exact' })
-            .eq('drep_id', drepId).eq('epoch_no', snap.epoch_no)
-            .is('voting_power_lovelace', null);
-          exactTotal += (count || 0);
+        // Tier 1: exact epoch match — parallel batches of PARALLEL
+        for (let b = 0; b < snapRows.length; b += PARALLEL) {
+          const batch = snapRows.slice(b, b + PARALLEL);
+          const results = await Promise.allSettled(
+            batch.map(snap =>
+              supabase.from('drep_votes')
+                .update({ voting_power_lovelace: snap.amount_lovelace, power_source: 'exact' }, { count: 'exact' })
+                .eq('drep_id', drepId).eq('epoch_no', snap.epoch_no)
+                .is('voting_power_lovelace', null)
+            )
+          );
+          for (const r of results) {
+            if (r.status === 'fulfilled') exactTotal += (r.value.count || 0);
+          }
         }
 
-        // Tier 2: nearest epoch for remaining NULL votes
+        // Tier 2: nearest epoch for remaining NULL votes — parallel batches
         const { data: remaining } = await supabase.from('drep_votes')
           .select('vote_tx_hash, epoch_no')
           .eq('drep_id', drepId).is('voting_power_lovelace', null)
           .not('epoch_no', 'is', null);
 
-        for (const vote of remaining || []) {
-          if (historyEpochs.has(vote.epoch_no)) continue;
-          const nearest = history.reduce((best, h) =>
-            Math.abs(h.epoch_no - vote.epoch_no) < Math.abs(best.epoch_no - vote.epoch_no) ? h : best
+        const tier2Updates = (remaining || [])
+          .filter(v => !historyEpochs.has(v.epoch_no))
+          .map(vote => {
+            const nearest = history.reduce((best, h) =>
+              Math.abs(h.epoch_no - vote.epoch_no) < Math.abs(best.epoch_no - vote.epoch_no) ? h : best
+            );
+            return { voteTxHash: vote.vote_tx_hash, power: parseInt(nearest.amount, 10) };
+          });
+
+        for (let b = 0; b < tier2Updates.length; b += PARALLEL) {
+          const batch = tier2Updates.slice(b, b + PARALLEL);
+          await Promise.allSettled(
+            batch.map(u =>
+              supabase.from('drep_votes')
+                .update({ voting_power_lovelace: u.power, power_source: 'nearest' })
+                .eq('vote_tx_hash', u.voteTxHash)
+            )
           );
-          await supabase.from('drep_votes')
-            .update({ voting_power_lovelace: parseInt(nearest.amount, 10), power_source: 'nearest' })
-            .eq('vote_tx_hash', vote.vote_tx_hash);
-          nearestTotal++;
+          nearestTotal += batch.length;
         }
       }
     } catch (err) {
       koiosErrors++;
-      if (koiosErrors <= 5) console.error(`  Koios error: ${err instanceof Error ? err.message : err}`);
+      if (koiosErrors <= 5) console.error(`  Koios error for ${drepId.slice(0, 20)}...: ${err instanceof Error ? err.message : err}`);
     }
 
-    await sleep(500);
-    if ((i + 1) % 50 === 0 || i === uniqueIds.length - 1) {
-      console.log(`  Progress: ${i + 1}/${uniqueIds.length} DReps | ${exactTotal} exact, ${nearestTotal} nearest, ${koiosErrors} errors`);
+    await sleep(300);
+    if ((i + 1) % 10 === 0 || i === uniqueIds.length - 1) {
+      const elapsed = ((Date.now() - p1Start) / 1000).toFixed(0);
+      console.log(`  [${elapsed}s] ${i + 1}/${uniqueIds.length} DReps | exact=${exactTotal} nearest=${nearestTotal} errs=${koiosErrors} (${Date.now() - drepStart}ms last)`);
     }
   }
 
@@ -191,9 +210,9 @@ async function main() {
     } catch (err) {
       console.error(`  Summary error for ${p.tx_hash.slice(0, 16)}:`, err instanceof Error ? err.message : err);
     }
-    await sleep(500);
-    if ((summariesFetched) % 20 === 0 && summariesFetched > 0) {
-      console.log(`  ${summariesFetched} summaries fetched...`);
+    await sleep(300);
+    if ((summariesFetched) % 10 === 0 && summariesFetched > 0) {
+      console.log(`  ${summariesFetched}/${allProposals?.length || 0} summaries fetched...`);
     }
   }
   console.log(`  Proposal voting summaries: ${summariesFetched}/${allProposals?.length || 0}`);

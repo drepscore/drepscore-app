@@ -342,6 +342,7 @@ export async function getEnrichedDReps(
           abstainVotes,
           isActive: drepInfo.registered && drepInfo.amount !== '0',
           anchorUrl: drepInfo.anchor_url,
+          anchorHash: drepInfo.anchor_hash,
           metadata: metadataBody as Record<string, unknown> | null,
           epochVoteCounts,
           profileCompleteness,
