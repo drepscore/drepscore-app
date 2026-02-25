@@ -13,20 +13,40 @@ export default function AdminIntegrityPage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    // #region agent log
+    console.log('[DEBUG-454e0d] Effect fired:', { connected, address, sessionAddress, adminAddress });
+    // #endregion
     if (!connected || !adminAddress) {
+      // #region agent log
+      console.log('[DEBUG-454e0d] Early return:', { connected, adminAddress });
+      // #endregion
       setIsAdmin(false);
       setChecking(false);
       return;
     }
 
+    setChecking(true);
+    // #region agent log
+    console.log('[DEBUG-454e0d] Calling /api/admin/check with:', adminAddress?.substring(0, 20) + '...');
+    // #endregion
     fetch('/api/admin/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address: adminAddress }),
     })
       .then(r => r.json())
-      .then(data => setIsAdmin(data.isAdmin === true))
-      .catch(() => setIsAdmin(false))
+      .then(data => {
+        // #region agent log
+        console.log('[DEBUG-454e0d] API response:', { isAdmin: data.isAdmin, addressSent: adminAddress?.substring(0, 20) });
+        // #endregion
+        setIsAdmin(data.isAdmin === true);
+      })
+      .catch((err) => {
+        // #region agent log
+        console.log('[DEBUG-454e0d] API error:', String(err));
+        // #endregion
+        setIsAdmin(false);
+      })
       .finally(() => setChecking(false));
   }, [adminAddress, connected]);
 
