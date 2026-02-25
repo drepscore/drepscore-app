@@ -108,6 +108,7 @@ export type DRepVotesResponse = DRepVote[];
 export interface ProposalInfo {
   proposal_tx_hash: string;
   proposal_index: number;
+  proposal_id: string; // CIP-129 bech32 gov_action1... format
   proposal_type: 'TreasuryWithdrawals' | 'ParameterChange' | 'HardForkInitiation' 
                 | 'InfoAction' | 'NoConfidence' | 'NewCommittee' | 'NewConstitution'
                 | 'NewConstitutionalCommittee' | 'UpdateConstitution';
@@ -155,6 +156,7 @@ export type ProposalListResponse = ProposalInfo[];
 export interface ClassifiedProposal {
   txHash: string;
   index: number;
+  proposalId: string; // CIP-129 bech32
   type: ProposalInfo['proposal_type'];
   title: string;
   abstract: string | null;
@@ -169,4 +171,37 @@ export interface ClassifiedProposal {
   droppedEpoch: number | null;
   expiredEpoch: number | null;
   expirationEpoch: number | null;
+}
+
+// Canonical voting summary from Koios /proposal_voting_summary
+export interface ProposalVotingSummaryData {
+  proposal_type: string;
+  epoch_no: number;
+  drep_yes_votes_cast: number;
+  drep_active_yes_vote_power: string;
+  drep_yes_vote_power: string;
+  drep_yes_pct: number;
+  drep_no_votes_cast: number;
+  drep_active_no_vote_power: string;
+  drep_no_vote_power: string;
+  drep_no_pct: number;
+  drep_abstain_votes_cast: number;
+  drep_active_abstain_vote_power: string;
+  drep_always_no_confidence_vote_power: string;
+  drep_always_abstain_vote_power: string;
+  pool_yes_votes_cast: number;
+  pool_active_yes_vote_power: string;
+  pool_yes_vote_power: string;
+  pool_yes_pct: number;
+  pool_no_votes_cast: number;
+  pool_active_no_vote_power: string;
+  pool_no_vote_power: string;
+  pool_no_pct: number;
+  pool_abstain_votes_cast: number;
+  pool_active_abstain_vote_power: string;
+  committee_yes_votes_cast: number;
+  committee_yes_pct: number;
+  committee_no_votes_cast: number;
+  committee_no_pct: number;
+  committee_abstain_votes_cast: number;
 }

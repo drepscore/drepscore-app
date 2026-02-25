@@ -7,7 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ChevronDown, ChevronUp, ChevronRight, Search, Heart, UserCheck } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronRight, Search, Heart, UserCheck, ShieldCheck, ShieldAlert } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { CopyableAddress } from '@/components/CopyableAddress';
 
 interface ProposalVotersClientProps {
@@ -162,13 +168,39 @@ export function ProposalVotersClient({
                       })}
                     </p>
 
-                    {/* Rationale AI summary */}
+                    {/* Rationale AI summary with hash verification */}
                     {v.rationaleAiSummary && (
                       <div className="bg-muted/30 rounded p-2 mt-2">
-                        <p className="text-xs text-foreground/80 line-clamp-2">
-                          <span className="font-semibold text-muted-foreground">Rationale: </span>
-                          {v.rationaleAiSummary}
-                        </p>
+                        <div className="flex items-start gap-1.5">
+                          <p className="text-xs text-foreground/80 line-clamp-2 flex-1">
+                            <span className="font-semibold text-muted-foreground">Rationale: </span>
+                            {v.rationaleAiSummary}
+                          </p>
+                          {v.hashVerified === true && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <ShieldCheck className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">On-chain hash verified</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {v.hashVerified === false && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <ShieldAlert className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">Content doesn&apos;t match on-chain hash commitment</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                       </div>
                     )}
 

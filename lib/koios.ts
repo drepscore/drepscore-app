@@ -11,6 +11,7 @@ import {
   checkKoiosHealth,
   parseMetadataFields,
 } from '@/utils/koios';
+import type { DRepVotesResponse } from '@/types/koios';
 import {
   calculateParticipationRate,
   calculateDeliberationModifier,
@@ -67,6 +68,7 @@ export interface EnrichedDRep extends DRep {
   alignmentInnovation: number | null;
   alignmentTransparency: number | null;
   lastVoteTime: number | null;
+  metadataHashVerified: boolean | null;
   /** ISO timestamp of when this DRep's data was last synced from Koios into the cache */
   updatedAt: string | null;
 }
@@ -186,10 +188,15 @@ async function fetchVotesBatched(
  * Loads ALL registered DReps in batches (no limit).
  * @param wellDocumentedOnly - If true, filter to well-documented DReps only (default view)
  * @param options.proposalContextMap - When provided, enables proposal-type-weighted rationale scoring
+ * @param options.prefetchedVotes - Pre-fetched votes map (from fetchAllVotesBulk). Skips per-DRep vote fetching.
  */
 export async function getEnrichedDReps(
   wellDocumentedOnly: boolean = true,
-  options?: { includeRawVotes?: boolean; proposalContextMap?: Map<string, ProposalContext> }
+  options?: {
+    includeRawVotes?: boolean;
+    proposalContextMap?: Map<string, ProposalContext>;
+    prefetchedVotes?: Record<string, DRepVotesResponse>;
+  }
 ): Promise<{
   dreps: EnrichedDRep[];
   allDReps: EnrichedDRep[];
@@ -254,7 +261,9 @@ export async function getEnrichedDReps(
         return bPower - aPower;
       });
 
-      const votesMap = await fetchVotesBatched(sortedInfo.map((i) => i.drep_id));
+      const votesMap = options?.prefetchedVotes
+        ? Object.fromEntries(sortedInfo.map(i => [i.drep_id, options.prefetchedVotes![i.drep_id] || []]))
+        : await fetchVotesBatched(sortedInfo.map((i) => i.drep_id));
 
       if (options?.includeRawVotes) {
         Object.assign(allRawVotes, votesMap);
@@ -359,6 +368,7 @@ export async function getEnrichedDReps(
         alignmentInnovation: null,
         alignmentTransparency: null,
         lastVoteTime: null,
+        metadataHashVerified: null,
         updatedAt: null,
       };
     });

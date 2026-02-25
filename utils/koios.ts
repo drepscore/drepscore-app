@@ -8,8 +8,10 @@ import {
   DRepInfoResponse,
   DRepMetadata,
   DRepMetadataResponse,
+  DRepVote,
   DRepVotesResponse,
   ProposalListResponse,
+  ProposalVotingSummaryData,
 } from '@/types/koios';
 import { KoiosError } from '@/types/drep';
 
@@ -533,14 +535,10 @@ export async function fetchDRepDelegatorCount(drepId: string): Promise<number> {
 export async function fetchDRepVotingPowerHistory(
   drepId: string
 ): Promise<{ epoch_no: number; amount: string }[]> {
-  try {
-    const data = await koiosFetch<{ drep_id: string; epoch_no: number; amount: string }[]>(
-      `/drep_voting_power_history?_drep_id=${encodeURIComponent(drepId)}`
-    );
-    return (data || []).map(({ epoch_no, amount }) => ({ epoch_no, amount }));
-  } catch {
-    return [];
-  }
+  const data = await koiosFetch<{ drep_id: string; epoch_no: number; amount: string }[]>(
+    `/drep_voting_power_history?_drep_id=${encodeURIComponent(drepId)}`
+  );
+  return (data || []).map(({ epoch_no, amount }) => ({ epoch_no, amount }));
 }
 
 /** Koios epoch_params DVT threshold fields (decimal 0–1) */
@@ -567,6 +565,132 @@ export async function fetchGovernanceThresholds(): Promise<Record<string, number
     );
     if (!data || data.length === 0) return null;
     return data[0] as Record<string, number>;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Bulk-fetch ALL DRep votes using /vote_list (paginated).
+ * Returns a map of drepId -> DRepVote[] across all proposals.
+ * Much faster than per-DRep fetching: ~5-10 paginated calls instead of ~250 individual calls.
+ */
+const VOTE_LIST_PAGE_SIZE = 1000;
+
+export async function fetchAllVotesBulk(): Promise<Record<string, DRepVote[]>> {
+  const allVotes: Record<string, DRepVote[]> = {};
+  let offset = 0;
+  let page = 0;
+
+  while (true) {
+    const url = `/vote_list?voter_role=eq.DRep&limit=${VOTE_LIST_PAGE_SIZE}&offset=${offset}`;
+    const data = await koiosFetch<Array<{
+      vote_tx_hash: string;
+      voter_id: string;
+      proposal_tx_hash: string;
+      proposal_index: number;
+      proposal_type: string;
+      epoch_no: number;
+      block_time: number;
+      vote: 'Yes' | 'No' | 'Abstain';
+      meta_url: string | null;
+      meta_hash: string | null;
+      meta_json: DRepVote['meta_json'];
+    }>>(url, { cache: 'no-store' });
+
+    const pageData = data || [];
+    page++;
+
+    for (const row of pageData) {
+      const drepId = row.voter_id;
+      if (!allVotes[drepId]) allVotes[drepId] = [];
+      allVotes[drepId].push({
+        proposal_tx_hash: row.proposal_tx_hash,
+        proposal_index: row.proposal_index,
+        vote_tx_hash: row.vote_tx_hash,
+        block_time: row.block_time,
+        vote: row.vote,
+        meta_url: row.meta_url,
+        meta_hash: row.meta_hash,
+        meta_json: row.meta_json,
+        epoch_no: row.epoch_no,
+      });
+    }
+
+    console.log(`[Koios] vote_list page ${page}: ${pageData.length} votes (total DReps so far: ${Object.keys(allVotes).length})`);
+
+    if (pageData.length < VOTE_LIST_PAGE_SIZE) break;
+    offset += VOTE_LIST_PAGE_SIZE;
+  }
+
+  return allVotes;
+}
+
+/**
+ * Fetch votes for specific proposals only (for fast sync).
+ * Uses /vote_list with proposal_tx_hash filter.
+ */
+export async function fetchVotesForProposals(
+  proposals: { txHash: string; index: number }[]
+): Promise<Record<string, DRepVote[]>> {
+  const allVotes: Record<string, DRepVote[]> = {};
+
+  for (const { txHash, index } of proposals) {
+    let offset = 0;
+    while (true) {
+      const url = `/vote_list?voter_role=eq.DRep&proposal_tx_hash=eq.${encodeURIComponent(txHash)}&proposal_index=eq.${index}&limit=${VOTE_LIST_PAGE_SIZE}&offset=${offset}`;
+      const data = await koiosFetch<Array<{
+        vote_tx_hash: string;
+        voter_id: string;
+        proposal_tx_hash: string;
+        proposal_index: number;
+        epoch_no: number;
+        block_time: number;
+        vote: 'Yes' | 'No' | 'Abstain';
+        meta_url: string | null;
+        meta_hash: string | null;
+        meta_json: DRepVote['meta_json'];
+      }>>(url, { cache: 'no-store' });
+
+      const pageData = data || [];
+      for (const row of pageData) {
+        const drepId = row.voter_id;
+        if (!allVotes[drepId]) allVotes[drepId] = [];
+        allVotes[drepId].push({
+          proposal_tx_hash: row.proposal_tx_hash,
+          proposal_index: row.proposal_index,
+          vote_tx_hash: row.vote_tx_hash,
+          block_time: row.block_time,
+          vote: row.vote,
+          meta_url: row.meta_url,
+          meta_hash: row.meta_hash,
+          meta_json: row.meta_json,
+          epoch_no: row.epoch_no,
+        });
+      }
+
+      if (pageData.length < VOTE_LIST_PAGE_SIZE) break;
+      offset += VOTE_LIST_PAGE_SIZE;
+    }
+  }
+
+  return allVotes;
+}
+
+/**
+ * Fetch canonical voting summary for a proposal from Koios.
+ * Uses CIP-129 bech32 proposal_id (gov_action1...).
+ * Returns the on-chain aggregate tallies including system auto-DReps.
+ */
+export async function fetchProposalVotingSummary(
+  proposalId: string
+): Promise<ProposalVotingSummaryData | null> {
+  try {
+    const data = await koiosFetch<ProposalVotingSummaryData[]>(
+      `/proposal_voting_summary?_proposal_id=${encodeURIComponent(proposalId)}`,
+      { cache: 'no-store' }
+    );
+    return data?.[0] || null;
   } catch {
     return null;
   }

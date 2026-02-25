@@ -18,7 +18,13 @@ import { ScoreCard } from '@/components/ScoreCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, TrendingUp } from 'lucide-react';
+import { ArrowLeft, TrendingUp, ShieldCheck, ShieldAlert } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { DetailPageSkeleton } from '@/components/LoadingSkeleton';
 import { DRepDashboardWrapper } from '@/components/DRepDashboardWrapper';
 import { CopyableAddress } from '@/components/CopyableAddress';
@@ -167,6 +173,7 @@ async function getDRepData(drepId: string) {
       profileCompleteness: cachedDRep.profileCompleteness,
       anchorUrl: cachedDRep.anchorUrl,
       metadata: cachedDRep.metadata,
+      metadataHashVerified: cachedDRep.metadataHashVerified ?? null,
       votes: voteRecords,
       activeEpoch: (cachedDRep as any).activeEpoch ?? null,
     };
@@ -247,6 +254,30 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
               <Badge variant="outline" className="text-base px-2 py-0.5">
                 {drep.ticker.toUpperCase()}
               </Badge>
+            )}
+            {drep.metadataHashVerified === true && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <ShieldCheck className="h-5 w-5 text-green-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Metadata verified against on-chain hash</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {drep.metadataHashVerified === false && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <ShieldAlert className="h-5 w-5 text-amber-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Metadata doesn&apos;t match on-chain hash</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
           

@@ -1,53 +1,32 @@
 /**
- * DRep Sync API Route
- * Triggered by Vercel Cron (or manually) to pull enriched DRep data from
- * Koios and upsert into Supabase for fast reads.
+ * Full DRep Sync — runs daily at 2 AM via Vercel Pro cron.
+ * Pulls all DRep data, votes (bulk), proposals, rationales, AI summaries,
+ * delegator counts, power snapshots, alignment scores, score history,
+ * and social link checks.
  *
- * Auth: Callers must supply ?secret=<CRON_SECRET> to prevent unauthorized triggers.
- *
- * Usage:
- *   GET /api/sync?secret=<CRON_SECRET>
- *
- * ┌─────────────────────────────────────────────────────────────────────────────┐
- * │ CRON SETUP (Free Tier Workaround)                                           │
- * ├─────────────────────────────────────────────────────────────────────────────┤
- * │ Since Vercel free tier doesn't support native cron jobs, use an external    │
- * │ service to trigger this endpoint on a schedule:                             │
- * │                                                                             │
- * │ Option 1: cron-job.org (free)                                               │
- * │   1. Create account at https://cron-job.org                                 │
- * │   2. Create new cron job with:                                              │
- * │      URL: https://your-app.vercel.app/api/sync?secret=YOUR_CRON_SECRET      │
- * │      Schedule: Every 15 minutes                                             │
- * │                                                                             │
- * │ Option 2: UptimeRobot (free monitoring with HTTP checks)                    │
- * │   1. Create account at https://uptimerobot.com                              │
- * │   2. Add HTTP(s) monitor with:                                              │
- * │      URL: https://your-app.vercel.app/api/sync?secret=YOUR_CRON_SECRET      │
- * │      Interval: 15 minutes                                                   │
- * │                                                                             │
- * │ Note: Set CRON_SECRET in Vercel Environment Variables                       │
- * └─────────────────────────────────────────────────────────────────────────────┘
+ * Auth: GET /api/sync?secret=<CRON_SECRET>
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnrichedDReps, blockTimeToEpoch } from '@/lib/koios';
-import { fetchProposals, fetchDRepDelegatorCount, fetchDRepVotingPowerHistory } from '@/utils/koios';
+import {
+  fetchProposals,
+  fetchDRepDelegatorCount,
+  fetchDRepVotingPowerHistory,
+  fetchAllVotesBulk,
+  fetchProposalVotingSummary,
+  fetchDRepInfo,
+} from '@/utils/koios';
 import { DRepVote } from '@/types/koios';
+import { blake2bHex } from 'blakejs';
 import { classifyProposals, computeAllCategoryScores } from '@/lib/alignment';
 import type { ClassifiedProposal } from '@/types/koios';
 import type { ProposalContext } from '@/utils/scoring';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
-
-// Vercel function timeout: allow up to 5 minutes for full sync
 export const maxDuration = 300;
 
-/**
- * Trim a string to at most maxLen characters, cutting at the last word
- * boundary before the limit so summaries never end mid-word.
- */
 function truncateToWordBoundary(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
   const trimmed = text.slice(0, maxLen);
@@ -77,6 +56,7 @@ interface SupabaseDRepRow {
 interface SupabaseProposalRow {
   tx_hash: string;
   proposal_index: number;
+  proposal_id: string;
   proposal_type: string;
   title: string;
   abstract: string | null;
@@ -114,14 +94,14 @@ interface SupabaseRationaleRow {
   rationale_text: string | null;
 }
 
-// ── Rationale Fetching Helpers ────────────────────────────────────────────────
-
+const BATCH_SIZE = 100;
 const RATIONALE_FETCH_TIMEOUT_MS = 5000;
-const RATIONALE_MAX_CONTENT_SIZE = 50000; // 50KB
-const RATIONALE_CONCURRENCY = 3;
-// Cap IPFS fetches per sync run so the function stays within Vercel's timeout.
-// Each subsequent sync incrementally fetches more. ~30 fetches * 5s / 3 concurrency = ~50s.
-const RATIONALE_MAX_PER_SYNC = 100;
+const RATIONALE_MAX_CONTENT_SIZE = 50000;
+const RATIONALE_CONCURRENCY = 8;
+const RATIONALE_MAX_PER_SYNC = 200;
+const DELEGATOR_CONCURRENCY = 20;
+
+// ── Rationale Helpers ─────────────────────────────────────────────────────────
 
 function extractJsonLdString(val: unknown): string | null {
   if (typeof val === 'string') return val.trim() || null;
@@ -147,7 +127,6 @@ async function fetchRationaleFromUrl(url: string): Promise<string | null> {
       signal: controller.signal,
       headers: { 'Accept': 'application/json, text/plain, */*' },
     });
-
     clearTimeout(timeoutId);
 
     if (!response.ok) return null;
@@ -161,7 +140,6 @@ async function fetchRationaleFromUrl(url: string): Promise<string | null> {
     try {
       const json = JSON.parse(text);
 
-      // CIP-100 JSON-LD: body.comment, body.rationale, body.motivation (may be string or {\"@value\": ...})
       if (json.body && typeof json.body === 'object') {
         for (const key of ['comment', 'rationale', 'motivation']) {
           const extracted = extractJsonLdString(json.body[key]);
@@ -169,7 +147,6 @@ async function fetchRationaleFromUrl(url: string): Promise<string | null> {
         }
       }
 
-      // Flat format fallback
       for (const key of ['rationale', 'motivation', 'justification', 'reason', 'comment']) {
         const extracted = extractJsonLdString(json[key]);
         if (extracted) return extracted;
@@ -188,15 +165,10 @@ async function fetchRationaleFromUrl(url: string): Promise<string | null> {
   }
 }
 
-/**
- * Fetch rationales for votes that have meta_url but no inline rationale,
- * with concurrency limiting. Skips votes already in the rationale cache.
- */
 async function fetchAndCacheRationales(
   allVotes: { drepId: string; vote: DRepVote }[],
   supabase: ReturnType<typeof getSupabaseAdmin>
 ): Promise<{ fetched: number; cached: number }> {
-  // Filter to votes that have a meta_url and no inline rationale
   const votesNeedingFetch = allVotes.filter(
     v => v.vote.meta_url
       && !v.vote.meta_json?.rationale
@@ -206,7 +178,6 @@ async function fetchAndCacheRationales(
 
   if (votesNeedingFetch.length === 0) return { fetched: 0, cached: 0 };
 
-  // Check which ones already have successful rationale (non-null text only — retry failures)
   const txHashes = votesNeedingFetch.map(v => v.vote.vote_tx_hash);
   const { data: existingRows } = await supabase
     .from('vote_rationales')
@@ -216,12 +187,11 @@ async function fetchAndCacheRationales(
 
   const alreadyCached = new Set((existingRows || []).map(r => r.vote_tx_hash));
   const allUncached = votesNeedingFetch.filter(v => !alreadyCached.has(v.vote.vote_tx_hash));
-  // Process only the most recent uncached votes to stay within function timeout
   const uncached = allUncached.slice(0, RATIONALE_MAX_PER_SYNC);
 
   if (uncached.length === 0) return { fetched: 0, cached: alreadyCached.size };
   if (allUncached.length > RATIONALE_MAX_PER_SYNC) {
-    console.log(`[Sync] Rationale fetch capped at ${RATIONALE_MAX_PER_SYNC}/${allUncached.length} uncached votes (remaining will be fetched in future syncs)`);
+    console.log(`[Sync] Rationale fetch capped at ${RATIONALE_MAX_PER_SYNC}/${allUncached.length} uncached`);
   }
 
   console.log(`[Sync] Fetching rationales for ${uncached.length} uncached votes...`);
@@ -247,23 +217,46 @@ async function fetchAndCacheRationales(
   }
 
   const successRows = rationaleRows.filter(r => r.rationale_text !== null);
-  const failCount = rationaleRows.length - successRows.length;
-  console.log(`[Sync] Rationale URL fetch results: ${successRows.length} succeeded, ${failCount} failed (will retry next sync)`);
+  console.log(`[Sync] Rationale URL fetch: ${successRows.length} succeeded, ${rationaleRows.length - successRows.length} failed`);
 
   if (successRows.length > 0) {
-    const BATCH_SIZE = 100;
     for (let i = 0; i < successRows.length; i += BATCH_SIZE) {
       const batch = successRows.slice(i, i + BATCH_SIZE);
       const { error } = await supabase
         .from('vote_rationales')
         .upsert(batch, { onConflict: 'vote_tx_hash' });
-      if (error) {
-        console.error(`[Sync] Rationale upsert error:`, error.message);
-      }
+      if (error) console.error(`[Sync] Rationale upsert error:`, error.message);
     }
   }
 
   return { fetched: successRows.length, cached: alreadyCached.size };
+}
+
+// ── Batched Supabase upsert helper ────────────────────────────────────────────
+
+async function batchUpsert<T extends Record<string, unknown>>(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  table: string,
+  rows: T[],
+  onConflict: string,
+  label: string
+): Promise<{ success: number; errors: number }> {
+  let success = 0, errors = 0;
+  const total = Math.ceil(rows.length / BATCH_SIZE);
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE);
+    const { error } = await supabase
+      .from(table)
+      .upsert(batch, { onConflict, ignoreDuplicates: false });
+    if (error) {
+      console.error(`[Sync] ${label} batch error:`, error.message);
+      errors += batch.length;
+    } else {
+      success += batch.length;
+    }
+  }
+  if (total > 1) console.log(`[Sync] ${label}: ${success} ok, ${errors} errors (${total} batches)`);
+  return { success, errors };
 }
 
 // ── Main Sync Handler ─────────────────────────────────────────────────────────
@@ -271,849 +264,693 @@ async function fetchAndCacheRationales(
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
-  // ── Auth check ────────────────────────────────────────────────────────────
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    console.error('[Sync] CRON_SECRET env var is not set');
-    return NextResponse.json(
-      { success: false, error: 'Server misconfiguration: CRON_SECRET not set' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'CRON_SECRET not set' }, { status: 500 });
   }
 
   const { searchParams } = new URL(request.url);
-  const providedSecret = searchParams.get('secret');
-
-  if (providedSecret !== cronSecret) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    );
+  if (searchParams.get('secret') !== cronSecret) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  // ── Fetch proposals FIRST for proposal-type-weighted rationale scoring ────
-  console.log('[Sync] Starting DRep sync...');
-  console.log('[Sync] Fetching proposals from Koios (needed for weighted rationale scoring)...');
-
-  let classifiedProposalsList: ClassifiedProposal[] = [];
-  const proposalContextMap = new Map<string, ProposalContext>();
-
-  try {
-    const rawProposals = await fetchProposals();
-    if (rawProposals.length > 0) {
-      classifiedProposalsList = classifyProposals(rawProposals);
-      for (const p of classifiedProposalsList) {
-        proposalContextMap.set(`${p.txHash}-${p.index}`, {
-          proposalType: p.type,
-          treasuryTier: p.treasuryTier,
-        });
-      }
-      console.log(`[Sync] Built proposal context map: ${proposalContextMap.size} proposals`);
-    }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.warn('[Sync] Proposal pre-fetch failed, rationale scoring will use equal weights:', message);
-  }
-
-  // ── Fetch enriched DReps from Koios (with raw votes + proposal context) ──
-  let allDReps;
-  let rawVotesMap: Record<string, DRepVote[]> | undefined;
-  try {
-    const result = await getEnrichedDReps(false, {
-      includeRawVotes: true,
-      proposalContextMap: proposalContextMap.size > 0 ? proposalContextMap : undefined,
-    });
-
-    if (result.error) {
-      console.error('[Sync] Failed to fetch DReps from Koios');
-      return NextResponse.json(
-        { success: false, error: 'Koios API fetch failed' },
-        { status: 502 }
-      );
-    }
-
-    if (!result.allDReps || result.allDReps.length === 0) {
-      console.warn('[Sync] No DReps returned from Koios');
-      return NextResponse.json(
-        { success: false, error: 'No DReps returned from Koios' },
-        { status: 502 }
-      );
-    }
-
-    allDReps = result.allDReps;
-    rawVotesMap = result.rawVotesMap as Record<string, DRepVote[]> | undefined;
-    console.log(`[Sync] Fetched ${allDReps.length} DReps from Koios`);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[Sync] Exception during Koios fetch:', message);
-    return NextResponse.json(
-      { success: false, error: `Koios fetch exception: ${message}` },
-      { status: 500 }
-    );
-  }
-
-  // ── Transform to Supabase schema ──────────────────────────────────────────
-  const rows: SupabaseDRepRow[] = allDReps.map((drep) => ({
-    id: drep.drepId,
-    metadata: (drep.metadata as Record<string, unknown>) || {},
-    info: {
-      drepHash: drep.drepHash,
-      handle: drep.handle,
-      name: drep.name,
-      ticker: drep.ticker,
-      description: drep.description,
-      votingPower: drep.votingPower,
-      votingPowerLovelace: drep.votingPowerLovelace,
-      delegatorCount: drep.delegatorCount,
-      totalVotes: drep.totalVotes,
-      yesVotes: drep.yesVotes,
-      noVotes: drep.noVotes,
-      abstainVotes: drep.abstainVotes,
-      isActive: drep.isActive,
-      anchorUrl: drep.anchorUrl,
-      epochVoteCounts: drep.epochVoteCounts,
-    },
-    votes: [],
-    score: drep.drepScore,
-    participation_rate: drep.participationRate,
-    rationale_rate: drep.rationaleRate,
-    reliability_score: drep.reliabilityScore,
-    reliability_streak: drep.reliabilityStreak,
-    reliability_recency: drep.reliabilityRecency,
-    reliability_longest_gap: drep.reliabilityLongestGap,
-    reliability_tenure: drep.reliabilityTenure,
-    deliberation_modifier: drep.deliberationModifier,
-    effective_participation: drep.effectiveParticipation,
-    size_tier: drep.sizeTier,
-    profile_completeness: drep.profileCompleteness,
-  }));
-
-  // ── Upsert DReps to Supabase ─────────────────────────────────────────────
   let supabase;
   try {
     supabase = getSupabaseAdmin();
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[Sync] Failed to create Supabase admin client:', message);
-    return NextResponse.json(
-      { success: false, error: `Supabase init failed: ${message}` },
-      { status: 500 }
-    );
+    const msg = err instanceof Error ? err.message : 'Unknown';
+    return NextResponse.json({ success: false, error: `Supabase init failed: ${msg}` }, { status: 500 });
   }
 
-  const BATCH_SIZE = 100;
-  const totalBatches = Math.ceil(rows.length / BATCH_SIZE);
-  let successCount = 0;
-  let errorCount = 0;
+  console.log('[Sync] Starting full daily sync...');
 
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-    const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+  // ═══ PHASE 1: Parallel Koios fetches ═══════════════════════════════════════
+  // Fetch proposals + bulk votes in parallel (the two heaviest API calls)
 
-    const { error: upsertError } = await supabase
-      .from('dreps')
-      .upsert(batch, { onConflict: 'id', ignoreDuplicates: false });
+  let classifiedProposalsList: ClassifiedProposal[] = [];
+  const proposalContextMap = new Map<string, ProposalContext>();
+  let bulkVotesMap: Record<string, DRepVote[]> = {};
 
-    if (upsertError) {
-      console.error(`[Sync] DRep batch ${batchNumber}/${totalBatches} error:`, upsertError.message);
-      errorCount += batch.length;
-    } else {
-      successCount += batch.length;
-      console.log(`[Sync] DRep batch ${batchNumber}/${totalBatches} complete (${batch.length} rows)`);
-    }
-  }
-
-  // ── Delegator counts via Koios /drep_delegators ─────────────────────────
-  const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
-  try {
-    const DELEGATOR_CONCURRENCY = 10;
-    let delegatorUpdates = 0;
-
-    for (let i = 0; i < allDReps.length; i += DELEGATOR_CONCURRENCY) {
-      const batch = allDReps.slice(i, i + DELEGATOR_CONCURRENCY);
-      const counts = await Promise.all(
-        batch.map(d => fetchDRepDelegatorCount(d.drepId))
-      );
-
-      const updates = batch
-        .map((d, j) => ({ id: d.drepId, count: counts[j] }))
-        .filter(u => u.count > 0);
-
-      for (const { id, count } of updates) {
-        const { data: existing } = await supabase
-          .from('dreps')
-          .select('info')
-          .eq('id', id)
-          .single();
-        if (existing?.info) {
-          await supabase
-            .from('dreps')
-            .update({ info: { ...(existing.info as Record<string, unknown>), delegatorCount: count } })
-            .eq('id', id);
-          delegatorUpdates++;
+  const [proposalsResult, votesResult] = await Promise.allSettled([
+    fetchProposals().then(raw => {
+      if (raw.length > 0) {
+        classifiedProposalsList = classifyProposals(raw);
+        for (const p of classifiedProposalsList) {
+          proposalContextMap.set(`${p.txHash}-${p.index}`, {
+            proposalType: p.type,
+            treasuryTier: p.treasuryTier,
+          });
         }
       }
-    }
-    console.log(`[Sync] Delegator counts: ${delegatorUpdates} DReps updated`);
-  } catch (err) {
-    console.error('[Sync] Delegator count update failed:', err instanceof Error ? err.message : err);
+      console.log(`[Sync] Proposals fetched: ${raw.length}, classified: ${classifiedProposalsList.length}`);
+    }),
+    fetchAllVotesBulk().then(votes => {
+      bulkVotesMap = votes;
+      const totalVotes = Object.values(votes).reduce((sum, v) => sum + v.length, 0);
+      console.log(`[Sync] Bulk votes fetched: ${totalVotes} votes across ${Object.keys(votes).length} DReps`);
+    }),
+  ]);
+
+  if (proposalsResult.status === 'rejected') {
+    console.warn('[Sync] Proposal fetch failed:', proposalsResult.reason);
+  }
+  if (votesResult.status === 'rejected') {
+    console.warn('[Sync] Bulk vote fetch failed, falling back to per-DRep:', votesResult.reason);
   }
 
-  // ── Power snapshots: record current epoch voting power ──────────────────
-  try {
-    const powerRows = allDReps
-      .filter(d => d.votingPowerLovelace && d.votingPowerLovelace !== '0')
-      .map(d => ({
-        drep_id: d.drepId,
-        epoch_no: currentEpoch,
-        amount_lovelace: parseInt(d.votingPowerLovelace, 10) || 0,
-      }));
+  // ═══ PHASE 2: Enrich DReps (uses pre-fetched votes) ═══════════════════════
 
-    if (powerRows.length > 0) {
-      for (let i = 0; i < powerRows.length; i += BATCH_SIZE) {
-        const batch = powerRows.slice(i, i + BATCH_SIZE);
-        await supabase
-          .from('drep_power_snapshots')
-          .upsert(batch, { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
-      }
-      console.log(`[Sync] Power snapshots: ${powerRows.length} rows for epoch ${currentEpoch}`);
-    }
-  } catch (err) {
-    console.error('[Sync] Power snapshot upsert failed:', err instanceof Error ? err.message : err);
-  }
-
-  // ── Upsert individual votes to drep_votes ─────────────────────────────────
-  let voteSuccessCount = 0;
-  let voteErrorCount = 0;
-
-  if (rawVotesMap) {
-    const voteRows: SupabaseVoteRow[] = [];
-    const allVotesForRationale: { drepId: string; vote: DRepVote }[] = [];
-
-    for (const [drepId, votes] of Object.entries(rawVotesMap)) {
-      for (const vote of votes) {
-        voteRows.push({
-          vote_tx_hash: vote.vote_tx_hash,
-          drep_id: drepId,
-          proposal_tx_hash: vote.proposal_tx_hash,
-          proposal_index: vote.proposal_index,
-          vote: vote.vote,
-          epoch_no: vote.epoch_no ?? (vote.block_time ? blockTimeToEpoch(vote.block_time) : null),
-          block_time: vote.block_time,
-          meta_url: vote.meta_url,
-          meta_hash: vote.meta_hash,
-        });
-
-        allVotesForRationale.push({ drepId, vote });
-      }
-    }
-
-    // Deduplicate votes by vote_tx_hash -- same safeguard as proposals
-    const dedupedVoteRows = [...new Map(voteRows.map(r => [r.vote_tx_hash, r])).values()];
-    if (dedupedVoteRows.length !== voteRows.length) {
-      console.log(`[Sync] Deduplicated votes: ${voteRows.length} → ${dedupedVoteRows.length}`);
-    }
-
-    console.log(`[Sync] Upserting ${dedupedVoteRows.length} individual votes...`);
-
-    const voteBatches = Math.ceil(dedupedVoteRows.length / BATCH_SIZE);
-    for (let i = 0; i < dedupedVoteRows.length; i += BATCH_SIZE) {
-      const batch = dedupedVoteRows.slice(i, i + BATCH_SIZE);
-      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-
-      const { error: upsertError } = await supabase
-        .from('drep_votes')
-        .upsert(batch, { onConflict: 'vote_tx_hash', ignoreDuplicates: false });
-
-      if (upsertError) {
-        console.error(`[Sync] Vote batch ${batchNumber}/${voteBatches} error:`, upsertError.message);
-        voteErrorCount += batch.length;
-      } else {
-        voteSuccessCount += batch.length;
-        if (batchNumber % 10 === 0 || batchNumber === voteBatches) {
-          console.log(`[Sync] Vote batch ${batchNumber}/${voteBatches} complete`);
-        }
-      }
-    }
-
-    // ── Rationale diagnostics ─────────────────────────────────────────────
-    const votesWithMetaUrl = allVotesForRationale.filter(v => v.vote.meta_url);
-    const votesWithMetaJson = allVotesForRationale.filter(v => v.vote.meta_json != null);
-    console.log(`[Sync] Rationale diagnostics: ${allVotesForRationale.length} total votes, ${votesWithMetaUrl.length} have meta_url, ${votesWithMetaJson.length} have meta_json`);
-
-    // Log sample meta_urls for manual verification
-    if (votesWithMetaUrl.length > 0) {
-      const samples = votesWithMetaUrl.slice(0, 3).map(v => `  ${v.vote.vote_tx_hash.slice(0, 12)}... → ${v.vote.meta_url}`);
-      console.log(`[Sync] Sample meta_urls:\n${samples.join('\n')}`);
-    }
-
-    // ── Upsert inline rationales from meta_json ───────────────────────────
-    const inlineRationales: SupabaseRationaleRow[] = [];
-    for (const { drepId, vote } of allVotesForRationale) {
-      const rationaleText =
-        vote.meta_json?.body?.comment ||
-        vote.meta_json?.body?.rationale ||
-        vote.meta_json?.rationale;
-
-      if (rationaleText && typeof rationaleText === 'string') {
-        inlineRationales.push({
-          vote_tx_hash: vote.vote_tx_hash,
-          drep_id: drepId,
-          proposal_tx_hash: vote.proposal_tx_hash,
-          proposal_index: vote.proposal_index,
-          meta_url: vote.meta_url,
-          rationale_text: rationaleText,
-        });
-      }
-    }
-
-    console.log(`[Sync] Inline rationales from meta_json: ${inlineRationales.length} (expected ~0 if Koios doesn't return meta_json)`);
-
-    if (inlineRationales.length > 0) {
-      for (let i = 0; i < inlineRationales.length; i += BATCH_SIZE) {
-        const batch = inlineRationales.slice(i, i + BATCH_SIZE);
-        const { error } = await supabase
-          .from('vote_rationales')
-          .upsert(batch, { onConflict: 'vote_tx_hash' });
-        if (error) {
-          console.error(`[Sync] Inline rationale upsert error:`, error.message);
-        }
-      }
-    }
-
-    // ── Clean up previously cached null rationales so they get retried ────
-    const { count: purgedNulls } = await supabase
-      .from('vote_rationales')
-      .delete({ count: 'exact' })
-      .is('rationale_text', null);
-    if (purgedNulls && purgedNulls > 0) {
-      console.log(`[Sync] Purged ${purgedNulls} null-rationale rows (will retry fetches)`);
-    }
-
-    // ── Fetch rationales from meta_url for uncached votes ─────────────────
-    try {
-      const rationaleResult = await fetchAndCacheRationales(allVotesForRationale, supabase);
-      console.log(`[Sync] Rationales: ${rationaleResult.fetched} new, ${rationaleResult.cached} already cached`);
-    } catch (err) {
-      console.error('[Sync] Rationale fetch phase failed:', err);
-    }
-  } else {
-    console.warn('[Sync] No raw votes map available, skipping vote upsert');
-  }
-
-  // ── Backfill voting_power_lovelace on votes missing it ──────────────────
-  try {
-    const { data: nullPowerDreps } = await supabase
-      .from('drep_votes')
-      .select('drep_id')
-      .is('voting_power_lovelace', null)
-      .limit(1000);
-
-    const uniqueDrepIds = [...new Set((nullPowerDreps || []).map(r => r.drep_id))];
-
-    if (uniqueDrepIds.length > 0) {
-      console.log(`[Sync] Backfilling voting power for ${uniqueDrepIds.length} DReps with NULL power...`);
-      let backfillCount = 0;
-
-      for (const drepId of uniqueDrepIds.slice(0, 50)) {
-        const history = await fetchDRepVotingPowerHistory(drepId);
-        if (history.length === 0) continue;
-
-        // Upsert snapshots for all historical epochs
-        const snapRows = history.map(h => ({
-          drep_id: drepId,
-          epoch_no: h.epoch_no,
-          amount_lovelace: parseInt(h.amount, 10) || 0,
-        }));
-        await supabase
-          .from('drep_power_snapshots')
-          .upsert(snapRows, { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
-
-        // Update drep_votes with matching epoch power
-        for (const snap of snapRows) {
-          const { count } = await supabase
-            .from('drep_votes')
-            .update({ voting_power_lovelace: snap.amount_lovelace })
-            .eq('drep_id', drepId)
-            .eq('epoch_no', snap.epoch_no)
-            .is('voting_power_lovelace', null);
-          backfillCount += (count || 0);
-        }
-      }
-      console.log(`[Sync] Backfilled voting power on ${backfillCount} vote rows`);
-    }
-  } catch (err) {
-    console.error('[Sync] Vote power backfill failed:', err instanceof Error ? err.message : err);
-  }
-
-  // ── Upsert proposals to Supabase (already fetched and classified above) ───
-  let proposalSuccessCount = 0;
-  let proposalErrorCount = 0;
+  let allDReps;
+  let rawVotesMap: Record<string, DRepVote[]> | undefined;
 
   try {
-    if (classifiedProposalsList.length > 0) {
-      const rawProposalRows: SupabaseProposalRow[] = classifiedProposalsList.map((p) => ({
-        tx_hash: p.txHash,
-        proposal_index: p.index,
-        proposal_type: p.type,
-        title: p.title,
-        abstract: p.abstract,
-        withdrawal_amount: p.withdrawalAmountAda,
-        treasury_tier: p.treasuryTier,
-        param_changes: p.paramChanges,
-        relevant_prefs: p.relevantPrefs,
-        proposed_epoch: p.proposedEpoch,
-        block_time: p.blockTime,
-        expired_epoch: p.expiredEpoch,
-        ratified_epoch: p.ratifiedEpoch,
-        enacted_epoch: p.enactedEpoch,
-        dropped_epoch: p.droppedEpoch,
-        expiration_epoch: p.expirationEpoch,
-      }));
+    const hasBulkVotes = Object.keys(bulkVotesMap).length > 0;
+    const result = await getEnrichedDReps(false, {
+      includeRawVotes: true,
+      proposalContextMap: proposalContextMap.size > 0 ? proposalContextMap : undefined,
+      ...(hasBulkVotes ? { prefetchedVotes: bulkVotesMap } : {}),
+    });
 
-      // Deduplicate by (tx_hash, proposal_index) -- Koios may return the same proposal
-      // multiple times, and PostgreSQL's ON CONFLICT DO UPDATE rejects duplicate keys
-      // within the same batch command.
-      const proposalRows = [...new Map(
-        rawProposalRows.map(row => [`${row.tx_hash}-${row.proposal_index}`, row])
-      ).values()];
-
-      if (rawProposalRows.length !== proposalRows.length) {
-        console.log(`[Sync] Deduplicated proposals: ${rawProposalRows.length} → ${proposalRows.length}`);
-      }
-
-      const proposalBatches = Math.ceil(proposalRows.length / BATCH_SIZE);
-      for (let i = 0; i < proposalRows.length; i += BATCH_SIZE) {
-        const batch = proposalRows.slice(i, i + BATCH_SIZE);
-        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-
-        const { error: upsertError } = await supabase
-          .from('proposals')
-          .upsert(batch, { onConflict: 'tx_hash,proposal_index', ignoreDuplicates: false });
-
-        if (upsertError) {
-          console.error(`[Sync] Proposal batch ${batchNumber}/${proposalBatches} error:`, upsertError.message);
-          proposalErrorCount += batch.length;
-        } else {
-          proposalSuccessCount += batch.length;
-          console.log(`[Sync] Proposal batch ${batchNumber}/${proposalBatches} complete (${batch.length} rows)`);
-        }
-      }
-    } else {
-      console.log('[Sync] No proposals to upsert');
+    if (result.error || !result.allDReps?.length) {
+      return NextResponse.json({ success: false, error: 'Koios DRep fetch failed' }, { status: 502 });
     }
+
+    allDReps = result.allDReps;
+    rawVotesMap = result.rawVotesMap as Record<string, DRepVote[]> | undefined;
+    console.log(`[Sync] Enriched ${allDReps.length} DReps`);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[Sync] Error upserting proposals:', message);
+    const msg = err instanceof Error ? err.message : 'Unknown';
+    return NextResponse.json({ success: false, error: `DRep enrichment failed: ${msg}` }, { status: 500 });
   }
 
-  // ── Generate AI summaries for proposals without one ──────────────────────
-  let aiSummaryCount = 0;
-  const AI_SUMMARY_MAX_PER_SYNC = 10;
+  // ═══ PHASE 3: Parallel upserts (DReps + Votes + Proposals) ════════════════
 
-  if (process.env.ANTHROPIC_API_KEY) {
-    try {
-      // Clear summaries containing raw IPFS/HTTP URLs so they get re-generated
-      const { data: badSummaries } = await supabase
-        .from('proposals')
-        .select('tx_hash, proposal_index')
-        .not('ai_summary', 'is', null)
-        .or('ai_summary.ilike.%ipfs.io%,ai_summary.ilike.%ipfs://%,ai_summary.ilike.%bafkrei%');
+  const drepRows: SupabaseDRepRow[] = allDReps.map((drep) => ({
+    id: drep.drepId,
+    metadata: (drep.metadata as Record<string, unknown>) || {},
+    info: {
+      drepHash: drep.drepHash, handle: drep.handle, name: drep.name,
+      ticker: drep.ticker, description: drep.description,
+      votingPower: drep.votingPower, votingPowerLovelace: drep.votingPowerLovelace,
+      delegatorCount: drep.delegatorCount, totalVotes: drep.totalVotes,
+      yesVotes: drep.yesVotes, noVotes: drep.noVotes, abstainVotes: drep.abstainVotes,
+      isActive: drep.isActive, anchorUrl: drep.anchorUrl,
+      epochVoteCounts: drep.epochVoteCounts,
+    },
+    votes: [],
+    score: drep.drepScore, participation_rate: drep.participationRate,
+    rationale_rate: drep.rationaleRate, reliability_score: drep.reliabilityScore,
+    reliability_streak: drep.reliabilityStreak, reliability_recency: drep.reliabilityRecency,
+    reliability_longest_gap: drep.reliabilityLongestGap, reliability_tenure: drep.reliabilityTenure,
+    deliberation_modifier: drep.deliberationModifier,
+    effective_participation: drep.effectiveParticipation,
+    size_tier: drep.sizeTier, profile_completeness: drep.profileCompleteness,
+  }));
 
-      if (badSummaries && badSummaries.length > 0) {
-        for (const row of badSummaries) {
-          await supabase.from('proposals').update({ ai_summary: null })
-            .eq('tx_hash', row.tx_hash).eq('proposal_index', row.proposal_index);
-        }
-        console.log(`[Sync] Cleared ${badSummaries.length} AI summaries with raw URLs for re-generation`);
-      }
+  // FIX: Upsert ALL votes from bulkVotesMap directly (not just those from enriched DReps)
+  // This ensures votes from deregistered/filtered DReps aren't silently dropped.
+  const voteRows: SupabaseVoteRow[] = [];
+  const allVotesForRationale: { drepId: string; vote: DRepVote }[] = [];
 
-      const { data: unsummarized } = await supabase
-        .from('proposals')
-        .select('tx_hash, proposal_index, title, abstract, proposal_type, withdrawal_amount')
-        .is('ai_summary', null)
-        .not('abstract', 'is', null)
-        .neq('abstract', '')
-        .limit(AI_SUMMARY_MAX_PER_SYNC);
-
-      if (unsummarized && unsummarized.length > 0) {
-        const { default: Anthropic } = await import('@anthropic-ai/sdk');
-        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-        console.log(`[Sync] Generating AI summaries for ${unsummarized.length} proposals...`);
-
-        for (const row of unsummarized) {
-          try {
-            const amountContext = row.withdrawal_amount
-              ? `\nWithdrawal Amount: ${Number(row.withdrawal_amount).toLocaleString()} ADA`
-              : '';
-
-            const msg = await anthropic.messages.create({
-              model: 'claude-sonnet-4-5',
-              max_tokens: 80,
-              messages: [{
-                role: 'user',
-                content: `Summarize this Cardano governance proposal in 1-2 short sentences for a casual ADA holder. Plain language, no jargon. Neutral tone. No URLs or hashes. Your entire response must be 160 characters or fewer.\n\nTitle: ${row.title || 'Untitled'}\nType: ${row.proposal_type}${amountContext}\nDescription: ${(row.abstract || '').slice(0, 2000)}`,
-              }],
-            });
-
-            const rawSummary = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
-            const summary = rawSummary
-              ? truncateToWordBoundary(
-                  rawSummary.replace(/https?:\/\/\S+/g, '').replace(/ipfs:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim(),
-                  160
-                )
-              : null;
-
-            if (summary) {
-              await supabase
-                .from('proposals')
-                .update({ ai_summary: summary })
-                .eq('tx_hash', row.tx_hash)
-                .eq('proposal_index', row.proposal_index);
-              aiSummaryCount++;
-            }
-          } catch (aiErr) {
-            console.error(`[Sync] AI summary error for ${row.tx_hash}:`, aiErr);
-          }
-        }
-        console.log(`[Sync] Generated ${aiSummaryCount} AI summaries`);
-      }
-    } catch (err) {
-      console.error('[Sync] AI summary phase failed:', err);
-    }
-
-    // ── Generate AI summaries for rationales without one ───────────────────
-    let rationaleAiSummaryCount = 0;
-    const RATIONALE_SUMMARY_MAX_PER_SYNC = 20;
-
-    try {
-      const { data: unsummarizedRationales } = await supabase
-        .from('vote_rationales')
-        .select('vote_tx_hash, drep_id, proposal_tx_hash, proposal_index, rationale_text')
-        .is('ai_summary', null)
-        .not('rationale_text', 'is', null)
-        .neq('rationale_text', '')
-        .limit(RATIONALE_SUMMARY_MAX_PER_SYNC);
-
-      if (unsummarizedRationales && unsummarizedRationales.length > 0) {
-        // Fetch proposal titles for context
-        const proposalKeys = unsummarizedRationales.map(r => ({
-          txHash: r.proposal_tx_hash,
-          index: r.proposal_index,
-        }));
-        const proposalTitles = new Map<string, string>();
-        const txHashes = [...new Set(proposalKeys.map(k => k.txHash))];
-        if (txHashes.length > 0) {
-          const { data: proposalRows } = await supabase
-            .from('proposals')
-            .select('tx_hash, proposal_index, title')
-            .in('tx_hash', txHashes);
-          if (proposalRows) {
-            for (const p of proposalRows) {
-              proposalTitles.set(`${p.tx_hash}-${p.proposal_index}`, p.title || 'Untitled');
-            }
-          }
-        }
-
-        // Fetch vote direction for context
-        const voteTxHashes = unsummarizedRationales.map(r => r.vote_tx_hash);
-        const voteDirections = new Map<string, string>();
-        const { data: voteRows } = await supabase
-          .from('drep_votes')
-          .select('vote_tx_hash, vote')
-          .in('vote_tx_hash', voteTxHashes);
-        if (voteRows) {
-          for (const v of voteRows) {
-            voteDirections.set(v.vote_tx_hash, v.vote);
-          }
-        }
-
-        const { default: Anthropic } = await import('@anthropic-ai/sdk');
-        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-        console.log(`[Sync] Generating AI summaries for ${unsummarizedRationales.length} rationales...`);
-
-        for (const row of unsummarizedRationales) {
-          try {
-            const proposalTitle = proposalTitles.get(`${row.proposal_tx_hash}-${row.proposal_index}`) || 'this proposal';
-            const voteDirection = voteDirections.get(row.vote_tx_hash) || 'voted';
-
-            const msg = await anthropic.messages.create({
-              model: 'claude-sonnet-4-5',
-              max_tokens: 80,
-              messages: [{
-                role: 'user',
-                content: `Summarize this DRep's rationale for voting ${voteDirection} on "${proposalTitle}" in 1-2 neutral sentences. Plain language, no editorializing. No URLs or hashes. Your entire response must be 160 characters or fewer.\n\nRationale: ${(row.rationale_text || '').slice(0, 1500)}`,
-              }],
-            });
-
-            const rawSummary = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
-            const summary = rawSummary
-              ? truncateToWordBoundary(
-                  rawSummary.replace(/https?:\/\/\S+/g, '').replace(/ipfs:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim(),
-                  160
-                )
-              : null;
-
-            if (summary) {
-              await supabase
-                .from('vote_rationales')
-                .update({ ai_summary: summary })
-                .eq('vote_tx_hash', row.vote_tx_hash);
-              rationaleAiSummaryCount++;
-            }
-          } catch (aiErr) {
-            console.error(`[Sync] Rationale AI summary error for ${row.vote_tx_hash}:`, aiErr);
-          }
-        }
-        console.log(`[Sync] Generated ${rationaleAiSummaryCount} rationale AI summaries`);
-      }
-    } catch (err) {
-      console.error('[Sync] Rationale AI summary phase failed:', err);
-    }
-  }
-
-  // ── Compute per-category alignment scores for all DReps ──────────────────
-  let alignmentUpdateCount = 0;
-
-  if (rawVotesMap && classifiedProposalsList.length > 0) {
-    console.log(`[Sync] Computing alignment scores for ${allDReps.length} DReps...`);
-
-    const alignmentUpdates: { id: string; [key: string]: unknown }[] = [];
-
-    for (const drep of allDReps) {
-      const votes = rawVotesMap[drep.drepId] || [];
-      const scores = computeAllCategoryScores(drep, votes, classifiedProposalsList);
-
-      alignmentUpdates.push({
-        id: drep.drepId,
-        alignment_treasury_conservative: scores.alignmentTreasuryConservative,
-        alignment_treasury_growth: scores.alignmentTreasuryGrowth,
-        alignment_decentralization: scores.alignmentDecentralization,
-        alignment_security: scores.alignmentSecurity,
-        alignment_innovation: scores.alignmentInnovation,
-        alignment_transparency: scores.alignmentTransparency,
-        last_vote_time: scores.lastVoteTime,
+  for (const [drepId, votes] of Object.entries(bulkVotesMap)) {
+    for (const vote of votes) {
+      voteRows.push({
+        vote_tx_hash: vote.vote_tx_hash,
+        drep_id: drepId,
+        proposal_tx_hash: vote.proposal_tx_hash,
+        proposal_index: vote.proposal_index,
+        vote: vote.vote,
+        epoch_no: vote.epoch_no ?? (vote.block_time ? blockTimeToEpoch(vote.block_time) : null),
+        block_time: vote.block_time,
+        meta_url: vote.meta_url,
+        meta_hash: vote.meta_hash,
       });
+      allVotesForRationale.push({ drepId, vote });
     }
+  }
 
-    const alignmentBatches = Math.ceil(alignmentUpdates.length / BATCH_SIZE);
-    for (let i = 0; i < alignmentUpdates.length; i += BATCH_SIZE) {
-      const batch = alignmentUpdates.slice(i, i + BATCH_SIZE);
-      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+  const dedupedVoteRows = [...new Map(voteRows.map(r => [r.vote_tx_hash, r])).values()];
 
-      const { error: upsertError } = await supabase
+  const proposalRows: SupabaseProposalRow[] = classifiedProposalsList.length > 0
+    ? [...new Map(
+        classifiedProposalsList.map(p => [`${p.txHash}-${p.index}`, {
+          tx_hash: p.txHash, proposal_index: p.index, proposal_id: p.proposalId,
+          proposal_type: p.type, title: p.title, abstract: p.abstract,
+          withdrawal_amount: p.withdrawalAmountAda, treasury_tier: p.treasuryTier,
+          param_changes: p.paramChanges, relevant_prefs: p.relevantPrefs,
+          proposed_epoch: p.proposedEpoch, block_time: p.blockTime,
+          expired_epoch: p.expiredEpoch, ratified_epoch: p.ratifiedEpoch,
+          enacted_epoch: p.enactedEpoch, dropped_epoch: p.droppedEpoch,
+          expiration_epoch: p.expirationEpoch,
+        } as SupabaseProposalRow])
+      ).values()]
+    : [];
+
+  console.log(`[Sync] Upserting ${drepRows.length} DReps, ${dedupedVoteRows.length} votes, ${proposalRows.length} proposals in parallel...`);
+
+  const [drepResult, voteResult, proposalResult] = await Promise.all([
+    batchUpsert(supabase, 'dreps', drepRows as unknown as Record<string, unknown>[], 'id', 'DReps'),
+    dedupedVoteRows.length > 0
+      ? batchUpsert(supabase, 'drep_votes', dedupedVoteRows as unknown as Record<string, unknown>[], 'vote_tx_hash', 'Votes')
+      : Promise.resolve({ success: 0, errors: 0 }),
+    proposalRows.length > 0
+      ? batchUpsert(supabase, 'proposals', proposalRows as unknown as Record<string, unknown>[], 'tx_hash,proposal_index', 'Proposals')
+      : Promise.resolve({ success: 0, errors: 0 }),
+  ]);
+
+  // ═══ PHASE 4: Parallel secondary operations ═══════════════════════════════
+  // Delegator counts, power snapshots, alignment scores, score history
+
+  const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
+
+  const phase4Results = await Promise.allSettled([
+    // Delegator counts: batch read + diff + bulk update
+    (async () => {
+      const { data: currentDreps } = await supabase
         .from('dreps')
-        .upsert(batch, { onConflict: 'id', ignoreDuplicates: false });
+        .select('id, info')
+        .in('id', allDReps.map(d => d.drepId).slice(0, 1000));
 
-      if (upsertError) {
-        console.error(`[Sync] Alignment batch ${batchNumber}/${alignmentBatches} error:`, upsertError.message);
-      } else {
-        alignmentUpdateCount += batch.length;
-        if (batchNumber % 5 === 0 || batchNumber === alignmentBatches) {
-          console.log(`[Sync] Alignment batch ${batchNumber}/${alignmentBatches} complete`);
+      const currentCounts = new Map<string, number>();
+      for (const row of currentDreps || []) {
+        const info = row.info as Record<string, unknown> | null;
+        currentCounts.set(row.id, (info?.delegatorCount as number) || 0);
+      }
+
+      const newCounts: { id: string; count: number }[] = [];
+      for (let i = 0; i < allDReps.length; i += DELEGATOR_CONCURRENCY) {
+        const batch = allDReps.slice(i, i + DELEGATOR_CONCURRENCY);
+        const counts = await Promise.all(batch.map(d => fetchDRepDelegatorCount(d.drepId)));
+        for (let j = 0; j < batch.length; j++) {
+          newCounts.push({ id: batch[j].drepId, count: counts[j] });
         }
       }
-    }
 
-    console.log(`[Sync] Alignment scores computed for ${alignmentUpdateCount} DReps`);
-  } else {
-    console.warn('[Sync] Skipping alignment computation (missing votes or proposals)');
-  }
-
-  // ── Snapshot score history (one row per DRep per day) ─────────────────────
-  let scoreHistoryCount = 0;
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const historyRows = allDReps.map((drep) => ({
-      drep_id: drep.drepId,
-      score: drep.drepScore,
-      effective_participation: drep.effectiveParticipation,
-      rationale_rate: drep.rationaleRate,
-      reliability_score: drep.reliabilityScore,
-      profile_completeness: drep.profileCompleteness,
-      snapshot_date: today,
-    }));
-
-    for (let i = 0; i < historyRows.length; i += BATCH_SIZE) {
-      const batch = historyRows.slice(i, i + BATCH_SIZE);
-      const { error } = await supabase
-        .from('drep_score_history')
-        .upsert(batch, { onConflict: 'drep_id,snapshot_date', ignoreDuplicates: false });
-      if (error) {
-        // Table may not exist yet -- log but don't fail the sync
-        if (i === 0) console.warn(`[Sync] Score history upsert skipped (table may not exist): ${error.message}`);
-        break;
-      }
-      scoreHistoryCount += batch.length;
-    }
-
-    if (scoreHistoryCount > 0) {
-      console.log(`[Sync] Score history: ${scoreHistoryCount} snapshots saved for ${today}`);
-    }
-  } catch (err) {
-    console.warn('[Sync] Score history phase skipped:', err);
-  }
-
-  // ── Social link reachability checks (max 50 per sync run) ────────────────
-  let linkChecksCount = 0;
-  try {
-    const LINK_CHECK_LIMIT = 50;
-    const STALE_DAYS = 14;
-    const staleThreshold = new Date(Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000).toISOString();
-
-    // Collect all DRep social URIs (deduplicated per DRep)
-    const allLinks: { drep_id: string; uri: string }[] = [];
-    const seenLinkKeys = new Set<string>();
-    for (const drep of allDReps) {
-      const refs = drep.metadata?.references;
-      if (!Array.isArray(refs)) continue;
-      for (const ref of refs) {
-        if (ref && typeof ref === 'object' && 'uri' in ref) {
-          const uri = (ref as { uri: unknown }).uri;
-          if (typeof uri === 'string' && uri.startsWith('http')) {
-            const key = `${drep.drepId}|${uri}`;
-            if (seenLinkKeys.has(key)) continue;
-            seenLinkKeys.add(key);
-            allLinks.push({ drep_id: drep.drepId, uri });
+      const changed = newCounts.filter(n => n.count > 0 && n.count !== currentCounts.get(n.id));
+      if (changed.length > 0) {
+        for (const { id, count } of changed) {
+          const existing = currentDreps?.find(r => r.id === id);
+          if (existing?.info) {
+            await supabase.from('dreps')
+              .update({ info: { ...(existing.info as Record<string, unknown>), delegatorCount: count } })
+              .eq('id', id);
           }
         }
       }
-    }
+      console.log(`[Sync] Delegator counts: ${changed.length} changed out of ${newCounts.length}`);
+    })(),
 
-    if (allLinks.length > 0) {
-      // Find which ones are already fresh
-      const uris = allLinks.map(l => l.uri);
-      const { data: existing } = await supabase
-        .from('social_link_checks')
-        .select('drep_id, uri, last_checked_at')
-        .in('uri', uris.slice(0, 500));
+    // Power snapshots
+    (async () => {
+      const powerRows = allDReps
+        .filter(d => d.votingPowerLovelace && d.votingPowerLovelace !== '0')
+        .map(d => ({
+          drep_id: d.drepId,
+          epoch_no: currentEpoch,
+          amount_lovelace: parseInt(d.votingPowerLovelace, 10) || 0,
+        }));
+      if (powerRows.length > 0) {
+        for (let i = 0; i < powerRows.length; i += BATCH_SIZE) {
+          await supabase.from('drep_power_snapshots')
+            .upsert(powerRows.slice(i, i + BATCH_SIZE), { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
+        }
+        console.log(`[Sync] Power snapshots: ${powerRows.length} rows for epoch ${currentEpoch}`);
+      }
+    })(),
+
+    // Alignment scores
+    (async () => {
+      if (!rawVotesMap || classifiedProposalsList.length === 0) return;
+      const updates = allDReps.map(drep => {
+        const votes = rawVotesMap![drep.drepId] || [];
+        const scores = computeAllCategoryScores(drep, votes, classifiedProposalsList);
+        return {
+          id: drep.drepId,
+          alignment_treasury_conservative: scores.alignmentTreasuryConservative,
+          alignment_treasury_growth: scores.alignmentTreasuryGrowth,
+          alignment_decentralization: scores.alignmentDecentralization,
+          alignment_security: scores.alignmentSecurity,
+          alignment_innovation: scores.alignmentInnovation,
+          alignment_transparency: scores.alignmentTransparency,
+          last_vote_time: scores.lastVoteTime,
+        };
+      });
+      const r = await batchUpsert(supabase, 'dreps', updates as unknown as Record<string, unknown>[], 'id', 'Alignment');
+      console.log(`[Sync] Alignment scores: ${r.success} computed`);
+    })(),
+
+    // Score history
+    (async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const historyRows = allDReps.map(drep => ({
+        drep_id: drep.drepId, score: drep.drepScore,
+        effective_participation: drep.effectiveParticipation,
+        rationale_rate: drep.rationaleRate,
+        reliability_score: drep.reliabilityScore,
+        profile_completeness: drep.profileCompleteness,
+        snapshot_date: today,
+      }));
+      const r = await batchUpsert(supabase, 'drep_score_history', historyRows as unknown as Record<string, unknown>[], 'drep_id,snapshot_date', 'Score history');
+      if (r.success > 0) console.log(`[Sync] Score history: ${r.success} snapshots for ${today}`);
+    })(),
+  ]);
+
+  for (const r of phase4Results) {
+    if (r.status === 'rejected') console.error('[Sync] Phase 4 error:', r.reason);
+  }
+
+  // ═══ PHASE 5: Parallel slow operations ════════════════════════════════════
+  // Rationale fetching, AI summaries, social link checks, vote power backfill
+
+  const phase5Results = await Promise.allSettled([
+    // Rationale pipeline: inline + URL-based
+    (async () => {
+      if (!rawVotesMap) return;
+
+      const inlineRationales: SupabaseRationaleRow[] = [];
+      for (const { drepId, vote } of allVotesForRationale) {
+        const text = vote.meta_json?.body?.comment || vote.meta_json?.body?.rationale || vote.meta_json?.rationale;
+        if (text && typeof text === 'string') {
+          inlineRationales.push({
+            vote_tx_hash: vote.vote_tx_hash, drep_id: drepId,
+            proposal_tx_hash: vote.proposal_tx_hash, proposal_index: vote.proposal_index,
+            meta_url: vote.meta_url, rationale_text: text,
+          });
+        }
+      }
+
+      if (inlineRationales.length > 0) {
+        for (let i = 0; i < inlineRationales.length; i += BATCH_SIZE) {
+          await supabase.from('vote_rationales')
+            .upsert(inlineRationales.slice(i, i + BATCH_SIZE), { onConflict: 'vote_tx_hash' });
+        }
+        console.log(`[Sync] Inline rationales: ${inlineRationales.length}`);
+      }
+
+      await supabase.from('vote_rationales').delete().is('rationale_text', null);
+
+      const result = await fetchAndCacheRationales(allVotesForRationale, supabase);
+      console.log(`[Sync] Rationales: ${result.fetched} new, ${result.cached} cached`);
+    })(),
+
+    // AI summaries (proposals + rationales)
+    (async () => {
+      if (!process.env.ANTHROPIC_API_KEY) return;
+
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      let proposalSummaries = 0, rationaleSummaries = 0;
+
+      // Proposal summaries
+      const { data: unsummarized } = await supabase.from('proposals')
+        .select('tx_hash, proposal_index, title, abstract, proposal_type, withdrawal_amount')
+        .is('ai_summary', null).not('abstract', 'is', null).neq('abstract', '').limit(10);
+
+      for (const row of unsummarized || []) {
+        try {
+          const amountCtx = row.withdrawal_amount ? `\nWithdrawal Amount: ${Number(row.withdrawal_amount).toLocaleString()} ADA` : '';
+          const msg = await anthropic.messages.create({
+            model: 'claude-sonnet-4-5', max_tokens: 80,
+            messages: [{ role: 'user', content: `Summarize this Cardano governance proposal in 1-2 short sentences for a casual ADA holder. Plain language, no jargon. Neutral tone. No URLs or hashes. Your entire response must be 160 characters or fewer.\n\nTitle: ${row.title || 'Untitled'}\nType: ${row.proposal_type}${amountCtx}\nDescription: ${(row.abstract || '').slice(0, 2000)}` }],
+          });
+          const raw = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
+          const summary = raw ? truncateToWordBoundary(raw.replace(/https?:\/\/\S+/g, '').replace(/ipfs:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim(), 160) : null;
+          if (summary) {
+            await supabase.from('proposals').update({ ai_summary: summary })
+              .eq('tx_hash', row.tx_hash).eq('proposal_index', row.proposal_index);
+            proposalSummaries++;
+          }
+        } catch (e) { console.error(`[Sync] AI proposal summary error:`, e); }
+      }
+
+      // Rationale summaries
+      const { data: unsumRationales } = await supabase.from('vote_rationales')
+        .select('vote_tx_hash, drep_id, proposal_tx_hash, proposal_index, rationale_text')
+        .is('ai_summary', null).not('rationale_text', 'is', null).neq('rationale_text', '').limit(20);
+
+      if (unsumRationales?.length) {
+        const txHashes = [...new Set(unsumRationales.map(r => r.proposal_tx_hash))];
+        const { data: pRows } = await supabase.from('proposals').select('tx_hash, proposal_index, title').in('tx_hash', txHashes);
+        const titles = new Map<string, string>();
+        for (const p of pRows || []) titles.set(`${p.tx_hash}-${p.proposal_index}`, p.title || 'Untitled');
+
+        const vtxs = unsumRationales.map(r => r.vote_tx_hash);
+        const { data: vRows } = await supabase.from('drep_votes').select('vote_tx_hash, vote').in('vote_tx_hash', vtxs);
+        const dirs = new Map<string, string>();
+        for (const v of vRows || []) dirs.set(v.vote_tx_hash, v.vote);
+
+        for (const row of unsumRationales) {
+          try {
+            const title = titles.get(`${row.proposal_tx_hash}-${row.proposal_index}`) || 'this proposal';
+            const dir = dirs.get(row.vote_tx_hash) || 'voted';
+            const msg = await anthropic.messages.create({
+              model: 'claude-sonnet-4-5', max_tokens: 80,
+              messages: [{ role: 'user', content: `Summarize this DRep's rationale for voting ${dir} on "${title}" in 1-2 neutral sentences. Plain language, no editorializing. No URLs or hashes. Your entire response must be 160 characters or fewer.\n\nRationale: ${(row.rationale_text || '').slice(0, 1500)}` }],
+            });
+            const raw = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
+            const summary = raw ? truncateToWordBoundary(raw.replace(/https?:\/\/\S+/g, '').replace(/ipfs:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim(), 160) : null;
+            if (summary) {
+              await supabase.from('vote_rationales').update({ ai_summary: summary }).eq('vote_tx_hash', row.vote_tx_hash);
+              rationaleSummaries++;
+            }
+          } catch (e) { console.error(`[Sync] AI rationale summary error:`, e); }
+        }
+      }
+
+      console.log(`[Sync] AI summaries: ${proposalSummaries} proposals, ${rationaleSummaries} rationales`);
+    })(),
+
+    // Social link checks
+    (async () => {
+      const LINK_CHECK_LIMIT = 50;
+      const staleThreshold = new Date(Date.now() - 14 * 86400000).toISOString();
+
+      const allLinks: { drep_id: string; uri: string }[] = [];
+      const seen = new Set<string>();
+      for (const drep of allDReps) {
+        const refs = drep.metadata?.references;
+        if (!Array.isArray(refs)) continue;
+        for (const ref of refs) {
+          if (ref && typeof ref === 'object' && 'uri' in ref) {
+            const uri = (ref as { uri: unknown }).uri;
+            if (typeof uri === 'string' && uri.startsWith('http')) {
+              const key = `${drep.drepId}|${uri}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              allLinks.push({ drep_id: drep.drepId, uri });
+            }
+          }
+        }
+      }
+
+      if (allLinks.length === 0) return;
+
+      const { data: existing } = await supabase.from('social_link_checks')
+        .select('drep_id, uri, last_checked_at').in('uri', allLinks.map(l => l.uri).slice(0, 500));
 
       const freshSet = new Set<string>();
-      if (existing) {
-        for (const row of existing) {
-          if (row.last_checked_at && row.last_checked_at > staleThreshold) {
-            freshSet.add(`${row.drep_id}|${row.uri}`);
-          }
-        }
+      for (const row of existing || []) {
+        if (row.last_checked_at && row.last_checked_at > staleThreshold) freshSet.add(`${row.drep_id}|${row.uri}`);
       }
 
-      const toCheck = allLinks
-        .filter(l => !freshSet.has(`${l.drep_id}|${l.uri}`))
-        .slice(0, LINK_CHECK_LIMIT);
-
-      const isTwitterUrl = (url: string) =>
-        /^https?:\/\/(www\.)?(twitter\.com|x\.com)\//i.test(url);
+      const toCheck = allLinks.filter(l => !freshSet.has(`${l.drep_id}|${l.uri}`)).slice(0, LINK_CHECK_LIMIT);
+      let checked = 0;
 
       for (const link of toCheck) {
         let status = 'broken';
         let httpStatus: number | null = null;
-
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 5000);
+          const res = await fetch(link.uri, { method: 'HEAD', redirect: 'follow', signal: controller.signal, headers: { 'User-Agent': 'DRepScore-LinkChecker/1.0' } });
+          clearTimeout(timeout);
+          httpStatus = res.status;
+          status = res.ok ? 'valid' : 'broken';
+        } catch { /* stays broken */ }
 
-          if (isTwitterUrl(link.uri)) {
-            // X/Twitter returns 200 for non-existent accounts; use GET + body inspection
-            const res = await fetch(link.uri, {
-              method: 'GET',
-              redirect: 'follow',
-              signal: controller.signal,
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; DRepScore/1.0)',
-                'Accept': 'text/html',
-              },
-            });
-            clearTimeout(timeout);
-            httpStatus = res.status;
-            if (!res.ok) {
-              status = 'broken';
-            } else {
-              const body = await res.text();
-              const soft404 =
-                body.includes('This account doesn') ||
-                body.includes('Account suspended') ||
-                body.includes('"error"') ||
-                (body.includes('"users":[]') && body.length < 500);
-              status = soft404 ? 'broken' : 'valid';
-            }
-          } else {
-            const res = await fetch(link.uri, {
-              method: 'HEAD',
-              redirect: 'follow',
-              signal: controller.signal,
-              headers: { 'User-Agent': 'DRepScore-LinkChecker/1.0' },
-            });
-            clearTimeout(timeout);
-            httpStatus = res.status;
-            status = res.ok ? 'valid' : 'broken';
+        await supabase.from('social_link_checks').upsert({
+          drep_id: link.drep_id, uri: link.uri, status, http_status: httpStatus,
+          last_checked_at: new Date().toISOString(),
+        }, { onConflict: 'drep_id,uri' });
+        checked++;
+      }
+
+      if (checked > 0) console.log(`[Sync] Social links: ${checked} checked`);
+    })(),
+
+    // Two-tier vote power backfill (exact match + nearest epoch)
+    (async () => {
+      const drepSet = new Set<string>();
+      let bfOffset = 0;
+      while (true) {
+        const { data } = await supabase.from('drep_votes')
+          .select('drep_id').is('voting_power_lovelace', null)
+          .range(bfOffset, bfOffset + 999);
+        if (!data || data.length === 0) break;
+        for (const r of data) drepSet.add(r.drep_id);
+        if (data.length < 1000) break;
+        bfOffset += 1000;
+      }
+
+      const uniqueIds = [...drepSet];
+      if (uniqueIds.length === 0) {
+        console.log('[Sync] Vote power backfill: complete (no NULL rows)');
+        return;
+      }
+
+      console.log(`[Sync] Backfilling voting power for ${uniqueIds.length} DReps (processing 50)...`);
+      let exactCount = 0, nearestCount = 0;
+
+      for (const drepId of uniqueIds.slice(0, 50)) {
+        try {
+          const history = await fetchDRepVotingPowerHistory(drepId);
+          if (history.length === 0) continue;
+
+          const snapRows = history.map(h => ({
+            drep_id: drepId, epoch_no: h.epoch_no,
+            amount_lovelace: parseInt(h.amount, 10) || 0,
+          }));
+          await supabase.from('drep_power_snapshots')
+            .upsert(snapRows, { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
+
+          const historyEpochs = new Set(history.map(h => h.epoch_no));
+
+          // Tier 1: exact epoch match
+          for (const snap of snapRows) {
+            const { count } = await supabase.from('drep_votes')
+              .update({ voting_power_lovelace: snap.amount_lovelace, power_source: 'exact' }, { count: 'exact' })
+              .eq('drep_id', drepId).eq('epoch_no', snap.epoch_no)
+              .is('voting_power_lovelace', null);
+            exactCount += (count || 0);
           }
-        } catch {
-          status = 'broken';
+
+          // Tier 2: nearest epoch for remaining NULL votes from this DRep
+          const { data: remaining } = await supabase.from('drep_votes')
+            .select('vote_tx_hash, epoch_no')
+            .eq('drep_id', drepId).is('voting_power_lovelace', null)
+            .not('epoch_no', 'is', null);
+          for (const vote of remaining || []) {
+            if (historyEpochs.has(vote.epoch_no)) continue;
+            const nearest = history.reduce((best, h) =>
+              Math.abs(h.epoch_no - vote.epoch_no) < Math.abs(best.epoch_no - vote.epoch_no) ? h : best
+            );
+            await supabase.from('drep_votes')
+              .update({ voting_power_lovelace: parseInt(nearest.amount, 10), power_source: 'nearest' })
+              .eq('vote_tx_hash', vote.vote_tx_hash);
+            nearestCount++;
+          }
+        } catch (err) {
+          console.warn(`[Sync] Power backfill error for ${drepId.slice(0, 20)}:`, err instanceof Error ? err.message : err);
         }
+      }
+      console.log(`[Sync] Power backfill: ${exactCount} exact, ${nearestCount} nearest`);
+    })(),
 
-        await supabase
-          .from('social_link_checks')
-          .upsert({
-            drep_id: link.drep_id,
-            uri: link.uri,
-            status,
-            http_status: httpStatus,
-            last_checked_at: new Date().toISOString(),
-          }, { onConflict: 'drep_id,uri' });
+    // Proposal voting summaries (canonical tallies)
+    (async () => {
+      const { data: openProposals } = await supabase.from('proposals')
+        .select('tx_hash, proposal_index, proposal_id')
+        .is('ratified_epoch', null).is('enacted_epoch', null)
+        .is('dropped_epoch', null).is('expired_epoch', null)
+        .not('proposal_id', 'is', null);
 
-        linkChecksCount++;
+      if (!openProposals?.length) return;
+
+      let synced = 0;
+      for (const p of openProposals) {
+        try {
+          const summary = await fetchProposalVotingSummary(p.proposal_id);
+          if (!summary) continue;
+          await supabase.from('proposal_voting_summary').upsert({
+            proposal_tx_hash: p.tx_hash, proposal_index: p.proposal_index,
+            epoch_no: summary.epoch_no,
+            drep_yes_votes_cast: summary.drep_yes_votes_cast,
+            drep_yes_vote_power: parseInt(summary.drep_active_yes_vote_power || '0', 10),
+            drep_no_votes_cast: summary.drep_no_votes_cast,
+            drep_no_vote_power: parseInt(summary.drep_active_no_vote_power || '0', 10),
+            drep_abstain_votes_cast: summary.drep_abstain_votes_cast,
+            drep_abstain_vote_power: parseInt(summary.drep_active_abstain_vote_power || '0', 10),
+            drep_always_abstain_power: parseInt(summary.drep_always_abstain_vote_power || '0', 10),
+            drep_always_no_confidence_power: parseInt(summary.drep_always_no_confidence_vote_power || '0', 10),
+            pool_yes_votes_cast: summary.pool_yes_votes_cast,
+            pool_yes_vote_power: parseInt(summary.pool_active_yes_vote_power || '0', 10),
+            pool_no_votes_cast: summary.pool_no_votes_cast,
+            pool_no_vote_power: parseInt(summary.pool_active_no_vote_power || '0', 10),
+            pool_abstain_votes_cast: summary.pool_abstain_votes_cast,
+            pool_abstain_vote_power: parseInt(summary.pool_active_abstain_vote_power || '0', 10),
+            committee_yes_votes_cast: summary.committee_yes_votes_cast,
+            committee_no_votes_cast: summary.committee_no_votes_cast,
+            committee_abstain_votes_cast: summary.committee_abstain_votes_cast,
+            fetched_at: new Date().toISOString(),
+          }, { onConflict: 'proposal_tx_hash,proposal_index' });
+          synced++;
+        } catch (err) {
+          console.warn(`[Sync] Voting summary error:`, err instanceof Error ? err.message : err);
+        }
+      }
+      console.log(`[Sync] Proposal voting summaries: ${synced}/${openProposals.length} updated`);
+    })(),
+
+    // Hash verification for rationales (blake2b-256)
+    (async () => {
+      const { data: unchecked } = await supabase.from('vote_rationales')
+        .select('vote_tx_hash, meta_url')
+        .is('hash_verified', null)
+        .not('meta_url', 'is', null)
+        .limit(50);
+      if (!unchecked?.length) return;
+
+      const txHashes = unchecked.map(r => r.vote_tx_hash);
+      const { data: voteHashes } = await supabase.from('drep_votes')
+        .select('vote_tx_hash, meta_hash')
+        .in('vote_tx_hash', txHashes)
+        .not('meta_hash', 'is', null);
+
+      const hashMap = new Map<string, string>();
+      for (const v of voteHashes || []) hashMap.set(v.vote_tx_hash, v.meta_hash);
+
+      let verified = 0, failed = 0, noHash = 0;
+      for (const row of unchecked) {
+        const expectedHash = hashMap.get(row.vote_tx_hash);
+        if (!expectedHash) {
+          noHash++;
+          continue;
+        }
+        try {
+          let fetchUrl = row.meta_url;
+          if (fetchUrl.startsWith('ipfs://')) fetchUrl = `https://ipfs.io/ipfs/${fetchUrl.slice(7)}`;
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          const res = await fetch(fetchUrl, { signal: controller.signal });
+          clearTimeout(timeout);
+          if (!res.ok) continue;
+          const rawBytes = new Uint8Array(await res.arrayBuffer());
+          const computedHash = blake2bHex(rawBytes, undefined, 32);
+          const matches = computedHash === expectedHash;
+          await supabase.from('vote_rationales')
+            .update({ hash_verified: matches })
+            .eq('vote_tx_hash', row.vote_tx_hash);
+          if (matches) verified++; else failed++;
+        } catch { /* skip on error */ }
+      }
+      console.log(`[Sync] Hash verification: ${verified} verified, ${failed} mismatch, ${noHash} no hash`);
+    })(),
+
+    // Vote count reconciliation (derive from drep_votes table)
+    (async () => {
+      const drepIds = allDReps.map(d => d.drepId);
+      const batchSize = 200;
+      let reconciled = 0;
+
+      for (let i = 0; i < drepIds.length; i += batchSize) {
+        const batch = drepIds.slice(i, i + batchSize);
+        for (const drepId of batch) {
+          const { data: votes } = await supabase.from('drep_votes')
+            .select('vote, proposal_tx_hash, proposal_index, block_time')
+            .eq('drep_id', drepId);
+          if (!votes?.length) continue;
+
+          // Deduplicate by proposal (latest vote wins)
+          const latestByProposal = new Map<string, { vote: string; block_time: number }>();
+          for (const v of votes) {
+            const key = `${v.proposal_tx_hash}-${v.proposal_index}`;
+            const existing = latestByProposal.get(key);
+            if (!existing || v.block_time > existing.block_time) {
+              latestByProposal.set(key, { vote: v.vote, block_time: v.block_time });
+            }
+          }
+
+          const deduped = [...latestByProposal.values()];
+          const yes = deduped.filter(v => v.vote === 'Yes').length;
+          const no = deduped.filter(v => v.vote === 'No').length;
+          const abstain = deduped.filter(v => v.vote === 'Abstain').length;
+          const total = deduped.length;
+
+          const { data: existing } = await supabase.from('dreps').select('info').eq('id', drepId).single();
+          if (!existing?.info) continue;
+          const info = existing.info as Record<string, unknown>;
+          if (info.totalVotes === total && info.yesVotes === yes && info.noVotes === no) continue;
+
+          await supabase.from('dreps').update({
+            info: { ...info, totalVotes: total, yesVotes: yes, noVotes: no, abstainVotes: abstain },
+          }).eq('id', drepId);
+          reconciled++;
+        }
+      }
+      if (reconciled > 0) console.log(`[Sync] Vote count reconciliation: ${reconciled} DReps updated`);
+    })(),
+
+    // DRep metadata hash verification (blake2b-256)
+    (async () => {
+      const { data: unchecked } = await supabase.from('dreps')
+        .select('id')
+        .is('metadata_hash_verified', null)
+        .limit(30);
+      if (!unchecked?.length) return;
+
+      const drepIds = unchecked.map(r => r.id);
+      const infoList = await fetchDRepInfo(drepIds);
+      const anchorMap = new Map<string, { url: string; hash: string }>();
+      for (const info of infoList) {
+        if (info.anchor_url && info.anchor_hash) {
+          anchorMap.set(info.drep_id, { url: info.anchor_url, hash: info.anchor_hash });
+        }
       }
 
-      if (linkChecksCount > 0) {
-        console.log(`[Sync] Social link checks: ${linkChecksCount} links verified`);
+      let verified = 0, failed = 0, noData = 0;
+      for (const id of drepIds) {
+        const anchor = anchorMap.get(id);
+        if (!anchor) { noData++; continue; }
+        try {
+          let fetchUrl = anchor.url;
+          if (fetchUrl.startsWith('ipfs://')) fetchUrl = `https://ipfs.io/ipfs/${fetchUrl.slice(7)}`;
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          const res = await fetch(fetchUrl, { signal: controller.signal });
+          clearTimeout(timeout);
+          if (!res.ok) continue;
+          const rawBytes = new Uint8Array(await res.arrayBuffer());
+          const computedHash = blake2bHex(rawBytes, undefined, 32);
+          const matches = computedHash === anchor.hash;
+          await supabase.from('dreps')
+            .update({ metadata_hash_verified: matches })
+            .eq('id', id);
+          if (matches) verified++; else failed++;
+        } catch { /* skip */ }
       }
-    }
-  } catch (err) {
-    console.warn('[Sync] Social link check phase skipped:', err);
+      if (verified + failed > 0) console.log(`[Sync] DRep metadata hash: ${verified} verified, ${failed} mismatch, ${noData} no anchor`);
+    })(),
+  ]);
+
+  for (const r of phase5Results) {
+    if (r.status === 'rejected') console.error('[Sync] Phase 5 error:', r.reason);
   }
 
-  // ── Push notification dispatch (non-blocking) ─────────────────────────────
+  // ═══ PHASE 6: Push notifications ══════════════════════════════════════════
+
   let pushSent = 0;
   try {
     if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       const { getProposalPriority } = await import('@/utils/proposalPriority');
-
-      // Check for critical open proposals
-      const { data: openCritical } = await supabase
-        .from('proposals')
+      const { data: openCritical } = await supabase.from('proposals')
         .select('tx_hash, proposal_index, title, proposal_type')
-        .is('ratified_epoch', null)
-        .is('enacted_epoch', null)
-        .is('dropped_epoch', null)
-        .is('expired_epoch', null);
+        .is('ratified_epoch', null).is('enacted_epoch', null)
+        .is('dropped_epoch', null).is('expired_epoch', null);
 
-      const criticalProposals = (openCritical || []).filter(
-        (p: any) => getProposalPriority(p.proposal_type) === 'critical'
+      const critical = (openCritical || []).filter(
+        (p: Record<string, unknown>) => getProposalPriority(p.proposal_type as string) === 'critical'
       );
 
-      if (criticalProposals.length > 0) {
-        const newest = criticalProposals[0];
-        const baseUrl = process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : 'http://localhost:3000';
+      if (critical.length > 0) {
+        const newest = critical[0];
+        const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
         const pushRes = await fetch(`${baseUrl}/api/push/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'critical-proposal-open',
-            proposalTitle: newest.title,
-            txHash: newest.tx_hash,
-            index: newest.proposal_index,
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'critical-proposal-open', proposalTitle: newest.title, txHash: newest.tx_hash, index: newest.proposal_index }),
         });
         if (pushRes.ok) {
-          const pushData = await pushRes.json();
-          pushSent = pushData.sent || 0;
-          if (pushSent > 0) {
-            console.log(`[Sync] Push notifications sent: ${pushSent}`);
-          }
+          const data = await pushRes.json();
+          pushSent = data.sent || 0;
         }
       }
     }
@@ -1121,33 +958,19 @@ export async function GET(request: NextRequest) {
     console.warn('[Sync] Push notification phase skipped:', err);
   }
 
-  const durationSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
-  const hasErrors = errorCount > 0 || proposalErrorCount > 0 || voteErrorCount > 0;
+  // ═══ Summary ══════════════════════════════════════════════════════════════
 
-  if (hasErrors) {
-    console.warn(`[Sync] Completed with errors in ${durationSeconds}s — DReps: ${successCount} ok, ${errorCount} failed; Votes: ${voteSuccessCount} ok, ${voteErrorCount} failed; Proposals: ${proposalSuccessCount} ok, ${proposalErrorCount} failed`);
-    return NextResponse.json(
-      {
-        success: false,
-        dreps: { synced: successCount, errors: errorCount, total: rows.length },
-        votes: { synced: voteSuccessCount, errors: voteErrorCount },
-        proposals: { synced: proposalSuccessCount, errors: proposalErrorCount },
-        durationSeconds,
-        timestamp: new Date().toISOString(),
-      },
-      { status: 207 }
-    );
-  }
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+  const hasErrors = drepResult.errors > 0 || voteResult.errors > 0 || proposalResult.errors > 0;
 
-  console.log(`[Sync] Complete — ${successCount} DReps, ${voteSuccessCount} votes, ${proposalSuccessCount} proposals, ${alignmentUpdateCount} alignments, ${aiSummaryCount} AI summaries synced in ${durationSeconds}s`);
+  console.log(`[Sync] Complete in ${duration}s — DReps: ${drepResult.success}, Votes: ${voteResult.success}, Proposals: ${proposalResult.success}${pushSent > 0 ? `, Push: ${pushSent}` : ''}`);
+
   return NextResponse.json({
-    success: true,
-    dreps: { synced: successCount, total: rows.length },
-    votes: { synced: voteSuccessCount },
-    proposals: { synced: proposalSuccessCount },
-    alignments: { computed: alignmentUpdateCount },
-    aiSummaries: aiSummaryCount,
-    durationSeconds,
+    success: !hasErrors,
+    dreps: { synced: drepResult.success, errors: drepResult.errors },
+    votes: { synced: voteResult.success, errors: voteResult.errors },
+    proposals: { synced: proposalResult.success, errors: proposalResult.errors },
+    durationSeconds: duration,
     timestamp: new Date().toISOString(),
-  });
+  }, { status: hasErrors ? 207 : 200 });
 }

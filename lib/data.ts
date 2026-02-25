@@ -53,6 +53,7 @@ function transformSupabaseRowToDRep(row: any): EnrichedDRep {
     alignmentInnovation: row.alignment_innovation ?? null,
     alignmentTransparency: row.alignment_transparency ?? null,
     lastVoteTime: row.last_vote_time ?? null,
+    metadataHashVerified: row.metadata_hash_verified ?? null,
     updatedAt: row.updated_at ?? null,
   };
 }
@@ -313,6 +314,7 @@ export async function getProposalsByIds(
 export interface RationaleRecord {
   rationaleText: string | null;
   rationaleAiSummary: string | null;
+  hashVerified: boolean | null;
 }
 
 /**
@@ -330,7 +332,7 @@ export async function getRationalesByVoteTxHashes(
     
     const { data: rows, error } = await supabase
       .from('vote_rationales')
-      .select('vote_tx_hash, rationale_text, ai_summary')
+      .select('vote_tx_hash, rationale_text, ai_summary, hash_verified')
       .in('vote_tx_hash', voteTxHashes);
     
     if (error) {
@@ -344,6 +346,7 @@ export async function getRationalesByVoteTxHashes(
       result.set(row.vote_tx_hash, {
         rationaleText: row.rationale_text || null,
         rationaleAiSummary: row.ai_summary || null,
+        hashVerified: row.hash_verified ?? null,
       });
     }
     
@@ -551,6 +554,7 @@ export interface ProposalVoteDetail {
   blockTime: number;
   rationaleText: string | null;
   rationaleAiSummary: string | null;
+  hashVerified: boolean | null;
   metaUrl: string | null;
 }
 
@@ -657,28 +661,34 @@ export async function getVotesByProposal(
     const voteTxHashes = votes.map(v => v.vote_tx_hash);
     const { data: rationales } = await supabase
       .from('vote_rationales')
-      .select('vote_tx_hash, rationale_text, ai_summary')
+      .select('vote_tx_hash, rationale_text, ai_summary, hash_verified')
       .in('vote_tx_hash', voteTxHashes);
 
-    const rationaleTextMap = new Map<string, string>();
-    const rationaleAiSummaryMap = new Map<string, string>();
+    const rationaleMap = new Map<string, { text: string | null; summary: string | null; verified: boolean | null }>();
     if (rationales) {
       for (const r of rationales) {
-        if (r.rationale_text) rationaleTextMap.set(r.vote_tx_hash, r.rationale_text);
-        if (r.ai_summary) rationaleAiSummaryMap.set(r.vote_tx_hash, r.ai_summary);
+        rationaleMap.set(r.vote_tx_hash, {
+          text: r.rationale_text || null,
+          summary: r.ai_summary || null,
+          verified: r.hash_verified ?? null,
+        });
       }
     }
 
-    return votes.map(v => ({
-      voteTxHash: v.vote_tx_hash,
-      drepId: v.drep_id,
-      drepName: drepNameMap.get(v.drep_id) || null,
-      vote: v.vote as 'Yes' | 'No' | 'Abstain',
-      blockTime: v.block_time,
-      rationaleText: rationaleTextMap.get(v.vote_tx_hash) || null,
-      rationaleAiSummary: rationaleAiSummaryMap.get(v.vote_tx_hash) || null,
-      metaUrl: v.meta_url,
-    }));
+    return votes.map(v => {
+      const rat = rationaleMap.get(v.vote_tx_hash);
+      return {
+        voteTxHash: v.vote_tx_hash,
+        drepId: v.drep_id,
+        drepName: drepNameMap.get(v.drep_id) || null,
+        vote: v.vote as 'Yes' | 'No' | 'Abstain',
+        blockTime: v.block_time,
+        rationaleText: rat?.text || null,
+        rationaleAiSummary: rat?.summary || null,
+        hashVerified: rat?.verified ?? null,
+        metaUrl: v.meta_url,
+      };
+    });
   } catch (err) {
     console.error('[Data] getVotesByProposal error:', err);
     return [];
@@ -962,6 +972,44 @@ export async function getVotingPowerSummary(
 ): Promise<VotingPowerSummary> {
   const supabase = createClient();
 
+  // Prefer canonical proposal_voting_summary (from Koios /proposal_voting_summary)
+  const { data: canonical } = await supabase
+    .from('proposal_voting_summary')
+    .select('*')
+    .eq('proposal_tx_hash', txHash)
+    .eq('proposal_index', proposalIndex)
+    .single();
+
+  const thresholdKey = PROPOSAL_TYPE_THRESHOLD_MAP[proposalType];
+  let threshold: number | null = null;
+  let thresholdLabel: string | null = null;
+
+  if (thresholdKey) {
+    const params = await getGovernanceThresholds();
+    if (params && params[thresholdKey] != null) {
+      threshold = params[thresholdKey];
+      thresholdLabel = `${Math.round(threshold * 100)}% of active DRep stake needed`;
+    }
+  }
+
+  if (canonical) {
+    const yesPower = Number(canonical.drep_yes_vote_power) || 0;
+    const noPower = Number(canonical.drep_no_vote_power) || 0;
+    const abstainPower = Number(canonical.drep_abstain_vote_power) || 0;
+    const alwaysAbstain = Number(canonical.drep_always_abstain_power) || 0;
+    const totalActivePower = yesPower + noPower + abstainPower + alwaysAbstain;
+
+    return {
+      yesPower, noPower, abstainPower,
+      yesCount: canonical.drep_yes_votes_cast || 0,
+      noCount: canonical.drep_no_votes_cast || 0,
+      abstainCount: canonical.drep_abstain_votes_cast || 0,
+      totalActivePower,
+      threshold, thresholdLabel,
+    };
+  }
+
+  // Fallback: sum from per-vote data (less accurate, missing system auto-DReps)
   const { data: votes } = await supabase
     .from('drep_votes')
     .select('vote, voting_power_lovelace')
@@ -981,7 +1029,6 @@ export async function getVotingPowerSummary(
     }
   }
 
-  // Total active DRep stake as denominator
   const { data: activeDreps } = await supabase
     .from('dreps')
     .select('info')
@@ -992,18 +1039,6 @@ export async function getVotingPowerSummary(
     for (const d of activeDreps) {
       const info = d.info as Record<string, unknown> | null;
       totalActivePower += parseInt(String(info?.votingPowerLovelace || '0'), 10) || 0;
-    }
-  }
-
-  const thresholdKey = PROPOSAL_TYPE_THRESHOLD_MAP[proposalType];
-  let threshold: number | null = null;
-  let thresholdLabel: string | null = null;
-
-  if (thresholdKey) {
-    const params = await getGovernanceThresholds();
-    if (params && params[thresholdKey] != null) {
-      threshold = params[thresholdKey];
-      thresholdLabel = `${Math.round(threshold * 100)}% of active DRep stake needed`;
     }
   }
 

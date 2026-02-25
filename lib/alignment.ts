@@ -99,6 +99,7 @@ export function classifyProposal(proposal: ProposalInfo): ClassifiedProposal {
   return {
     txHash: proposal.proposal_tx_hash,
     index: proposal.proposal_index,
+    proposalId: proposal.proposal_id || '',
     type: proposal.proposal_type,
     title: proposal.meta_json?.body?.title || proposal.meta_json?.title || `Proposal ${proposal.proposal_tx_hash.slice(0, 8)}...`,
     abstract: proposal.meta_json?.body?.abstract || proposal.meta_json?.abstract || proposal.proposal_description || proposal.meta_json?.body?.motivation || null,
