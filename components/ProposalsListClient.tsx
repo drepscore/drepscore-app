@@ -49,16 +49,16 @@ interface ProposalsListClientProps {
   currentEpoch: number;
 }
 
-const TYPE_CONFIG: Record<string, { label: string; icon: typeof Landmark; color: string }> = {
-  TreasuryWithdrawals: { label: 'Treasury', icon: Landmark, color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30' },
-  ParameterChange: { label: 'Parameter Change', icon: Shield, color: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30' },
-  HardForkInitiation: { label: 'Hard Fork', icon: Zap, color: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30' },
-  InfoAction: { label: 'Info Action', icon: Eye, color: 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30' },
-  NoConfidence: { label: 'No Confidence', icon: Scale, color: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30' },
-  NewCommittee: { label: 'Committee', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30' },
-  NewConstitutionalCommittee: { label: 'Committee', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30' },
-  NewConstitution: { label: 'Constitution', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30' },
-  UpdateConstitution: { label: 'Constitution', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30' },
+const TYPE_CONFIG: Record<string, { label: string; icon: typeof Landmark; color: string; borderColor: string; iconBg: string }> = {
+  TreasuryWithdrawals: { label: 'Treasury', icon: Landmark, color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30', borderColor: 'border-l-amber-500', iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  ParameterChange: { label: 'Parameter Change', icon: Shield, color: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30', borderColor: 'border-l-blue-500', iconBg: 'bg-blue-500/15 text-blue-600 dark:text-blue-400' },
+  HardForkInitiation: { label: 'Hard Fork', icon: Zap, color: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30', borderColor: 'border-l-red-500', iconBg: 'bg-red-500/15 text-red-600 dark:text-red-400' },
+  InfoAction: { label: 'Info Action', icon: Eye, color: 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30', borderColor: 'border-l-slate-400', iconBg: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
+  NoConfidence: { label: 'No Confidence', icon: Scale, color: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30', borderColor: 'border-l-red-500', iconBg: 'bg-red-500/15 text-red-600 dark:text-red-400' },
+  NewCommittee: { label: 'Committee', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30', borderColor: 'border-l-purple-500', iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400' },
+  NewConstitutionalCommittee: { label: 'Committee', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30', borderColor: 'border-l-purple-500', iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400' },
+  NewConstitution: { label: 'Constitution', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30', borderColor: 'border-l-purple-500', iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400' },
+  UpdateConstitution: { label: 'Constitution', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30', borderColor: 'border-l-purple-500', iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400' },
 };
 
 type SortKey = 'date' | 'votes' | 'title';
@@ -307,12 +307,17 @@ export function ProposalsListClient({ proposals, watchlist = [], currentEpoch }:
               key={voteKey}
               href={`/proposals/${p.txHash}/${p.proposalIndex}`}
             >
-              <Card className="hover:bg-muted/30 transition-colors cursor-pointer group mb-3">
+              <Card className={`hover:bg-muted/30 transition-colors cursor-pointer group mb-3 border-l-4 ${config?.borderColor || 'border-l-primary'}`}>
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0 space-y-2">
-                      {/* Badges row */}
-                      <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-start gap-3">
+                    {TypeIcon && (
+                      <div className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 mt-0.5 ${config?.iconBg || 'bg-muted text-muted-foreground'}`}>
+                        <TypeIcon className="h-4 w-4" />
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <ProposalStatusBadge
                           ratifiedEpoch={p.ratifiedEpoch}
                           enactedEpoch={p.enactedEpoch}
@@ -320,67 +325,48 @@ export function ProposalsListClient({ proposals, watchlist = [], currentEpoch }:
                           expiredEpoch={p.expiredEpoch}
                         />
                         <PriorityBadge proposalType={p.proposalType} />
-                        {config && (
-                          <Badge variant="outline" className={`gap-1 ${config.color}`}>
-                            {TypeIcon && <TypeIcon className="h-3 w-3" />}
-                            {config.label}
-                          </Badge>
-                        )}
                         <TypeExplainerTooltip proposalType={p.proposalType} />
-                        {p.treasuryTier && (
-                          <TreasuryTierBadge tier={p.treasuryTier} />
-                        )}
-                        {isOpen && (
-                          <DeadlineBadge expirationEpoch={p.expirationEpoch} currentEpoch={currentEpoch} />
-                        )}
-                        {date && (
-                          <span className="text-xs text-muted-foreground">{date}</span>
-                        )}
-                      </div>
-
-                      {/* Title */}
-                      <p className="font-medium text-sm group-hover:text-primary transition-colors">
-                        {p.title || `Proposal ${p.txHash.slice(0, 8)}...`}
-                      </p>
-
-                      {/* Summary / Abstract */}
-                      {p.aiSummary ? (
-                        <div className="flex items-start gap-1.5">
-                          <Sparkles className="h-3 w-3 text-primary shrink-0 mt-0.5" />
-                          <p className="text-xs text-muted-foreground">
-                            {stripMarkdown(p.aiSummary)}
-                          </p>
-                        </div>
-                      ) : p.abstract ? (
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {stripMarkdown(p.abstract)}
-                        </p>
-                      ) : null}
-
-                      {/* Bottom row: threshold meter + DRep indicator */}
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1">
-                          <ThresholdMeter
-                            txHash={p.txHash}
-                            proposalIndex={p.proposalIndex}
-                            proposalType={p.proposalType}
-                            yesCount={p.yesCount}
-                            noCount={p.noCount}
-                            abstainCount={p.abstainCount}
-                            totalVotes={p.totalVotes}
-                            isOpen={isOpen}
-                            variant="compact"
-                          />
-                        </div>
+                        {p.treasuryTier && <TreasuryTierBadge tier={p.treasuryTier} />}
+                        {isOpen && <DeadlineBadge expirationEpoch={p.expirationEpoch} currentEpoch={currentEpoch} />}
+                        {date && <span className="text-[10px] text-muted-foreground">{date}</span>}
                         {delegatedDrepId && (
-                          <div className="shrink-0">
+                          <div className="ml-auto shrink-0">
                             <DRepVoteIndicator vote={drepVote} />
                           </div>
                         )}
                       </div>
+
+                      <p className="font-medium text-sm group-hover:text-primary transition-colors leading-snug">
+                        {p.title || `Proposal ${p.txHash.slice(0, 8)}...`}
+                      </p>
+
+                      {p.aiSummary ? (
+                        <div className="flex items-start gap-1.5">
+                          <Sparkles className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {stripMarkdown(p.aiSummary)}
+                          </p>
+                        </div>
+                      ) : p.abstract ? (
+                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                          {stripMarkdown(p.abstract)}
+                        </p>
+                      ) : null}
+
+                      <ThresholdMeter
+                        txHash={p.txHash}
+                        proposalIndex={p.proposalIndex}
+                        proposalType={p.proposalType}
+                        yesCount={p.yesCount}
+                        noCount={p.noCount}
+                        abstainCount={p.abstainCount}
+                        totalVotes={p.totalVotes}
+                        isOpen={isOpen}
+                        variant="compact"
+                      />
                     </div>
 
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-2" />
                   </div>
                 </CardContent>
               </Card>

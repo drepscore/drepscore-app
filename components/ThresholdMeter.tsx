@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Info } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -60,7 +61,16 @@ export function ThresholdMeter({
   const isInfoAction = proposalType === 'InfoAction';
 
   if (!hasPowerData || isInfoAction) {
-    return <CountBasedBar yesCount={yesCount} noCount={noCount} abstainCount={abstainCount} totalVotes={totalVotes} isInfoAction={isInfoAction} />;
+    return (
+      <CountBasedBar
+        yesCount={yesCount}
+        noCount={noCount}
+        abstainCount={abstainCount}
+        totalVotes={totalVotes}
+        isInfoAction={isInfoAction}
+        variant={variant}
+      />
+    );
   }
 
   const yesPercent = power.totalActivePower > 0
@@ -97,28 +107,60 @@ export function ThresholdMeter({
   );
 }
 
-function CountBasedBar({ yesCount, noCount, abstainCount, totalVotes, isInfoAction }: {
-  yesCount: number; noCount: number; abstainCount: number; totalVotes: number; isInfoAction: boolean;
+function CountBasedBar({ yesCount, noCount, abstainCount, totalVotes, isInfoAction, variant }: {
+  yesCount: number; noCount: number; abstainCount: number; totalVotes: number; isInfoAction: boolean; variant: 'compact' | 'full';
 }) {
   if (totalVotes === 0) return <span className="text-xs text-muted-foreground">No votes yet</span>;
 
   const yp = (yesCount / totalVotes) * 100;
   const np = (noCount / totalVotes) * 100;
+  const barHeight = variant === 'full' ? 'h-4' : 'h-2';
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex">
+        <div className={`flex-1 ${barHeight} rounded-full bg-muted overflow-hidden flex`}>
           <div className="bg-green-500 h-full" style={{ width: `${yp}%` }} />
           <div className="bg-red-500 h-full" style={{ width: `${np}%` }} />
           <div className="bg-amber-500 h-full flex-1" />
         </div>
-        <span className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
-          {totalVotes} votes
-        </span>
       </div>
+
+      <div className="flex items-center gap-3 text-[10px] tabular-nums">
+        <span className="text-green-600 dark:text-green-400 font-medium">{yesCount} Yes</span>
+        <span className="text-red-600 dark:text-red-400 font-medium">{noCount} No</span>
+        <span className="text-amber-600 dark:text-amber-400 font-medium">{abstainCount} Abstain</span>
+        <span className="text-muted-foreground ml-auto">{totalVotes} DReps</span>
+      </div>
+
       {isInfoAction && (
         <p className="text-[10px] text-muted-foreground">Advisory — no threshold</p>
+      )}
+
+      {variant === 'full' && !isInfoAction && (
+        <div className="grid grid-cols-3 gap-4 text-center pt-2">
+          <div>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400 tabular-nums">{yesCount}</p>
+            <p className="text-xs text-muted-foreground">Yes</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400 tabular-nums">{noCount}</p>
+            <p className="text-xs text-muted-foreground">No</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">{abstainCount}</p>
+            <p className="text-xs text-muted-foreground">Abstain</p>
+          </div>
+        </div>
+      )}
+
+      {variant === 'full' && !isInfoAction && (
+        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 mt-2">
+          <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <p className="text-[11px] text-muted-foreground">
+            ADA-weighted pass threshold will appear once voting power data is indexed.
+          </p>
+        </div>
       )}
     </div>
   );
