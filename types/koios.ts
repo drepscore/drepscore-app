@@ -31,7 +31,6 @@ export interface DRepInfo {
   anchor_url: string | null;
   anchor_hash: string | null;
   amount: string; // Total voting power in lovelace
-  delegators: number;
   active_epoch: number | null;
 }
 

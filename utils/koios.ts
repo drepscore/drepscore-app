@@ -501,6 +501,78 @@ export async function fetchDelegatedDRep(stakeAddress: string): Promise<string |
 }
 
 /**
+ * Fetch delegator count for a DRep using Prefer: count=exact header.
+ * Returns just the count without downloading all delegator records.
+ */
+export async function fetchDRepDelegatorCount(drepId: string): Promise<number> {
+  try {
+    const url = `${KOIOS_BASE_URL}/drep_delegators?_drep_id=${encodeURIComponent(drepId)}&select=stake_address&limit=1`;
+    const headers: HeadersInit = {
+      'Prefer': 'count=exact',
+      ...(KOIOS_API_KEY && { 'Authorization': `Bearer ${KOIOS_API_KEY}` }),
+    };
+
+    const response = await fetch(url, { headers, cache: 'no-store' });
+    if (!response.ok) return 0;
+
+    const range = response.headers.get('content-range');
+    if (range) {
+      const match = range.match(/\/(\d+)$/);
+      if (match) return parseInt(match[1], 10);
+    }
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Fetch voting power history for a DRep (all epochs).
+ * Used for backfilling historical power snapshots.
+ */
+export async function fetchDRepVotingPowerHistory(
+  drepId: string
+): Promise<{ epoch_no: number; amount: string }[]> {
+  try {
+    const data = await koiosFetch<{ drep_id: string; epoch_no: number; amount: string }[]>(
+      `/drep_voting_power_history?_drep_id=${encodeURIComponent(drepId)}`
+    );
+    return (data || []).map(({ epoch_no, amount }) => ({ epoch_no, amount }));
+  } catch {
+    return [];
+  }
+}
+
+/** Koios epoch_params DVT threshold fields (decimal 0–1) */
+interface GovernanceThresholdParams {
+  dvt_motion_no_confidence?: number;
+  dvt_committee_normal?: number;
+  dvt_committee_no_confidence?: number;
+  dvt_update_to_constitution?: number;
+  dvt_hard_fork_initiation?: number;
+  dvt_p_p_network_group?: number;
+  dvt_p_p_economic_group?: number;
+  dvt_p_p_technical_group?: number;
+  dvt_p_p_gov_group?: number;
+  dvt_treasury_withdrawal?: number;
+}
+
+/**
+ * Fetch governance threshold parameters from current epoch.
+ */
+export async function fetchGovernanceThresholds(): Promise<Record<string, number> | null> {
+  try {
+    const data = await koiosFetch<GovernanceThresholdParams[]>(
+      '/epoch_params?limit=1&select=dvt_motion_no_confidence,dvt_committee_normal,dvt_committee_no_confidence,dvt_update_to_constitution,dvt_hard_fork_initiation,dvt_p_p_network_group,dvt_p_p_economic_group,dvt_p_p_technical_group,dvt_p_p_gov_group,dvt_treasury_withdrawal'
+    );
+    if (!data || data.length === 0) return null;
+    return data[0] as Record<string, number>;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Check if Koios API is available
  */
 export async function checkKoiosHealth(): Promise<boolean> {

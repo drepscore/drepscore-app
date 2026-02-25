@@ -47,7 +47,7 @@ const PREF_LABELS: Record<UserPrefKey, string> = {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isAuthenticated, sessionAddress } = useWallet();
+  const { isAuthenticated, sessionAddress, connected, authenticate } = useWallet();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<SupabaseUser | null>(null);
@@ -58,6 +58,7 @@ export default function ProfilePage() {
   const [savingName, setSavingName] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushToggling, setPushToggling] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
 
   // Check push subscription status
   useEffect(() => {
@@ -65,8 +66,22 @@ export default function ProfilePage() {
   }, []);
 
   const handlePushToggle = async () => {
-    const token = getStoredSession();
-    if (!token) return;
+    setPushError(null);
+
+    let token = getStoredSession();
+    if (!token) {
+      const ok = await authenticate();
+      if (!ok) {
+        setPushError('Wallet authentication required');
+        return;
+      }
+      token = getStoredSession();
+      if (!token) {
+        setPushError('Wallet authentication required');
+        return;
+      }
+    }
+
     setPushToggling(true);
     try {
       if (pushEnabled) {
@@ -74,12 +89,20 @@ export default function ProfilePage() {
         setPushEnabled(false);
       } else {
         const permission = await Notification.requestPermission();
+        if (permission === 'denied') {
+          setPushError('Notifications blocked by your browser. Check your browser settings.');
+          setPushToggling(false);
+          return;
+        }
         if (permission === 'granted') {
           const ok = await subscribeToPush(token);
           if (ok) setPushEnabled(true);
+          else setPushError('Failed to enable notifications. Try again.');
         }
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : 'Failed to toggle notifications');
+    }
     setPushToggling(false);
   };
 
@@ -430,14 +453,17 @@ export default function ProfilePage() {
                 <p className="text-xs text-muted-foreground">
                   {pushEnabled
                     ? 'You\'ll be notified about critical proposals and DRep activity.'
+                    : !connected
+                    ? 'Connect your wallet to enable push notifications.'
                     : 'Enable to receive alerts even when DRepScore is closed.'}
                 </p>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Notifications are per-browser</p>
               </div>
               <Button
                 variant={pushEnabled ? 'outline' : 'default'}
                 size="sm"
                 onClick={handlePushToggle}
-                disabled={pushToggling}
+                disabled={pushToggling || (!connected && !pushEnabled)}
                 className="gap-1.5 shrink-0"
               >
                 {pushToggling ? (
@@ -447,9 +473,12 @@ export default function ProfilePage() {
                 ) : (
                   <Bell className="h-3.5 w-3.5" />
                 )}
-                {pushEnabled ? 'Disable' : 'Enable'}
+                {!connected && !pushEnabled ? 'Wallet required' : pushEnabled ? 'Disable' : 'Enable'}
               </Button>
             </div>
+            {pushError && (
+              <p className="text-xs text-destructive mt-2">{pushError}</p>
+            )}
           </CardContent>
         </Card>
 

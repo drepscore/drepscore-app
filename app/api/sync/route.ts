@@ -32,7 +32,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnrichedDReps, blockTimeToEpoch } from '@/lib/koios';
-import { fetchProposals } from '@/utils/koios';
+import { fetchProposals, fetchDRepDelegatorCount, fetchDRepVotingPowerHistory } from '@/utils/koios';
 import { DRepVote } from '@/types/koios';
 import { classifyProposals, computeAllCategoryScores } from '@/lib/alignment';
 import type { ClassifiedProposal } from '@/types/koios';
@@ -423,6 +423,65 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── Delegator counts via Koios /drep_delegators ─────────────────────────
+  const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
+  try {
+    const DELEGATOR_CONCURRENCY = 10;
+    let delegatorUpdates = 0;
+
+    for (let i = 0; i < allDReps.length; i += DELEGATOR_CONCURRENCY) {
+      const batch = allDReps.slice(i, i + DELEGATOR_CONCURRENCY);
+      const counts = await Promise.all(
+        batch.map(d => fetchDRepDelegatorCount(d.drepId))
+      );
+
+      const updates = batch
+        .map((d, j) => ({ id: d.drepId, count: counts[j] }))
+        .filter(u => u.count > 0);
+
+      for (const { id, count } of updates) {
+        const { data: existing } = await supabase
+          .from('dreps')
+          .select('info')
+          .eq('id', id)
+          .single();
+        if (existing?.info) {
+          await supabase
+            .from('dreps')
+            .update({ info: { ...(existing.info as Record<string, unknown>), delegatorCount: count } })
+            .eq('id', id);
+          delegatorUpdates++;
+        }
+      }
+    }
+    console.log(`[Sync] Delegator counts: ${delegatorUpdates} DReps updated`);
+  } catch (err) {
+    console.error('[Sync] Delegator count update failed:', err instanceof Error ? err.message : err);
+  }
+
+  // ── Power snapshots: record current epoch voting power ──────────────────
+  try {
+    const powerRows = allDReps
+      .filter(d => d.votingPowerLovelace && d.votingPowerLovelace !== '0')
+      .map(d => ({
+        drep_id: d.drepId,
+        epoch_no: currentEpoch,
+        amount_lovelace: parseInt(d.votingPowerLovelace, 10) || 0,
+      }));
+
+    if (powerRows.length > 0) {
+      for (let i = 0; i < powerRows.length; i += BATCH_SIZE) {
+        const batch = powerRows.slice(i, i + BATCH_SIZE);
+        await supabase
+          .from('drep_power_snapshots')
+          .upsert(batch, { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
+      }
+      console.log(`[Sync] Power snapshots: ${powerRows.length} rows for epoch ${currentEpoch}`);
+    }
+  } catch (err) {
+    console.error('[Sync] Power snapshot upsert failed:', err instanceof Error ? err.message : err);
+  }
+
   // ── Upsert individual votes to drep_votes ─────────────────────────────────
   let voteSuccessCount = 0;
   let voteErrorCount = 0;
@@ -540,6 +599,51 @@ export async function GET(request: NextRequest) {
     }
   } else {
     console.warn('[Sync] No raw votes map available, skipping vote upsert');
+  }
+
+  // ── Backfill voting_power_lovelace on votes missing it ──────────────────
+  try {
+    const { data: nullPowerDreps } = await supabase
+      .from('drep_votes')
+      .select('drep_id')
+      .is('voting_power_lovelace', null)
+      .limit(1000);
+
+    const uniqueDrepIds = [...new Set((nullPowerDreps || []).map(r => r.drep_id))];
+
+    if (uniqueDrepIds.length > 0) {
+      console.log(`[Sync] Backfilling voting power for ${uniqueDrepIds.length} DReps with NULL power...`);
+      let backfillCount = 0;
+
+      for (const drepId of uniqueDrepIds.slice(0, 50)) {
+        const history = await fetchDRepVotingPowerHistory(drepId);
+        if (history.length === 0) continue;
+
+        // Upsert snapshots for all historical epochs
+        const snapRows = history.map(h => ({
+          drep_id: drepId,
+          epoch_no: h.epoch_no,
+          amount_lovelace: parseInt(h.amount, 10) || 0,
+        }));
+        await supabase
+          .from('drep_power_snapshots')
+          .upsert(snapRows, { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
+
+        // Update drep_votes with matching epoch power
+        for (const snap of snapRows) {
+          const { count } = await supabase
+            .from('drep_votes')
+            .update({ voting_power_lovelace: snap.amount_lovelace })
+            .eq('drep_id', drepId)
+            .eq('epoch_no', snap.epoch_no)
+            .is('voting_power_lovelace', null);
+          backfillCount += (count || 0);
+        }
+      }
+      console.log(`[Sync] Backfilled voting power on ${backfillCount} vote rows`);
+    }
+  } catch (err) {
+    console.error('[Sync] Vote power backfill failed:', err instanceof Error ? err.message : err);
   }
 
   // ── Upsert proposals to Supabase (already fetched and classified above) ───

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
+
 import { Input } from '@/components/ui/input';
 import {
   Sparkles,
@@ -295,11 +295,11 @@ export default function MyDRepPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column — Main Content (2/3) */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Recommendations + Missing Rationale — actionable first */}
+          <DRepDashboard drep={drep} scoreHistory={scoreHistory} />
+
           {/* Score Trend */}
           <ScoreHistoryChart history={scoreHistory} />
-
-          {/* Recommendations + Missing Rationale */}
-          <DRepDashboard drep={drep} scoreHistory={scoreHistory} />
         </div>
 
         {/* Right Column — Sidebar (1/3) */}
@@ -418,34 +418,23 @@ export default function MyDRepPage() {
             </CardContent>
           </Card>
 
-          {/* Peer Benchmark */}
+          {/* Coach's Note */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
-                Peer Benchmark
+                Coach&apos;s Note
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground">Your Score</span>
-                  <span className="text-xs font-semibold">{drep.drepScore}/100</span>
-                </div>
-                <Progress value={drep.drepScore} className="h-2" />
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Percentile Rank</span>
-                <span className="font-semibold">Top {Math.max(1, Math.round(100 - percentile))}%</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground pt-2 border-t">
+            <CardContent>
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 {percentile >= 90
-                  ? 'Excellent — you\'re among the top-performing DReps.'
+                  ? 'Excellent — you\'re among the top-performing DReps. Keep up the consistency and your delegators will notice.'
                   : percentile >= 70
-                  ? 'Strong performance. Focus on your weakest pillar to climb higher.'
+                  ? 'Strong performance. Focus on your weakest pillar to break into the top tier. Small improvements compound fast.'
                   : percentile >= 50
-                  ? 'Above average. Check your recommendations for quick wins.'
-                  : 'Room to grow. Your action plan highlights the fastest improvements.'}
+                  ? 'Above average. Check your recommendations above for quick wins that can meaningfully boost your score.'
+                  : 'Room to grow. Your action plan above highlights the fastest path to improvement — start with rationale quality.'}
               </p>
             </CardContent>
           </Card>

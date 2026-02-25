@@ -7,11 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProposalDescription } from '@/components/ProposalDescription';
+import { ProposalAiSummary } from '@/components/ProposalAiSummary';
+import { ThresholdMeter } from '@/components/ThresholdMeter';
+import { VoteTimeline } from '@/components/VoteTimeline';
 import { ArrowLeft, ExternalLink, Shield, Zap, Landmark, Eye, Scale } from 'lucide-react';
 import {
   ProposalStatusBadge,
   PriorityBadge,
   DeadlineBadge,
+  TreasuryTierBadge,
   TypeExplainerTooltip,
 } from '@/components/ProposalStatusBadge';
 import { getProposalStatus } from '@/utils/proposalPriority';
@@ -34,12 +38,6 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof Landmark; color:
   UpdateConstitution: { label: 'Constitution', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30' },
 };
 
-const TREASURY_TIER_LABELS: Record<string, string> = {
-  routine: 'Routine (< 1M ADA)',
-  significant: 'Significant (1M – 20M ADA)',
-  major: 'Major (> 20M ADA)',
-};
-
 export default async function ProposalDetailPage({ params }: ProposalDetailPageProps) {
   const { txHash, index: indexStr } = await params;
   const proposalIndex = parseInt(indexStr, 10);
@@ -56,10 +54,6 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
   const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
   const config = TYPE_CONFIG[proposal.proposalType];
   const TypeIcon = config?.icon;
-  const total = proposal.totalVotes;
-  const yp = total > 0 ? Math.round((proposal.yesCount / total) * 100) : 0;
-  const np = total > 0 ? Math.round((proposal.noCount / total) * 100) : 0;
-  const ap = total > 0 ? Math.round((proposal.abstainCount / total) * 100) : 0;
 
   const status = getProposalStatus(proposal);
   const isOpen = status === 'open';
@@ -69,6 +63,13 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
         year: 'numeric', month: 'long', day: 'numeric',
       })
     : null;
+
+  const timelineVotes = votes.map(v => ({
+    drepName: v.drepName,
+    drepId: v.drepId,
+    vote: v.vote,
+    blockTime: v.blockTime,
+  }));
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
@@ -98,16 +99,12 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
           )}
           <TypeExplainerTooltip proposalType={proposal.proposalType} />
           {proposal.treasuryTier && (
-            <Badge variant="outline">
-              {TREASURY_TIER_LABELS[proposal.treasuryTier] || proposal.treasuryTier}
-            </Badge>
+            <TreasuryTierBadge tier={proposal.treasuryTier} />
           )}
           {proposal.proposedEpoch && (
             <Badge variant="secondary">Epoch {proposal.proposedEpoch}</Badge>
           )}
-          {isOpen && (
-            <DeadlineBadge expirationEpoch={proposal.expirationEpoch} currentEpoch={currentEpoch} />
-          )}
+          <DeadlineBadge expirationEpoch={proposal.expirationEpoch} currentEpoch={currentEpoch} />
         </div>
 
         <h1 className="text-2xl font-bold">
@@ -135,55 +132,49 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
         )}
       </div>
 
+      {/* AI Summary - immediately after header for at-a-glance understanding */}
+      <ProposalAiSummary summary={proposal.aiSummary} />
+
       {/* DRep Vote Callout */}
       <DRepVoteCallout txHash={txHash} proposalIndex={proposalIndex} />
 
       {/* Community Sentiment Poll */}
       <SentimentPoll txHash={txHash} proposalIndex={proposalIndex} isOpen={isOpen} />
 
-      {/* AI Summary / Abstract */}
-      <ProposalDescription aiSummary={proposal.aiSummary} abstract={proposal.abstract} />
+      {/* Full Description (abstract) */}
+      <ProposalDescription aiSummary={null} abstract={proposal.abstract} />
 
-      {/* Vote Results */}
+      {/* Vote Results with Threshold Meter */}
       <Card>
         <CardHeader>
           <CardTitle>Vote Results</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Vote bar */}
-          <div className="h-4 rounded-full bg-muted overflow-hidden flex">
-            {proposal.yesCount > 0 && (
-              <div className="bg-green-500 h-full" style={{ width: `${yp}%` }} />
-            )}
-            {proposal.noCount > 0 && (
-              <div className="bg-red-500 h-full" style={{ width: `${np}%` }} />
-            )}
-            {proposal.abstainCount > 0 && (
-              <div className="bg-amber-500 h-full" style={{ width: `${ap}%` }} />
-            )}
-          </div>
-
-          {/* Vote counts */}
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400 tabular-nums">{proposal.yesCount}</p>
-              <p className="text-xs text-muted-foreground">Yes ({yp}%)</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400 tabular-nums">{proposal.noCount}</p>
-              <p className="text-xs text-muted-foreground">No ({np}%)</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">{proposal.abstainCount}</p>
-              <p className="text-xs text-muted-foreground">Abstain ({ap}%)</p>
-            </div>
-          </div>
+          <ThresholdMeter
+            txHash={txHash}
+            proposalIndex={proposalIndex}
+            proposalType={proposal.proposalType}
+            yesCount={proposal.yesCount}
+            noCount={proposal.noCount}
+            abstainCount={proposal.abstainCount}
+            totalVotes={proposal.totalVotes}
+            isOpen={isOpen}
+            variant="full"
+          />
 
           <p className="text-sm text-muted-foreground text-center">
-            {total} DReps voted on this proposal
+            {proposal.totalVotes} DReps voted on this proposal
           </p>
         </CardContent>
       </Card>
+
+      {/* Vote Timeline */}
+      <VoteTimeline
+        votes={timelineVotes}
+        proposalBlockTime={proposal.blockTime || 0}
+        expirationEpoch={proposal.expirationEpoch}
+        currentEpoch={currentEpoch}
+      />
 
       {/* DRep Voters */}
       <ProposalVotersWithContext votes={votes} />

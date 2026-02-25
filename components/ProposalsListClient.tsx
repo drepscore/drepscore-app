@@ -32,12 +32,15 @@ import {
   CircleDashed,
 } from 'lucide-react';
 import { stripMarkdown } from '@/utils/text';
+import { Sparkles } from 'lucide-react';
 import {
   ProposalStatusBadge,
   PriorityBadge,
   DeadlineBadge,
+  TreasuryTierBadge,
   TypeExplainerTooltip,
 } from '@/components/ProposalStatusBadge';
+import { ThresholdMeter } from '@/components/ThresholdMeter';
 import { getProposalStatus } from '@/utils/proposalPriority';
 
 interface ProposalsListClientProps {
@@ -58,38 +61,11 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof Landmark; color:
   UpdateConstitution: { label: 'Constitution', icon: Scale, color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30' },
 };
 
-const TREASURY_TIER_LABELS: Record<string, string> = {
-  routine: '< 1M ADA',
-  significant: '1M – 20M ADA',
-  major: '> 20M ADA',
-};
-
 type SortKey = 'date' | 'votes' | 'title';
 type StatusTab = 'open' | 'closed' | 'all';
 
 interface DRepVoteMap {
   [key: string]: 'Yes' | 'No' | 'Abstain';
-}
-
-function VoteMiniBar({ yes, no, abstain }: { yes: number; no: number; abstain: number }) {
-  const total = yes + no + abstain;
-  if (total === 0) return <span className="text-xs text-muted-foreground">No votes yet</span>;
-
-  const yp = (yes / total) * 100;
-  const np = (no / total) * 100;
-
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex">
-        <div className="bg-green-500 h-full" style={{ width: `${yp}%` }} />
-        <div className="bg-red-500 h-full" style={{ width: `${np}%` }} />
-        <div className="bg-amber-500 h-full flex-1" />
-      </div>
-      <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
-        {total} votes
-      </span>
-    </div>
-  );
 }
 
 function DRepVoteIndicator({ vote }: { vote: 'Yes' | 'No' | 'Abstain' | null }) {
@@ -352,9 +328,7 @@ export function ProposalsListClient({ proposals, watchlist = [], currentEpoch }:
                         )}
                         <TypeExplainerTooltip proposalType={p.proposalType} />
                         {p.treasuryTier && (
-                          <Badge variant="outline" className="text-xs">
-                            {TREASURY_TIER_LABELS[p.treasuryTier] || p.treasuryTier}
-                          </Badge>
+                          <TreasuryTierBadge tier={p.treasuryTier} />
                         )}
                         {isOpen && (
                           <DeadlineBadge expirationEpoch={p.expirationEpoch} currentEpoch={currentEpoch} />
@@ -369,17 +343,34 @@ export function ProposalsListClient({ proposals, watchlist = [], currentEpoch }:
                         {p.title || `Proposal ${p.txHash.slice(0, 8)}...`}
                       </p>
 
-                      {/* Abstract */}
-                      {(p.aiSummary || p.abstract) && (
+                      {/* Summary / Abstract */}
+                      {p.aiSummary ? (
+                        <div className="flex items-start gap-1.5">
+                          <Sparkles className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                          <p className="text-xs text-muted-foreground">
+                            {stripMarkdown(p.aiSummary)}
+                          </p>
+                        </div>
+                      ) : p.abstract ? (
                         <p className="text-xs text-muted-foreground line-clamp-2">
-                          {stripMarkdown(p.aiSummary || p.abstract || '')}
+                          {stripMarkdown(p.abstract)}
                         </p>
-                      )}
+                      ) : null}
 
-                      {/* Bottom row: vote bar + DRep indicator */}
+                      {/* Bottom row: threshold meter + DRep indicator */}
                       <div className="flex items-center gap-4">
                         <div className="flex-1">
-                          <VoteMiniBar yes={p.yesCount} no={p.noCount} abstain={p.abstainCount} />
+                          <ThresholdMeter
+                            txHash={p.txHash}
+                            proposalIndex={p.proposalIndex}
+                            proposalType={p.proposalType}
+                            yesCount={p.yesCount}
+                            noCount={p.noCount}
+                            abstainCount={p.abstainCount}
+                            totalVotes={p.totalVotes}
+                            isOpen={isOpen}
+                            variant="compact"
+                          />
                         </div>
                         {delegatedDrepId && (
                           <div className="shrink-0">

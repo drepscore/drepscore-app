@@ -913,6 +913,108 @@ export async function getSocialLinkChecks(drepId: string): Promise<SocialLinkChe
 // CLAIM STATUS
 // ============================================================================
 
+// ============================================================================
+// VOTING POWER & THRESHOLD HELPERS
+// ============================================================================
+
+export interface VotingPowerSummary {
+  yesPower: number;
+  noPower: number;
+  abstainPower: number;
+  yesCount: number;
+  noCount: number;
+  abstainCount: number;
+  totalActivePower: number;
+  threshold: number | null;
+  thresholdLabel: string | null;
+}
+
+const PROPOSAL_TYPE_THRESHOLD_MAP: Record<string, string> = {
+  TreasuryWithdrawals: 'dvt_treasury_withdrawal',
+  ParameterChange: 'dvt_p_p_network_group',
+  HardForkInitiation: 'dvt_hard_fork_initiation',
+  NewConstitution: 'dvt_update_to_constitution',
+  UpdateConstitution: 'dvt_update_to_constitution',
+  NoConfidence: 'dvt_motion_no_confidence',
+  NewCommittee: 'dvt_committee_normal',
+  NewConstitutionalCommittee: 'dvt_committee_normal',
+};
+
+let cachedThresholds: { data: Record<string, number>; fetchedAt: number } | null = null;
+const THRESHOLD_CACHE_MS = 24 * 60 * 60 * 1000;
+
+async function getGovernanceThresholds(): Promise<Record<string, number> | null> {
+  if (cachedThresholds && Date.now() - cachedThresholds.fetchedAt < THRESHOLD_CACHE_MS) {
+    return cachedThresholds.data;
+  }
+  const { fetchGovernanceThresholds } = await import('@/utils/koios');
+  const data = await fetchGovernanceThresholds();
+  if (data) {
+    cachedThresholds = { data, fetchedAt: Date.now() };
+  }
+  return data;
+}
+
+export async function getVotingPowerSummary(
+  txHash: string,
+  proposalIndex: number,
+  proposalType: string
+): Promise<VotingPowerSummary> {
+  const supabase = createClient();
+
+  const { data: votes } = await supabase
+    .from('drep_votes')
+    .select('vote, voting_power_lovelace')
+    .eq('proposal_tx_hash', txHash)
+    .eq('proposal_index', proposalIndex)
+    .not('voting_power_lovelace', 'is', null);
+
+  let yesPower = 0, noPower = 0, abstainPower = 0;
+  let yesCount = 0, noCount = 0, abstainCount = 0;
+
+  if (votes) {
+    for (const v of votes) {
+      const power = Number(v.voting_power_lovelace) || 0;
+      if (v.vote === 'Yes') { yesPower += power; yesCount++; }
+      else if (v.vote === 'No') { noPower += power; noCount++; }
+      else { abstainPower += power; abstainCount++; }
+    }
+  }
+
+  // Total active DRep stake as denominator
+  const { data: activeDreps } = await supabase
+    .from('dreps')
+    .select('info')
+    .eq('info->>isActive', 'true');
+
+  let totalActivePower = 0;
+  if (activeDreps) {
+    for (const d of activeDreps) {
+      const info = d.info as Record<string, unknown> | null;
+      totalActivePower += parseInt(String(info?.votingPowerLovelace || '0'), 10) || 0;
+    }
+  }
+
+  const thresholdKey = PROPOSAL_TYPE_THRESHOLD_MAP[proposalType];
+  let threshold: number | null = null;
+  let thresholdLabel: string | null = null;
+
+  if (thresholdKey) {
+    const params = await getGovernanceThresholds();
+    if (params && params[thresholdKey] != null) {
+      threshold = params[thresholdKey];
+      thresholdLabel = `${Math.round(threshold * 100)}% of active DRep stake needed`;
+    }
+  }
+
+  return {
+    yesPower, noPower, abstainPower,
+    yesCount, noCount, abstainCount,
+    totalActivePower,
+    threshold, thresholdLabel,
+  };
+}
+
 /**
  * Check if a DRep has been claimed by any user.
  */

@@ -82,21 +82,10 @@ export function GovernanceInboxWidget({ drepId }: { drepId: string }) {
 
   if (!data || data.pendingCount === 0) {
     return (
-      <Card className="mb-6 border-2 border-green-500/20 bg-gradient-to-br from-green-500/5 to-transparent">
-        <CardContent className="pt-6 pb-4">
-          <div className="flex items-center gap-3">
-            <Vote className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <div>
-              <p className="text-sm font-medium text-green-700 dark:text-green-400">
-                All caught up!
-              </p>
-              <p className="text-xs text-muted-foreground">
-                No open proposals need your vote right now.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+        <Vote className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+        <span className="text-xs font-medium text-green-700 dark:text-green-400">All caught up!</span>
+      </div>
     );
   }
 

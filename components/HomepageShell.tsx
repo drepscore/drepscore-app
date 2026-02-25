@@ -190,6 +190,7 @@ export function HomepageShell() {
 
       <GovernanceWidget />
 
+      <div id="drep-table" />
       <DRepTableClient
         userPrefs={userPrefs}
         watchlist={watchlist}

@@ -20,6 +20,7 @@ import {
   MinusCircle,
   Info,
   RefreshCw,
+  Wallet,
 } from 'lucide-react';
 import { resolveRewardAddress } from '@meshsdk/core';
 import type { PollResultsResponse } from '@/types/supabase';
@@ -129,16 +130,16 @@ export function SentimentPoll({ txHash, proposalIndex, isOpen }: SentimentPollPr
 
   if (loading) {
     return (
-      <Card>
+      <Card className="ring-1 ring-primary/10">
         <CardHeader className="pb-3">
           <Skeleton className="h-5 w-40" />
         </CardHeader>
         <CardContent className="space-y-3">
           <Skeleton className="h-4 w-48" />
           <div className="flex gap-2">
-            <Skeleton className="h-10 flex-1" />
-            <Skeleton className="h-10 flex-1" />
-            <Skeleton className="h-10 flex-1" />
+            <Skeleton className="h-11 flex-1" />
+            <Skeleton className="h-11 flex-1" />
+            <Skeleton className="h-11 flex-1" />
           </div>
         </CardContent>
       </Card>
@@ -149,7 +150,7 @@ export function SentimentPoll({ txHash, proposalIndex, isOpen }: SentimentPollPr
   const showButtons = isOpen && (!hasVoted || changingVote);
 
   return (
-    <Card>
+    <Card className="ring-1 ring-primary/10">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
@@ -173,7 +174,6 @@ export function SentimentPoll({ txHash, proposalIndex, isOpen }: SentimentPollPr
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Teaser or results */}
         {revealed && hasVoted ? (
           <ResultsView
             community={community}
@@ -191,24 +191,39 @@ export function SentimentPoll({ txHash, proposalIndex, isOpen }: SentimentPollPr
           </div>
         )}
 
-        {/* Vote buttons */}
-        {showButtons && (
+        {showButtons && connected && (
           <VoteButtons
             onVote={castVote}
             voting={voting}
-            connected={connected}
             currentVote={changingVote ? userVote : null}
           />
         )}
 
-        {/* Connect prompt */}
         {!connected && isOpen && !hasVoted && (
-          <p className="text-xs text-muted-foreground">
-            Connect your wallet to share your opinion.
-          </p>
+          <div className="relative">
+            <div className="opacity-30 pointer-events-none blur-[1px]">
+              <VoteButtons onVote={() => {}} voting={false} currentVote={null} />
+            </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+              <p className="text-sm font-medium">Share your opinion</p>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  const event = new CustomEvent('open-wallet-modal');
+                  window.dispatchEvent(event);
+                }}
+              >
+                <Wallet className="h-3.5 w-3.5" />
+                Connect Wallet to Vote
+              </Button>
+              {community.total > 0 && (
+                <p className="text-[10px] text-muted-foreground">{community.total} holder{community.total !== 1 ? 's have' : ' has'} voted — add your voice</p>
+              )}
+            </div>
+          </div>
         )}
 
-        {/* Closed proposal */}
         {!isOpen && !hasVoted && community.total > 0 && (
           <ResultsView community={community} userVote={null} isOpen={false} />
         )}
@@ -222,50 +237,52 @@ export function SentimentPoll({ txHash, proposalIndex, isOpen }: SentimentPollPr
 function VoteButtons({
   onVote,
   voting,
-  connected,
   currentVote,
 }: {
   onVote: (vote: VoteChoice) => void;
   voting: boolean;
-  connected: boolean;
   currentVote: VoteChoice | null;
 }) {
-  const buttons: { vote: VoteChoice; label: string; icon: typeof ThumbsUp; activeClass: string }[] = [
+  const buttons: { vote: VoteChoice; label: string; icon: typeof ThumbsUp; activeClass: string; hoverClass: string }[] = [
     {
       vote: 'yes',
       label: 'Yes',
       icon: ThumbsUp,
       activeClass: 'bg-green-600 hover:bg-green-700 text-white border-green-600',
+      hoverClass: 'hover:border-green-500/50 hover:bg-green-500/5',
     },
     {
       vote: 'no',
       label: 'No',
       icon: ThumbsDown,
       activeClass: 'bg-red-600 hover:bg-red-700 text-white border-red-600',
+      hoverClass: 'hover:border-red-500/50 hover:bg-red-500/5',
     },
     {
       vote: 'abstain',
       label: 'Abstain',
       icon: MinusCircle,
       activeClass: 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600',
+      hoverClass: 'hover:border-amber-500/50 hover:bg-amber-500/5',
     },
   ];
 
   return (
     <div className="flex gap-2">
-      {buttons.map(({ vote, label, icon: Icon, activeClass }) => (
+      {buttons.map(({ vote, label, icon: Icon, activeClass, hoverClass }) => (
         <Button
           key={vote}
           variant="outline"
-          size="sm"
-          className={`flex-1 gap-1.5 ${currentVote === vote ? activeClass : ''}`}
-          disabled={voting || !connected}
+          className={`flex-1 gap-1.5 h-11 transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
+            currentVote === vote ? activeClass : hoverClass
+          }`}
+          disabled={voting}
           onClick={() => onVote(vote)}
         >
           {voting ? (
-            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+            <RefreshCw className="h-4 w-4 animate-spin" />
           ) : (
-            <Icon className="h-3.5 w-3.5" />
+            <Icon className="h-4 w-4" />
           )}
           {label}
         </Button>
