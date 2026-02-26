@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "sync": "tsx scripts/sync-dreps.ts"
+    "sync": "tsx scripts/sync-dreps.ts",
+    "seed:staging": "tsx scripts/seed-staging.ts"
   },
   "engines": {
     "node": ">=18.17.0"

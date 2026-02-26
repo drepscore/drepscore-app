@@ -1,0 +1,33 @@
+name: Seed Staging
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'  # Sunday 3 AM UTC
+  workflow_dispatch:       # Manual trigger
+
+concurrency:
+  group: seed-staging
+  cancel-in-progress: true
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+      PROD_SUPABASE_KEY: ${{ secrets.PROD_SUPABASE_KEY }}
+      STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      STAGING_SUPABASE_KEY: ${{ secrets.STAGING_SUPABASE_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Seed staging from production
+        run: npx tsx scripts/seed-staging.ts
