@@ -36,6 +36,16 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Takeaway**: Use `tasks/todo.md` for in-progress tracking, `.cursor/rules/` for persistent context. Never create root-level status reports.
 **Promoted to rule**: Yes — `workflow.md` prohibits root status report files.
 
+### 2026-02-25: Advocate for the robust path, not the simple one
+**Pattern**: Repeatedly chose the simpler approach (direct API calls, inline browser testing) over the more robust one (Supabase caching, Cloud Agents for E2E validation). When both a simple and robust path exist, defaulted to simple and let the user discover the need for robust later — causing rework.
+**Takeaway**: When there are two valid approaches, default to recommending the one with higher long-term leverage. Let the user choose to simplify, not the other way around. Proactively surface tools, infrastructure, and architectural patterns that would materially improve the project, even if not explicitly asked.
+**Promoted to rule**: Yes — `workflow.md` updated with proactive advocacy protocol.
+
+### 2026-02-25: Proactively scan for tooling and capability improvements
+**Pattern**: Didn't recommend Cloud Agents, Supabase MCP, or Vercel MCP until the user initiated a retrospective. These tools were available and would have saved time.
+**Takeaway**: Periodically (during planning or at milestones) ask: "Are there new tools, MCPs, or platform features that would improve our workflow?" Don't wait for the user to discover them.
+**Promoted to rule**: Yes — `workflow.md` updated with proactive advocacy protocol.
+
 ## Scoring
 
 ### 2026-02-25: Influence metric conflicted with mission
