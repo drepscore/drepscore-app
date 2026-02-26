@@ -116,6 +116,7 @@ export async function GET(request: NextRequest) {
   // Build KPI comparison from previous snapshot
   let comparison: Record<string, { previous: number; delta: number; snapshot_date: string }> | null = null;
   const prevSnap = recentSnapshots?.[0];
+  const cs = canonicalSummary.data;
   if (prevSnap && vpc && ai && cs) {
     const currentVpPct = parseFloat(vpc.coverage_pct);
     const currentCanonicalPct = cs.total_proposals > 0
