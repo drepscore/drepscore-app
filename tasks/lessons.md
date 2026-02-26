@@ -95,6 +95,14 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Pattern**: Original delegation hook set `'signing'` phase before calling `delegateToDRep()`, but building/signing/submitting all happened inside that function. User never saw accurate phase transitions.
 **Takeaway**: For multi-step wallet interactions, use phase callbacks (`onPhase`) so the calling code can track progress accurately. Don't conflate transaction building with wallet signing.
 
+### 2026-02-26: Staging data parity — seed early, verify always
+**Pattern**: Staging Supabase had correct schema but zero rows. Preview deployments showed empty pages, making it impossible to test features realistically. The `decentralization_score` column existed in production but was unused — schema drift between environments.
+**Takeaway**: After creating a staging environment, immediately seed it with production data using `npm run seed:staging`. The seed script includes a health check that fails on >10% divergence. Run it weekly (automated via GitHub Action) or manually before any release. Drop deprecated columns from both environments simultaneously to prevent drift. Always verify schema parity before seeding.
+
+### 2026-02-26: PostgREST handles type differences transparently
+**Pattern**: Production had `numeric`/`ARRAY` types while staging had `integer`/`jsonb` for the same columns. The seed script worked without issues because PostgREST serializes everything to JSON on read and Postgres handles implicit casts on write.
+**Takeaway**: Minor type differences between environments (numeric↔integer, array↔jsonb) don't break Supabase REST API data copies. Don't over-engineer type normalization — test it first.
+
 ---
 
 *Last updated: 2026-02-26*
