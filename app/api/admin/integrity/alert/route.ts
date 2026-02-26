@@ -56,14 +56,28 @@ export async function GET(request: NextRequest) {
   for (const row of sh || []) {
     if (!row.last_run) continue;
     const staleMins = Math.round((now - new Date(row.last_run).getTime()) / 60000);
+    const label = row.sync_type === 'fast' ? 'Fast Sync' : 'Full Sync';
     if (row.sync_type === 'fast' && staleMins > 90) {
-      alerts.push({ level: 'critical', metric: 'Fast sync stale', value: `${staleMins}m`, threshold: '90m' });
+      const staleHuman = staleMins >= 60 ? `${Math.round(staleMins / 60)}h ${staleMins % 60}m` : `${staleMins}m`;
+      alerts.push({ level: 'critical', metric: `${label} — No runs in ${staleHuman}`, value: `Last run: ${staleHuman} ago`, threshold: 'every 30m' });
     }
     if (row.sync_type === 'full' && staleMins > 1560) {
-      alerts.push({ level: 'critical', metric: 'Full sync stale', value: `${Math.round(staleMins / 60)}h`, threshold: '26h' });
+      const staleHours = Math.round(staleMins / 60);
+      alerts.push({ level: 'critical', metric: `${label} — No runs in ${staleHours}h`, value: `Last run: ${staleHours}h ago`, threshold: 'every 24h' });
     }
     if (row.last_success === false) {
-      alerts.push({ level: 'critical', metric: `${row.sync_type} sync failed`, value: row.last_error || 'Unknown error', threshold: 'success' });
+      const failureCount = row.failure_count ?? '?';
+      const totalCount = (row.success_count ?? 0) + (row.failure_count ?? 0);
+      const errorDetail = row.last_error
+        ? (row.last_error.length > 120 ? row.last_error.slice(0, 120) + '…' : row.last_error)
+        : 'No details captured — check Vercel function logs';
+      const runAge = staleMins >= 60 ? `${Math.round(staleMins / 60)}h ${staleMins % 60}m ago` : `${staleMins}m ago`;
+      alerts.push({
+        level: 'critical',
+        metric: `${label} — Last Run Failed`,
+        value: `${errorDetail} · ${failureCount}/${totalCount} runs failed · ${runAge}`,
+        threshold: 'must succeed',
+      });
     }
   }
 
@@ -113,27 +127,43 @@ export async function GET(request: NextRequest) {
 
   const isSlack = webhookUrl.includes('hooks.slack.com');
 
+  function formatAlertLine(a: Alert): string {
+    const icon = a.level === 'critical' ? '🔴' : '🟡';
+    return `${icon} **${a.metric}**\n↳ ${a.value}  ·  threshold: ${a.threshold}`;
+  }
+
   let body: unknown;
   if (isSlack) {
     const blocks = [
       {
         type: 'header',
-        text: { type: 'plain_text', text: `DRepScore Integrity: ${criticals.length} critical, ${warnings.length} warning` },
+        text: { type: 'plain_text', text: `DRepScore: ${criticals.length} critical, ${warnings.length} warning` },
       },
       ...alerts.map(a => ({
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `${a.level === 'critical' ? ':red_circle:' : ':large_yellow_circle:'} *${a.metric}*: ${a.value} (threshold: ${a.threshold})`,
+          text: `${a.level === 'critical' ? ':red_circle:' : ':large_yellow_circle:'} *${a.metric}*\n>${a.value}  ·  threshold: ${a.threshold}`,
         },
       })),
     ];
     body = { blocks };
   } else {
-    const lines = alerts.map(a =>
-      `${a.level === 'critical' ? '🔴' : '🟡'} **${a.metric}**: ${a.value} (threshold: ${a.threshold})`
-    );
-    body = { content: `**DRepScore Integrity Alert**\n${lines.join('\n')}` };
+    const lines = alerts.map(formatAlertLine);
+    body = { content: `**DRepScore Integrity Alert**\n\n${lines.join('\n\n')}` };
+  }
+
+  // Append recovery status to message if self-healing ran
+  if (recoveries.length > 0) {
+    const recoveryNote = `♻️ Auto-recovery triggered: ${recoveries.join(', ')}`;
+    if (isSlack) {
+      (body as { blocks: unknown[] }).blocks.push({
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: recoveryNote }],
+      });
+    } else {
+      (body as { content: string }).content += `\n\n${recoveryNote}`;
+    }
   }
 
   try {
