@@ -276,7 +276,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  let supabase;
+  let supabase: ReturnType<typeof getSupabaseAdmin>;
   try {
     supabase = getSupabaseAdmin();
   } catch (err: unknown) {
