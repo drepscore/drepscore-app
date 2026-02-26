@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@/utils/wallet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -34,6 +35,8 @@ import {
   Vote,
   Zap,
   Filter,
+  Search,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { ProposalDrawer } from '@/components/ProposalDrawer';
 
@@ -96,8 +99,14 @@ const TYPE_LABELS: Record<string, string> = {
   UpdateConstitution: 'Constitution',
 };
 
+interface DRepListItem {
+  drepId: string;
+  name: string | null;
+  drepScore: number;
+}
+
 export default function InboxPage() {
-  const { connected, isAuthenticated, reconnecting, ownDRepId, connecting } = useWallet();
+  const { connected, isAuthenticated, reconnecting, ownDRepId, sessionAddress, address, connecting } = useWallet();
   const [data, setData] = useState<InboxData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>('priority');
@@ -105,12 +114,44 @@ export default function InboxPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedProposal, setSelectedProposal] = useState<PendingProposal | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedDRepId, setSelectedDRepId] = useState<string | null>(null);
+  const [drepList, setDrepList] = useState<DRepListItem[]>([]);
 
-  const drepId = ownDRepId;
+  const adminCheckAddress = sessionAddress || address;
+  useEffect(() => {
+    if (!adminCheckAddress) return;
+    fetch('/api/admin/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: adminCheckAddress }),
+    })
+      .then(r => r.json())
+      .then(d => setIsAdmin(d.isAdmin === true))
+      .catch(() => setIsAdmin(false));
+  }, [adminCheckAddress]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch('/api/dreps')
+      .then(r => r.json())
+      .then(d => {
+        const all = (d.allDReps || d.dreps || []) as Record<string, unknown>[];
+        setDrepList(all.map((dr) => ({
+          drepId: dr.drepId as string,
+          name: dr.name as string | null,
+          drepScore: (dr.drepScore as number) ?? 0,
+        })));
+      })
+      .catch(() => {});
+  }, [isAdmin]);
+
+  const drepId = selectedDRepId || ownDRepId;
 
   useEffect(() => {
     if (connecting || reconnecting || !drepId) return;
     let cancelled = false;
+    setLoading(true);
 
     (async () => {
       try {
@@ -178,12 +219,21 @@ export default function InboxPage() {
   }, [data, typeFilter, sortField, sortDir]);
 
   if (connecting || reconnecting) return <InboxSkeleton />;
-  if (!isAuthenticated) return <ConnectWalletCTA />;
-  if (!drepId) return <NotADRepCTA />;
-  if (loading) return <InboxSkeleton />;
+  if (!isAuthenticated && !isAdmin) return <ConnectWalletCTA />;
+  if (!drepId && !isAdmin) return <NotADRepCTA />;
+  if (loading && drepId) return <InboxSkeleton />;
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-5xl">
+      {/* Admin DRep Switcher */}
+      {isAdmin && (
+        <AdminDRepSwitcher
+          drepList={drepList}
+          selectedDRepId={drepId}
+          onSelect={setSelectedDRepId}
+        />
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <Link href="/dashboard" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
@@ -365,12 +415,14 @@ export default function InboxPage() {
       )}
 
       {/* Proposal Drawer */}
-      <ProposalDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        proposal={selectedProposal}
-        drepId={drepId}
-      />
+      {drepId && (
+        <ProposalDrawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          proposal={selectedProposal}
+          drepId={drepId}
+        />
+      )}
     </div>
   );
 }
@@ -481,6 +533,97 @@ function NotADRepCTA() {
           </Link>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function AdminDRepSwitcher({
+  drepList,
+  selectedDRepId,
+  onSelect,
+}: {
+  drepList: DRepListItem[];
+  selectedDRepId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!query) return drepList.slice(0, 50);
+    const q = query.toLowerCase();
+    return drepList
+      .filter(d => (d.name?.toLowerCase().includes(q)) || d.drepId.toLowerCase().includes(q))
+      .slice(0, 50);
+  }, [drepList, query]);
+
+  const selectedName = drepList.find(d => d.drepId === selectedDRepId)?.name;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div className="mb-6" ref={dropdownRef}>
+      <div className="flex items-center gap-2 mb-2">
+        <Badge variant="outline" className="text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+          Admin
+        </Badge>
+        <span className="text-xs text-muted-foreground">View any DRep&apos;s inbox</span>
+      </div>
+      <div className="relative max-w-md">
+        <Button
+          variant="outline"
+          className="w-full justify-between text-sm"
+          onClick={() => setOpen(!open)}
+        >
+          <span className="truncate">
+            {selectedDRepId
+              ? (selectedName || selectedDRepId.slice(0, 20) + '…')
+              : 'Select a DRep…'}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+        {open && (
+          <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg">
+            <div className="p-2 border-b">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search DReps…"
+                  className="pl-8 h-9 text-sm"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="max-h-60 overflow-y-auto p-1">
+              {filtered.map(d => (
+                <button
+                  key={d.drepId}
+                  className="w-full text-left px-3 py-2 text-sm rounded hover:bg-muted flex items-center justify-between"
+                  onClick={() => { onSelect(d.drepId); setOpen(false); setQuery(''); }}
+                >
+                  <span className="truncate">{d.name || d.drepId.slice(0, 20) + '…'}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums ml-2">{d.drepScore}</span>
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-3">No DReps found</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
