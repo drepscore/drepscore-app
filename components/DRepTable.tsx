@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { getDRepDisplayName } from '@/utils/display';
 import { formatAda, getDRepScoreBadgeClass, getSizeBadgeClass } from '@/utils/scoring';
 import { EnrichedDRep } from '@/lib/koios';
-import { CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Info, Heart, UserPlus } from 'lucide-react';
+import { CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown, Info, Heart, UserPlus, GitCompareArrows, Vote } from 'lucide-react';
 import { SortConfig, SortKey } from './DRepTableClient';
 import {
   Tooltip,
@@ -48,6 +48,9 @@ interface DRepTableProps {
   alignmentData?: Record<string, DRepAlignmentData>;
   userPrefs?: UserPrefKey[];
   isConnected?: boolean;
+  delegatedDrepId?: string | null;
+  compareSelection?: Set<string>;
+  onCompareToggle?: (drepId: string) => void;
 }
 
 const PREF_LABELS: Record<UserPrefKey, string> = {
@@ -68,9 +71,13 @@ export function DRepTable({
   alignmentData = {},
   userPrefs = [],
   isConnected = false,
+  delegatedDrepId,
+  compareSelection = new Set(),
+  onCompareToggle,
 }: DRepTableProps) {
   const router = useRouter();
   const hasPrefs = userPrefs.length > 0;
+  const showCompare = !!onCompareToggle;
 
   if (dreps.length === 0) {
     return null;
@@ -135,6 +142,18 @@ export function DRepTable({
       <Table>
         <TableHeader>
           <TableRow>
+            {showCompare && (
+              <TableHead className="w-10">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <GitCompareArrows className="h-3.5 w-3.5 mx-auto text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>Select 2-3 DReps to compare</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableHead>
+            )}
             <SortableHeader 
               columnKey="drepScore" 
               label="DRep Score" 
@@ -181,9 +200,36 @@ export function DRepTable({
             return (
               <TableRow 
                 key={drep.drepId}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                className={cn(
+                  "cursor-pointer hover:bg-muted/50 transition-colors",
+                  compareSelection.has(drep.drepId) && "bg-primary/5"
+                )}
                 onClick={() => router.push(`/drep/${encodeURIComponent(drep.drepId)}`)}
               >
+                {/* Compare Checkbox */}
+                {showCompare && (
+                  <TableCell className="text-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCompareToggle?.(drep.drepId);
+                      }}
+                      className={cn(
+                        "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                        compareSelection.has(drep.drepId)
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-muted-foreground/30 hover:border-primary/60"
+                      )}
+                      aria-label={compareSelection.has(drep.drepId) ? 'Remove from comparison' : 'Add to comparison'}
+                    >
+                      {compareSelection.has(drep.drepId) && (
+                        <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2}>
+                          <path d="M2 6l3 3 5-5" />
+                        </svg>
+                      )}
+                    </button>
+                  </TableCell>
+                )}
                 {/* DRep Score */}
                 <TableCell className="text-center">
                   <ScoreBreakdownTooltip drep={drep}>
@@ -309,6 +355,32 @@ export function DRepTable({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>{watchlist.includes(drep.drepId) ? 'Remove from watchlist' : 'Add to watchlist'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/drep/${encodeURIComponent(drep.drepId)}`);
+                            }}
+                            className="p-2 hover:bg-muted rounded-full transition-colors"
+                            aria-label={delegatedDrepId === drep.drepId ? 'Your current DRep' : 'Delegate to this DRep'}
+                          >
+                            <Vote
+                              className={cn(
+                                "h-4 w-4 transition-colors",
+                                delegatedDrepId === drep.drepId
+                                  ? "fill-primary text-primary"
+                                  : "text-muted-foreground hover:text-primary"
+                              )}
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{delegatedDrepId === drep.drepId ? 'Your current DRep' : 'Delegate to this DRep'}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

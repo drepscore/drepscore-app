@@ -22,10 +22,10 @@ function deriveStakeFromPaymentAddress(paymentAddress: string): string | null {
 }
 
 async function isAuthorized(request: NextRequest): Promise<boolean> {
-  const { searchParams } = new URL(request.url);
-  const secret = searchParams.get('secret');
-  if (secret && secret === process.env.CRON_SECRET) return true;
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader === `Bearer ${process.env.CRON_SECRET}`) return true;
 
+  const { searchParams } = new URL(request.url);
   const address = searchParams.get('address');
   if (!address) return false;
   const adminWallets = (process.env.ADMIN_WALLETS || '')

@@ -30,6 +30,7 @@ import { DRepDashboardWrapper } from '@/components/DRepDashboardWrapper';
 import { CopyableAddress } from '@/components/CopyableAddress';
 import { AboutSection } from '@/components/AboutSection';
 import { SocialIconsLarge } from '@/components/SocialIconsLarge';
+import { CompareButton } from '@/components/CompareButton';
 import {
   getDRepById,
   getVotesByDRepId,
@@ -319,9 +320,10 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
           </div>
         </div>
         
-        {/* Delegation CTA - Compact */}
-        <div className="lg:w-auto">
+        {/* Actions */}
+        <div className="lg:w-auto space-y-2">
           <InlineDelegationCTA drepId={drep.drepId} drepName={getDRepPrimaryName(drep)} />
+          <CompareButton currentDrepId={drep.drepId} currentDrepName={getDRepPrimaryName(drep)} />
         </div>
       </div>
 

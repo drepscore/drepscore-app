@@ -39,6 +39,11 @@ Before any plan is finalized, answer:
 - **On debugging**: When debugging takes more than 2 attempts, log the root cause
 - **Rule promotion**: During planning, if a lesson has appeared 2+ times or represents a permanent architectural decision, propose creating/updating a cursor rule
 
+## Deployment Protocol
+- **Pre-push**: Run `npx next build --webpack` and confirm exit code 0 before every `git push`. No exceptions.
+- **Post-push**: After pushing, check deployment status. Use Vercel CLI (`vercel inspect` or `vercel logs`) if available, or monitor the build output. If the deploy fails, fix and re-push immediately without waiting for the user to report it.
+- **Self-resolve**: Build errors caused by your changes are your responsibility. Do not push known-broken code hoping it works in CI.
+
 ## Completion Protocol
 - Never mark a task complete without proving it works (query results, curl output, UI verification)
 - Check if something was learned during the build → update lessons.md

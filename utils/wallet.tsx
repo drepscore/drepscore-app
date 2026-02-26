@@ -108,6 +108,7 @@ const WALLET_NAME_KEY = 'drepscore_wallet_name';
 
 export interface WalletContextType {
   wallet: BrowserWallet | null;
+  walletName: string | null;
   connected: boolean;
   connecting: boolean;
   reconnecting: boolean;
@@ -421,6 +422,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     <WalletContext.Provider
       value={{
         wallet,
+        walletName,
         connected,
         connecting,
         reconnecting,

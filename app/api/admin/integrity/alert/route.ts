@@ -12,8 +12,8 @@ interface Alert {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get('secret') !== process.env.CRON_SECRET) {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -98,8 +98,9 @@ export async function GET(request: NextRequest) {
       const syncPath = row.sync_type === 'fast' ? '/api/sync/fast' : '/api/sync';
       try {
         console.log(`[AlertCron] Self-healing: triggering ${row.sync_type} sync recovery`);
-        const res = await fetch(`${baseUrl}${syncPath}?secret=${cronSecret}`, {
+        const res = await fetch(`${baseUrl}${syncPath}`, {
           method: 'GET',
+          headers: { 'Authorization': `Bearer ${cronSecret}` },
           signal: AbortSignal.timeout(5000),
         });
         recoveries.push(`${row.sync_type}: ${res.status}`);

@@ -46,6 +46,11 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Takeaway**: Periodically (during planning or at milestones) ask: "Are there new tools, MCPs, or platform features that would improve our workflow?" Don't wait for the user to discover them.
 **Promoted to rule**: Yes — `workflow.md` updated with proactive advocacy protocol.
 
+### 2026-02-25: Always build-check before pushing
+**Pattern**: Pushed code changes twice without running `next build` locally. Both times hit type errors that only surfaced in Vercel's build (missing variable alias, implicit `any` from closure capture). Required two fix commits and two failed deploys.
+**Takeaway**: Run `npx next build --webpack` before every `git push`. Also monitor deployment status after pushing — environment-specific failures (env vars, edge runtime) can't be caught locally.
+**Promoted to rule**: Yes — `workflow.md` updated with Deployment Protocol (pre-push build check + post-push monitoring).
+
 ## Scoring
 
 ### 2026-02-25: Influence metric conflicted with mission
@@ -58,5 +63,47 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 
 ---
 
-*Last updated: 2026-02-25*
+### 2026-02-26: Admin bypass on all gated features
+**Pattern**: The `/dashboard/inbox` page gated on `ownDRepId` (wallet must be a registered DRep). Admin wallets that aren't registered DReps were blocked. The API had zero authorization.
+**Takeaway**: Every gated feature must check `isAdmin` as a bypass. Admin gets a DRep selector dropdown instead of being blocked. Apply this pattern to all new gated pages by default.
+
+---
+
+### 2026-02-26: Vitest 4 broken on Node 24 — use Vitest 3.x
+**Pattern**: Vitest 4.0.18 fails with "No test suite found" / "Vitest failed to find the current suite" on Node v24.12.0. The `describe`/`it`/`test` functions from the import don't register with the runner. Downgrading to Vitest 3.2.4 resolved immediately.
+**Takeaway**: Pin to Vitest 3.x until Vitest 4 stabilizes. Check major version compatibility before upgrading test frameworks.
+
+### 2026-02-26: Cron secrets must never live in committed files
+**Pattern**: `vercel.json` had `CRON_SECRET` hardcoded in cron path URLs and committed to git. Vercel automatically sends `Authorization: Bearer <CRON_SECRET>` header on cron invocations — no need to put the secret in the URL.
+**Takeaway**: Validate cron auth via `request.headers.get('authorization')`, not query parameters. Rotate any secret that has ever been committed to git history.
+
+### 2026-02-26: Separate Supabase projects per environment from the start
+**Pattern**: Single Supabase project used for all environments. Preview deployments hit production data. Any mistake on a feature branch could corrupt production.
+**Takeaway**: Create a staging Supabase project (free tier) on day one. Configure Vercel Preview env vars to point to staging. Production data should only be touched by the `main` branch.
+
+## Delegation / Wallet Integration
+
+### 2026-02-26: Stake registration is required before vote delegation
+**Pattern**: CIP-1694 vote delegation uses the same stake key mechanism as pool delegation. If a user's stake key isn't registered (new wallet, never staked), `voteDelegationCertificate` will fail silently. MeshJS doesn't auto-detect this.
+**Takeaway**: Always check stake registration via Koios `/account_info` before building delegation txs. Chain `registerStakeCertificate` in the same tx if needed. Inform user about the 2 ADA refundable deposit.
+
+### 2026-02-26: Nami standalone has no CIP-1694 governance support
+**Pattern**: Nami (~200k installs, largest Cardano wallet by install count) was merged into Lace because it lacks CIP-1694 governance support. Migration became mandatory after Chang hard fork. Users still on standalone Nami will hit opaque errors on governance transactions.
+**Takeaway**: Proactively detect wallet governance capability by checking `window.cardano[name].supportedExtensions` for CIP-95. For Nami specifically, direct users to migrate to Lace (which includes Nami mode).
+
+### 2026-02-26: Wallet phase tracking requires splitting build/sign/submit
+**Pattern**: Original delegation hook set `'signing'` phase before calling `delegateToDRep()`, but building/signing/submitting all happened inside that function. User never saw accurate phase transitions.
+**Takeaway**: For multi-step wallet interactions, use phase callbacks (`onPhase`) so the calling code can track progress accurately. Don't conflate transaction building with wallet signing.
+
+### 2026-02-26: Staging data parity — seed early, verify always
+**Pattern**: Staging Supabase had correct schema but zero rows. Preview deployments showed empty pages, making it impossible to test features realistically. The `decentralization_score` column existed in production but was unused — schema drift between environments.
+**Takeaway**: After creating a staging environment, immediately seed it with production data using `npm run seed:staging`. The seed script includes a health check that fails on >10% divergence. Run it weekly (automated via GitHub Action) or manually before any release. Drop deprecated columns from both environments simultaneously to prevent drift. Always verify schema parity before seeding.
+
+### 2026-02-26: PostgREST handles type differences transparently
+**Pattern**: Production had `numeric`/`ARRAY` types while staging had `integer`/`jsonb` for the same columns. The seed script worked without issues because PostgREST serializes everything to JSON on read and Postgres handles implicit casts on write.
+**Takeaway**: Minor type differences between environments (numeric↔integer, array↔jsonb) don't break Supabase REST API data copies. Don't over-engineer type normalization — test it first.
+
+---
+
+*Last updated: 2026-02-26*
 *Review this file at the start of every session.*
