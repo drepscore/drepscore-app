@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, RotateCcw, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { SizeTier } from '@/utils/scoring';
+import { GitCompareArrows } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -118,6 +119,23 @@ export function DRepTableClient({
     direction: 'desc',
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [compareSelection, setCompareSelection] = useState<Set<string>>(new Set());
+
+  const handleCompareToggle = useCallback((drepId: string) => {
+    setCompareSelection(prev => {
+      const next = new Set(prev);
+      if (next.has(drepId)) {
+        next.delete(drepId);
+      } else if (next.size < 3) {
+        next.add(drepId);
+      } else {
+        const first = next.values().next().value!;
+        next.delete(first);
+        next.add(drepId);
+      }
+      return next;
+    });
+  }, []);
 
   // Update default sort when prefs change
   useEffect(() => {
@@ -512,6 +530,9 @@ export function DRepTableClient({
             alignmentData={alignmentData}
             userPrefs={userPrefs}
             isConnected={isConnected}
+            delegatedDrepId={delegatedDrepId}
+            compareSelection={compareSelection}
+            onCompareToggle={handleCompareToggle}
           />
           
           {/* Pagination Controls */}
@@ -539,6 +560,30 @@ export function DRepTableClient({
             </div>
           )}
         </>
+      )}
+
+      {/* Floating Compare Bar */}
+      {compareSelection.size >= 2 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200">
+          <div className="flex items-center gap-3 bg-primary text-primary-foreground px-5 py-3 rounded-full shadow-lg">
+            <GitCompareArrows className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              {compareSelection.size} DReps selected
+            </span>
+            <a href={`/compare?dreps=${[...compareSelection].join(',')}`}>
+              <Button size="sm" variant="secondary" className="h-7 text-xs font-semibold">
+                Compare Now
+              </Button>
+            </a>
+            <button
+              onClick={() => setCompareSelection(new Set())}
+              className="text-primary-foreground/70 hover:text-primary-foreground ml-1"
+              aria-label="Clear selection"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
