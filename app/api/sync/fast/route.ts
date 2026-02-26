@@ -3,7 +3,7 @@
  * Lightweight: only updates open proposal lifecycle + votes on open proposals.
  * Target: under 15 seconds execution.
  *
- * Auth: GET /api/sync/fast?secret=<CRON_SECRET>
+ * Auth: Vercel cron sends Authorization: Bearer <CRON_SECRET> header automatically.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'CRON_SECRET not set' }, { status: 500 });
   }
 
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get('secret') !== cronSecret) {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
