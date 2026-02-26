@@ -295,6 +295,21 @@ export async function GET(request: NextRequest) {
     syncLogId = logRow?.id ?? null;
   } catch { /* sync_log write is best-effort */ }
 
+  async function finalizeSyncLog(success: boolean, errorMessage: string | null, metrics: Record<string, unknown>) {
+    if (!syncLogId) return;
+    try {
+      await supabase.from('sync_log').update({
+        finished_at: new Date().toISOString(),
+        duration_ms: Date.now() - startTime,
+        success,
+        error_message: errorMessage,
+        metrics,
+      }).eq('id', syncLogId);
+    } catch { /* best-effort */ }
+  }
+
+  const syncErrors: string[] = [];
+
   // ═══ PHASE 1: Parallel Koios fetches ═══════════════════════════════════════
   // Fetch proposals + bulk votes in parallel (the two heaviest API calls)
 
@@ -323,10 +338,14 @@ export async function GET(request: NextRequest) {
   ]);
 
   if (proposalsResult.status === 'rejected') {
-    console.warn('[Sync] Proposal fetch failed:', proposalsResult.reason);
+    const msg = String(proposalsResult.reason);
+    syncErrors.push(`Proposals: ${msg}`);
+    console.warn('[Sync] Proposal fetch failed:', msg);
   }
   if (votesResult.status === 'rejected') {
-    console.warn('[Sync] Bulk vote fetch failed, falling back to per-DRep:', votesResult.reason);
+    const msg = String(votesResult.reason);
+    syncErrors.push(`Bulk votes: ${msg}`);
+    console.warn('[Sync] Bulk vote fetch failed, falling back to per-DRep:', msg);
   }
 
   // ═══ PHASE 2: Enrich DReps (uses pre-fetched votes) ═══════════════════════
@@ -343,7 +362,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (result.error || !result.allDReps?.length) {
-      return NextResponse.json({ success: false, error: 'Koios DRep fetch failed' }, { status: 502 });
+      const errMsg = 'Koios DRep fetch returned no data';
+      syncErrors.push(errMsg);
+      await finalizeSyncLog(false, syncErrors.join('; '), {});
+      return NextResponse.json({ success: false, error: errMsg }, { status: 502 });
     }
 
     allDReps = result.allDReps;
@@ -351,6 +373,8 @@ export async function GET(request: NextRequest) {
     console.log(`[Sync] Enriched ${allDReps.length} DReps`);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown';
+    syncErrors.push(`DRep enrichment: ${msg}`);
+    await finalizeSyncLog(false, syncErrors.join('; '), {});
     return NextResponse.json({ success: false, error: `DRep enrichment failed: ${msg}` }, { status: 500 });
   }
 
@@ -939,6 +963,46 @@ export async function GET(request: NextRequest) {
     if (r.status === 'rejected') console.error('[Sync] Phase 5 error:', r.reason);
   }
 
+  // ═══ PHASE 5b: Integrity snapshot ═════════════════════════════════════════
+  try {
+    const [snapVpc, snapAi, snapHv, snapCs, snapStats] = await Promise.all([
+      supabase.from('v_vote_power_coverage').select('*').single(),
+      supabase.from('v_ai_summary_coverage').select('*').single(),
+      supabase.from('v_hash_verification').select('*').single(),
+      supabase.from('v_canonical_summary_coverage').select('*').single(),
+      supabase.from('v_system_stats').select('*').single(),
+    ]);
+    const vpc = snapVpc.data;
+    const sai = snapAi.data;
+    const shv = snapHv.data;
+    const scs = snapCs.data;
+    const sst = snapStats.data;
+    if (vpc && sai && scs && sst) {
+      const aiProposalPct = sai.proposals_with_abstract > 0
+        ? Math.round(sai.proposals_with_summary / sai.proposals_with_abstract * 100) : 100;
+      const aiRationalePct = sai.rationales_with_text > 0
+        ? Math.round(sai.rationales_with_summary / sai.rationales_with_text * 100) : 100;
+      const canonicalPct = scs.total_proposals > 0
+        ? Math.round(scs.with_canonical_summary / scs.total_proposals * 100) : 0;
+      await supabase.from('integrity_snapshots').upsert({
+        snapshot_date: new Date().toISOString().split('T')[0],
+        vote_power_coverage_pct: parseFloat(vpc.coverage_pct),
+        canonical_summary_pct: canonicalPct,
+        ai_proposal_pct: aiProposalPct,
+        ai_rationale_pct: aiRationalePct,
+        hash_mismatch_rate_pct: shv ? parseFloat(shv.mismatch_rate_pct) : 0,
+        total_dreps: sst.total_dreps,
+        total_votes: sst.total_votes,
+        total_proposals: sst.total_proposals,
+        total_rationales: sst.total_rationales,
+        metrics_json: { vpc, ai: sai, hv: shv, cs: scs, stats: sst },
+      }, { onConflict: 'snapshot_date' });
+      console.log('[Sync] Integrity snapshot saved');
+    }
+  } catch (err) {
+    console.warn('[Sync] Integrity snapshot failed:', err instanceof Error ? err.message : err);
+  }
+
   // ═══ PHASE 6: Push notifications ══════════════════════════════════════════
 
   let pushSent = 0;
@@ -974,9 +1038,17 @@ export async function GET(request: NextRequest) {
   // ═══ Summary ══════════════════════════════════════════════════════════════
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-  const hasErrors = drepResult.errors > 0 || voteResult.errors > 0 || proposalResult.errors > 0;
 
-  console.log(`[Sync] Complete in ${duration}s — DReps: ${drepResult.success}, Votes: ${voteResult.success}, Proposals: ${proposalResult.success}${pushSent > 0 ? `, Push: ${pushSent}` : ''}`);
+  const totalRows = drepResult.success + drepResult.errors + voteResult.success + voteResult.errors + proposalResult.success + proposalResult.errors;
+  const totalErrors = drepResult.errors + voteResult.errors + proposalResult.errors;
+  const errorRate = totalRows > 0 ? totalErrors / totalRows : 0;
+  const success = errorRate < 0.05 && syncErrors.length === 0;
+
+  if (totalErrors > 0) {
+    syncErrors.push(`Upsert errors: ${drepResult.errors} dreps, ${voteResult.errors} votes, ${proposalResult.errors} proposals (${(errorRate * 100).toFixed(1)}% rate)`);
+  }
+
+  console.log(`[Sync] Complete in ${duration}s — DReps: ${drepResult.success}, Votes: ${voteResult.success}, Proposals: ${proposalResult.success}${pushSent > 0 ? `, Push: ${pushSent}` : ''}${syncErrors.length > 0 ? ` (${syncErrors.length} issues)` : ''}`);
 
   const metrics = {
     dreps_synced: drepResult.success, drep_errors: drepResult.errors,
@@ -985,32 +1057,25 @@ export async function GET(request: NextRequest) {
     push_sent: pushSent,
   };
 
-  // Finalize sync_log record
-  if (syncLogId) {
-    try {
-      await supabase.from('sync_log').update({
-        finished_at: new Date().toISOString(),
-        duration_ms: Date.now() - startTime,
-        success: !hasErrors,
-        metrics,
-      }).eq('id', syncLogId);
-    } catch { /* best-effort */ }
-  }
+  await finalizeSyncLog(
+    success,
+    syncErrors.length > 0 ? syncErrors.join('; ') : null,
+    metrics,
+  );
 
-  // PostHog server-side event
   try {
     const { captureServerEvent } = await import('@/lib/posthog-server');
-    captureServerEvent(hasErrors ? 'sync_failed' : 'sync_completed', {
+    captureServerEvent(success ? 'sync_completed' : 'sync_failed', {
       sync_type: 'full', duration_ms: Date.now() - startTime, ...metrics,
     });
   } catch { /* posthog optional */ }
 
   return NextResponse.json({
-    success: !hasErrors,
+    success,
     dreps: { synced: drepResult.success, errors: drepResult.errors },
     votes: { synced: voteResult.success, errors: voteResult.errors },
     proposals: { synced: proposalResult.success, errors: proposalResult.errors },
     durationSeconds: duration,
     timestamp: new Date().toISOString(),
-  }, { status: hasErrors ? 207 : 200 });
+  }, { status: success ? 200 : 207 });
 }

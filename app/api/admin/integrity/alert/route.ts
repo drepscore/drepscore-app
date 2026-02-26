@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 10;
+export const maxDuration = 15;
 
 interface Alert {
   level: 'critical' | 'warning';
@@ -67,16 +67,45 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── Self-healing: trigger stale+failed syncs ────────────────────────────────
+
+  const recoveries: string[] = [];
+  const cronSecret = process.env.CRON_SECRET;
+  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+
+  if (cronSecret && baseUrl) {
+    for (const row of sh || []) {
+      if (!row.last_run || row.last_success !== false) continue;
+      const staleMins = Math.round((now - new Date(row.last_run).getTime()) / 60000);
+      const isStale = (row.sync_type === 'fast' && staleMins > 90)
+        || (row.sync_type === 'full' && staleMins > 1560);
+      if (!isStale) continue;
+
+      const syncPath = row.sync_type === 'fast' ? '/api/sync/fast' : '/api/sync';
+      try {
+        console.log(`[AlertCron] Self-healing: triggering ${row.sync_type} sync recovery`);
+        const res = await fetch(`${baseUrl}${syncPath}?secret=${cronSecret}`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(5000),
+        });
+        recoveries.push(`${row.sync_type}: ${res.status}`);
+        console.log(`[AlertCron] Recovery ${row.sync_type} triggered: ${res.status}`);
+      } catch (err) {
+        recoveries.push(`${row.sync_type}: failed`);
+        console.warn(`[AlertCron] Recovery ${row.sync_type} trigger failed:`, err instanceof Error ? err.message : err);
+      }
+    }
+  }
+
   if (alerts.length === 0) {
-    // Log healthy check
     try {
       await supabase.from('sync_log').insert({
         sync_type: 'integrity_check', started_at: new Date().toISOString(),
         finished_at: new Date().toISOString(), duration_ms: 0, success: true,
-        metrics: { alerts: 0 },
+        metrics: { alerts: 0, recoveries },
       });
     } catch { /* best-effort */ }
-    return NextResponse.json({ alerts: 0, sent: false });
+    return NextResponse.json({ alerts: 0, sent: false, recoveries });
   }
 
   const criticals = alerts.filter(a => a.level === 'critical');

@@ -67,6 +67,14 @@ export async function GET(request: NextRequest) {
     .order('started_at', { ascending: false })
     .limit(20);
 
+  // Previous day snapshot for KPI deltas
+  const today = new Date().toISOString().split('T')[0];
+  const { data: recentSnapshots } = await supabase.from('integrity_snapshots')
+    .select('*')
+    .lt('snapshot_date', today)
+    .order('snapshot_date', { ascending: false })
+    .limit(1);
+
   const now = new Date();
   const syncHealthMap: Record<string, unknown> = {};
   for (const row of syncHealth.data || []) {
@@ -105,6 +113,35 @@ export async function GET(request: NextRequest) {
     alerts.push({ level: 'critical', metric: 'Full sync stale', value: `${Math.round(fullSync.stale_minutes / 60)} hr`, threshold: '26 hr' });
   }
 
+  // Build KPI comparison from previous snapshot
+  let comparison: Record<string, { previous: number; delta: number; snapshot_date: string }> | null = null;
+  const prevSnap = recentSnapshots?.[0];
+  if (prevSnap && vpc && ai && cs) {
+    const currentVpPct = parseFloat(vpc.coverage_pct);
+    const currentCanonicalPct = cs.total_proposals > 0
+      ? Math.round(cs.with_canonical_summary / cs.total_proposals * 100) : 0;
+    const currentAiProposalPct = ai.proposals_with_abstract > 0
+      ? Math.round(ai.proposals_with_summary / ai.proposals_with_abstract * 100) : 100;
+    const currentAiRationalePct = ai.rationales_with_text > 0
+      ? Math.round(ai.rationales_with_summary / ai.rationales_with_text * 100) : 100;
+    const currentMismatchPct = hv ? parseFloat(hv.mismatch_rate_pct) : 0;
+
+    const snap = prevSnap as Record<string, unknown>;
+    const d = (field: string) => parseFloat(String(snap[field] ?? 0));
+
+    comparison = {
+      vote_power_coverage: { previous: d('vote_power_coverage_pct'), delta: currentVpPct - d('vote_power_coverage_pct'), snapshot_date: String(snap.snapshot_date) },
+      canonical_summary: { previous: d('canonical_summary_pct'), delta: currentCanonicalPct - d('canonical_summary_pct'), snapshot_date: String(snap.snapshot_date) },
+      ai_proposal: { previous: d('ai_proposal_pct'), delta: currentAiProposalPct - d('ai_proposal_pct'), snapshot_date: String(snap.snapshot_date) },
+      ai_rationale: { previous: d('ai_rationale_pct'), delta: currentAiRationalePct - d('ai_rationale_pct'), snapshot_date: String(snap.snapshot_date) },
+      hash_mismatch_rate: { previous: d('hash_mismatch_rate_pct'), delta: currentMismatchPct - d('hash_mismatch_rate_pct'), snapshot_date: String(snap.snapshot_date) },
+      total_dreps: { previous: d('total_dreps'), delta: (systemStats.data?.total_dreps ?? 0) - d('total_dreps'), snapshot_date: String(snap.snapshot_date) },
+      total_votes: { previous: d('total_votes'), delta: (systemStats.data?.total_votes ?? 0) - d('total_votes'), snapshot_date: String(snap.snapshot_date) },
+      total_proposals: { previous: d('total_proposals'), delta: (systemStats.data?.total_proposals ?? 0) - d('total_proposals'), snapshot_date: String(snap.snapshot_date) },
+      total_rationales: { previous: d('total_rationales'), delta: (systemStats.data?.total_rationales ?? 0) - d('total_rationales'), snapshot_date: String(snap.snapshot_date) },
+    };
+  }
+
   return NextResponse.json({
     timestamp: now.toISOString(),
     vote_power: votePower.data,
@@ -116,5 +153,6 @@ export async function GET(request: NextRequest) {
     system_stats: systemStats.data,
     sync_history: syncHistory || [],
     alerts,
+    comparison,
   });
 }

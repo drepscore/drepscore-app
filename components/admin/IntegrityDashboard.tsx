@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/tooltip';
 import {
   RefreshCw, CheckCircle2, XCircle, AlertTriangle, Activity,
-  Database, Shield, Clock, TrendingUp, Zap, Info, ChevronDown, ChevronUp,
+  Database, Shield, Clock, TrendingUp, TrendingDown, Minus, Zap, Info, ChevronDown, ChevronUp,
   RotateCw, Wrench, Lightbulb,
 } from 'lucide-react';
 
@@ -54,6 +54,7 @@ interface IntegrityData {
     duration_ms: number | null; success: boolean; error_message: string | null;
   }[];
   alerts: { level: 'critical' | 'warning'; metric: string; value: string; threshold: string }[];
+  comparison: Record<string, { previous: number; delta: number; snapshot_date: string }> | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -169,9 +170,37 @@ function GuidancePanel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function MetricCard({ title, value, subtitle, icon: Icon, status, tooltip }: {
+function DeltaBadge({ delta, invertColor, unit = '' }: {
+  delta: number; invertColor?: boolean; unit?: string;
+}) {
+  if (delta === 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+        <Minus className="h-2.5 w-2.5" /> 0{unit}
+      </span>
+    );
+  }
+  const isPositive = delta > 0;
+  const isGood = invertColor ? !isPositive : isPositive;
+  const colorCls = isGood ? 'text-green-600' : 'text-red-500';
+  const DeltaIcon = isPositive ? TrendingUp : TrendingDown;
+  const formatted = Math.abs(delta) < 0.1
+    ? Math.abs(delta).toFixed(2)
+    : Math.abs(delta) < 10
+      ? Math.abs(delta).toFixed(1)
+      : Math.round(Math.abs(delta)).toLocaleString();
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${colorCls}`}>
+      <DeltaIcon className="h-2.5 w-2.5" />
+      {isPositive ? '+' : '-'}{formatted}{unit}
+    </span>
+  );
+}
+
+function MetricCard({ title, value, subtitle, icon: Icon, status, tooltip, delta }: {
   title: string; value: string | number; subtitle?: string;
   icon: React.ElementType; status?: 'good' | 'warning' | 'critical'; tooltip?: string;
+  delta?: { value: number; invertColor?: boolean; unit?: string; label?: string };
 }) {
   const statusColors = {
     good: 'text-green-500',
@@ -188,7 +217,21 @@ function MetricCard({ title, value, subtitle, icon: Icon, status, tooltip }: {
               {title}
               {tooltip && <InfoTip text={tooltip} />}
             </p>
-            <p className={`text-2xl font-bold ${status ? statusColors[status] : ''}`}>{value}</p>
+            <div className="flex items-baseline gap-2">
+              <p className={`text-2xl font-bold ${status ? statusColors[status] : ''}`}>{value}</p>
+              {delta && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-default">
+                      <DeltaBadge delta={delta.value} invertColor={delta.invertColor} unit={delta.unit} />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {delta.label || 'vs previous day'}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
             {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
           </div>
           <Icon className={`h-4 w-4 mt-0.5 ${status ? statusColors[status] : 'text-muted-foreground'}`} />
@@ -288,6 +331,7 @@ export function IntegrityDashboard({ adminAddress }: { adminAddress: string }) {
   const hv = data.hash_verification;
   const cs = data.canonical_summaries;
   const stats = data.system_stats;
+  const cmp = data.comparison;
   const vpPct = parseFloat(vpc.coverage_pct);
   const proposalAiPct = ai.proposals_with_abstract > 0
     ? Math.round(ai.proposals_with_summary / ai.proposals_with_abstract * 100) : 100;
@@ -369,24 +413,28 @@ export function IntegrityDashboard({ adminAddress }: { adminAddress: string }) {
               subtitle={`${fmt(vpc.with_power)} / ${fmt(vpc.total_votes)}`}
               icon={Zap} status={coverageStatus(vpPct)}
               tooltip="Percentage of votes with voting power attributed from Koios power history."
+              delta={cmp?.vote_power_coverage ? { value: cmp.vote_power_coverage.delta, unit: 'pp' } : undefined}
             />
             <MetricCard
               title="Canonical Summaries" value={pct1(canonicalPct)}
               subtitle={`${fmt(cs.with_canonical_summary)} / ${fmt(cs.total_proposals)}`}
               icon={CheckCircle2} status={coverageStatus(canonicalPct)}
               tooltip="Percentage of proposals with official vote tally from Koios /proposal_voting_summary."
+              delta={cmp?.canonical_summary ? { value: cmp.canonical_summary.delta, unit: 'pp' } : undefined}
             />
             <MetricCard
               title="AI Proposals" value={pct1(proposalAiPct)}
               subtitle={`${fmt(ai.proposals_with_summary)} / ${fmt(ai.proposals_with_abstract)}`}
               icon={TrendingUp} status={coverageStatus(proposalAiPct)}
               tooltip="Percentage of proposals (with abstracts) that have an AI-generated summary."
+              delta={cmp?.ai_proposal ? { value: cmp.ai_proposal.delta, unit: 'pp' } : undefined}
             />
             <MetricCard
               title="AI Rationales" value={pct1(rationaleAiPct)}
               subtitle={`${fmt(ai.rationales_with_summary)} / ${fmt(ai.rationales_with_text)}`}
               icon={TrendingUp} status={coverageStatus(rationaleAiPct)}
               tooltip="Percentage of rationales (with text) that have an AI-generated summary."
+              delta={cmp?.ai_rationale ? { value: cmp.ai_rationale.delta, unit: 'pp' } : undefined}
             />
           </div>
           <GuidancePanel>
@@ -464,6 +512,7 @@ export function IntegrityDashboard({ adminAddress }: { adminAddress: string }) {
               subtitle={`${hv.mismatch_rate_pct}% rate`}
               icon={AlertTriangle} status={hv.rationale_mismatch > 0 ? 'warning' : 'good'}
               tooltip="Rationales where content was modified after the on-chain hash was recorded."
+              delta={cmp?.hash_mismatch_rate ? { value: cmp.hash_mismatch_rate.delta, unit: 'pp', invertColor: true } : undefined}
             />
             <MetricCard
               title="Pending" value={fmt(hv.rationale_pending)} icon={Clock}
@@ -592,15 +641,19 @@ export function IntegrityDashboard({ adminAddress }: { adminAddress: string }) {
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
             <MetricCard title="DReps" value={fmt(stats.total_dreps)} icon={Database}
               tooltip="Total DRep records in the database."
+              delta={cmp?.total_dreps ? { value: cmp.total_dreps.delta } : undefined}
             />
             <MetricCard title="Votes" value={fmt(stats.total_votes)} icon={Activity}
               tooltip="Total individual vote records across all DReps and proposals."
+              delta={cmp?.total_votes ? { value: cmp.total_votes.delta } : undefined}
             />
             <MetricCard title="Proposals" value={fmt(stats.total_proposals)} icon={TrendingUp}
               tooltip="Total governance proposals tracked."
+              delta={cmp?.total_proposals ? { value: cmp.total_proposals.delta } : undefined}
             />
             <MetricCard title="Rationales" value={fmt(stats.total_rationales)} icon={Shield}
               tooltip="Total vote rationale documents fetched from DRep metadata URLs."
+              delta={cmp?.total_rationales ? { value: cmp.total_rationales.delta } : undefined}
             />
             <MetricCard title="Snapshots" value={fmt(stats.total_power_snapshots)} icon={Clock}
               tooltip="Total epoch-level voting power snapshots stored for DReps."
