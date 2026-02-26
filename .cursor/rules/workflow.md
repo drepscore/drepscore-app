@@ -44,6 +44,10 @@ Before any plan is finalized, answer:
 - **Post-push**: After pushing, check deployment status. Use Vercel CLI (`vercel inspect` or `vercel logs`) if available, or monitor the build output. If the deploy fails, fix and re-push immediately without waiting for the user to report it.
 - **Self-resolve**: Build errors caused by your changes are your responsibility. Do not push known-broken code hoping it works in CI.
 
+## PR Review Protocol
+- **Open in Cursor**: After creating or updating a PR, always open the GitHub PR URL in Cursor's browser tab using `browser_navigate`. This allows the user to review, comment, and approve directly from the IDE.
+- **Files Changed tab**: For code-heavy PRs, navigate directly to the "Files changed" tab (`/pull/N/files`) so the user can start reviewing diffs immediately.
+
 ## Completion Protocol
 - Never mark a task complete without proving it works (query results, curl output, UI verification)
 - Check if something was learned during the build → update lessons.md
