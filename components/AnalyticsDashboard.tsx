@@ -363,6 +363,3 @@ function formatProposalType(type: string): string {
   };
   return map[type] || type;
 }
-
-// Re-export Radar for use in the RadarChart
-import { Radar } from 'recharts';
