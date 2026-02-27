@@ -13,11 +13,32 @@ import { classifyProposals } from '@/lib/alignment';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const BATCH_SIZE = 100;
-
 const SUMMARY_CONCURRENCY = 5;
+const KOIOS_FETCH_TIMEOUT_MS = 15_000;
+
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+function capMsg(msg: string, max = 2000): string {
+  return msg.length <= max ? msg : msg.slice(0, max - 14) + '...[truncated]';
+}
+
+async function withRetry<T>(fn: () => Promise<T>, label: string, retries = 1): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (attempt === retries) throw e;
+      console.warn(`[FastSync] ${label} attempt ${attempt + 1} failed: ${errMsg(e)}, retrying...`);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  throw new Error('unreachable');
+}
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -48,7 +69,7 @@ export async function GET(request: NextRequest) {
       .insert({ sync_type: 'fast', started_at: new Date().toISOString(), success: false })
       .select('id').single();
     syncLogId = logRow?.id ?? null;
-  } catch { /* best-effort */ }
+  } catch (_e) { console.warn('[FastSync] sync_log insert failed:', errMsg(_e)); }
 
   const errors: string[] = [];
   let proposalCount = 0;
@@ -63,7 +84,7 @@ export async function GET(request: NextRequest) {
     let openProposals: { txHash: string; index: number }[] = [];
 
     try {
-      const rawProposals = await fetchProposals();
+      const rawProposals = await withRetry(() => fetchProposals(), 'fetchProposals');
       const classified = classifyProposals(rawProposals);
 
       const proposalRows = [...new Map(
@@ -103,7 +124,7 @@ export async function GET(request: NextRequest) {
 
     if (openProposals.length > 0) {
       try {
-        const votesMap = await fetchVotesForProposals(openProposals);
+        const votesMap = await withRetry(() => fetchVotesForProposals(openProposals), 'fetchVotesForProposals');
         const voteRows: Record<string, unknown>[] = [];
 
         for (const [drepId, votes] of Object.entries(votesMap)) {
@@ -224,9 +245,24 @@ export async function GET(request: NextRequest) {
       console.warn('[FastSync] Push skipped:', err);
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errMsg(err);
     errors.push(`Unhandled: ${msg}`);
     console.error('[FastSync] Unhandled error:', msg);
+
+    // Write error to sync_log immediately — before finally cleanup — in case
+    // the function is about to be killed by Vercel's maxDuration limit.
+    if (syncLogId) {
+      try {
+        await supabase.from('sync_log').update({
+          finished_at: new Date().toISOString(),
+          duration_ms: Date.now() - startTime,
+          success: false,
+          error_message: capMsg(errors.join('; ')),
+          metrics: { proposals_synced: proposalCount, votes_synced: voteCount, push_sent: pushSent },
+        }).eq('id', syncLogId);
+        syncLogId = null; // prevent double-write in finally
+      } catch (_e) { console.warn('[FastSync] sync_log emergency write failed:', errMsg(_e)); }
+    }
   } finally {
     const durationMs = Date.now() - startTime;
     const duration = (durationMs / 1000).toFixed(1);
@@ -242,16 +278,16 @@ export async function GET(request: NextRequest) {
           finished_at: new Date().toISOString(),
           duration_ms: durationMs,
           success,
-          error_message: errors.length > 0 ? errors.join('; ') : null,
+          error_message: errors.length > 0 ? capMsg(errors.join('; ')) : null,
           metrics,
         }).eq('id', syncLogId);
-      } catch { /* best-effort */ }
+      } catch (_e) { console.warn('[FastSync] sync_log finalize failed:', errMsg(_e)); }
     }
 
     try {
       const { captureServerEvent } = await import('@/lib/posthog-server');
       captureServerEvent(success ? 'sync_completed' : 'sync_failed', { sync_type: 'fast', duration_ms: durationMs, ...metrics });
-    } catch { /* posthog optional */ }
+    } catch (_e) { /* posthog optional */ }
 
     return NextResponse.json({
       success,

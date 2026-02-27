@@ -1,0 +1,20 @@
+{
+  "name": "drepscore-analytics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "observable preview",
+    "build": "observable build",
+    "deploy": "observable deploy",
+    "clean": "observable clean"
+  },
+  "dependencies": {
+    "@observablehq/framework": "^1.13.0",
+    "dotenv": "^17.3.1",
+    "postgres": "^3.4.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
