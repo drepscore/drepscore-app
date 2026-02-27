@@ -98,6 +98,14 @@ interface SupabaseRationaleRow {
 
 const BATCH_SIZE = 100;
 const RATIONALE_FETCH_TIMEOUT_MS = 5000;
+
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+function capMsg(msg: string, max = 2000): string {
+  return msg.length <= max ? msg : msg.slice(0, max - 14) + '...[truncated]';
+}
 const RATIONALE_MAX_CONTENT_SIZE = 50000;
 const RATIONALE_CONCURRENCY = 8;
 const RATIONALE_MAX_PER_SYNC = 200;
@@ -293,7 +301,7 @@ export async function GET(request: NextRequest) {
       .insert({ sync_type: 'full', started_at: new Date().toISOString(), success: false })
       .select('id').single();
     syncLogId = logRow?.id ?? null;
-  } catch { /* sync_log write is best-effort */ }
+  } catch (_e) { console.warn('[Sync] sync_log insert failed:', errMsg(_e)); }
 
   async function finalizeSyncLog(success: boolean, errorMessage: string | null, metrics: Record<string, unknown>) {
     if (!syncLogId) return;
@@ -302,17 +310,25 @@ export async function GET(request: NextRequest) {
         finished_at: new Date().toISOString(),
         duration_ms: Date.now() - startTime,
         success,
-        error_message: errorMessage,
+        error_message: errorMessage ? capMsg(errorMessage) : null,
         metrics,
       }).eq('id', syncLogId);
-    } catch { /* best-effort */ }
+    } catch (_e) { console.warn('[Sync] sync_log finalize failed:', errMsg(_e)); }
   }
 
   const syncErrors: string[] = [];
+  const phaseTiming: Record<string, number> = {};
+  let drepResult = { success: 0, errors: 0 };
+  let voteResult = { success: 0, errors: 0 };
+  let proposalResult = { success: 0, errors: 0 };
+  let pushSent = 0;
+
+  try { // ── Outer try/finally to guarantee finalizeSyncLog runs ──
 
   // ═══ PHASE 1: Parallel Koios fetches ═══════════════════════════════════════
   // Fetch proposals + bulk votes in parallel (the two heaviest API calls)
 
+  const phase1Start = Date.now();
   let classifiedProposalsList: ClassifiedProposal[] = [];
   const proposalContextMap = new Map<string, ProposalContext>();
   let bulkVotesMap: Record<string, DRepVote[]> = {};
@@ -347,9 +363,11 @@ export async function GET(request: NextRequest) {
     syncErrors.push(`Bulk votes: ${msg}`);
     console.warn('[Sync] Bulk vote fetch failed, falling back to per-DRep:', msg);
   }
+  phaseTiming.phase1_ms = Date.now() - phase1Start;
 
   // ═══ PHASE 2: Enrich DReps (uses pre-fetched votes) ═══════════════════════
 
+  const phase2Start = Date.now();
   let allDReps;
   let rawVotesMap: Record<string, DRepVote[]> | undefined;
 
@@ -371,6 +389,7 @@ export async function GET(request: NextRequest) {
     allDReps = result.allDReps;
     rawVotesMap = result.rawVotesMap as Record<string, DRepVote[]> | undefined;
     console.log(`[Sync] Enriched ${allDReps.length} DReps`);
+    phaseTiming.phase2_ms = Date.now() - phase2Start;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown';
     syncErrors.push(`DRep enrichment: ${msg}`);
@@ -445,7 +464,8 @@ export async function GET(request: NextRequest) {
 
   console.log(`[Sync] Upserting ${drepRows.length} DReps, ${dedupedVoteRows.length} votes, ${proposalRows.length} proposals in parallel...`);
 
-  const [drepResult, voteResult, proposalResult] = await Promise.all([
+  const phase3Start = Date.now();
+  [drepResult, voteResult, proposalResult] = await Promise.all([
     batchUpsert(supabase, 'dreps', drepRows as unknown as Record<string, unknown>[], 'id', 'DReps'),
     dedupedVoteRows.length > 0
       ? batchUpsert(supabase, 'drep_votes', dedupedVoteRows as unknown as Record<string, unknown>[], 'vote_tx_hash', 'Votes')
@@ -455,9 +475,12 @@ export async function GET(request: NextRequest) {
       : Promise.resolve({ success: 0, errors: 0 }),
   ]);
 
+  phaseTiming.phase3_ms = Date.now() - phase3Start;
+
   // ═══ PHASE 4: Parallel secondary operations ═══════════════════════════════
   // Delegator counts, power snapshots, alignment scores, score history
 
+  const phase4Start = Date.now();
   const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
 
   const phase4Results = await Promise.allSettled([
@@ -553,12 +576,18 @@ export async function GET(request: NextRequest) {
   ]);
 
   for (const r of phase4Results) {
-    if (r.status === 'rejected') console.error('[Sync] Phase 4 error:', r.reason);
+    if (r.status === 'rejected') {
+      const msg = errMsg(r.reason);
+      syncErrors.push(`Phase4: ${msg}`);
+      console.error('[Sync] Phase 4 error:', msg);
+    }
   }
+  phaseTiming.phase4_ms = Date.now() - phase4Start;
 
   // ═══ PHASE 5: Parallel slow operations ════════════════════════════════════
   // Rationale fetching, AI summaries, social link checks, vote power backfill
 
+  const phase5Start = Date.now();
   const phase5Results = await Promise.allSettled([
     // Rationale pipeline: inline + URL-based
     (async () => {
@@ -703,7 +732,7 @@ export async function GET(request: NextRequest) {
           clearTimeout(timeout);
           httpStatus = res.status;
           status = res.ok ? 'valid' : 'broken';
-        } catch { /* stays broken */ }
+        } catch (_e) { /* stays broken */ }
 
         await supabase.from('social_link_checks').upsert({
           drep_id: link.drep_id, uri: link.uri, status, http_status: httpStatus,
@@ -868,7 +897,7 @@ export async function GET(request: NextRequest) {
             .update({ hash_verified: matches })
             .eq('vote_tx_hash', row.vote_tx_hash);
           if (matches) verified++; else failed++;
-        } catch { /* skip on error */ }
+        } catch (_e) { /* skip on error */ }
       }
       console.log(`[Sync] Hash verification: ${verified} verified, ${failed} mismatch, ${noHash} no hash`);
     })(),
@@ -953,15 +982,20 @@ export async function GET(request: NextRequest) {
             .update({ metadata_hash_verified: matches })
             .eq('id', id);
           if (matches) verified++; else failed++;
-        } catch { /* skip */ }
+        } catch (_e) { /* skip */ }
       }
       if (verified + failed > 0) console.log(`[Sync] DRep metadata hash: ${verified} verified, ${failed} mismatch, ${noData} no anchor`);
     })(),
   ]);
 
   for (const r of phase5Results) {
-    if (r.status === 'rejected') console.error('[Sync] Phase 5 error:', r.reason);
+    if (r.status === 'rejected') {
+      const msg = errMsg(r.reason);
+      syncErrors.push(`Phase5: ${msg}`);
+      console.error('[Sync] Phase 5 error:', msg);
+    }
   }
+  phaseTiming.phase5_ms = Date.now() - phase5Start;
 
   // ═══ PHASE 5b: Integrity snapshot ═════════════════════════════════════════
   try {
@@ -1005,7 +1039,6 @@ export async function GET(request: NextRequest) {
 
   // ═══ PHASE 6: Push notifications ══════════════════════════════════════════
 
-  let pushSent = 0;
   try {
     if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       const { getProposalPriority } = await import('@/utils/proposalPriority');
@@ -1055,6 +1088,7 @@ export async function GET(request: NextRequest) {
     votes_synced: voteResult.success, vote_errors: voteResult.errors,
     proposals_synced: proposalResult.success, proposal_errors: proposalResult.errors,
     push_sent: pushSent,
+    ...phaseTiming,
   };
 
   await finalizeSyncLog(
@@ -1063,12 +1097,39 @@ export async function GET(request: NextRequest) {
     metrics,
   );
 
+  // Trigger analytics dashboard rebuild via Vercel Redeploy API (best-effort)
+  if (success && process.env.VERCEL_ANALYTICS_TOKEN && process.env.VERCEL_ANALYTICS_PROJECT_ID) {
+    try {
+      const teamId = process.env.VERCEL_TEAM_ID || '';
+      const projectId = process.env.VERCEL_ANALYTICS_PROJECT_ID;
+      const token = process.env.VERCEL_ANALYTICS_TOKEN;
+      const teamQuery = teamId ? `&teamId=${teamId}` : '';
+
+      const listRes = await fetch(
+        `https://api.vercel.com/v6/deployments?projectId=${projectId}&target=production&limit=1${teamQuery}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const listData = await listRes.json() as { deployments?: { uid: string }[] };
+      const latestUid = listData.deployments?.[0]?.uid;
+
+      if (latestUid) {
+        const redeployRes = await fetch(
+          `https://api.vercel.com/v13/deployments/${latestUid}/redeploy${teamQuery ? `?${teamQuery.slice(1)}` : ''}`,
+          { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ target: 'production' }) }
+        );
+        console.log(`[Sync] Analytics rebuild triggered: ${redeployRes.status}`);
+      } else {
+        console.warn('[Sync] Analytics rebuild skipped: no production deployment found');
+      }
+    } catch (_e) { console.warn('[Sync] Analytics rebuild failed:', errMsg(_e)); }
+  }
+
   try {
     const { captureServerEvent } = await import('@/lib/posthog-server');
     captureServerEvent(success ? 'sync_completed' : 'sync_failed', {
       sync_type: 'full', duration_ms: Date.now() - startTime, ...metrics,
     });
-  } catch { /* posthog optional */ }
+  } catch (_e) { /* posthog optional */ }
 
   return NextResponse.json({
     success,
@@ -1078,4 +1139,19 @@ export async function GET(request: NextRequest) {
     durationSeconds: duration,
     timestamp: new Date().toISOString(),
   }, { status: success ? 200 : 207 });
+
+  } catch (outerErr) {
+    // Catch-all: guarantees sync_log is finalized even on unexpected throws
+    const msg = errMsg(outerErr);
+    syncErrors.push(`Fatal: ${msg}`);
+    console.error('[Sync] Fatal unhandled error:', msg);
+
+    await finalizeSyncLog(false, capMsg(syncErrors.join('; ')), { ...phaseTiming });
+
+    return NextResponse.json({
+      success: false,
+      error: msg,
+      durationSeconds: ((Date.now() - startTime) / 1000).toFixed(1),
+    }, { status: 500 });
+  }
 }
