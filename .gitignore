@@ -27,6 +27,7 @@ response.json
 
 # local IDE settings
 .vscode/
+.cursor/mcp.json
 
 # debug
 npm-debug.log*
