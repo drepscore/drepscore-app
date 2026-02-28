@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DRepVote } from '@/types/koios';
 import { blockTimeToEpoch } from '@/lib/koios';
-import { fetchAllVotesBulk } from '@/utils/koios';
+import { fetchAllVotesBulk, resetKoiosMetrics, getKoiosMetrics } from '@/utils/koios';
 import {
   authorizeCron,
   initSupabase,
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
 
   const logger = new SyncLogger(supabase, 'votes');
   await logger.start();
+  resetKoiosMetrics();
 
   let votesSynced = 0;
   let reconciled = 0;
@@ -151,7 +152,7 @@ export async function GET(request: NextRequest) {
 
     // ── Finalize ────────────────────────────────────────────────────────────
 
-    const metrics = { votes_synced: votesSynced, reconciled };
+    const metrics = { votes_synced: votesSynced, reconciled, ...getKoiosMetrics() };
     await logger.finalize(true, null, metrics);
     await emitPostHog(true, 'votes', logger.elapsed, metrics);
 

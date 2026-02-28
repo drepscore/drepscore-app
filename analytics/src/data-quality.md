@@ -114,17 +114,28 @@ const syncTypeFilter = view(Inputs.select(
 ```
 
 ```js
+function primaryMetric(d) {
+  const m = d.metrics || {};
+  switch (d.sync_type) {
+    case "dreps": case "full": return m.dreps_synced != null ? `${m.dreps_synced} DReps` : "—";
+    case "votes": return m.votes_synced != null ? `${m.votes_synced} votes` : "—";
+    case "proposals": case "fast": return m.proposals_synced != null ? `${m.proposals_synced} proposals` : "—";
+    case "secondary": return [m.delegators_updated && `${m.delegators_updated} delegators`, m.power_snapshots && `${m.power_snapshots} power`].filter(Boolean).join(", ") || "—";
+    case "slow": return [m.rationales_fetched && `${m.rationales_fetched} rationales`, m.ai_proposal_summaries && `${m.ai_proposal_summaries} AI`].filter(Boolean).join(", ") || "—";
+    default: return "—";
+  }
+}
+
 const filteredSyncs = (syncTypeFilter === "All" ? syncHealth : syncHealth.filter(d => d.sync_type === syncTypeFilter))
   .sort((a, b) => b.started_at.localeCompare(a.started_at))
-  .slice(0, 30)
+  .slice(0, 40)
   .map(d => ({
     Type: d.sync_type,
     Started: new Date(d.started_at).toLocaleString(),
     Duration: d.duration_ms != null
       ? (d.duration_ms < 60000 ? `${(d.duration_ms / 1000).toFixed(1)}s` : `${(d.duration_ms / 60000).toFixed(1)}m`)
       : "—",
-    "DReps Synced": d.metrics?.dreps_synced ?? "—",
-    "Handles": d.metrics?.handles_resolved ?? "—",
+    Metrics: primaryMetric(d),
     Status: d.success,
     Error: d.error_message || "—",
   }));
@@ -133,7 +144,7 @@ const filteredSyncs = (syncTypeFilter === "All" ? syncHealth : syncHealth.filter
 ```js
 filteredSyncs.length > 0
   ? Inputs.table(filteredSyncs, {
-      columns: ["Type", "Started", "Duration", "DReps Synced", "Handles", "Status", "Error"],
+      columns: ["Type", "Started", "Duration", "Metrics", "Status", "Error"],
       format: {
         Status: d => d
           ? html`<span class="badge badge-green">Success</span>`
@@ -143,7 +154,7 @@ filteredSyncs.length > 0
           ? html`<span style="color:var(--theme-foreground-muted)">—</span>`
           : html`<span style="color:#ef4444;font-size:0.8rem;max-width:350px;display:inline-block;white-space:normal;word-break:break-word" title="${d}">${d.length > 120 ? d.slice(0, 120) + "…" : d}</span>`,
       },
-      width: { Error: 380 },
+      width: { Error: 350 },
       rows: 20,
     })
   : html`<div class="empty-state"><strong>No sync logs</strong>The sync_log table is empty.</div>`
@@ -151,13 +162,17 @@ filteredSyncs.length > 0
 
 ## Sync performance over time
 
+*Duration per sync job — failed runs are circled in red. Faceted by sync type.*
+
 ```js
-const syncTimeline = syncHealth.map(d => ({
-  date: new Date(d.started_at),
-  duration_s: (d.duration_ms ?? 0) / 1000,
-  type: d.sync_type,
-  success: d.success,
-}));
+const syncTimeline = syncHealth
+  .filter(d => d.sync_type !== "integrity_check")
+  .map(d => ({
+    date: new Date(d.started_at),
+    duration_s: (d.duration_ms ?? 0) / 1000,
+    type: d.sync_type,
+    success: d.success,
+  }));
 ```
 
 ```js
@@ -169,6 +184,7 @@ syncTimeline.length > 0
       x: { label: null, type: "utc" },
       y: { label: "↑ Duration (seconds)", grid: true },
       color: { legend: true, label: "Sync Type" },
+      symbol: { legend: false },
       marks: [
         Plot.dot(syncTimeline, {
           x: "date", y: "duration_s", fill: "type",
@@ -178,6 +194,7 @@ syncTimeline.length > 0
           fillOpacity: 0.7,
           tip: true,
           channels: {
+            Type: "type",
             Duration: d => `${d.duration_s.toFixed(1)}s`,
             Result: d => d.success ? "Success" : "FAILED",
           },
@@ -185,6 +202,45 @@ syncTimeline.length > 0
       ]
     })
   : html`<div class="empty-state">No sync data to chart.</div>`
+```
+
+## Sync reliability by type
+
+*Success vs failure counts per sync type over the last 7 days.*
+
+```js
+const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+const recentSyncs = syncHealth
+  .filter(d => d.sync_type !== "integrity_check" && new Date(d.started_at) >= sevenDaysAgo);
+
+const reliabilityData = [...new Set(recentSyncs.map(d => d.sync_type))].flatMap(type => {
+  const ofType = recentSyncs.filter(d => d.sync_type === type);
+  return [
+    { type, result: "Success", count: ofType.filter(d => d.success).length },
+    { type, result: "Failed", count: ofType.filter(d => !d.success).length },
+  ];
+});
+```
+
+```js
+reliabilityData.length > 0
+  ? Plot.plot({
+      height: 260,
+      marginLeft: 80,
+      marginBottom: 30,
+      style: { fontSize: "12px" },
+      x: { label: "Count (last 7 days)", grid: true },
+      y: { label: null },
+      color: { domain: ["Success", "Failed"], range: ["#10b981", "#ef4444"], legend: true },
+      marks: [
+        Plot.barX(reliabilityData, {
+          x: "count", y: "type", fill: "result",
+          tip: true,
+        }),
+        Plot.ruleX([0]),
+      ]
+    })
+  : html`<div class="empty-state">No recent sync data.</div>`
 ```
 
 ## Coverage gaps
@@ -230,29 +286,30 @@ const handleCoverage = dreps.length > 0 ? (handleCount / dreps.length * 100) : 0
 
 ## Data freshness
 
-*How recently was each DRep's data updated? Hover bars for details.*
+*How recently was each DRep's data updated? DRep sync runs every 6 hours — stale threshold is 12h (2 missed cycles).*
 
 ```js
 const now = Date.now();
 const staleness = dreps.map(d => {
   const updatedMs = new Date(d.updated_at).getTime();
   const hoursAgo = (now - updatedMs) / (1000 * 60 * 60);
-  return { ...d, hoursAgo, stale: hoursAgo > 48 };
+  return { ...d, hoursAgo, stale: hoursAgo > 12 };
 });
 const staleCount = staleness.filter(d => d.stale).length;
 const medianFreshness = d3.median(staleness, d => d.hoursAgo);
+function freshnessColor(h) { return h == null ? "var(--theme-foreground-muted)" : h < 6 ? "#10b981" : h < 12 ? "#f59e0b" : "#ef4444"; }
 ```
 
 <div class="kpi-row cols-3">
   <div class="kpi">
-    <span class="kpi-label">Stale DReps (&gt;48h)</span>
+    <span class="kpi-label">Stale DReps (&gt;12h)</span>
     <span class="kpi-value" style="color:${staleCount > 0 ? '#ef4444' : '#10b981'}">${staleCount}</span>
     <span class="kpi-sub">of ${dreps.length} total</span>
     <div class="kpi-bar" style="background:${staleCount > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}"></div>
   </div>
   <div class="kpi">
     <span class="kpi-label">Median Freshness</span>
-    <span class="kpi-value">${medianFreshness != null ? medianFreshness.toFixed(1) : "—"}h</span>
+    <span class="kpi-value" style="color:${freshnessColor(medianFreshness)}">${medianFreshness != null ? medianFreshness.toFixed(1) : "—"}h</span>
     <span class="kpi-sub">hours since last update</span>
   </div>
   <div class="kpi">
@@ -272,17 +329,19 @@ Plot.plot({
   marks: [
     Plot.rectY(staleness, Plot.binX({ y: "count" }, {
       x: "hoursAgo", thresholds: 24,
-      fill: d => d.hoursAgo > 48 ? "#ef4444" : d.hoursAgo > 24 ? "#f59e0b" : "#10b981",
+      fill: d => d.hoursAgo > 12 ? "#ef4444" : d.hoursAgo > 8 ? "#f59e0b" : "#10b981",
       fillOpacity: 0.75,
       tip: true,
     })),
     Plot.ruleY([0]),
-    Plot.ruleX([48], { stroke: "#ef4444", strokeDasharray: "6,4", strokeWidth: 1.5 }),
-    Plot.text([{ x: 48 }], { x: "x", text: () => "48h threshold", dy: -10, fill: "#ef4444", fontSize: 11 }),
+    Plot.ruleX([6], { stroke: "#10b981", strokeDasharray: "6,4", strokeWidth: 1.5 }),
+    Plot.text([{ x: 6 }], { x: "x", text: () => "6h target", dy: -10, fill: "#10b981", fontSize: 11 }),
+    Plot.ruleX([12], { stroke: "#ef4444", strokeDasharray: "6,4", strokeWidth: 1.5 }),
+    Plot.text([{ x: 12 }], { x: "x", text: () => "12h stale", dy: -10, fill: "#ef4444", fontSize: 11 }),
   ]
 })
 ```
 
 <div class="tip-box">
-  <strong>Insight:</strong> Stale DRep data means scores may not reflect recent voting activity. If many DReps are beyond 48h, check the sync operations table above for errors.
+  <strong>Insight:</strong> DRep sync runs every 6 hours. If many DReps exceed 12h, that means at least 2 consecutive sync cycles have failed — check the sync operations and reliability charts above.
 </div>

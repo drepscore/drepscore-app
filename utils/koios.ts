@@ -21,6 +21,19 @@ const KOIOS_API_KEY = process.env.KOIOS_API_KEY;
 // Hard timeout per Koios request — prevents a hung connection from consuming the full function budget
 const KOIOS_REQUEST_TIMEOUT_MS = 20_000;
 
+let _koiosCallCount = 0;
+let _koiosTotalMs = 0;
+let _koiosSlowestMs = 0;
+
+export function resetKoiosMetrics() { _koiosCallCount = 0; _koiosTotalMs = 0; _koiosSlowestMs = 0; }
+export function getKoiosMetrics() {
+  return {
+    koios_calls: _koiosCallCount,
+    koios_latency_ms: _koiosCallCount > 0 ? Math.round(_koiosTotalMs / _koiosCallCount) : 0,
+    koios_slowest_ms: _koiosSlowestMs,
+  };
+}
+
 /**
  * Base fetch wrapper with per-request timeout, cache bypass, and rate-limit retry.
  * Always fetches fresh (cache: no-store) — callers are sync paths that require live data.
@@ -55,9 +68,13 @@ async function koiosFetch<T>(
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
+    const elapsed = Date.now() - startTime;
+    _koiosCallCount++;
+    _koiosTotalMs += elapsed;
+    if (elapsed > _koiosSlowestMs) _koiosSlowestMs = elapsed;
 
     if (isDev) {
-      console.log(`[Koios] ${endpoint} completed in ${Date.now() - startTime}ms`);
+      console.log(`[Koios] ${endpoint} completed in ${elapsed}ms`);
     }
 
     if (!response.ok) {

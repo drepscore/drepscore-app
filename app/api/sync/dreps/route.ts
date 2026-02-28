@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnrichedDReps } from '@/lib/koios';
-import { fetchProposals, resolveADAHandles } from '@/utils/koios';
+import { fetchProposals, resolveADAHandles, resetKoiosMetrics, getKoiosMetrics } from '@/utils/koios';
 import { classifyProposals, computeAllCategoryScores } from '@/lib/alignment';
 import { authorizeCron, initSupabase, SyncLogger, batchUpsert, errMsg, emitPostHog } from '@/lib/sync-utils';
 import type { ClassifiedProposal } from '@/types/koios';
@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
 
   const logger = new SyncLogger(supabase, 'dreps');
   await logger.start();
+  resetKoiosMetrics();
 
   const syncErrors: string[] = [];
   const phaseTiming: Record<string, number> = {};
@@ -215,6 +216,7 @@ export async function GET(request: NextRequest) {
       drep_errors: drepResult.errors,
       handles_resolved: handlesResolved,
       ...phaseTiming,
+      ...getKoiosMetrics(),
     };
 
     await logger.finalize(success, syncErrors.length > 0 ? syncErrors.join('; ') : null, metrics);

@@ -20,17 +20,12 @@ const rationaleCoverage = activeDreps.length > 0
   ? ((activeDreps.length - zeroRationale) / activeDreps.length * 100)
   : 0;
 
-const lastSync = syncHealth.length
-  ? new Date(syncHealth.sort((a, b) => new Date(b.finished_at) - new Date(a.finished_at))[0].finished_at)
-  : null;
-
-function timeSince(date) {
-  if (!date) return "Unknown";
-  const mins = Math.round((Date.now() - date.getTime()) / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
-  return `${Math.round(mins / 1440)}d ago`;
-}
+const medianFreshnessHours = d3.median(dreps, d => {
+  const ua = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+  return ua ? (Date.now() - ua) / 3600000 : null;
+});
+function freshnessColor(h) { return h == null ? "var(--theme-foreground-muted)" : h < 6 ? "#10b981" : h < 12 ? "#f59e0b" : "#ef4444"; }
+function freshnessLabel(h) { return h == null ? "—" : h < 1 ? `${Math.round(h * 60)}m` : `${h.toFixed(1)}h`; }
 function scoreColor(v) { return v >= 60 ? "#10b981" : v >= 30 ? "#f59e0b" : "#ef4444"; }
 function scoreTier(v) { return v >= 60 ? "good" : v >= 30 ? "warn" : "bad"; }
 function formatAda(v) {
@@ -95,9 +90,9 @@ const scoreDelta = prevAvgScore != null ? latestAvgScore - prevAvgScore : null;
   </div>
   <div class="kpi">
     <span class="kpi-label">Data Freshness</span>
-    <span class="kpi-value">${timeSince(lastSync)}</span>
-    <span class="kpi-sub">last sync completed · ${snapDates.length} score snapshots</span>
-    <div class="kpi-bar" style="background: var(--accent)"></div>
+    <span class="kpi-value" style="color: ${freshnessColor(medianFreshnessHours)}">${freshnessLabel(medianFreshnessHours)}</span>
+    <span class="kpi-sub">median DRep age · ${snapDates.length} score snapshots</span>
+    <div class="kpi-bar" style="background: ${freshnessColor(medianFreshnessHours)}"></div>
   </div>
 </div>
 
