@@ -165,7 +165,7 @@ export function GovernanceInboxWidget({ drepId }: { drepId: string }) {
         )}
 
         <Link
-          href="/dashboard/inbox"
+          href={`/dashboard/inbox?drepId=${encodeURIComponent(drepId)}`}
           onClick={() => {
             try { posthog?.capture('inbox_widget_cta_clicked', { drepId, pendingCount: data.pendingCount }); } catch {}
           }}

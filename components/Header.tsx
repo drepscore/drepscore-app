@@ -81,7 +81,10 @@ export function Header() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 8)}...${addr.slice(-6)}`;
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  const isActive = (href: string) => {
+    if (href === '/dashboard') return pathname === '/dashboard';
+    return pathname === href || pathname.startsWith(href + '/');
+  };
   const navLinkClass = (href: string) =>
     `hidden sm:flex items-center gap-1 text-sm transition-colors ${
       isActive(href) ? 'font-medium text-primary' : 'text-muted-foreground hover:text-foreground'
@@ -119,6 +122,8 @@ export function Header() {
       .catch(() => {});
   }, [ownDRepId]);
 
+  const showInbox = ownDRepId || isAdmin;
+
   useEffect(() => {
     const handler = () => setWalletModalOpen(true);
     window.addEventListener('openWalletConnect', handler);
@@ -153,8 +158,8 @@ export function Header() {
               <span>DRep Dashboard</span>
             </Link>
           )}
-          {ownDRepId && (
-            <Link href="/dashboard/inbox" className={navLinkClass('/dashboard/inbox')}>
+          {showInbox && (
+            <Link href={ownDRepId ? `/dashboard/inbox?drepId=${encodeURIComponent(ownDRepId)}` : '/dashboard/inbox'} className={navLinkClass('/dashboard/inbox')}>
               <Inbox className="h-4 w-4" />
               <span>Inbox</span>
               {inboxCount > 0 && (
@@ -272,7 +277,7 @@ export function Header() {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/dashboard/inbox" className="cursor-pointer">
+                        <Link href={ownDRepId ? `/dashboard/inbox?drepId=${encodeURIComponent(ownDRepId)}` : '/dashboard/inbox'} className="cursor-pointer">
                           <Inbox className="h-4 w-4 mr-2" />
                           Governance Inbox
                         </Link>

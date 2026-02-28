@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { posthog } from '@/lib/posthog';
 import { useWallet } from '@/utils/wallet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -107,7 +108,17 @@ interface DRepListItem {
 }
 
 export default function InboxPage() {
+  return (
+    <Suspense fallback={<InboxSkeleton />}>
+      <InboxPageInner />
+    </Suspense>
+  );
+}
+
+function InboxPageInner() {
   const { connected, isAuthenticated, reconnecting, ownDRepId, sessionAddress, address, connecting } = useWallet();
+  const searchParams = useSearchParams();
+  const urlDRepId = searchParams.get('drepId');
   const [data, setData] = useState<InboxData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>('priority');
@@ -116,7 +127,7 @@ export default function InboxPage() {
   const [selectedProposal, setSelectedProposal] = useState<PendingProposal | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [selectedDRepId, setSelectedDRepId] = useState<string | null>(null);
+  const [selectedDRepId, setSelectedDRepId] = useState<string | null>(urlDRepId);
   const [drepList, setDrepList] = useState<DRepListItem[]>([]);
 
   const adminCheckAddress = sessionAddress || address;
