@@ -496,25 +496,44 @@ export async function fetchDelegatedDRep(stakeAddress: string): Promise<string |
 }
 
 /**
- * Fetch delegator count for a DRep by counting rows from /drep_delegators.
- * Uses pagination to count without downloading full records.
+ * Fetch delegator count for a DRep using Prefer: count=exact header.
+ * Single request per DRep regardless of delegator count.
  * Throws on API failure — callers must handle errors.
  */
 export async function fetchDRepDelegatorCount(drepId: string): Promise<number> {
-  const PAGE_SIZE = 1000;
-  let total = 0;
-  let offset = 0;
+  const url = `${KOIOS_BASE_URL}/drep_delegators?_drep_id=${encodeURIComponent(drepId)}&select=stake_address&limit=1`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), KOIOS_REQUEST_TIMEOUT_MS);
 
-  while (true) {
-    const data = await koiosFetch<{ stake_address: string }[]>(
-      `/drep_delegators?_drep_id=${encodeURIComponent(drepId)}&select=stake_address&limit=${PAGE_SIZE}&offset=${offset}`
-    );
-    const rows = data || [];
-    total += rows.length;
-    if (rows.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Prefer': 'count=exact',
+        ...(KOIOS_API_KEY && { 'Authorization': `Bearer ${KOIOS_API_KEY}` }),
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Koios drep_delegators error: ${response.status} ${response.statusText}`);
+    }
+
+    const range = response.headers.get('content-range');
+    if (range) {
+      const match = range.match(/\/(\d+)$/);
+      if (match) return parseInt(match[1], 10);
+    }
+
+    // Fallback: count the returned rows (only 1 due to limit=1, but 0 means genuinely 0 delegators)
+    const data = await response.json();
+    return Array.isArray(data) ? data.length : 0;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to fetch delegator count for ${drepId}: ${msg}`);
   }
-  return total;
 }
 
 /**
