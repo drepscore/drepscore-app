@@ -12,7 +12,8 @@ export type EventType =
   | 'urgent-deadline'
   | 'delegation-change'
   | 'critical-proposal-open'
-  | 'profile-view';
+  | 'profile-view'
+  | 'api-health-alert';
 
 export type Channel = 'push' | 'discord' | 'telegram';
 
@@ -40,6 +41,8 @@ async function sendDiscordWebhook(
   try {
     const color = event.eventType === 'urgent-deadline' || event.eventType === 'critical-proposal-open'
       ? 0xff4444
+      : event.eventType === 'api-health-alert'
+      ? 0xf59e0b
       : event.eventType === 'score-change'
       ? 0x22c55e
       : 0x3b82f6;

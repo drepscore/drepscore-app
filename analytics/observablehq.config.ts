@@ -410,6 +410,7 @@ figure[class*="plot"] {
       open: false,
       pages: [
         { name: "Data Quality", path: "/data-quality" },
+        { name: "API Analytics", path: "/api-analytics" },
       ],
     },
   ],

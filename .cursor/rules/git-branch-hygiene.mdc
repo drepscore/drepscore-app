@@ -1,0 +1,31 @@
+---
+description: Git branch and deployment safety rules to prevent cross-branch file leakage
+alwaysApply: true
+---
+
+# Git Branch Hygiene
+
+## Cross-Branch File Leakage
+
+Untracked/modified files persist across `git checkout`. The pre-push hook builds ALL files in the working directory, not just committed ones.
+
+**Before pushing to `main`:**
+1. Run `git status --short` and check for untracked files from other branches
+2. If untracked files exist: `git stash --include-untracked` before push, `git stash pop` after
+3. If using `--keep-index` to isolate staged changes, always restore with `git stash pop` afterward
+
+**Never push to `main` with a dirty working tree** — the build will pick up uncommitted files and either fail (type errors) or ship unintended code.
+
+## Analytics Loaders
+
+All `analytics/src/data/*.json.ts` files query Postgres directly. When adding or modifying loaders:
+- Verify column names against the actual DB schema (use Supabase MCP `execute_sql`)
+- Use conditional env loading: `if (existsSync(envPath)) process.loadEnvFile(envPath)`
+- `notification_log` uses `sent_at` (not `created_at`)
+- `drep_votes` primary key is `vote_tx_hash` (no `id` column), epoch column is `epoch_no`
+
+## Deployment
+
+- Production deploys from `main` via Vercel Git integration
+- The `analytics` Vercel project uses root directory `analytics/` and framework preset "Other"
+- Both `dreps` and `votes` sync routes fire `ANALYTICS_DEPLOY_HOOK` after successful sync
