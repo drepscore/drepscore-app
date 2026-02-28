@@ -103,3 +103,24 @@ export async function emitPostHog(success: boolean, syncType: SyncType, duration
     });
   } catch (_e) { /* posthog optional */ }
 }
+
+/**
+ * Triggers a Vercel deploy hook for the analytics dashboard.
+ * Fire-and-forget — never throws, only logs warnings on failure.
+ * Waits 5s before firing to let sync_log writes settle in the DB.
+ */
+export async function triggerAnalyticsDeploy(syncType: SyncType): Promise<void> {
+  const hook = process.env.ANALYTICS_DEPLOY_HOOK;
+  if (!hook) return;
+  try {
+    await new Promise(r => setTimeout(r, 5000));
+    const res = await fetch(hook, { method: 'POST' });
+    if (res.ok) {
+      console.log(`[${syncType}] Analytics deploy hook triggered (${res.status})`);
+    } else {
+      console.warn(`[${syncType}] Analytics deploy hook returned ${res.status}`);
+    }
+  } catch (e) {
+    console.warn(`[${syncType}] Analytics deploy hook failed:`, errMsg(e));
+  }
+}

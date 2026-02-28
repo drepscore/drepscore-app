@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEnrichedDReps } from '@/lib/koios';
 import { fetchProposals, resolveADAHandles, resetKoiosMetrics, getKoiosMetrics } from '@/utils/koios';
 import { classifyProposals, computeAllCategoryScores } from '@/lib/alignment';
-import { authorizeCron, initSupabase, SyncLogger, batchUpsert, errMsg, emitPostHog } from '@/lib/sync-utils';
+import { authorizeCron, initSupabase, SyncLogger, batchUpsert, errMsg, emitPostHog, triggerAnalyticsDeploy } from '@/lib/sync-utils';
 import type { ClassifiedProposal } from '@/types/koios';
 import type { ProposalContext } from '@/utils/scoring';
 import { DRepVote } from '@/types/koios';
@@ -221,6 +221,7 @@ export async function GET(request: NextRequest) {
 
     await logger.finalize(success, syncErrors.length > 0 ? syncErrors.join('; ') : null, metrics);
     await emitPostHog(success, 'dreps', logger.elapsed, metrics);
+    triggerAnalyticsDeploy('dreps'); // fire-and-forget
 
     return NextResponse.json({
       success,

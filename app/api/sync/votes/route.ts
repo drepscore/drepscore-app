@@ -9,6 +9,7 @@ import {
   batchUpsert,
   errMsg,
   emitPostHog,
+  triggerAnalyticsDeploy,
 } from '@/lib/sync-utils';
 
 export const dynamic = 'force-dynamic';
@@ -155,6 +156,7 @@ export async function GET(request: NextRequest) {
     const metrics = { votes_synced: votesSynced, reconciled, ...getKoiosMetrics() };
     await logger.finalize(true, null, metrics);
     await emitPostHog(true, 'votes', logger.elapsed, metrics);
+    triggerAnalyticsDeploy('votes'); // fire-and-forget
 
     return NextResponse.json({
       success: true,
