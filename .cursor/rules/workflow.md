@@ -14,8 +14,10 @@ alwaysApply: true
 ## Planning Phase (Required for 3+ step tasks)
 1. Review `tasks/lessons.md` for patterns that appeared 2+ times — propose promoting to cursor rule before proceeding
 2. Apply first-principles checklist (see below)
-3. Write plan to `tasks/todo.md` with checkable items
-4. Every plan must include explicit **validation gates**: "After step N, validate X before proceeding"
+3. Write a plan document to `.cursor/plans/<feature-name>.plan.md` with: goals, approach, phases, affected files/systems, validation gates, and analytics considerations
+4. Write actionable checklist items to `tasks/todo.md`
+5. Every plan must include explicit **validation gates**: "After step N, validate X before proceeding"
+6. **Commit the plan to `main` before creating a worktree.** This is mandatory — the plan must be in the repo so the new worktree conversation can read it. Use commit message: `docs: plan for <feature>`
 
 ### First-Principles Checklist
 Before any plan is finalized, answer:

@@ -17,16 +17,22 @@ Each worktree has its own `node_modules`, `.env.local`, and `.next`. The git his
 
 ## Starting a Feature (Planning → Building)
 
-When transitioning from planning to building a feature:
+**A plan document MUST exist before creating a worktree.** The plan is the handoff — it's how the new conversation in the worktree window knows what to build.
 
-1. Create worktree from `drepscore-app`:
+Pre-flight checklist (all steps mandatory, in order):
+
+1. **Verify plan exists**: Confirm `.cursor/plans/<feature>.plan.md` is written and committed to `main`. If not, write and commit it first (`docs: plan for <feature>`).
+2. **Create worktree**:
    ```
    git worktree add ..\drepscore-<name> -b feature/<name>
    Copy-Item .env.local ..\drepscore-<name>\.env.local
    cd ..\drepscore-<name>; npm install
    ```
-2. Tell the user: "Open `C:\Users\dalto\drepscore\drepscore-<name>` in a new Cursor window and start a new conversation there to continue building."
-3. If a `.cursor/plans/` file was created during planning, reference it — it's already in the new worktree since it's committed to the repo.
+3. **Tell the user exactly what to do next**:
+   > Open `C:\Users\dalto\drepscore\drepscore-<name>` in a new Cursor window.
+   > Start a new conversation and say: "Build the plan in `.cursor/plans/<feature>.plan.md`"
+
+The plan file is already in the worktree because it was committed to main before the worktree was created. The new agent reads it and has full context.
 
 ## Branch Detection Guardrail
 
