@@ -902,47 +902,54 @@ export async function GET(request: NextRequest) {
       console.log(`[Sync] Hash verification: ${verified} verified, ${failed} mismatch, ${noHash} no hash`);
     })(),
 
-    // Vote count reconciliation (derive from drep_votes table)
+    // Vote count reconciliation (derived from in-memory bulkVotesMap — no per-DRep DB reads)
     (async () => {
       const drepIds = allDReps.map(d => d.drepId);
-      const batchSize = 200;
       let reconciled = 0;
 
-      for (let i = 0; i < drepIds.length; i += batchSize) {
-        const batch = drepIds.slice(i, i + batchSize);
-        for (const drepId of batch) {
-          const { data: votes } = await supabase.from('drep_votes')
-            .select('vote, proposal_tx_hash, proposal_index, block_time')
-            .eq('drep_id', drepId);
-          if (!votes?.length) continue;
-
-          // Deduplicate by proposal (latest vote wins)
-          const latestByProposal = new Map<string, { vote: string; block_time: number }>();
-          for (const v of votes) {
-            const key = `${v.proposal_tx_hash}-${v.proposal_index}`;
-            const existing = latestByProposal.get(key);
-            if (!existing || v.block_time > existing.block_time) {
-              latestByProposal.set(key, { vote: v.vote, block_time: v.block_time });
-            }
+      // Compute counts from bulkVotesMap already in memory (no extra drep_votes queries)
+      const computedCounts = new Map<string, { yes: number; no: number; abstain: number; total: number }>();
+      for (const drepId of drepIds) {
+        const votes = bulkVotesMap[drepId] || [];
+        const latestByProposal = new Map<string, { vote: string; block_time: number }>();
+        for (const v of votes) {
+          const key = `${v.proposal_tx_hash}-${v.proposal_index}`;
+          const cur = latestByProposal.get(key);
+          if (!cur || v.block_time > cur.block_time) {
+            latestByProposal.set(key, { vote: v.vote, block_time: v.block_time });
           }
+        }
+        const deduped = [...latestByProposal.values()];
+        computedCounts.set(drepId, {
+          yes: deduped.filter(v => v.vote === 'Yes').length,
+          no: deduped.filter(v => v.vote === 'No').length,
+          abstain: deduped.filter(v => v.vote === 'Abstain').length,
+          total: deduped.length,
+        });
+      }
 
-          const deduped = [...latestByProposal.values()];
-          const yes = deduped.filter(v => v.vote === 'Yes').length;
-          const no = deduped.filter(v => v.vote === 'No').length;
-          const abstain = deduped.filter(v => v.vote === 'Abstain').length;
-          const total = deduped.length;
-
-          const { data: existing } = await supabase.from('dreps').select('info').eq('id', drepId).single();
-          if (!existing?.info) continue;
-          const info = existing.info as Record<string, unknown>;
-          if (info.totalVotes === total && info.yesVotes === yes && info.noVotes === no) continue;
-
-          await supabase.from('dreps').update({
-            info: { ...info, totalVotes: total, yesVotes: yes, noVotes: no, abstainVotes: abstain },
-          }).eq('id', drepId);
-          reconciled++;
+      // Single batch SELECT for all drep info (replaces N individual queries)
+      const allCurrentInfo = new Map<string, Record<string, unknown>>();
+      for (let i = 0; i < drepIds.length; i += 1000) {
+        const { data } = await supabase.from('dreps')
+          .select('id, info')
+          .in('id', drepIds.slice(i, i + 1000));
+        for (const row of data || []) {
+          if (row.info) allCurrentInfo.set(row.id, row.info as Record<string, unknown>);
         }
       }
+
+      // Update only DReps where counts have drifted
+      for (const [drepId, counts] of computedCounts) {
+        const info = allCurrentInfo.get(drepId);
+        if (!info) continue;
+        if (info.totalVotes === counts.total && info.yesVotes === counts.yes && info.noVotes === counts.no) continue;
+        await supabase.from('dreps').update({
+          info: { ...info, totalVotes: counts.total, yesVotes: counts.yes, noVotes: counts.no, abstainVotes: counts.abstain },
+        }).eq('id', drepId);
+        reconciled++;
+      }
+
       if (reconciled > 0) console.log(`[Sync] Vote count reconciliation: ${reconciled} DReps updated`);
     })(),
 
