@@ -22,6 +22,22 @@ export function Footer() {
     await navigator.clipboard.writeText(DREPSCORE_STAKE_ADDRESS);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    import('@/lib/posthog').then(({ posthog }) => {
+      posthog.capture('donation_address_copied', {
+        handle: DREPSCORE_HANDLE,
+        source: 'footer',
+      });
+    }).catch(() => {});
+  };
+
+  const handleCardanoScanClick = () => {
+    import('@/lib/posthog').then(({ posthog }) => {
+      posthog.capture('footer_link_clicked', {
+        destination: 'cardanoscan',
+        url: CARDANOSCAN_URL,
+        label: DREPSCORE_HANDLE,
+      });
+    }).catch(() => {});
   };
 
   return (
@@ -50,6 +66,7 @@ export function Footer() {
               href={CARDANOSCAN_URL}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={handleCardanoScanClick}
               className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
             >
               {DREPSCORE_HANDLE}

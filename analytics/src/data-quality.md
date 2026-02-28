@@ -123,6 +123,8 @@ const filteredSyncs = (syncTypeFilter === "All" ? syncHealth : syncHealth.filter
     Duration: d.duration_ms != null
       ? (d.duration_ms < 60000 ? `${(d.duration_ms / 1000).toFixed(1)}s` : `${(d.duration_ms / 60000).toFixed(1)}m`)
       : "—",
+    "DReps Synced": d.metrics?.dreps_synced ?? "—",
+    "Handles": d.metrics?.handles_resolved ?? "—",
     Status: d.success,
     Error: d.error_message || "—",
   }));
@@ -131,7 +133,7 @@ const filteredSyncs = (syncTypeFilter === "All" ? syncHealth : syncHealth.filter
 ```js
 filteredSyncs.length > 0
   ? Inputs.table(filteredSyncs, {
-      columns: ["Type", "Started", "Duration", "Status", "Error"],
+      columns: ["Type", "Started", "Duration", "DReps Synced", "Handles", "Status", "Error"],
       format: {
         Status: d => d
           ? html`<span class="badge badge-green">Success</span>`
@@ -194,9 +196,11 @@ const aiCoverage = totalProposals > 0 ? ((totalProposals - missingProposalSummar
 const hashVerified = dreps.filter(d => d.metadata_hash_verified === true).length;
 const hashTotal = dreps.filter(d => d.metadata_hash_verified != null).length;
 const hashRate = hashTotal > 0 ? (hashVerified / hashTotal * 100) : 0;
+const handleCount = dreps.filter(d => d.handle).length;
+const handleCoverage = dreps.length > 0 ? (handleCount / dreps.length * 100) : 0;
 ```
 
-<div class="kpi-row cols-4">
+<div class="kpi-row cols-5">
   <div class="kpi">
     <span class="kpi-label">AI Summary Coverage</span>
     <span class="kpi-value" style="color:${qualityColor(aiCoverage)}">${Math.round(aiCoverage)}%</span>
@@ -206,6 +210,11 @@ const hashRate = hashTotal > 0 ? (hashVerified / hashTotal * 100) : 0;
     <span class="kpi-label">Hash Verification</span>
     <span class="kpi-value" style="color:${qualityColor(hashRate)}">${Math.round(hashRate)}%</span>
     <span class="kpi-sub">${hashVerified} of ${hashTotal} DReps verified</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">ADA Handle Coverage</span>
+    <span class="kpi-value" style="color:${qualityColor(handleCoverage)}">${Math.round(handleCoverage)}%</span>
+    <span class="kpi-sub">${handleCount} of ${dreps.length} DReps with $handle</span>
   </div>
   <div class="kpi">
     <span class="kpi-label">Total DReps</span>

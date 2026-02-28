@@ -323,6 +323,7 @@ export async function GET(request: NextRequest) {
   let voteResult = { success: 0, errors: 0 };
   let proposalResult = { success: 0, errors: 0 };
   let pushSent = 0;
+  let handlesResolved = 0;
 
   try { // ── Outer try/finally to guarantee finalizeSyncLog runs ──
 
@@ -407,7 +408,8 @@ export async function GET(request: NextRequest) {
       const handle = handleMap.get(drep.drepId);
       if (handle) (drep as any).handle = handle;
     }
-    console.log(`[Sync] ADA Handles: ${handleMap.size} resolved out of ${allDReps.length} DReps`);
+    handlesResolved = handleMap.size;
+    console.log(`[Sync] ADA Handles: ${handlesResolved} resolved out of ${allDReps.length} DReps`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     syncErrors.push(`ADA Handles: ${msg}`);
@@ -1125,6 +1127,7 @@ export async function GET(request: NextRequest) {
     votes_synced: voteResult.success, vote_errors: voteResult.errors,
     proposals_synced: proposalResult.success, proposal_errors: proposalResult.errors,
     push_sent: pushSent,
+    handles_resolved: handlesResolved,
     ...phaseTiming,
   };
 

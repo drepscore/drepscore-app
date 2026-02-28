@@ -8,6 +8,7 @@ const dreps = await sql`
   SELECT
     id AS drep_id,
     (info->>'name')::text AS name,
+    (info->>'handle')::text AS handle,
     score,
     participation_rate,
     rationale_rate,

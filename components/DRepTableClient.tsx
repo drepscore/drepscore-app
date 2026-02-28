@@ -247,8 +247,18 @@ export function DRepTableClient({
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     if (val.length >= 3) {
       searchTimerRef.current = setTimeout(() => {
+        const trimmed = val.trim();
+        const searchType =
+          trimmed.startsWith('$') ? 'handle' :
+          trimmed.startsWith('drep1') ? 'drep_id' :
+          trimmed.toUpperCase() === trimmed && trimmed.length <= 10 ? 'ticker' :
+          'name';
         import('@/lib/posthog').then(({ posthog }) => {
-          posthog.capture('drep_table_searched', { query: val, result_count: sortedDReps.length });
+          posthog.capture('drep_table_searched', {
+            query: val,
+            result_count: sortedDReps.length,
+            search_type: searchType,
+          });
         }).catch(() => {});
       }, 1000);
     }
