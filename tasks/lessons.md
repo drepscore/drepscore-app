@@ -103,7 +103,58 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Pattern**: Production had `numeric`/`ARRAY` types while staging had `integer`/`jsonb` for the same columns. The seed script worked without issues because PostgREST serializes everything to JSON on read and Postgres handles implicit casts on write.
 **Takeaway**: Minor type differences between environments (numeric↔integer, array↔jsonb) don't break Supabase REST API data copies. Don't over-engineer type normalization — test it first.
 
+### 2026-02-26: Standalone directories with their own deps break Next.js builds
+**Pattern**: The `analytics/` Observable Framework directory imports `postgres` (not in the main `package.json`). Next.js TypeScript checking picks up `**/*.ts` including `analytics/src/data/*.ts`, causing a build failure on Vercel.
+**Takeaway**: Any standalone sub-project with its own dependency tree must be excluded in `tsconfig.json`. Added `"analytics"` to `exclude` array. Always verify `npx next build --webpack` before pushing.
+
+### 2026-02-26: Vercel CLI is essential for autonomous deployment monitoring
+**Pattern**: Browser-based Vercel dashboard requires auth the agent can't provide. `npx vercel inspect <url> --logs` gives full build output including the exact error line. `npx vercel ls` shows deployment status.
+**Takeaway**: Always use `vercel inspect --logs` to diagnose failed deploys. Don't guess — pull the logs.
+
+### 2026-02-26: NEVER overwrite .cursor/mcp.json — it contains secrets and cached auth
+**Pattern**: Agent recreated `.cursor/mcp.json` from git history, which wiped the working config containing the Supabase access token and the `mcp-remote`-based Vercel setup. This forced a full re-auth cycle and hit the `cursor://` protocol handler issue again.
+**Takeaway**: `.cursor/mcp.json` is gitignored for a reason — it holds secrets (Supabase access token) and locally-cached OAuth state. NEVER overwrite, recreate, or modify this file without explicit user approval. If MCP connectivity is lost, diagnose via Settings > MCP first, don't touch the file.
+
+### 2026-02-26: Dual Cursor instances require mcp-remote for OAuth-based MCPs
+**Pattern**: User runs two Cursor instances simultaneously (work + personal/drepscore) with separate GitHub auth via a folder shortcut. The Windows `cursor://` protocol handler is registered to the work instance. Any MCP that uses Cursor's native OAuth flow (Vercel, Supabase remote) will redirect the callback to the wrong instance.
+**Takeaway**: For this workspace, all MCPs must use either:
+  - **Local stdio + access token** (Supabase: `cmd /c npx @supabase/mcp-server-supabase` with `SUPABASE_ACCESS_TOKEN` env var)
+  - **`mcp-remote` stdio proxy** (Vercel: `cmd /c npx mcp-remote https://mcp.vercel.com/...`) which runs its own localhost callback server, bypassing `cursor://` entirely.
+  Never use the `"url": "https://..."` remote MCP format in this workspace. It will always break.
+
 ---
 
-*Last updated: 2026-02-26*
+## Decision Making
+
+### 2026-02-26: Diagnose the problem before prescribing solutions
+**Pattern**: User said "I'm interested in Cline as a replacement for Cursor." Instead of asking "what's the actual constraint?" and "what does Cursor already offer for this?", we anchored on the proposed solution and built 16 files across 3 tools (Cline rules, Memory Bank, Aider config). Only after building everything did cost analysis reveal the approach was uneconomical. The simplest answer — Cursor's own on-demand billing toggle — was never explored until the user asked about it.
+**Takeaway**: When the user proposes a specific solution, always ask what problem they're solving first. Explore the problem space (constraints, budget, actual pain point) before the solution space (tools, architecture, config). The simplest solution is usually the platform's own feature, not an external tool. Three questions first: What's the constraint? What does the current platform offer? What's the budget?
+**Promoted to rule**: Yes — `workflow.md` first-principles checklist updated.
+
+### 2026-02-26: Cost analysis before building
+**Pattern**: We researched Cline, Aider, and OpenRouter, created config files, memory banks, and documentation — then discovered the economics didn't support the approach. The cost math took 2 minutes; the building took the entire session.
+**Takeaway**: For any decision involving paid tools, infrastructure changes, or workflow migrations, do the cost math in the first 5 minutes. Ask: what plan are you on, what's the monthly budget, what does the current platform already offer for overages? Never build before the economics are validated.
+**Promoted to rule**: Yes — `workflow.md` first-principles checklist updated.
+
+---
+
+---
+
+### 2026-02-27: Sync cache bug — `next: { revalidate }` in server-side fetch
+**Pattern**: `koiosFetch` used `next: { revalidate: 900 }` (15-min Next.js Data Cache). Since sync cron runs every 30min, syncs CAN serve stale cached data when self-healing triggers back-to-back runs within the revalidate window. Any sync utility operating in a write path must bypass the data cache.
+**Takeaway**: Fetch functions used in sync/write contexts must use `cache: 'no-store'`. The Next.js Data Cache is only appropriate for read paths (page rendering). Since our architecture is DB-first, `utils/koios.ts` is sync-only — defaulting to `no-store` is correct.
+
+### 2026-02-27: Silent Supabase upsert failures
+**Pattern**: Fast sync proposal upsert called `supabase.from('proposals').upsert(...)` without destructuring `{ error }`. DB failures were silently swallowed, yet `proposalOk` was set to `true`. The sync appeared successful but data was never written.
+**Takeaway**: ALWAYS destructure `{ error }` from every Supabase write. Treat any non-null error as a failure that propagates to the error array and blocks the success flag.
+
+### 2026-02-27: No per-request timeout on external API calls
+**Pattern**: `koiosFetch` had no `AbortController` timeout. A single hung Koios connection could consume the entire Vercel function budget (60s fast, 300s full) with no recourse or retry.
+**Takeaway**: Every outbound HTTP call in a time-budgeted function must have an `AbortController` timeout. Set it to a fraction of the total budget (20s per request for a 60s function). Add retry logic for `AbortError` just like for rate limits.
+
+### 2026-02-27: Sequential external API loops kill time budgets
+**Pattern**: `fetchVotesForProposals` fetched votes for each open proposal sequentially. With 20 open proposals at 500ms-2s per Koios call, that's 10-40s just for votes — consuming most of the 60s fast sync budget before summaries even start.
+**Takeaway**: Any loop over external API calls must use a concurrency limit (e.g., `Promise.all` in chunks of 5). Never `for...of` with `await` over a list of independent HTTP calls.
+
+*Last updated: 2026-02-27*
 *Review this file at the start of every session.*

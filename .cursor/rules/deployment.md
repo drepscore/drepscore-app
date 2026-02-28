@@ -8,10 +8,26 @@ alwaysApply: false
 
 ## Environment
 - **Supabase project**: `pbfprhbaayvcrxokgicr` (URL: https://pbfprhbaayvcrxokgicr.supabase.co)
-- **Vercel project**: `drepscore-app` (URL: https://drepscore-app.vercel.app)
+- **Vercel project**: `drepscore-app` in team `drepscores-projects` (URL: https://drepscore-app.vercel.app)
 - **Cron secret**: stored in `.env.local` as `CRON_SECRET`
-- **Vercel CLI**: authenticated, use `npx vercel` commands
+- **Vercel CLI**: authenticated as `drepscore`, use `npx vercel` commands
 - **Supabase CLI**: initialized, use `npx supabase` commands (requires `SUPABASE_ACCESS_TOKEN` env var)
+
+## MCP Configuration — DO NOT MODIFY
+`.cursor/mcp.json` is gitignored and contains secrets. **NEVER overwrite, recreate, or edit this file.**
+- **Supabase MCP**: Local stdio server with access token (bypasses OAuth)
+- **Vercel MCP**: `mcp-remote` stdio proxy (localhost OAuth callback — bypasses `cursor://` handler)
+- Both use `cmd /c npx` prefix (Windows requirement)
+- If MCPs disconnect, diagnose via Cursor Settings > MCP. Do not touch the file.
+
+## Autonomous Deployment Monitoring
+Available tooling for end-to-end deploy management:
+- `npx vercel ls` — list recent deployments + status (Ready/Error/Building)
+- `npx vercel inspect <url> --logs` — full build output for failed deploys
+- `npx vercel redeploy <url>` — retrigger a deployment
+- `npx vercel env ls` / `npx vercel env add` — manage env vars
+- Vercel MCP tools — list_deployments, get_deployment, get_deployment_build_logs, get_runtime_logs
+- Supabase MCP tools — execute_sql, apply_migration, list_tables, get_logs
 
 ## Migration Workflow
 1. Write migration SQL to `supabase/migrations/NNN_description.sql`

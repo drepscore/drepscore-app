@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "sync": "tsx scripts/sync-dreps.ts",
-    "seed:staging": "tsx scripts/seed-staging.ts"
+    "seed:staging": "tsx scripts/seed-staging.ts",
+    "prepare": "husky"
   },
   "engines": {
     "node": ">=18.17.0"
@@ -54,6 +55,7 @@
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "husky": "^9.1.7",
     "shadcn": "^3.8.4",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",

@@ -17,7 +17,6 @@ export const maxDuration = 60;
 
 const BATCH_SIZE = 100;
 const SUMMARY_CONCURRENCY = 5;
-const KOIOS_FETCH_TIMEOUT_MS = 15_000;
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -27,14 +26,15 @@ function capMsg(msg: string, max = 2000): string {
   return msg.length <= max ? msg : msg.slice(0, max - 14) + '...[truncated]';
 }
 
-async function withRetry<T>(fn: () => Promise<T>, label: string, retries = 1): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, label: string, retries = 2): Promise<T> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await fn();
     } catch (e) {
       if (attempt === retries) throw e;
-      console.warn(`[FastSync] ${label} attempt ${attempt + 1} failed: ${errMsg(e)}, retrying...`);
-      await new Promise(r => setTimeout(r, 1000));
+      const delay = Math.pow(2, attempt) * 1000; // 1s, 2s
+      console.warn(`[FastSync] ${label} attempt ${attempt + 1} failed: ${errMsg(e)}, retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
     }
   }
   throw new Error('unreachable');
@@ -101,13 +101,19 @@ export async function GET(request: NextRequest) {
         }])
       ).values()];
 
+      let upsertErrors = 0;
       for (let i = 0; i < proposalRows.length; i += BATCH_SIZE) {
         const batch = proposalRows.slice(i, i + BATCH_SIZE);
-        await supabase.from('proposals')
+        const { error } = await supabase.from('proposals')
           .upsert(batch, { onConflict: 'tx_hash,proposal_index', ignoreDuplicates: false });
+        if (error) {
+          upsertErrors++;
+          errors.push(`Proposal upsert: ${error.message}`);
+          console.error('[FastSync] Proposal upsert error:', error.message);
+        }
       }
       proposalCount = proposalRows.length;
-      proposalOk = true;
+      proposalOk = upsertErrors === 0;
 
       openProposals = classified
         .filter(p => !p.ratifiedEpoch && !p.enactedEpoch && !p.droppedEpoch && !p.expiredEpoch)

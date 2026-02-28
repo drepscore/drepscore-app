@@ -18,11 +18,12 @@ import { KoiosError } from '@/types/drep';
 const KOIOS_BASE_URL = process.env.NEXT_PUBLIC_KOIOS_BASE_URL || 'https://api.koios.rest/api/v1';
 const KOIOS_API_KEY = process.env.KOIOS_API_KEY;
 
-// Cache revalidation time (15 minutes)
-const CACHE_REVALIDATE_TIME = 900;
+// Hard timeout per Koios request — prevents a hung connection from consuming the full function budget
+const KOIOS_REQUEST_TIMEOUT_MS = 20_000;
 
 /**
- * Base fetch wrapper with error handling and caching
+ * Base fetch wrapper with per-request timeout, cache bypass, and rate-limit retry.
+ * Always fetches fresh (cache: no-store) — callers are sync paths that require live data.
  */
 async function koiosFetch<T>(
   endpoint: string,
@@ -31,7 +32,7 @@ async function koiosFetch<T>(
 ): Promise<T> {
   const url = `${KOIOS_BASE_URL}${endpoint}`;
   const isDev = process.env.NODE_ENV === 'development';
-  
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(KOIOS_API_KEY && { 'Authorization': `Bearer ${KOIOS_API_KEY}` }),
@@ -42,20 +43,24 @@ async function koiosFetch<T>(
     console.log(`[Koios] Fetching: ${endpoint}`, options.method || 'GET');
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), KOIOS_REQUEST_TIMEOUT_MS);
+
   try {
     const startTime = Date.now();
     const response = await fetch(url, {
       ...options,
       headers,
-      next: { revalidate: CACHE_REVALIDATE_TIME },
+      cache: 'no-store',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (isDev) {
       console.log(`[Koios] ${endpoint} completed in ${Date.now() - startTime}ms`);
     }
 
     if (!response.ok) {
-      // Handle rate limiting with exponential backoff
       if (response.status === 429 && retryCount < 3) {
         const waitTime = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
         if (isDev) {
@@ -71,19 +76,30 @@ async function koiosFetch<T>(
     const data = await response.json();
     return data as T;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    clearTimeout(timeoutId);
+
+    // Retry on timeout (AbortError) with same backoff as rate limits
+    if (error instanceof Error && error.name === 'AbortError' && retryCount < 3) {
+      console.warn(`[Koios] Request timeout for ${endpoint}, retrying (${retryCount + 1}/3)...`);
+      return koiosFetch<T>(endpoint, options, retryCount + 1);
+    }
+
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    const errorMessage = isTimeout
+      ? `Request timeout after ${KOIOS_REQUEST_TIMEOUT_MS}ms: ${endpoint}`
+      : (error instanceof Error ? error.message : String(error));
     const errorStack = error instanceof Error ? error.stack : undefined;
-    
+
     const koiosError: KoiosError = {
       message: errorMessage || 'Unknown error fetching from Koios',
       retryable: retryCount < 3,
     };
-    
+
     console.error(`[Koios] API Error: ${koiosError.message}`, {
       endpoint,
       retryable: koiosError.retryable,
       retryCount,
-      stack: errorStack
+      stack: errorStack,
     });
     throw koiosError;
   }
@@ -628,14 +644,16 @@ export async function fetchAllVotesBulk(): Promise<Record<string, DRepVote[]>> {
 
 /**
  * Fetch votes for specific proposals only (for fast sync).
- * Uses /vote_list with proposal_tx_hash filter.
+ * Uses /vote_list with proposal_tx_hash filter, parallelized up to VOTE_FETCH_CONCURRENCY.
+ * Running proposals in parallel cuts fast sync vote fetch from O(n*serial) to O(n/5*serial).
  */
 export async function fetchVotesForProposals(
   proposals: { txHash: string; index: number }[]
 ): Promise<Record<string, DRepVote[]>> {
   const allVotes: Record<string, DRepVote[]> = {};
+  const VOTE_FETCH_CONCURRENCY = 5;
 
-  for (const { txHash, index } of proposals) {
+  const fetchOne = async ({ txHash, index }: { txHash: string; index: number }): Promise<void> => {
     let offset = 0;
     while (true) {
       const url = `/vote_list?voter_role=eq.DRep&proposal_tx_hash=eq.${encodeURIComponent(txHash)}&proposal_index=eq.${index}&limit=${VOTE_LIST_PAGE_SIZE}&offset=${offset}`;
@@ -650,7 +668,7 @@ export async function fetchVotesForProposals(
         meta_url: string | null;
         meta_hash: string | null;
         meta_json: DRepVote['meta_json'];
-      }>>(url, { cache: 'no-store' });
+      }>>(url);
 
       const pageData = data || [];
       for (const row of pageData) {
@@ -672,6 +690,10 @@ export async function fetchVotesForProposals(
       if (pageData.length < VOTE_LIST_PAGE_SIZE) break;
       offset += VOTE_LIST_PAGE_SIZE;
     }
+  };
+
+  for (let i = 0; i < proposals.length; i += VOTE_FETCH_CONCURRENCY) {
+    await Promise.all(proposals.slice(i, i + VOTE_FETCH_CONCURRENCY).map(fetchOne));
   }
 
   return allVotes;
