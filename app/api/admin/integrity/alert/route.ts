@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createClient, getSupabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 interface Alert {
   level: 'critical' | 'warning';
@@ -169,9 +169,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const admin = getSupabaseAdmin();
+
   if (alerts.length === 0) {
     try {
-      await supabase.from('sync_log').insert({
+      await admin.from('sync_log').insert({
         sync_type: 'integrity_check', started_at: new Date().toISOString(),
         finished_at: new Date().toISOString(), duration_ms: 0, success: true,
         metrics: { alerts: 0, recoveries },
@@ -231,7 +233,7 @@ export async function GET(request: NextRequest) {
     });
 
     try {
-      await supabase.from('sync_log').insert({
+      await admin.from('sync_log').insert({
         sync_type: 'integrity_check', started_at: new Date().toISOString(),
         finished_at: new Date().toISOString(), duration_ms: 0, success: true,
         metrics: { alerts: alerts.length, webhook_status: res.status, recoveries },
