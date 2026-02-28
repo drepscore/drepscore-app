@@ -58,3 +58,14 @@ analytics/.observablehq/cache
 analytics/src/.observablehq/cache
 analytics/dist
 analytics/.env
+
+# Cursor plans
+.cursor/plans/
+
+# Outreach data
+outreach-claim-links.txt
+outreach-contacts.csv
+outreach-data.json
+
+# Local scripts
+scripts/trigger-sync.js
