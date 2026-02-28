@@ -180,5 +180,21 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Pattern**: `VERCEL_URL` is a deployment-specific URL (e.g. `drepscore-app-abc123.vercel.app`), not the production domain. Using it for self-healing triggers means the request goes to a random deployment, not the current production build. Auth may also fail if `CRON_SECRET` validation differs between deployments.
 **Takeaway**: Prefer `NEXT_PUBLIC_SITE_URL` (the canonical production domain) for self-healing triggers. Fall back to `VERCEL_URL` only as a last resort.
 
+### 2026-02-28: Inngest durable steps — data serialization boundary
+**Issue**: Inngest step return values are serialized to JSON and re-hydrated on the next step invocation. Code outside `step.run()` re-executes on every step resumption — variables like `Date.now()` will get new values each time.
+**Fix**: Capture timing and state inside step 1's return value (e.g., `startTime`). Reference the memoized step result, not ambient variables, for cross-step data.
+
+### 2026-02-28: Don't trigger syncs locally against production
+**Issue**: `.env.local` has production Supabase credentials. Running a sync locally writes to production DB — risky duplication.
+**Fix**: Use Inngest dev server for function registration/discovery testing only. Validate actual sync execution via Vercel preview deploys where Inngest cloud handles scheduling.
+
+### 2026-02-28: Verify all imports are committed, not just the file you wrote
+**Issue**: Created `lib/api/handler.ts` and committed it, but its sibling imports (`response.ts`, `rateLimit.ts`, `keys.ts`, `logging.ts`, `errors.ts`) were untracked and not staged. Local build passed (files exist on disk); Vercel preview deploy failed (files missing from git).
+**Fix**: When committing a new file, check `git status` for its directory — if the directory itself is untracked (`??`), all siblings need staging too. After pushing, verify the deploy succeeds before marking the task complete.
+
+### 2026-02-28: Always verify deploy after push — don't mark complete prematurely
+**Issue**: Marked deploy todo as complete after `git push` succeeded, without waiting for or checking the Vercel build result.
+**Fix**: After pushing, run `vercel inspect` on the latest deployment and confirm status is "Ready" before considering deploy complete. If it fails, fix and re-push in the same session.
+
 *Last updated: 2026-02-28*
 *Review this file at the start of every session.*

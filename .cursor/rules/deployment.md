@@ -54,8 +54,13 @@ curl -X POST "https://pbfprhbaayvcrxokgicr.supabase.co/rest/v1/rpc/exec_sql" \
 ## Deployment Workflow
 1. Code changes committed and pushed
 2. Vercel auto-deploys from git push (check with `npx vercel ls`)
-3. Monitor deployment: `npx vercel inspect <deployment-url>`
-4. Check logs if issues: `npx vercel logs <deployment-url>`
+3. **REQUIRED**: Wait for deploy, then verify build succeeded: `npx vercel inspect <deployment-url>`
+4. If status is not "Ready", inspect logs, fix the issue, and re-push — do NOT mark deploy as complete until status is "Ready"
+5. Check logs if issues: `npx vercel logs <deployment-url>`
+
+### Pre-Push Checklist
+- Run `git status` on any new file's directory — if the directory is untracked (`??`), ensure all required siblings are staged
+- Verify `npm run build` passes locally before pushing (pre-push hook should catch this, but don't rely on it alone)
 
 ## Post-Deploy Sync Trigger
 After deploying changes that affect data:
@@ -81,11 +86,19 @@ For ANY long-running operation (sync, backfill, migration):
 4. Only let it run to completion once early validation passes
 5. Spot-check final results after completion
 
-## Vercel Crons
-Defined in `vercel.json`. Changes to cron schedules require a deployment.
-- Fast sync: `*/30 * * * *` (every 30 min)
-- Full sync: `0 2 * * *` (daily 2am UTC)
-- Integrity alerts: `0 */6 * * *` (every 6 hours)
+## Sync Scheduling
+### Inngest (durable, retryable)
+- Proposals sync: `*/30 * * * *` — managed by Inngest cron (see `inngest/functions/sync-proposals.ts`)
+- Future: dreps, votes, secondary, slow will migrate to Inngest (Phase 2)
+
+### Vercel Crons (legacy, defined in `vercel.json`)
+- DReps sync: `0 */6 * * *`
+- Votes sync: `15 */6 * * *`
+- Secondary sync: `30 */6 * * *`
+- Slow sync: `0 4 * * *` (daily)
+- Integrity alerts: `0 */6 * * *`
+- Inbox alerts: `0 3,9,15,21 * * *`
+- API health alerts: `*/15 * * * *`
 
 ## Environment Variables
 Managed in Vercel dashboard. Key vars:
