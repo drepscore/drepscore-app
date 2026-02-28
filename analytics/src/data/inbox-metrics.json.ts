@@ -37,7 +37,7 @@ const votesThisEpoch = await sql`
     d.id AS drep_id,
     (d.info->>'name')::text AS name,
     d.score,
-    COUNT(v.id) AS votes_this_epoch,
+    COUNT(v.vote_tx_hash) AS votes_this_epoch,
     d.participation_rate,
     (d.info->>'totalVotes')::int AS total_votes
   FROM dreps d
