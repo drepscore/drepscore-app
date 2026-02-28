@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -40,7 +42,29 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm run test:coverage
+      - name: Check coverage thresholds
+        run: |
+          node -e "
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+            const targets = {
+              'utils/scoring.ts': 60,
+              'lib/alignment.ts': 60,
+              'lib/koios.ts': 10,
+            };
+            const norm = (p) => p.replace(/\\\\/g, '/');
+            let failed = false;
+            for (const [file, minPct] of Object.entries(targets)) {
+              const entry = Object.entries(report).find(([k]) => norm(k).endsWith(file));
+              if (!entry) { console.log('SKIP: ' + file + ' (not in report)'); continue; }
+              const pct = entry[1].lines.pct;
+              const ok = pct >= minPct;
+              console.log((ok ? 'PASS' : 'FAIL') + ': ' + file + ' lines=' + pct + '% (min=' + minPct + '%)');
+              if (!ok) failed = true;
+            }
+            if (failed) { console.error('Coverage below threshold'); process.exit(1); }
+          "
 
   build:
     runs-on: ubuntu-latest

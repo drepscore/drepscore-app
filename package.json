@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "sync": "tsx scripts/sync-dreps.ts",
     "seed:staging": "tsx scripts/seed-staging.ts",
+    "smoke-test": "tsx scripts/smoke-test.ts",
     "inngest:dev": "npx inngest-cli@latest dev",
     "prepare": "husky"
   },
