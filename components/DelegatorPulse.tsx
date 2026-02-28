@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getStoredSession } from '@/lib/supabaseAuth';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { HeartPulse, Users } from 'lucide-react';
 import type { PollResultsResponse } from '@/types/supabase';
 
@@ -65,6 +66,7 @@ export function DelegatorPulse({ txHash, proposalIndex, drepId }: DelegatorPulse
           <HeartPulse className="h-4 w-4" />
         </span>
         <h3 className="text-sm font-medium">Delegator Pulse</h3>
+        <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">Pro</Badge>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

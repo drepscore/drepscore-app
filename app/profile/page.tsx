@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { CopyableAddress } from '@/components/CopyableAddress';
 import { subscribeToPush, unsubscribeFromPush, isPushSubscribed } from '@/lib/pushSubscription';
+import { NotificationPreferences } from '@/components/NotificationPreferences';
 
 const PREF_LABELS: Record<UserPrefKey, string> = {
   'treasury-conservative': 'Treasury Conservative',
@@ -438,49 +439,7 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Push Notifications
-            </CardTitle>
-            <CardDescription>Get notified about critical governance events</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium">Browser notifications</p>
-                <p className="text-xs text-muted-foreground">
-                  {pushEnabled
-                    ? 'You\'ll be notified about critical proposals and DRep activity.'
-                    : !connected
-                    ? 'Connect your wallet to enable push notifications.'
-                    : 'Enable to receive alerts even when DRepScore is closed.'}
-                </p>
-                <p className="text-[10px] text-muted-foreground/60 mt-0.5">Notifications are per-browser</p>
-              </div>
-              <Button
-                variant={pushEnabled ? 'outline' : 'default'}
-                size="sm"
-                onClick={handlePushToggle}
-                disabled={pushToggling || (!connected && !pushEnabled)}
-                className="gap-1.5 shrink-0"
-              >
-                {pushToggling ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : pushEnabled ? (
-                  <BellOff className="h-3.5 w-3.5" />
-                ) : (
-                  <Bell className="h-3.5 w-3.5" />
-                )}
-                {!connected && !pushEnabled ? 'Wallet required' : pushEnabled ? 'Disable' : 'Enable'}
-              </Button>
-            </div>
-            {pushError && (
-              <p className="text-xs text-destructive mt-2">{pushError}</p>
-            )}
-          </CardContent>
-        </Card>
+        <NotificationPreferences />
 
         <Card>
           <CardHeader>

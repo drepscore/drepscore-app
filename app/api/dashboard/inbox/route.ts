@@ -16,6 +16,7 @@ import {
   applyRationaleCurve,
 } from '@/utils/scoring';
 import { getProposalPriority } from '@/utils/proposalPriority';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,6 +111,18 @@ export async function GET(request: NextRequest) {
       return aRemaining - bRemaining;
     });
 
+    const criticalCount = enriched.filter(p => p.priority === 'critical').length;
+    const urgentCount = enriched.filter(p => (p.epochsRemaining ?? 999) <= 2).length;
+
+    captureServerEvent('inbox_api_served', {
+      drepId,
+      pendingCount: enriched.length,
+      criticalCount,
+      urgentCount,
+      potentialGain: Math.max(0, scoreImpact),
+      currentEpoch,
+    }, drepId);
+
     return NextResponse.json({
       pendingProposals: enriched,
       pendingCount: enriched.length,
@@ -121,8 +134,8 @@ export async function GET(request: NextRequest) {
         potentialGain: Math.max(0, scoreImpact),
         perProposalGain: perProposalImpact,
       },
-      criticalCount: enriched.filter(p => p.priority === 'critical').length,
-      urgentCount: enriched.filter(p => (p.epochsRemaining ?? 999) <= 2).length,
+      criticalCount,
+      urgentCount,
     });
   } catch (error) {
     console.error('[Inbox API] Error:', error);

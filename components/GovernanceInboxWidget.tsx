@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { posthog } from '@/lib/posthog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,12 @@ export function GovernanceInboxWidget({ drepId }: { drepId: string }) {
         const res = await fetch(`/api/dashboard/inbox?drepId=${encodeURIComponent(drepId)}`);
         if (!res.ok) return;
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (!cancelled) {
+          setData(json);
+          if (json?.pendingCount > 0) {
+            try { posthog?.capture('inbox_widget_viewed', { drepId, pendingCount: json.pendingCount, criticalCount: json.criticalCount }); } catch {}
+          }
+        }
       } catch { /* ignore */ }
       finally { if (!cancelled) setLoading(false); }
     })();
@@ -158,7 +164,12 @@ export function GovernanceInboxWidget({ drepId }: { drepId: string }) {
           </p>
         )}
 
-        <Link href="/dashboard/inbox">
+        <Link
+          href="/dashboard/inbox"
+          onClick={() => {
+            try { posthog?.capture('inbox_widget_cta_clicked', { drepId, pendingCount: data.pendingCount }); } catch {}
+          }}
+        >
           <Button variant="outline" size="sm" className="w-full gap-2 mt-1">
             Open Governance Inbox
             <ArrowRight className="h-3.5 w-3.5" />

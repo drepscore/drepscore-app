@@ -41,6 +41,7 @@ import {
   UserCircle,
   Clock,
   Activity,
+  Inbox,
 } from 'lucide-react';
 
 const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
@@ -109,6 +110,15 @@ export function Header() {
       .catch(() => setIsAdmin(false));
   }, [adminCheckAddress]);
 
+  const [inboxCount, setInboxCount] = useState(0);
+  useEffect(() => {
+    if (!ownDRepId) { setInboxCount(0); return; }
+    fetch(`/api/dashboard/inbox?drepId=${encodeURIComponent(ownDRepId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.pendingCount) setInboxCount(data.pendingCount); })
+      .catch(() => {});
+  }, [ownDRepId]);
+
   useEffect(() => {
     const handler = () => setWalletModalOpen(true);
     window.addEventListener('openWalletConnect', handler);
@@ -141,6 +151,17 @@ export function Header() {
             <Link href="/dashboard" className={navLinkClass('/dashboard')}>
               <Sparkles className="h-4 w-4" />
               <span>DRep Dashboard</span>
+            </Link>
+          )}
+          {ownDRepId && (
+            <Link href="/dashboard/inbox" className={navLinkClass('/dashboard/inbox')}>
+              <Inbox className="h-4 w-4" />
+              <span>Inbox</span>
+              {inboxCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white tabular-nums">
+                  {inboxCount > 99 ? '99+' : inboxCount}
+                </span>
+              )}
             </Link>
           )}
           
@@ -243,12 +264,20 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   {(ownDRepId || isAdmin) && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/dashboard" className="cursor-pointer">
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        DRep Dashboard
-                      </Link>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard" className="cursor-pointer">
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          DRep Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard/inbox" className="cursor-pointer">
+                          <Inbox className="h-4 w-4 mr-2" />
+                          Governance Inbox
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="cursor-pointer">

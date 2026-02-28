@@ -53,17 +53,26 @@ export async function GET(request: NextRequest) {
   }
 
   const now = Date.now();
+
+  const alertThresholds: Record<string, { mins: number; schedule: string }> = {
+    proposals: { mins: 90, schedule: 'every 30m' },
+    fast: { mins: 90, schedule: 'every 30m' },
+    dreps: { mins: 720, schedule: 'every 6h' },
+    votes: { mins: 720, schedule: 'every 6h' },
+    full: { mins: 1560, schedule: 'every 24h' },
+    secondary: { mins: 2880, schedule: 'daily' },
+    slow: { mins: 2880, schedule: 'daily' },
+  };
+
   for (const row of sh || []) {
     if (!row.last_run) continue;
     const staleMins = Math.round((now - new Date(row.last_run).getTime()) / 60000);
-    const label = row.sync_type === 'fast' ? 'Fast Sync' : 'Full Sync';
-    if (row.sync_type === 'fast' && staleMins > 90) {
+    const label = row.sync_type.charAt(0).toUpperCase() + row.sync_type.slice(1) + ' Sync';
+    const threshold = alertThresholds[row.sync_type];
+
+    if (threshold && staleMins > threshold.mins) {
       const staleHuman = staleMins >= 60 ? `${Math.round(staleMins / 60)}h ${staleMins % 60}m` : `${staleMins}m`;
-      alerts.push({ level: 'critical', metric: `${label} — No runs in ${staleHuman}`, value: `Last run: ${staleHuman} ago`, threshold: 'every 30m' });
-    }
-    if (row.sync_type === 'full' && staleMins > 1560) {
-      const staleHours = Math.round(staleMins / 60);
-      alerts.push({ level: 'critical', metric: `${label} — No runs in ${staleHours}h`, value: `Last run: ${staleHours}h ago`, threshold: 'every 24h' });
+      alerts.push({ level: 'critical', metric: `${label} — No runs in ${staleHuman}`, value: `Last run: ${staleHuman} ago`, threshold: threshold.schedule });
     }
     if (row.last_success === false) {
       const failureCount = row.failure_count ?? '?';
@@ -81,23 +90,44 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Self-healing: trigger stale+failed syncs ────────────────────────────────
+  // ── Self-healing: trigger stale syncs (staleness alone, not just failures) ──
 
   const recoveries: string[] = [];
   const cronSecret = process.env.CRON_SECRET;
   const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
 
+  const syncRouteMap: Record<string, string> = {
+    proposals: '/api/sync/proposals',
+    dreps: '/api/sync/dreps',
+    votes: '/api/sync/votes',
+    secondary: '/api/sync/secondary',
+    slow: '/api/sync/slow',
+    fast: '/api/sync/proposals',
+    full: '/api/sync/dreps',
+  };
+
+  const stalenessThresholds: Record<string, number> = {
+    proposals: 90,
+    fast: 90,
+    dreps: 720,
+    votes: 720,
+    full: 1560,
+    secondary: 2880,
+    slow: 2880,
+  };
+
   if (cronSecret && baseUrl) {
     for (const row of sh || []) {
-      if (!row.last_run || row.last_success !== false) continue;
+      if (!row.last_run) continue;
       const staleMins = Math.round((now - new Date(row.last_run).getTime()) / 60000);
-      const isStale = (row.sync_type === 'fast' && staleMins > 90)
-        || (row.sync_type === 'full' && staleMins > 1560);
-      if (!isStale) continue;
+      const threshold = stalenessThresholds[row.sync_type];
+      if (!threshold || staleMins <= threshold) continue;
 
-      const syncPath = row.sync_type === 'fast' ? '/api/sync/fast' : '/api/sync';
+      const syncPath = syncRouteMap[row.sync_type];
+      if (!syncPath) continue;
+
       try {
-        console.log(`[AlertCron] Self-healing: triggering ${row.sync_type} sync recovery`);
+        console.log(`[AlertCron] Self-healing: triggering ${row.sync_type} sync recovery (${staleMins}m stale, threshold ${threshold}m)`);
         const res = await fetch(`${baseUrl}${syncPath}`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${cronSecret}` },

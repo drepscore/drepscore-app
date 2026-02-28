@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { posthog } from '@/lib/posthog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Copy, Check, Loader2, RotateCcw } from 'lucide-react';
@@ -51,6 +52,7 @@ export function RationaleAssistant({
       const data = await res.json();
       setDraft(data.draft || '');
       setGenerated(true);
+      try { posthog?.capture('rationale_draft_generated', { drepId, proposalType }); } catch {}
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -63,8 +65,9 @@ export function RationaleAssistant({
       await navigator.clipboard.writeText(draft);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      try { posthog?.capture('rationale_draft_copied', { drepId, proposalType }); } catch {}
     } catch { /* ignore */ }
-  }, [draft]);
+  }, [draft, drepId, proposalType]);
 
   if (!generated) {
     return (
@@ -73,6 +76,7 @@ export function RationaleAssistant({
           <Sparkles className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">Rationale Assistant</span>
           <Badge variant="outline" className="text-[10px]">AI</Badge>
+          <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">Pro</Badge>
         </div>
         <p className="text-xs text-muted-foreground">
           Generate a structured rationale draft based on this proposal and your DRep profile.
@@ -105,6 +109,7 @@ export function RationaleAssistant({
           <Sparkles className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">Rationale Draft</span>
           <Badge variant="outline" className="text-[10px]">AI</Badge>
+          <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">Pro</Badge>
         </div>
         <div className="flex items-center gap-1">
           <Button

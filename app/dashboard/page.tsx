@@ -29,10 +29,12 @@ import {
   BarChart3,
   Search,
   ChevronsUpDown,
+  Inbox,
 } from 'lucide-react';
 import { ScoreHistoryChart } from '@/components/ScoreHistoryChart';
 import { DRepDashboard } from '@/components/DRepDashboard';
 import { GovernanceInboxWidget } from '@/components/GovernanceInboxWidget';
+import { ProfileViewStats } from '@/components/ProfileViewStats';
 import { formatAda, getPillarStatus, applyRationaleCurve, getMissingProfileFields } from '@/utils/scoring';
 import type { ScoreSnapshot } from '@/lib/data';
 import type { VoteRecord } from '@/types/drep';
@@ -188,7 +190,7 @@ export default function MyDRepPage() {
   if (state === 'not-drep' && !isAdmin) return <NotADRepCTA />;
   if (state === 'error') return <ErrorState message={error} />;
 
-  // Admin with no DRep selected yet — show switcher only
+  // Admin with no DRep selected yet — show switcher + inbox link
   if (!data && isAdmin) {
     return (
       <div className="container mx-auto px-4 py-6 max-w-6xl">
@@ -197,7 +199,15 @@ export default function MyDRepPage() {
           selectedDRepId={selectedDRepId}
           onSelect={handleDRepSelect}
         />
-        <div className="text-center py-16 text-muted-foreground text-sm">
+        <div className="flex justify-center mb-4">
+          <Link href="/dashboard/inbox">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Inbox className="h-4 w-4" />
+              Governance Inbox
+            </Button>
+          </Link>
+        </div>
+        <div className="text-center py-12 text-muted-foreground text-sm">
           Select a DRep above to view their dashboard.
         </div>
       </div>
@@ -353,6 +363,7 @@ export default function MyDRepPage() {
               <GlanceStat label="Voting Power" value={formatAda(drep.votingPower)} />
               <GlanceStat label="Total Votes" value={drep.votes.length.toString()} />
               <GlanceStat label="Size Tier" value={drep.sizeTier} />
+              <ProfileViewStats drepId={drep.drepId} />
               {lastSynced && (
                 <p className="text-[10px] text-muted-foreground/60 pt-1 border-t border-border/40">
                   Data updated {lastSynced}

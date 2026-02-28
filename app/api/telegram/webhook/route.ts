@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getDRepById } from '@/lib/data';
 import { getDRepPrimaryName } from '@/utils/display';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://drepscore.io';
@@ -43,6 +44,8 @@ export async function POST(request: NextRequest) {
     const chatId = message.chat.id;
     const text = message.text.trim();
     const [command, ...args] = text.split(/\s+/);
+
+    captureServerEvent('telegram_command', { command, chat_id: chatId }, `telegram:${chatId}`);
 
     switch (command) {
       case '/start':

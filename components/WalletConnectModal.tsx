@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Wallet, Shield, Bell, Check, Loader2, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { posthog } from '@/lib/posthog';
 
 interface WalletConnectModalProps {
   open: boolean;
@@ -22,6 +23,19 @@ interface WalletConnectModalProps {
 }
 
 type Step = 'connect' | 'sign' | 'push' | 'success';
+
+const PREFERRED_WALLETS = ['eternl', 'lace', 'nami', 'typhon', 'vespr'];
+
+function sortWallets(wallets: string[]): string[] {
+  return [...wallets].sort((a, b) => {
+    const aIdx = PREFERRED_WALLETS.indexOf(a.toLowerCase());
+    const bIdx = PREFERRED_WALLETS.indexOf(b.toLowerCase());
+    if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+    if (aIdx !== -1) return -1;
+    if (bIdx !== -1) return 1;
+    return a.localeCompare(b);
+  });
+}
 
 export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConnectModalProps) {
   const {
@@ -42,14 +56,15 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
   const [pushRequested, setPushRequested] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
 
-  // Clear error when modal opens
   useEffect(() => {
     if (open) {
       clearError();
+      posthog.capture('wallet_modal_opened', { available_wallets: availableWallets });
     }
   }, [open, clearError]);
 
   const handleWalletSelect = async (walletName: string) => {
+    posthog.capture('wallet_selected', { wallet_name: walletName });
     clearError();
     setSelectedWallet(walletName);
     await connect(walletName);
@@ -83,6 +98,7 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
     setAuthenticating(false);
     
     if (success) {
+      posthog.capture('wallet_authenticated', { wallet_name: selectedWallet });
       setStep('push');
     }
   };
@@ -126,9 +142,14 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-2 py-4">
+            <div className="p-2.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
+              <Shield className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>Read-only signature verification. We never request transactions or access to your funds.</span>
+            </div>
+
+            <div className="space-y-2 py-2">
               {availableWallets.length > 0 ? (
-                availableWallets.map((walletName) => (
+                sortWallets(availableWallets).map((walletName) => (
                   <Button
                     key={walletName}
                     variant="outline"

@@ -26,7 +26,7 @@ const syncs = await sql`
     created_at
   FROM sync_log
   ORDER BY created_at DESC
-  LIMIT 50
+  LIMIT 100
 `;
 
 await sql.end();

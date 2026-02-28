@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { posthog } from '@/lib/posthog';
 import {
   Sheet,
   SheetContent,
@@ -65,6 +67,19 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export function ProposalDrawer({ open, onOpenChange, proposal, drepId }: ProposalDrawerProps) {
+  useEffect(() => {
+    if (open && proposal) {
+      try {
+        posthog?.capture('proposal_drawer_opened', {
+          proposalType: proposal.proposalType,
+          priority: proposal.priority,
+          epochsRemaining: proposal.epochsRemaining,
+          drepId,
+        });
+      } catch {}
+    }
+  }, [open, proposal, drepId]);
+
   if (!proposal) return null;
 
   const totalVotes = proposal.totalVotes;
@@ -114,7 +129,7 @@ export function ProposalDrawer({ open, onOpenChange, proposal, drepId }: Proposa
 
           {/* AI Summary */}
           {proposal.aiSummary && (
-            <Section icon={<FileText className="h-4 w-4" />} title="AI Summary">
+            <Section icon={<FileText className="h-4 w-4" />} title="AI Summary" proBadge>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {proposal.aiSummary}
               </p>
@@ -186,7 +201,20 @@ export function ProposalDrawer({ open, onOpenChange, proposal, drepId }: Proposa
 
           {/* Vote CTA */}
           <div className="border-t pt-4 space-y-2">
-            <a href={govToolUrl} target="_blank" rel="noopener noreferrer">
+            <a
+              href={govToolUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                try {
+                  posthog?.capture('vote_cta_clicked', {
+                    proposalType: proposal.proposalType,
+                    priority: proposal.priority,
+                    drepId,
+                  });
+                } catch {}
+              }}
+            >
               <Button className="w-full gap-2">
                 <Vote className="h-4 w-4" />
                 Vote on GovTool
@@ -203,12 +231,15 @@ export function ProposalDrawer({ open, onOpenChange, proposal, drepId }: Proposa
   );
 }
 
-function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+function Section({ icon, title, children, proBadge }: { icon: React.ReactNode; title: string; children: React.ReactNode; proBadge?: boolean }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-muted-foreground">{icon}</span>
         <h3 className="text-sm font-medium">{title}</h3>
+        {proBadge && (
+          <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">Pro</Badge>
+        )}
       </div>
       {children}
     </div>

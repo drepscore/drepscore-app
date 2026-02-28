@@ -1,10 +1,13 @@
 /**
- * Full DRep Sync — runs daily at 2 AM via Vercel Pro cron.
- * Pulls all DRep data, votes (bulk), proposals, rationales, AI summaries,
- * delegator counts, power snapshots, alignment scores, score history,
- * and social link checks.
+ * @deprecated — This monolithic sync has been replaced by focused routes:
+ *   /api/sync/dreps      (every 6h) — Core DRep enrichment
+ *   /api/sync/votes      (every 6h) — Bulk votes + reconciliation
+ *   /api/sync/proposals  (every 30m) — Proposals + voting summaries
+ *   /api/sync/secondary  (daily)     — Delegators, power, integrity
+ *   /api/sync/slow       (daily)     — Rationales, AI, links, hashes
  *
- * Auth: Vercel cron sends Authorization: Bearer <CRON_SECRET> header automatically.
+ * Kept as a manual recovery trigger only. Not scheduled via cron.
+ * Auth: Authorization: Bearer <CRON_SECRET> header.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

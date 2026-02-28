@@ -1,0 +1,52 @@
+---
+description: Analytics-first development — ensure every feature/change considers instrumentation, dashboards, and alerts
+alwaysApply: true
+---
+
+# Analytics & Observability Protocol
+
+Every feature or meaningful change must include analytics considerations in the plan. Skip only for purely cosmetic or trivial changes.
+
+## Planning Checklist (Answer Before Building)
+
+1. **Events**: What user/system actions should be tracked?
+   - Client-side: `posthog.capture()` via `lib/posthog.ts` for user interactions
+   - Server-side: `captureServerEvent()` via `lib/posthog-server.ts` for API/sync events
+   - Naming: `noun_verb` (e.g., `drep_claimed`, `rationale_submitted`, `wallet_connected`)
+
+2. **Properties**: What context should each event carry?
+   - Always include: relevant entity IDs, action outcome (success/failure), timing
+   - For DRep actions: `drep_id`, `score`, `tier`
+   - For user actions: wallet stake address (if connected), session context
+
+3. **Dashboard Impact**: Does this change affect existing Observable pages?
+   - Pages: Executive Overview, DRep Performance, Governance Activity, Voting Intelligence, Score Trends, DRep Engagement, Data Quality
+   - New data dimension → new or updated data loader in `analytics/src/data/`
+   - New feature category → consider new dashboard page in `analytics/src/`
+
+4. **Alerts**: Should this trigger or update alerting?
+   - Integrity alerts (`/api/admin/integrity/alert`) — data quality thresholds
+   - Sync monitoring (`sync_log` table, `/api/admin/inbox-alert`)
+   - Consider: failure rates, anomaly detection, SLA breaches
+
+5. **Supabase Data**: If new tables/columns are added, do Observable data loaders need updating?
+   - Data loaders: `analytics/src/data/*.json.ts` — query Supabase directly
+   - New tables that surface metrics should get a corresponding loader
+
+## Existing Instrumentation Map
+
+| Layer | Tool | Location |
+|-------|------|----------|
+| Client events | PostHog JS SDK | `lib/posthog.ts`, components |
+| Server events | PostHog Node SDK | `lib/posthog-server.ts`, API routes |
+| Dashboards | Observable Framework | `analytics/src/*.md` (7 pages) |
+| Data loaders | Observable + Supabase | `analytics/src/data/*.json.ts` (10 loaders) |
+| Alerts | Cron + webhooks | `/api/admin/integrity/alert`, `/api/admin/inbox-alert` |
+| Sync health | Supabase `sync_log` | `/api/sync/*` routes |
+
+## Implementation Standards
+
+- **Don't ship dark features**: If a user can interact with it, it should emit at least one PostHog event
+- **Server events for business logic**: Sync completions, claims, alert triggers — use `captureServerEvent()`
+- **Dashboard-worthy = data loader**: If you'd want to chart it, create the data loader alongside the feature — not as a follow-up
+- **Alert on failure paths**: Any new cron, sync, or webhook must capture failure events with error context

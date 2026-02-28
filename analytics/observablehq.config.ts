@@ -46,39 +46,10 @@ code, pre, .monospace, [style*="monospace"] {
 #observablehq-sidebar { font-family: 'Geist Variable', system-ui, sans-serif; }
 #observablehq-sidebar a { border-radius: 6px; }
 
-/* Keep sidebar toggle always visible even when sidebar collapsed */
-#observablehq-sidebar-toggle + label,
-label[for="observablehq-sidebar-toggle"] {
-  position: fixed !important;
-  top: 0.65rem;
-  left: 0.65rem;
-  z-index: 9999 !important;
-  background: var(--theme-background, #1a1a2e);
-  border: 1px solid color-mix(in srgb, var(--theme-foreground) 15%, transparent);
-  border-radius: 8px;
-  padding: 0.4rem 0.5rem;
-  cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  min-height: 32px;
-}
-#observablehq-sidebar-toggle + label:hover,
-label[for="observablehq-sidebar-toggle"]:hover {
-  background: var(--surface-2, #2a2a3e);
-  box-shadow: 0 2px 12px rgba(79,140,255,0.2);
-}
-#observablehq-sidebar-toggle {
-  position: fixed !important;
-  top: 0;
-  left: 0;
-  z-index: 9998 !important;
-}
+/* Observable Framework manages sidebar toggle/backdrop positioning internally.
+   Do not override #observablehq-sidebar-toggle or its adjacent label
+   (#observablehq-sidebar-backdrop) — they control the sidebar open/close
+   click target and must remain invisible. */
 
 /* ─── KPI Cards ─── */
 .kpi-row { display: grid; gap: 1rem; margin: 1.5rem 0; }
@@ -431,6 +402,7 @@ figure[class*="plot"] {
         { name: "Governance Activity", path: "/governance" },
         { name: "Voting Intelligence", path: "/voting" },
         { name: "Score Trends", path: "/trends" },
+        { name: "DRep Engagement", path: "/engagement" },
       ],
     },
     {

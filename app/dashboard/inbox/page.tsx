@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { posthog } from '@/lib/posthog';
 import { useWallet } from '@/utils/wallet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -158,7 +159,17 @@ export default function InboxPage() {
         const res = await fetch(`/api/dashboard/inbox?drepId=${encodeURIComponent(drepId)}`);
         if (!res.ok) return;
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (!cancelled) {
+          setData(json);
+          try {
+            posthog?.capture('governance_inbox_opened', {
+              drepId,
+              pendingCount: json?.pendingCount ?? 0,
+              criticalCount: json?.criticalCount ?? 0,
+              urgentCount: json?.urgentCount ?? 0,
+            });
+          } catch {}
+        }
       } catch { /* ignore */ }
       finally { if (!cancelled) setLoading(false); }
     })();
@@ -178,6 +189,13 @@ export default function InboxPage() {
   const openDrawer = useCallback((proposal: PendingProposal) => {
     setSelectedProposal(proposal);
     setDrawerOpen(true);
+    try {
+      posthog?.capture('inbox_proposal_clicked', {
+        proposalType: proposal.proposalType,
+        priority: proposal.priority,
+        epochsRemaining: proposal.epochsRemaining,
+      });
+    } catch {}
   }, []);
 
   // Derive unique proposal types for filter
@@ -276,6 +294,7 @@ export default function InboxPage() {
             label="Potential Gain"
             value={`+${data.scoreImpact.potentialGain} pts`}
             highlight
+            pro
           />
           <StatCard
             icon={<Clock className="h-4 w-4 text-amber-600" />}
@@ -462,12 +481,14 @@ function StatCard({
   value,
   highlight,
   warn,
+  pro,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   highlight?: boolean;
   warn?: boolean;
+  pro?: boolean;
 }) {
   return (
     <Card className={warn ? 'border-amber-500/30' : highlight ? 'border-green-500/30' : ''}>
@@ -475,6 +496,9 @@ function StatCard({
         <div className="flex items-center gap-2 mb-1">
           {icon}
           <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
+          {pro && (
+            <Badge variant="outline" className="text-[9px] px-1 py-0 bg-primary/10 text-primary border-primary/30">Pro</Badge>
+          )}
         </div>
         <p className={`text-lg font-bold tabular-nums ${
           highlight ? 'text-green-600 dark:text-green-400' :

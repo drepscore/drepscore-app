@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 /**
  * GET: Check if a DRep is claimed by any user.
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to claim' }, { status: 500 });
     }
 
+    captureServerEvent('drep_claimed', { drep_id: drepId }, walletAddress);
     return NextResponse.json({ claimed: true, drepId });
   } catch (err) {
     console.error('[DRepClaim] Error:', err);
