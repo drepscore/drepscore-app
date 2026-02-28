@@ -1,7 +1,9 @@
 import { resolve } from "node:path";
+import { existsSync } from "node:fs";
 import postgres from "postgres";
 
-process.loadEnvFile(resolve(process.cwd(), ".env"));
+const envPath = resolve(process.cwd(), ".env");
+if (existsSync(envPath)) process.loadEnvFile(envPath);
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL not set");
