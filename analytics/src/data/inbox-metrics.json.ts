@@ -41,7 +41,7 @@ const votesThisEpoch = await sql`
     d.participation_rate,
     (d.info->>'totalVotes')::int AS total_votes
   FROM dreps d
-  LEFT JOIN drep_votes v ON d.id = v.drep_id AND v.epoch = ${epoch}
+  LEFT JOIN drep_votes v ON d.id = v.drep_id AND v.epoch_no = ${epoch}
   WHERE (d.info->>'isActive')::boolean = true
   GROUP BY d.id, d.info, d.score, d.participation_rate
   ORDER BY d.score DESC
