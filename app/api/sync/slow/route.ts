@@ -515,8 +515,7 @@ async function runPushNotifications(supabase: SupabaseClient) {
   if (critical.length === 0) return { sent: 0, skipped: false };
 
   const newest = critical[0];
-  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || baseUrl;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   let pushSent = 0;
 
   try {
@@ -542,7 +541,7 @@ async function runPushNotifications(supabase: SupabaseClient) {
     eventType: 'critical-proposal-open' as const,
     title: 'Critical Proposal Open',
     body: (newest.title as string) || 'A critical governance proposal requires DRep attention.',
-    url: `${siteUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
+    url: `${baseUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
     metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
   };
   await broadcastDiscord(event).catch(() => {});

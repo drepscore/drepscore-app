@@ -1082,8 +1082,7 @@ export async function GET(request: NextRequest) {
 
       if (critical.length > 0) {
         const newest = critical[0];
-        const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || baseUrl;
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
         const pushRes = await fetch(`${baseUrl}/api/push/send`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: 'critical-proposal-open', proposalTitle: newest.title, txHash: newest.tx_hash, index: newest.proposal_index }),
@@ -1099,7 +1098,7 @@ export async function GET(request: NextRequest) {
           eventType: 'critical-proposal-open' as const,
           title: `Critical Proposal Open`,
           body: (newest.title as string) || 'A critical governance proposal requires DRep attention.',
-          url: `${siteUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
+          url: `${baseUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
           metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
         };
         await broadcastDiscord(event).catch(() => {});
@@ -1139,33 +1138,6 @@ export async function GET(request: NextRequest) {
     syncErrors.length > 0 ? syncErrors.join('; ') : null,
     metrics,
   );
-
-  // Trigger analytics dashboard rebuild via Vercel Redeploy API (best-effort)
-  if (success && process.env.VERCEL_ANALYTICS_TOKEN && process.env.VERCEL_ANALYTICS_PROJECT_ID) {
-    try {
-      const teamId = process.env.VERCEL_TEAM_ID || '';
-      const projectId = process.env.VERCEL_ANALYTICS_PROJECT_ID;
-      const token = process.env.VERCEL_ANALYTICS_TOKEN;
-      const teamQuery = teamId ? `&teamId=${teamId}` : '';
-
-      const listRes = await fetch(
-        `https://api.vercel.com/v6/deployments?projectId=${projectId}&target=production&limit=1${teamQuery}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const listData = await listRes.json() as { deployments?: { uid: string }[] };
-      const latestUid = listData.deployments?.[0]?.uid;
-
-      if (latestUid) {
-        const redeployRes = await fetch(
-          `https://api.vercel.com/v13/deployments/${latestUid}/redeploy${teamQuery ? `?${teamQuery.slice(1)}` : ''}`,
-          { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ target: 'production' }) }
-        );
-        console.log(`[Sync] Analytics rebuild triggered: ${redeployRes.status}`);
-      } else {
-        console.warn('[Sync] Analytics rebuild skipped: no production deployment found');
-      }
-    } catch (_e) { console.warn('[Sync] Analytics rebuild failed:', errMsg(_e)); }
-  }
 
   try {
     const { captureServerEvent } = await import('@/lib/posthog-server');

@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
 
         if (critical.length > 0) {
           const newest = critical[0];
-          const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
           const pushRes = await fetch(`${baseUrl}/api/push/send`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'critical-proposal-open', proposalTitle: newest.title, txHash: newest.tx_hash, index: newest.proposal_index }),

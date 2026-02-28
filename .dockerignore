@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.env*
+*.md
+.cursor
+analytics
+supabase
+scripts
+__tests__
+.husky

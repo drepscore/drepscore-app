@@ -6,8 +6,6 @@ import { DelegationInsightBannerClient } from "@/components/DelegationInsightBan
 import { Footer } from "@/components/Footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Providers } from "@/components/Providers";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,8 +53,6 @@ export default function RootLayout({
             </main>
             <Footer />
           </Providers>
-          <SpeedInsights />
-          <Analytics />
         </ThemeProvider>
       </body>
     </html>

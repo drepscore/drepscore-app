@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
 
   const recoveries: string[] = [];
   const cronSecret = process.env.CRON_SECRET;
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || null;
 
   if (cronSecret && baseUrl) {
     const staleTypes: { syncType: string; staleMins: number; config: typeof SYNC_CONFIG[string] }[] = [];

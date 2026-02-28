@@ -106,3 +106,15 @@ Managed in Vercel dashboard. Key vars:
 - `CRON_SECRET`, `SESSION_SECRET`, `ADMIN_WALLETS`
 - `ANTHROPIC_API_KEY` (AI summaries), `POSTHOG_PERSONAL_API_KEY`
 - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (push notifications)
+- `INNGEST_SIGNING_KEY`, `INNGEST_EVENT_KEY` (auto-provisioned by Inngest Vercel integration)
+- `INNGEST_SERVE_HOST` = `https://drepscore.io` (tells SDK to advertise production domain)
+
+## Inngest Sync Notes
+- Vercel Deployment Protection blocks deployment-specific URLs. The Inngest Vercel integration
+  attempts to sync via deployment URLs, which fails with "could not reach your URL."
+- **Workaround**: After deploying, manually sync via production URL:
+  `Invoke-WebRequest -Uri "https://drepscore.io/api/inngest" -Method PUT`
+  (or `curl -X PUT https://drepscore.io/api/inngest` on Linux/Mac)
+- `INNGEST_SERVE_HOST` ensures the SDK advertises `drepscore.io` as the canonical host.
+- Protection Bypass for Automation is enabled but the Inngest integration does not use it.
+  Future fix: configure the integration to pass the bypass secret, or disable Vercel Authentication.
