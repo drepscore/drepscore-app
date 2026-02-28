@@ -119,13 +119,19 @@ export async function GET(request: NextRequest) {
 
         const deduped = [...new Map(voteRows.map(r => [r.vote_tx_hash as string, r])).values()];
 
+        let voteUpsertErrors = 0;
         for (let i = 0; i < deduped.length; i += BATCH_SIZE) {
           const batch = deduped.slice(i, i + BATCH_SIZE);
-          await supabase.from('drep_votes')
+          const { error } = await supabase.from('drep_votes')
             .upsert(batch, { onConflict: 'vote_tx_hash', ignoreDuplicates: false });
+          if (error) {
+            voteUpsertErrors++;
+            errors.push(`Vote upsert: ${error.message}`);
+            console.error(`${TAG} Vote upsert error:`, error.message);
+          }
         }
         voteCount = deduped.length;
-        voteOk = true;
+        voteOk = voteUpsertErrors === 0;
         console.log(`${TAG} Votes: ${voteCount} upserted for ${openProposals.length} open proposals`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

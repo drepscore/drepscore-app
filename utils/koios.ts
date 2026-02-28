@@ -161,81 +161,60 @@ async function fetchAllDRepList(): Promise<DRepListResponse> {
 }
 
 /**
- * Fetch all registered DReps (paginated to load full list)
+ * Fetch all registered DReps (paginated to load full list).
+ * Throws on failure — callers must handle errors.
  */
 export async function fetchAllDReps(): Promise<DRepListResponse> {
-  try {
-    const data = await fetchAllDRepList();
-    return data || [];
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[Koios] Error fetching DRep list:', errorMessage);
-    return [];
-  }
+  const data = await fetchAllDRepList();
+  return data || [];
 }
 
 /**
- * Fetch detailed information for specific DReps
+ * Fetch detailed information for specific DReps.
+ * Throws on failure — callers must handle errors.
  */
 export async function fetchDRepInfo(drepIds: string[]): Promise<DRepInfoResponse> {
-  try {
-    if (drepIds.length === 0) return [];
-    
-    const data = await koiosFetch<DRepInfoResponse>('/drep_info', {
-      method: 'POST',
-      body: JSON.stringify({ _drep_ids: drepIds }),
-    });
-    
-    return data || [];
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[Koios] Error fetching DRep info:', errorMessage);
-    return [];
-  }
+  if (drepIds.length === 0) return [];
+  const data = await koiosFetch<DRepInfoResponse>('/drep_info', {
+    method: 'POST',
+    body: JSON.stringify({ _drep_ids: drepIds }),
+  });
+  return data || [];
 }
 
 /**
- * Fetch metadata for specific DReps
- * Includes name, ticker, description from metadata JSON
- * Cached for 15 minutes via Next.js fetch cache
+ * Fetch metadata for specific DReps.
+ * Includes name, ticker, description from metadata JSON.
+ * Throws on failure — callers must handle errors.
  */
 export async function fetchDRepMetadata(drepIds: string[]): Promise<DRepMetadataResponse> {
+  if (drepIds.length === 0) return [];
   const isDev = process.env.NODE_ENV === 'development';
-  
-  try {
-    if (drepIds.length === 0) return [];
-    
-    if (isDev) {
-      console.log(`[Koios] Fetching metadata for ${drepIds.length} DReps (includes name, ticker, description)`);
-    }
-    
-    const data = await koiosFetch<DRepMetadataResponse>('/drep_metadata', {
-      method: 'POST',
-      body: JSON.stringify({ _drep_ids: drepIds }),
-    });
-    
-    if (isDev && data) {
-      // Count metadata by source format
-      const withCIP119Names = data.filter(m => m.meta_json?.body?.givenName).length;
-      const withLegacyNames = data.filter(m => m.meta_json?.name).length;
-      const withTickers = data.filter(m => m.meta_json?.ticker).length;
-      const withCIP119Objectives = data.filter(m => m.meta_json?.body?.objectives).length;
-      const withLegacyDescriptions = data.filter(m => m.meta_json?.description).length;
-      const withAnchorUrl = data.filter(m => m.meta_url !== null).length;
-      
-      const totalNames = withCIP119Names + withLegacyNames;
-      const totalDescriptions = withCIP119Objectives + withLegacyDescriptions;
-      
-      console.log(`[Koios] Metadata: ${totalNames} with names (${withCIP119Names} CIP-119, ${withLegacyNames} legacy), ${withTickers} with tickers, ${totalDescriptions} with descriptions (${withCIP119Objectives} CIP-119, ${withLegacyDescriptions} legacy), ${withAnchorUrl} with anchor URLs`);
-    }
-    
-    return data || [];
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorDetails = error instanceof Error ? { message: error.message, stack: error.stack } : { raw: error };
-    console.error('[Koios] Error fetching DRep metadata:', errorMessage, errorDetails);
-    return [];
+
+  if (isDev) {
+    console.log(`[Koios] Fetching metadata for ${drepIds.length} DReps (includes name, ticker, description)`);
   }
+
+  const data = await koiosFetch<DRepMetadataResponse>('/drep_metadata', {
+    method: 'POST',
+    body: JSON.stringify({ _drep_ids: drepIds }),
+  });
+
+  if (isDev && data) {
+    const withCIP119Names = data.filter(m => m.meta_json?.body?.givenName).length;
+    const withLegacyNames = data.filter(m => m.meta_json?.name).length;
+    const withTickers = data.filter(m => m.meta_json?.ticker).length;
+    const withCIP119Objectives = data.filter(m => m.meta_json?.body?.objectives).length;
+    const withLegacyDescriptions = data.filter(m => m.meta_json?.description).length;
+    const withAnchorUrl = data.filter(m => m.meta_url !== null).length;
+
+    const totalNames = withCIP119Names + withLegacyNames;
+    const totalDescriptions = withCIP119Objectives + withLegacyDescriptions;
+
+    console.log(`[Koios] Metadata: ${totalNames} with names (${withCIP119Names} CIP-119, ${withLegacyNames} legacy), ${withTickers} with tickers, ${totalDescriptions} with descriptions (${withCIP119Objectives} CIP-119, ${withLegacyDescriptions} legacy), ${withAnchorUrl} with anchor URLs`);
+  }
+
+  return data || [];
 }
 
 /**
@@ -328,21 +307,15 @@ export function parseMetadataFields(metadata: DRepMetadata | null | undefined): 
 }
 
 /**
- * Fetch voting history for a specific DRep
+ * Fetch voting history for a specific DRep.
+ * Throws on failure — callers must handle errors.
  */
 export async function fetchDRepVotes(drepId: string): Promise<DRepVotesResponse> {
-  try {
-    const data = await koiosFetch<DRepVotesResponse>('/drep_votes', {
-      method: 'POST',
-      body: JSON.stringify({ _drep_id: drepId }),
-    });
-    
-    return data || [];
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[Koios] Error fetching DRep votes:', errorMessage);
-    return [];
-  }
+  const data = await koiosFetch<DRepVotesResponse>('/drep_votes', {
+    method: 'POST',
+    body: JSON.stringify({ _drep_id: drepId }),
+  });
+  return data || [];
 }
 
 /**
@@ -376,8 +349,8 @@ export async function fetchDRepDetails(drepId: string) {
 const PROPOSAL_LIST_PAGE_SIZE = 500;
 
 /**
- * Fetch all proposals from /proposal_list with pagination
- * Returns comprehensive proposal data including type, metadata, and withdrawal amounts
+ * Fetch all proposals from /proposal_list with pagination.
+ * Throws on failure — callers must handle errors.
  */
 export async function fetchProposals(): Promise<ProposalListResponse> {
   const isDev = process.env.NODE_ENV === 'development';
@@ -385,35 +358,29 @@ export async function fetchProposals(): Promise<ProposalListResponse> {
   let offset = 0;
   let page = 0;
 
-  try {
-    while (true) {
-      const url = `/proposal_list?limit=${PROPOSAL_LIST_PAGE_SIZE}&offset=${offset}`;
-      const data = await koiosFetch<ProposalListResponse>(url);
-      const pageData = data || [];
+  while (true) {
+    const url = `/proposal_list?limit=${PROPOSAL_LIST_PAGE_SIZE}&offset=${offset}`;
+    const data = await koiosFetch<ProposalListResponse>(url);
+    const pageData = data || [];
 
-      all.push(...pageData);
-      page++;
+    all.push(...pageData);
+    page++;
 
-      if (isDev) {
-        console.log(`[Koios] proposal_list page ${page}: ${pageData.length} proposals (total: ${all.length})`);
-      }
-
-      if (pageData.length < PROPOSAL_LIST_PAGE_SIZE) {
-        break;
-      }
-      offset += PROPOSAL_LIST_PAGE_SIZE;
+    if (isDev) {
+      console.log(`[Koios] proposal_list page ${page}: ${pageData.length} proposals (total: ${all.length})`);
     }
 
-    if (isDev && page > 1) {
-      console.log(`[Koios] Fetched ${all.length} proposals from proposal_list (${page} pages)`);
+    if (pageData.length < PROPOSAL_LIST_PAGE_SIZE) {
+      break;
     }
-
-    return all;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[Koios] Error fetching proposals:', errorMessage);
-    return [];
+    offset += PROPOSAL_LIST_PAGE_SIZE;
   }
+
+  if (isDev && page > 1) {
+    console.log(`[Koios] Fetched ${all.length} proposals from proposal_list (${page} pages)`);
+  }
+
+  return all;
 }
 
 /**
@@ -489,19 +456,16 @@ export async function fetchDRepsVotes(drepIds: string[]): Promise<Record<string,
 }
 
 /**
- * Get total number of governance proposals
- * Used for calculating participation rates
+ * Get total number of governance proposals.
+ * Used for calculating participation rates. Returns fallback estimate on error
+ * since this is a non-critical read path.
  */
 export async function fetchProposalCount(): Promise<number> {
   try {
-    // Note: Koios may not have a direct count endpoint
-    // This is an approximation based on available data
     const proposals = await fetchProposals();
-    return proposals.length || 100; // Default estimate if no data
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[Koios] Error fetching proposal count:', errorMessage);
-    return 100; // Conservative estimate
+    return proposals.length || 100;
+  } catch {
+    return 100;
   }
 }
 
@@ -720,19 +684,16 @@ export async function fetchVotesForProposals(
  * Fetch canonical voting summary for a proposal from Koios.
  * Uses CIP-129 bech32 proposal_id (gov_action1...).
  * Returns the on-chain aggregate tallies including system auto-DReps.
+ * Returns null if no data exists for the proposal (not an error).
+ * Throws on API/network errors — callers must handle.
  */
 export async function fetchProposalVotingSummary(
   proposalId: string
 ): Promise<ProposalVotingSummaryData | null> {
-  try {
-    const data = await koiosFetch<ProposalVotingSummaryData[]>(
-      `/proposal_voting_summary?_proposal_id=${encodeURIComponent(proposalId)}`,
-      { cache: 'no-store' }
-    );
-    return data?.[0] || null;
-  } catch {
-    return null;
-  }
+  const data = await koiosFetch<ProposalVotingSummaryData[]>(
+    `/proposal_voting_summary?_proposal_id=${encodeURIComponent(proposalId)}`
+  );
+  return data?.[0] || null;
 }
 
 /**
