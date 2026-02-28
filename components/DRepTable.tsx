@@ -299,6 +299,11 @@ export function DRepTable({
                       <span className="font-medium text-foreground">
                         {getDRepDisplayName(drep)}
                       </span>
+                      {drep.handle && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-mono text-muted-foreground">
+                          {drep.handle}
+                        </Badge>
+                      )}
                       {(drep.name || drep.ticker || drep.description) && (
                         <TooltipProvider>
                           <Tooltip>

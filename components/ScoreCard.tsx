@@ -61,7 +61,7 @@ export function ScoreCard({
     if (typeof window !== 'undefined') {
       return window.location.href;
     }
-    return `https://drepscore-app.vercel.app/drep/${encodeURIComponent(drep.drepId)}`;
+    return `https://drepscore.io/drep/${encodeURIComponent(drep.drepId)}`;
   };
 
   const getTweetText = () => {

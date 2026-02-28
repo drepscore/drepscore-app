@@ -31,6 +31,7 @@ import { CopyableAddress } from '@/components/CopyableAddress';
 import { AboutSection } from '@/components/AboutSection';
 import { SocialIconsLarge } from '@/components/SocialIconsLarge';
 import { CompareButton } from '@/components/CompareButton';
+import { ProfileViewTracker } from '@/components/ProfileViewTracker';
 import {
   getDRepById,
   getVotesByDRepId,
@@ -235,6 +236,7 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
+      <ProfileViewTracker drepId={drep.drepId} />
       {/* Back button */}
       <Link href="/">
         <Button variant="ghost" className="gap-2 -ml-2">
@@ -255,6 +257,27 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
               <Badge variant="outline" className="text-base px-2 py-0.5">
                 {drep.ticker.toUpperCase()}
               </Badge>
+            )}
+            {drep.handle && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <a
+                      href={`https://cardanoscan.io/token/${drep.handle.replace('$', '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Badge variant="secondary" className="text-sm px-2 py-0.5 font-mono hover:bg-primary/10 transition-colors">
+                        {drep.handle}
+                      </Badge>
+                    </a>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">ADA Handle — verified on-chain identity</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             {drep.metadataHashVerified === true && (
               <TooltipProvider>
@@ -297,6 +320,13 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
               <Badge variant="secondary" className="text-xs">
                 No Metadata
               </Badge>
+            )}
+            {!isClaimed && (
+              <Link href={`/claim/${encodeURIComponent(drep.drepId)}`}>
+                <Badge variant="secondary" className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                  Unclaimed Profile
+                </Badge>
+              </Link>
             )}
           </div>
           

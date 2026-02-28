@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
               DRepScore
             </div>
             <div style={{ display: 'flex', fontSize: '16px', color: COLORS.textMuted }}>
-              drepscore-app.vercel.app
+              drepscore.io
             </div>
           </div>
         </div>

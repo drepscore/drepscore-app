@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { HeaderClient } from "@/components/HeaderClient";
 import { DelegationInsightBannerClient } from "@/components/DelegationInsightBannerClient";
+import { Footer } from "@/components/Footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Providers } from "@/components/Providers";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -52,6 +53,7 @@ export default function RootLayout({
             <main className="min-h-screen">
               {children}
             </main>
+            <Footer />
           </Providers>
           <SpeedInsights />
           <Analytics />

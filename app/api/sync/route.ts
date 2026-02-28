@@ -16,6 +16,7 @@ import {
   fetchAllVotesBulk,
   fetchProposalVotingSummary,
   fetchDRepInfo,
+  resolveADAHandles,
 } from '@/utils/koios';
 import { DRepVote } from '@/types/koios';
 import { blake2bHex } from 'blakejs';
@@ -395,6 +396,22 @@ export async function GET(request: NextRequest) {
     syncErrors.push(`DRep enrichment: ${msg}`);
     await finalizeSyncLog(false, syncErrors.join('; '), {});
     return NextResponse.json({ success: false, error: `DRep enrichment failed: ${msg}` }, { status: 500 });
+  }
+
+  // ═══ PHASE 2b: ADA Handle Resolution ════════════════════════════════════
+  try {
+    const handleMap = await resolveADAHandles(
+      allDReps.map(d => ({ drepId: d.drepId, drepHash: d.drepHash }))
+    );
+    for (const drep of allDReps) {
+      const handle = handleMap.get(drep.drepId);
+      if (handle) (drep as any).handle = handle;
+    }
+    console.log(`[Sync] ADA Handles: ${handleMap.size} resolved out of ${allDReps.length} DReps`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    syncErrors.push(`ADA Handles: ${msg}`);
+    console.warn('[Sync] ADA Handle resolution failed (non-fatal):', msg);
   }
 
   // ═══ PHASE 3: Parallel upserts (DReps + Votes + Proposals) ════════════════
@@ -1061,6 +1078,7 @@ export async function GET(request: NextRequest) {
       if (critical.length > 0) {
         const newest = critical[0];
         const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || baseUrl;
         const pushRes = await fetch(`${baseUrl}/api/push/send`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: 'critical-proposal-open', proposalTitle: newest.title, txHash: newest.tx_hash, index: newest.proposal_index }),
@@ -1069,6 +1087,18 @@ export async function GET(request: NextRequest) {
           const data = await pushRes.json();
           pushSent = data.sent || 0;
         }
+
+        // Broadcast to Discord + Telegram
+        const { broadcastDiscord, broadcastEvent } = await import('@/lib/notifications');
+        const event = {
+          eventType: 'critical-proposal-open' as const,
+          title: `Critical Proposal Open`,
+          body: (newest.title as string) || 'A critical governance proposal requires DRep attention.',
+          url: `${siteUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
+          metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
+        };
+        await broadcastDiscord(event).catch(() => {});
+        await broadcastEvent(event).catch(() => {});
       }
     }
   } catch (err) {

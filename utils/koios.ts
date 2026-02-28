@@ -732,3 +732,83 @@ export async function checkKoiosHealth(): Promise<boolean> {
     return false;
   }
 }
+
+// ---------------------------------------------------------------------------
+// ADA Handle Resolution
+// ---------------------------------------------------------------------------
+
+import { bech32 } from 'bech32';
+
+const ADA_HANDLE_POLICY_ID = 'f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a';
+const HANDLE_BATCH_SIZE = 50;
+
+/**
+ * Derive a mainnet reward (stake) address from a DRep credential key hash.
+ * DRep key hash == stake key hash for key-based DReps (CIP-1694).
+ * Header byte 0xe1 = mainnet reward address with key-hash credential.
+ */
+function drepHashToStakeAddress(drepHash: string): string | null {
+  try {
+    if (drepHash.length !== 56) return null;
+    const payload = Buffer.from('e1' + drepHash, 'hex');
+    const words = bech32.toWords(payload);
+    return bech32.encode('stake', words, 200);
+  } catch {
+    return null;
+  }
+}
+
+interface AccountAssetRow {
+  stake_address: string;
+  policy_id: string;
+  asset_name: string;
+  quantity: string;
+}
+
+/**
+ * Resolve ADA Handles for a batch of DReps by querying Koios account_assets.
+ * Returns a Map of drepId → "$handleName".
+ */
+export async function resolveADAHandles(
+  dreps: Array<{ drepId: string; drepHash: string }>
+): Promise<Map<string, string>> {
+  const handleMap = new Map<string, string>();
+  const stakeTodrep = new Map<string, string>();
+
+  for (const d of dreps) {
+    const addr = drepHashToStakeAddress(d.drepHash);
+    if (addr) stakeTodrep.set(addr, d.drepId);
+  }
+
+  const stakeAddresses = [...stakeTodrep.keys()];
+
+  for (let i = 0; i < stakeAddresses.length; i += HANDLE_BATCH_SIZE) {
+    const batch = stakeAddresses.slice(i, i + HANDLE_BATCH_SIZE);
+    try {
+      const data = await koiosFetch<AccountAssetRow[]>(
+        `/account_assets?policy_id=eq.${ADA_HANDLE_POLICY_ID}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ _stake_addresses: batch }),
+        }
+      );
+
+      for (const row of data || []) {
+        if (row.policy_id !== ADA_HANDLE_POLICY_ID) continue;
+        const drepId = stakeTodrep.get(row.stake_address);
+        if (!drepId) continue;
+        if (handleMap.has(drepId)) continue;
+        try {
+          const name = Buffer.from(row.asset_name, 'hex').toString('utf8');
+          if (name && !name.startsWith('\x00')) {
+            handleMap.set(drepId, `$${name}`);
+          }
+        } catch { /* skip malformed asset names */ }
+      }
+    } catch (err) {
+      console.warn(`[Koios] ADA Handle batch ${Math.floor(i / HANDLE_BATCH_SIZE) + 1} failed:`, err);
+    }
+  }
+
+  return handleMap;
+}
