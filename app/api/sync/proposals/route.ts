@@ -1,6 +1,7 @@
 /**
- * Proposal Sync — runs every 30 min via Vercel Pro cron.
- * Updates proposal lifecycle, votes on open proposals, and voting summaries.
+ * Proposal Sync — LEGACY manual fallback.
+ * Scheduling now handled by Inngest (see inngest/functions/sync-proposals.ts).
+ * This route remains callable via CRON_SECRET for manual recovery / debugging.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
