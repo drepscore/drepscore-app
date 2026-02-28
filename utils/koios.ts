@@ -496,29 +496,25 @@ export async function fetchDelegatedDRep(stakeAddress: string): Promise<string |
 }
 
 /**
- * Fetch delegator count for a DRep using Prefer: count=exact header.
- * Returns just the count without downloading all delegator records.
+ * Fetch delegator count for a DRep by counting rows from /drep_delegators.
+ * Uses pagination to count without downloading full records.
+ * Throws on API failure — callers must handle errors.
  */
 export async function fetchDRepDelegatorCount(drepId: string): Promise<number> {
-  try {
-    const url = `${KOIOS_BASE_URL}/drep_delegators?_drep_id=${encodeURIComponent(drepId)}&select=stake_address&limit=1`;
-    const headers: HeadersInit = {
-      'Prefer': 'count=exact',
-      ...(KOIOS_API_KEY && { 'Authorization': `Bearer ${KOIOS_API_KEY}` }),
-    };
+  const PAGE_SIZE = 1000;
+  let total = 0;
+  let offset = 0;
 
-    const response = await fetch(url, { headers, cache: 'no-store' });
-    if (!response.ok) return 0;
-
-    const range = response.headers.get('content-range');
-    if (range) {
-      const match = range.match(/\/(\d+)$/);
-      if (match) return parseInt(match[1], 10);
-    }
-    return 0;
-  } catch {
-    return 0;
+  while (true) {
+    const data = await koiosFetch<{ stake_address: string }[]>(
+      `/drep_delegators?_drep_id=${encodeURIComponent(drepId)}&select=stake_address&limit=${PAGE_SIZE}&offset=${offset}`
+    );
+    const rows = data || [];
+    total += rows.length;
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
   }
+  return total;
 }
 
 /**

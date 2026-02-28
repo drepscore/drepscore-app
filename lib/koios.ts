@@ -335,7 +335,7 @@ export async function getEnrichedDReps(
           deliberationModifier,
           effectiveParticipation,
           sizeTier: getSizeTier(votingPower),
-          delegatorCount: 0, // populated by fetchDRepDelegatorCount during sync
+          delegatorCount: 0, // overwritten by DRep sync step 3b
           totalVotes: votes.length,
           yesVotes,
           noVotes,

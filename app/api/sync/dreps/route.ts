@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnrichedDReps } from '@/lib/koios';
-import { fetchProposals, resolveADAHandles, resetKoiosMetrics, getKoiosMetrics } from '@/utils/koios';
+import { fetchProposals, resolveADAHandles, resetKoiosMetrics, getKoiosMetrics, fetchDRepDelegatorCount } from '@/utils/koios';
 import { classifyProposals, computeAllCategoryScores } from '@/lib/alignment';
 import { authorizeCron, initSupabase, SyncLogger, batchUpsert, errMsg, emitPostHog, triggerAnalyticsDeploy } from '@/lib/sync-utils';
 import type { ClassifiedProposal } from '@/types/koios';
@@ -118,6 +118,30 @@ export async function GET(request: NextRequest) {
       console.warn('[dreps] ADA Handle resolution failed (non-fatal):', errMsg(err));
     }
     phaseTiming.step3_handles_ms = Date.now() - step3Start;
+
+    // Step 3b: Fetch delegator counts (non-fatal, preserves existing on failure)
+    const step3bStart = Date.now();
+    const DELEGATOR_CONCURRENCY = 10;
+    let delegatorsFetched = 0;
+    try {
+      for (let i = 0; i < allDReps.length; i += DELEGATOR_CONCURRENCY) {
+        const chunk = allDReps.slice(i, i + DELEGATOR_CONCURRENCY);
+        const results = await Promise.allSettled(
+          chunk.map(d => fetchDRepDelegatorCount(d.drepId))
+        );
+        for (let j = 0; j < results.length; j++) {
+          if (results[j].status === 'fulfilled') {
+            (chunk[j] as any).delegatorCount = (results[j] as PromiseFulfilledResult<number>).value;
+            delegatorsFetched++;
+          }
+        }
+      }
+      console.log(`[dreps] Delegator counts: ${delegatorsFetched}/${allDReps.length} fetched`);
+    } catch (err) {
+      syncErrors.push(`Delegator counts: ${errMsg(err)}`);
+      console.warn('[dreps] Delegator count fetch failed (non-fatal):', errMsg(err));
+    }
+    phaseTiming.step3b_delegators_ms = Date.now() - step3bStart;
 
     // Step 4: Upsert DReps
     const step4Start = Date.now();
