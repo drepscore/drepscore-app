@@ -13,7 +13,7 @@ import {
 } from '@/lib/sync-utils';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 interface SupabaseVoteRow {
   vote_tx_hash: string;

@@ -4,7 +4,7 @@ import { fetchDRepDelegatorCount } from '@/utils/koios';
 import { blockTimeToEpoch } from '@/lib/koios';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const BATCH_SIZE = 100;
 const DELEGATOR_CONCURRENCY = 20;

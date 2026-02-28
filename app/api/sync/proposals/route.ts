@@ -10,7 +10,7 @@ import { classifyProposals } from '@/lib/alignment';
 import { authorizeCron, initSupabase, SyncLogger, errMsg, emitPostHog } from '@/lib/sync-utils';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const BATCH_SIZE = 100;
 const SUMMARY_CONCURRENCY = 5;
