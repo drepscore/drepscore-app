@@ -13,7 +13,7 @@ import {
   ProposalListResponse,
   ProposalVotingSummaryData,
 } from '@/types/koios';
-import { KoiosError } from '@/types/drep';
+
 
 const KOIOS_BASE_URL = process.env.NEXT_PUBLIC_KOIOS_BASE_URL || 'https://api.koios.rest/api/v1';
 const KOIOS_API_KEY = process.env.KOIOS_API_KEY;
@@ -107,18 +107,14 @@ async function koiosFetch<T>(
       : (error instanceof Error ? error.message : String(error));
     const errorStack = error instanceof Error ? error.stack : undefined;
 
-    const koiosError: KoiosError = {
-      message: errorMessage || 'Unknown error fetching from Koios',
-      retryable: retryCount < 3,
-    };
-
-    console.error(`[Koios] API Error: ${koiosError.message}`, {
+    const msg = errorMessage || 'Unknown error fetching from Koios';
+    console.error(`[Koios] API Error: ${msg}`, {
       endpoint,
-      retryable: koiosError.retryable,
+      retryable: retryCount < 3,
       retryCount,
       stack: errorStack,
     });
-    throw koiosError;
+    throw new Error(msg);
   }
 }
 
