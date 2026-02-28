@@ -54,7 +54,7 @@ const recentNotifications = await sql`
     COUNT(*) AS count,
     COUNT(*) FILTER (WHERE (payload->>'sent')::boolean = true) AS delivered
   FROM notification_log
-  WHERE created_at > now() - interval '7 days'
+  WHERE sent_at > now() - interval '7 days'
   GROUP BY event_type, channel
   ORDER BY count DESC
 `;
