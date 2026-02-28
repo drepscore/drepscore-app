@@ -156,5 +156,29 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Pattern**: `fetchVotesForProposals` fetched votes for each open proposal sequentially. With 20 open proposals at 500ms-2s per Koios call, that's 10-40s just for votes — consuming most of the 60s fast sync budget before summaries even start.
 **Takeaway**: Any loop over external API calls must use a concurrency limit (e.g., `Promise.all` in chunks of 5). Never `for...of` with `await` over a list of independent HTTP calls.
 
-*Last updated: 2026-02-27*
+### 2026-02-28: KoiosError was a plain object, not an Error instance
+**Pattern**: `koiosFetch` threw `{ message, retryable }` (a `KoiosError` interface), not an `Error`. Callers used `err instanceof Error ? err.message : String(err)` — the `instanceof` check failed, `String({...})` gave `[object Object]`, and error messages were unreadable.
+**Takeaway**: Always throw `new Error(msg)` from utility functions. Never throw plain objects — `instanceof Error` checks and `String()` serialization both break silently.
+
+### 2026-02-28: maxDuration 60s is too tight for Koios-dependent syncs
+**Pattern**: Proposals sync hit `FUNCTION_INVOCATION_TIMEOUT` at 60s. With 20s per-request Koios timeout + 3 retry attempts with exponential backoff, a single failing fetch can burn 63s+ before the function even gets to votes/summaries. Successful runs take ~88s.
+**Takeaway**: Set `maxDuration = 300` (Vercel Pro max) for all sync routes. The external API latency is unpredictable — tight timeouts cause more failures than they prevent. Rely on per-request `AbortController` timeouts for individual call discipline.
+
+### 2026-02-28: Don't add per-entity API calls to already-heavy sync functions
+**Pattern**: Added paginated `fetchDRepDelegatorCount` (multiple API calls per DRep) to the DRep sync that already fetches info+metadata+votes for ~1000 DReps. Function timed out at 300s. The correct fix was to separate concerns: DRep sync preserves existing counts from DB, secondary sync handles the counting via `Prefer: count=exact` (1 request per DRep).
+**Takeaway**: When a sync function is already near its time budget, don't add expensive per-entity API calls. Instead, read-and-preserve from DB and let a dedicated sync handle the new data.
+
+### 2026-02-28: Untracked files break pre-push hooks via .next/types
+**Pattern**: Another agent's uncommitted `app/api/v1/` routes caused `next build` to generate `.next/types/app/api/v1/` with type errors. The pre-push hook (`next build`) failed even though committed code was clean. Vercel builds only committed files, so `--no-verify` was safe.
+**Takeaway**: When other agents leave untracked `app/` files, clean `.next/types/` before committing or use `--no-verify` when confident committed code is clean. The local build sees all workspace files; Vercel only sees git.
+
+### 2026-02-28: Monitoring must match the actual cron architecture
+**Pattern**: Sync architecture was refactored from monolithic `fast`/`full` to dedicated routes (`proposals`, `dreps`, `votes`, `secondary`, `slow`). But `alertThresholds`, `syncRouteMap`, and `stalenessThresholds` in the alert cron still referenced `fast` and `full`. Old `sync_log` entries for these types kept `v_sync_health` view returning stale rows, triggering false alarms. Self-healing tried to re-trigger non-existent routes, failed with 401.
+**Takeaway**: When refactoring a system, update ALL consumers: monitoring, alerting, self-healing, and cleanup old data. Use a single `SYNC_CONFIG` source of truth and an `ACTIVE_SYNC_TYPES` set to filter `v_sync_health` results.
+
+### 2026-02-28: Self-healing must use production domain, not VERCEL_URL
+**Pattern**: `VERCEL_URL` is a deployment-specific URL (e.g. `drepscore-app-abc123.vercel.app`), not the production domain. Using it for self-healing triggers means the request goes to a random deployment, not the current production build. Auth may also fail if `CRON_SECRET` validation differs between deployments.
+**Takeaway**: Prefer `NEXT_PUBLIC_SITE_URL` (the canonical production domain) for self-healing triggers. Fall back to `VERCEL_URL` only as a last resort.
+
+*Last updated: 2026-02-28*
 *Review this file at the start of every session.*

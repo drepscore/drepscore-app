@@ -133,29 +133,38 @@ export async function GET(request: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
 
   if (cronSecret && baseUrl) {
+    const staleTypes: { syncType: string; staleMins: number; config: typeof SYNC_CONFIG[string] }[] = [];
     for (const row of sh || []) {
       if (!ACTIVE_SYNC_TYPES.has(row.sync_type)) continue;
       if (!row.last_run) continue;
-
       const config = SYNC_CONFIG[row.sync_type];
       if (!config) continue;
-
       const staleMins = Math.round((now - new Date(row.last_run).getTime()) / 60000);
-      if (staleMins <= config.mins) continue;
+      if (staleMins > config.mins) {
+        staleTypes.push({ syncType: row.sync_type, staleMins, config });
+      }
+    }
 
-      try {
-        console.log(`[AlertCron] Self-healing: triggering ${row.sync_type} (${staleMins}m stale > ${config.mins}m threshold)`);
+    const recoveryResults = await Promise.allSettled(
+      staleTypes.map(async ({ syncType, staleMins, config }) => {
+        console.log(`[AlertCron] Self-healing: triggering ${syncType} (${staleMins}m stale > ${config.mins}m threshold)`);
         const res = await fetch(`${baseUrl}${config.route}`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${cronSecret}` },
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(5000),
         });
-        recoveries.push(`${row.sync_type}: ${res.status}`);
-        console.log(`[AlertCron] Recovery ${row.sync_type}: ${res.status}`);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        recoveries.push(`${row.sync_type}: failed (${msg})`);
-        console.warn(`[AlertCron] Recovery ${row.sync_type} failed:`, msg);
+        return { syncType, status: res.status };
+      })
+    );
+
+    for (const result of recoveryResults) {
+      if (result.status === 'fulfilled') {
+        recoveries.push(`${result.value.syncType}: ${result.value.status}`);
+        console.log(`[AlertCron] Recovery ${result.value.syncType}: ${result.value.status}`);
+      } else {
+        const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        recoveries.push(`unknown: failed (${msg})`);
+        console.warn(`[AlertCron] Recovery failed:`, msg);
       }
     }
   }
