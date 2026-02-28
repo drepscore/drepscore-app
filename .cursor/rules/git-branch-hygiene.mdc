@@ -22,15 +22,19 @@ Each worktree has its own `node_modules`, `.env.local`, and `.next`. The git his
 Pre-flight checklist (all steps mandatory, in order):
 
 1. **Verify plan exists**: Confirm `.cursor/plans/<feature>.plan.md` is written and committed to `main`. If not, write and commit it first (`docs: plan for <feature>`).
-2. **Create worktree**:
+2. **Create worktree and install deps**:
    ```
    git worktree add ..\drepscore-<name> -b feature/<name>
    Copy-Item .env.local ..\drepscore-<name>\.env.local
    cd ..\drepscore-<name>; npm install
    ```
-3. **Tell the user exactly what to do next**:
-   > Open `C:\Users\dalto\drepscore\drepscore-<name>` in a new Cursor window.
-   > Start a new conversation and say: "Build the plan in `.cursor/plans/<feature>.plan.md`"
+3. **Open the worktree in a new Cursor window automatically**:
+   ```
+   cursor C:\Users\dalto\drepscore\drepscore-<name>
+   ```
+4. **Tell the user**:
+   > A new Cursor window is opening for `drepscore-<name>`.
+   > Start a new conversation there and say: **"Build the plan in `.cursor/plans/<feature>.plan.md`"**
 
 The plan file is already in the worktree because it was committed to main before the worktree was created. The new agent reads it and has full context.
 
