@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnrichedDReps } from '@/lib/koios';
-import { fetchProposals, resolveADAHandles, resetKoiosMetrics, getKoiosMetrics, fetchDRepDelegatorCount } from '@/utils/koios';
+import { fetchProposals, resolveADAHandles, resetKoiosMetrics, getKoiosMetrics } from '@/utils/koios';
 import { classifyProposals, computeAllCategoryScores } from '@/lib/alignment';
 import { authorizeCron, initSupabase, SyncLogger, batchUpsert, errMsg, emitPostHog, triggerAnalyticsDeploy } from '@/lib/sync-utils';
 import type { ClassifiedProposal } from '@/types/koios';
@@ -119,27 +119,21 @@ export async function GET(request: NextRequest) {
     }
     phaseTiming.step3_handles_ms = Date.now() - step3Start;
 
-    // Step 3b: Fetch delegator counts (non-fatal, preserves existing on failure)
+    // Step 3b: Read existing delegator counts from DB so DRep sync doesn't overwrite with 0
     const step3bStart = Date.now();
-    const DELEGATOR_CONCURRENCY = 10;
-    let delegatorsFetched = 0;
+    const existingDelegatorCounts = new Map<string, number>();
     try {
-      for (let i = 0; i < allDReps.length; i += DELEGATOR_CONCURRENCY) {
-        const chunk = allDReps.slice(i, i + DELEGATOR_CONCURRENCY);
-        const results = await Promise.allSettled(
-          chunk.map(d => fetchDRepDelegatorCount(d.drepId))
-        );
-        for (let j = 0; j < results.length; j++) {
-          if (results[j].status === 'fulfilled') {
-            (chunk[j] as any).delegatorCount = (results[j] as PromiseFulfilledResult<number>).value;
-            delegatorsFetched++;
-          }
-        }
+      const { data: existing } = await supabase
+        .from('dreps')
+        .select('id, info');
+      for (const row of existing || []) {
+        const info = row.info as Record<string, unknown> | null;
+        const count = (info?.delegatorCount as number) || 0;
+        existingDelegatorCounts.set(row.id, count);
       }
-      console.log(`[dreps] Delegator counts: ${delegatorsFetched}/${allDReps.length} fetched`);
+      console.log(`[dreps] Preserved ${existingDelegatorCounts.size} existing delegator counts`);
     } catch (err) {
-      syncErrors.push(`Delegator counts: ${errMsg(err)}`);
-      console.warn('[dreps] Delegator count fetch failed (non-fatal):', errMsg(err));
+      console.warn('[dreps] Could not read existing delegator counts:', errMsg(err));
     }
     phaseTiming.step3b_delegators_ms = Date.now() - step3bStart;
 
@@ -152,7 +146,7 @@ export async function GET(request: NextRequest) {
         drepHash: drep.drepHash, handle: drep.handle, name: drep.name,
         ticker: drep.ticker, description: drep.description,
         votingPower: drep.votingPower, votingPowerLovelace: drep.votingPowerLovelace,
-        delegatorCount: drep.delegatorCount, totalVotes: drep.totalVotes,
+        delegatorCount: existingDelegatorCounts.get(drep.drepId) ?? 0, totalVotes: drep.totalVotes,
         yesVotes: drep.yesVotes, noVotes: drep.noVotes, abstainVotes: drep.abstainVotes,
         isActive: drep.isActive, anchorUrl: drep.anchorUrl,
         epochVoteCounts: drep.epochVoteCounts,
