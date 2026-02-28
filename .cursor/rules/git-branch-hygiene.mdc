@@ -1,31 +1,91 @@
 ---
-description: Git branch and deployment safety rules to prevent cross-branch file leakage
+description: Worktree workflow, branch safety guardrails, and deployment rules
 alwaysApply: true
 ---
 
-# Git Branch Hygiene
+# Git Worktree Workflow
 
-## Cross-Branch File Leakage
+## Directory Layout
 
-Untracked/modified files persist across `git checkout`. The pre-push hook builds ALL files in the working directory, not just committed ones.
+```
+C:\Users\dalto\drepscore\
+  drepscore-app/           ← main (production, merges, hotfixes)
+  drepscore-<feature>/     ← one per active feature branch
+```
 
-**Before pushing to `main`:**
-1. Run `git status --short` and check for untracked files from other branches
-2. If untracked files exist: `git stash --include-untracked` before push, `git stash pop` after
-3. If using `--keep-index` to isolate staged changes, always restore with `git stash pop` afterward
+Each worktree has its own `node_modules`, `.env.local`, and `.next`. The git history is shared.
 
-**Never push to `main` with a dirty working tree** — the build will pick up uncommitted files and either fail (type errors) or ship unintended code.
+## Starting a Feature (Planning → Building)
+
+When transitioning from planning to building a feature:
+
+1. Create worktree from `drepscore-app`:
+   ```
+   git worktree add ..\drepscore-<name> -b feature/<name>
+   Copy-Item .env.local ..\drepscore-<name>\.env.local
+   cd ..\drepscore-<name>; npm install
+   ```
+2. Tell the user: "Open `C:\Users\dalto\drepscore\drepscore-<name>` in a new Cursor window and start a new conversation there to continue building."
+3. If a `.cursor/plans/` file was created during planning, reference it — it's already in the new worktree since it's committed to the repo.
+
+## Branch Detection Guardrail
+
+**Before making ANY code changes**, check `git branch --show-current`.
+
+- If on `main` and the task is NOT a quick hotfix: **STOP**. Create a worktree first.
+- If on `main` and it IS a hotfix: proceed, but commit and push directly — no PR needed for single-commit hotfixes.
+- If on a feature branch: proceed normally.
+
+## Merge Guardrail — PR-Based Flow
+
+**NEVER merge to main from a feature worktree.** Merges to main ONLY happen via PR.
+
+When a feature is complete:
+
+1. From the **feature worktree**, push the branch:
+   ```
+   git push origin feature/<name>
+   ```
+2. Create a PR:
+   ```
+   gh pr create --title "feat: <description>" --body "## Summary\n..."
+   ```
+3. Tell the user: "PR created. Switch to the `drepscore-app` window to merge when ready."
+
+When the user says "merge" from the **main worktree** (`drepscore-app`):
+
+1. Merge via GitHub CLI:
+   ```
+   gh pr merge <pr-number> --squash --delete-branch
+   git pull origin main
+   ```
+2. Clean up the worktree:
+   ```
+   git worktree remove ..\drepscore-<name>
+   git branch -d feature/<name>
+   ```
+3. If the feature touched sync routes or analytics: trigger a sync and/or verify the analytics deploy hook fired.
+
+**If user asks to merge from a feature worktree, refuse.** Say: "Merges happen from the drepscore-app window (main). Switch there and ask me to merge."
+
+## Quick Hotfixes on Main
+
+For single-commit fixes that don't need a feature branch:
+- Work directly on `main` in `drepscore-app`
+- Commit, push, done
+- No worktree or PR needed
 
 ## Analytics Loaders
 
-All `analytics/src/data/*.json.ts` files query Postgres directly. When adding or modifying loaders:
+All `analytics/src/data/*.json.ts` files query Postgres directly at build time. When adding or modifying loaders:
 - Verify column names against the actual DB schema (use Supabase MCP `execute_sql`)
 - Use conditional env loading: `if (existsSync(envPath)) process.loadEnvFile(envPath)`
-- `notification_log` uses `sent_at` (not `created_at`)
-- `drep_votes` primary key is `vote_tx_hash` (no `id` column), epoch column is `epoch_no`
+- Known gotchas: `notification_log` uses `sent_at` (not `created_at`); `drep_votes` PK is `vote_tx_hash` (no `id` column), epoch column is `epoch_no`
 
 ## Deployment
 
-- Production deploys from `main` via Vercel Git integration
-- The `analytics` Vercel project uses root directory `analytics/` and framework preset "Other"
-- Both `dreps` and `votes` sync routes fire `ANALYTICS_DEPLOY_HOOK` after successful sync
+- **Production**: deploys from `main` via Vercel Git integration (push = deploy)
+- **Preview**: Vercel auto-deploys every feature branch push
+- **Analytics dashboard**: separate Vercel project, root directory `analytics/`, framework preset "Other"
+- **Post-sync rebuild**: `dreps` and `votes` sync routes fire `ANALYTICS_DEPLOY_HOOK` automatically
+- **CRON_SECRET**: production value differs from local `.env.local` — use `vercel env pull` if you need to trigger syncs manually

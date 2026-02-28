@@ -42,6 +42,7 @@ Before any plan is finalized, answer:
 - **Rule promotion**: During planning, if a lesson has appeared 2+ times or represents a permanent architectural decision, propose creating/updating a cursor rule
 
 ## Deployment Protocol
+- **Branching**: Follow the worktree workflow in `git-branch-hygiene.mdc`. Never build features on `main` — use worktrees. Merges to main happen via squash-merge PRs from the `drepscore-app` window only.
 - **Pre-push**: Run `npx next build --webpack` and confirm exit code 0 before every `git push`. No exceptions.
 - **Post-push**: After pushing, check deployment status. Use Vercel CLI (`vercel inspect` or `vercel logs`) if available, or monitor the build output. If the deploy fails, fix and re-push immediately without waiting for the user to report it.
 - **Self-resolve**: Build errors caused by your changes are your responsibility. Do not push known-broken code hoping it works in CI.
