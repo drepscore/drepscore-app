@@ -205,5 +205,11 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Issue**: Phase 6 of the hardening plan raised `lib/koios.ts` from 10% to 40%, but no new koios-specific tests were written. Coverage was only 14.22%.
 **Fix**: Coverage thresholds must only be raised when accompanied by tests that achieve the target. Set thresholds to slightly below current coverage (14% in this case) as a regression gate, then raise incrementally as tests are added.
 
+### 2026-03-01: Server components with Supabase calls must be force-dynamic
+**Issue**: Rewrote `app/page.tsx` from a client component into an async server component that calls `createClient()` at render time. Locally this worked (env vars present). In Docker/Railway builds, env vars aren't available during `next build` static generation phase — the build tries to prerender `/` and crashes with "Missing Supabase environment variables."
+**Fix**: Any page that calls Supabase (or any runtime-only service) server-side must export `dynamic = 'force-dynamic'` to skip static generation. The old page worked because it had zero server-side data fetching.
+**Root cause of missed detection**: Local pre-push hook ran with env vars present so the build passed. The CI build also passed. Only the Docker build (Railway) failed because it separates build and runtime env vars.
+**Takeaway**: When converting a page from client-only to server-fetching, always add `export const dynamic = 'force-dynamic'`. This is especially critical for the homepage and any page calling `createClient()` or `getSupabaseAdmin()` at the module/function level.
+
 *Last updated: 2026-03-01*
 *Review this file at the start of every session.*

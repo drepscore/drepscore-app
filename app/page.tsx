@@ -3,6 +3,7 @@ import { blockTimeToEpoch } from '@/lib/koios';
 import { getProposalPriority } from '@/utils/proposalPriority';
 import { HomepageDualMode } from '@/components/HomepageDualMode';
 
+export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
 async function getGovernancePulse() {
