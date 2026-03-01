@@ -6,7 +6,7 @@ export const syncVotes = inngest.createFunction(
   {
     id: 'sync-votes',
     retries: 2,
-    concurrency: { limit: 1, scope: 'env', key: '"koios"' },
+    concurrency: { limit: 2, scope: 'env', key: '"koios-batch"' },
   },
   { cron: '15 */6 * * *' },
   async ({ step }) => {

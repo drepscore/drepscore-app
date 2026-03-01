@@ -6,7 +6,7 @@ export const syncDreps = inngest.createFunction(
   {
     id: 'sync-dreps',
     retries: 2,
-    concurrency: { limit: 1, scope: 'env', key: '"koios"' },
+    concurrency: { limit: 2, scope: 'env', key: '"koios-batch"' },
   },
   { cron: '0 */6 * * *' },
   async ({ step }) => {

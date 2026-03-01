@@ -4,6 +4,9 @@
  * Inngest adds scheduling, retry, and observability on top.
  */
 
+import { alertDiscord, emitPostHog } from '@/lib/sync-utils';
+import type { SyncType } from '@/lib/sync-utils';
+
 export async function callSyncRoute(
   path: string,
   timeoutMs: number,
@@ -26,6 +29,23 @@ export async function callSyncRoute(
 
   if (!res.ok && res.status >= 500) {
     throw new Error(`${path} returned ${res.status}: ${JSON.stringify(body).slice(0, 500)}`);
+  }
+
+  if (res.status === 207) {
+    const syncType = path.replace('/api/sync/', '') as SyncType;
+    const b = body as Record<string, unknown>;
+    const errorCount = Array.isArray(b.errors) ? b.errors.length : 0;
+    const totalRecords = typeof b.total === 'number' ? b.total : 0;
+
+    emitPostHog(true, syncType, 0, {
+      event_override: 'sync_degraded',
+      error_count: errorCount,
+      total_records: totalRecords,
+    });
+    alertDiscord(
+      `Degraded Sync: ${syncType}`,
+      `Route ${path} returned 207 (partial success). ${errorCount} errors.`,
+    );
   }
 
   return { status: res.status, body };

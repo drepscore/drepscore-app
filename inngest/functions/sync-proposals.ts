@@ -22,7 +22,7 @@ export const syncProposals = inngest.createFunction(
     concurrency: {
       limit: 2,
       scope: 'env',
-      key: '"koios"',
+      key: '"koios-frequent"',
     },
   },
   { cron: '*/30 * * * *' },
