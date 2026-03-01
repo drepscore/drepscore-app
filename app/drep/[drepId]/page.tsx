@@ -35,6 +35,7 @@ import { ProfileViewTracker } from '@/components/ProfileViewTracker';
 import { MilestoneBadges } from '@/components/MilestoneBadges';
 import { GovernancePhilosophyEditor } from '@/components/GovernancePhilosophyEditor';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
+import { DRepTreasuryStance } from '@/components/DRepTreasuryStance';
 import {
   getDRepById,
   getVotesByDRepId,
@@ -388,6 +389,9 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
 
       {/* Score History Chart */}
       <ScoreHistoryChart history={scoreHistory} />
+
+      {/* Treasury Track Record */}
+      <DRepTreasuryStance drepId={drep.drepId} />
 
       {/* Governance Philosophy */}
       <GovernancePhilosophyEditor drepId={drep.drepId} readOnly />

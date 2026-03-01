@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShareActions } from '@/components/ShareActions';
+import { TreasuryHealthWidget } from '@/components/TreasuryHealthWidget';
 import {
   Landmark,
   ScrollText,
@@ -154,6 +155,9 @@ export default function PulsePage() {
           Real-time health of Cardano&apos;s on-chain governance
         </p>
       </div>
+
+      {/* Treasury Health */}
+      <TreasuryHealthWidget />
 
       {/* Hero stats */}
       {pulse && (
