@@ -45,6 +45,7 @@ Before any plan is finalized, answer:
 - **One-pass target**: Research edge cases before implementation. Target zero fix commits after a feature commit
 - **Database-first**: Any feature that reads external data must go through Supabase. No new direct-API paths to the frontend
 - **Analytics inline**: Every new user-facing interaction must include its PostHog event at creation time, not as a follow-up. If you create a button, form, or state change a user triggers — add the `posthog.capture()` call in the same diff. Reference `analytics.mdc` for naming conventions.
+- **No orphaned components**: Every component created in a session must be imported and rendered somewhere in the same commit/PR. A component that exists only as a file is invisible debt — it will be forgotten. If a component isn't ready to wire in, don't build it yet.
 - **Deprecation audit**: When removing or replacing a system (preferences, wizard, scoring model, etc.), search for all consumers of its **data and state** — not just direct imports of deleted files. Hooks, effects, API routes, and conditional logic that depend on the removed system's output will silently break if not updated.
 
 ## Continuous Learning Protocol
@@ -70,6 +71,14 @@ Before any plan is finalized, answer:
 - Clean up: no stale status report files, no debug console.logs left behind
 - Concise summary of changes unless deep review is requested
 
+### Analytics Completion Checklist
+Before marking a feature complete, verify all five layers. "Analytics inline" catches most events during build, but these are the gaps that consistently slip through:
+1. **Client events**: Every new component that renders user-visible content has a `_viewed` event; every interaction (click, toggle, dismiss) has an action event
+2. **Server events**: Every POST/PUT API route captures a server event via `captureServerEvent()` with the wallet address as distinctId
+3. **Observable loaders**: Any new Supabase table or data dimension has a corresponding `analytics/src/data/*.json.ts` loader
+4. **Integrity checks**: Any new table is covered by the integrity system (spam detection, orphan checks, volume alerts)
+5. **Dashboard page**: If a new loader was added, either update an existing Observable page or create one, and add it to `observablehq.config.ts` sidebar
+
 ## Proactive Advocacy Protocol
 You are the CTO. Act like it. Do not defer to the path of least resistance.
 - **Architecture**: When a simple and robust path both exist, recommend the robust path first. Explain the tradeoff. Let the user choose to simplify — never the reverse.
@@ -80,6 +89,13 @@ You are the CTO. Act like it. Do not defer to the path of least resistance.
 ## Mode Awareness
 If the user's message is a question, discussion, or exploration (not a request for changes), suggest switching to **Ask mode** for cost efficiency. Agent mode burns tokens on tool definitions and proactive exploration that aren't needed for conversation.
 
+## Shell Compatibility (PowerShell)
+This project runs on Windows with PowerShell as the default shell. Avoid:
+- `&&` to chain commands — use `;` or run commands separately
+- `head`, `tail`, `grep` — use `Select-Object`, `Select-String`, or ripgrep (`rg`)
+- Heredoc (`<<'EOF'`) — not supported; use single-line commit messages or write to a file first
+- `cat` for file reading — use the Read tool
+
 ## Anti-Patterns (Do Not)
 - Do NOT create `*_STATUS_REPORT.md` files in the project root — use `tasks/todo.md` for tracking
 - Do NOT proceed past a failed or unvalidated step
@@ -87,3 +103,4 @@ If the user's message is a question, discussion, or exploration (not a request f
 - Do NOT wait on long-running operations without intermediate validation
 - Do NOT assume library/API behavior — verify first
 - Do NOT build before validating the economics of a proposed approach
+- Do NOT use `git add -A` after cross-branch operations (stash pop, checkout, cherry-pick). Stash/pop brings all working-tree changes from the source branch. `git add -A` will stage unrelated files and push them to the wrong branch. Always use targeted `git add <specific-files>` after any branch switch.

@@ -17,9 +17,10 @@
 6. [Session 4 — Shareable Moments & Viral Mechanics](#session-4--shareable-moments--viral-mechanics)
 7. [Session 5 — Governance Citizen Experience](#session-5--governance-citizen-experience)
 8. [Session 6 — Visual Identity & Polish](#session-6--visual-identity--polish)
-9. [Session 7 — Platform Deepening & Strategic Bets](#session-7--platform-deepening--strategic-bets)
-10. [Anti-Patterns to Avoid](#anti-patterns-to-avoid)
-11. [Competitive Positioning](#competitive-positioning)
+9. [Session 7 — Treasury Intelligence Dashboard](#session-7--treasury-intelligence-dashboard)
+10. [Session 8 — Platform Deepening & Strategic Bets](#session-8--platform-deepening--strategic-bets)
+11. [Anti-Patterns to Avoid](#anti-patterns-to-avoid)
+12. [Competitive Positioning](#competitive-positioning)
 
 ---
 
@@ -731,7 +732,122 @@ Create a visual identity that is instantly recognizable — every screenshot, ev
 
 ---
 
-## Session 7 — Platform Deepening & Strategic Bets
+## Session 7 — Treasury Intelligence Dashboard
+
+### Goal
+Build the first treasury health intelligence dashboard in crypto governance. Transform the Cardano treasury from an opaque number into a living, accountable financial story — with health scoring, runway projections, What-If simulation, spending accountability polls, and cross-app integration that makes every proposal vote treasury-aware.
+
+### What Was Planned
+
+Full plan: `.cursor/plans/treasury_intelligence_review_aefaa0d6.plan.md`
+
+### What Was Built
+
+**Phase 0: Prerequisites & Wiring**
+- Migration `024_governance_citizen.sql`: `governance_stats` and `governance_events` tables (required by Session 6 orphaned components)
+- Migration `025_treasury_intelligence.sql`: `treasury_snapshots`, `treasury_accountability_polls`, `treasury_accountability_responses` tables + `proposals.meta_json` column
+- Added Koios treasury API functions (`fetchTreasuryBalance`, `fetchTreasuryHistory`) to `utils/koios.ts`
+- Built `lib/treasury.ts`: comprehensive library with balance/trend, burn rate, runway, health score (0-100 composite), income vs outflow, pending proposal impact, runway projections (multi-scenario), counterfactual analysis, proposal similarity matching, DRep treasury track record, spending effectiveness, accountability poll scheduling
+- Registered `generateEpochSummary` in Inngest serve config (was built but never registered)
+- Built `FinancialImpactCard` component (reusable treasury context on proposals)
+- Wired ~12 orphaned Session 5/6 governance citizen components into `/governance` page via new `GovernanceCitizenSection` wrapper
+
+**Phase 1: Treasury Data Foundation**
+- Inngest function `sync-treasury-snapshot`: daily sync from Koios `/totals`, calculates per-epoch withdrawals and reserve income, upserts to `treasury_snapshots`
+- Inngest function `check-accountability-polls`: hybrid gating model — opens initial polls at tier-based intervals (3/6/12 months post-enactment), closes expired windows, aggregates results, schedules recurring re-evaluation cycles
+- 6 API routes: `/api/treasury/current`, `/api/treasury/history`, `/api/treasury/pending`, `/api/treasury/simulate`, `/api/treasury/accountability` (GET + POST), `/api/treasury/similar`
+
+**Phase 2: /treasury Page**
+- `TreasuryDashboard`: 5-stat hero row (balance, runway, health score, burn rate, pending), health score breakdown with per-component progress bars, tab navigation (Overview / What-If Simulator / Accountability)
+- `TreasuryCharts`: Area chart for balance over time, bar chart for income vs outflow per epoch, time range selector (30/90/all)
+- `TreasuryPendingProposals`: Pending treasury withdrawal list with tier badges, % of treasury, amount
+- `TreasuryHistoryTimeline`: Epoch-grouped enacted withdrawal timeline with cumulative totals
+- Added "Treasury" to header navigation (between Pulse and My Governance)
+
+**Phase 3: What-If Simulator + Counterfactual Analysis**
+- `TreasurySimulator`: Interactive spending rate slider (0x-3x), preset buttons, real-time scenario projection chart showing 4 scenarios (Current/Moderate/All Pending Pass/Freeze), per-scenario runway estimates
+- Counterfactual section: "What if the largest withdrawals had been rejected?" with hypothetical balance, additional runway months, top 5 largest withdrawal listing
+- Share functionality copies scenario summary to clipboard
+
+**Phase 3b: Treasury Accountability System**
+- `TreasuryAccountabilitySection`: Spending effectiveness scorecard with donut chart, rating breakdown (Delivered/Partial/Not Delivered/Too Early/Pending), best-rated and lowest-rated spending lists
+- `TreasuryAccountabilityPoll`: Per-proposal poll UI with primary question (delivered?), secondary question (approve again?), optional evidence field, historical cycle results display
+- `SimilarProposalsCard`: "Learn From History" showing past proposals matched by tier + keyword similarity + amount proximity
+- Hybrid gating model: Routine ~3mo, Significant ~6mo, Major ~12mo post-enactment; recurring re-evaluation every ~6 months; "Too Early to Tell" as critical signal
+
+**Phase 4: Cross-App Integration**
+- `TreasuryHealthWidget`: Compact treasury health card on `/pulse` page
+- `DRepTreasuryStance`: Full treasury track record card on DRep profiles (approved/opposed/abstained counts + ADA, stance classification, judgment score)
+- `FinancialImpactCard` wired into proposal detail pages (replaces plain text withdrawal amount)
+- `TreasuryAccountabilityPoll` + `SimilarProposalsCard` wired into treasury proposal detail pages
+- 3 OG image routes: `/api/og/treasury` (balance + health score + runway), `/api/og/treasury-scenario` (shareable simulation), `/api/og/treasury-accountability` (effectiveness rate)
+
+### Data Model
+
+| Table | Purpose |
+|---|---|
+| `treasury_snapshots` | Epoch-level balance, withdrawals, reserves, income tracking (PK: `epoch_no`) |
+| `treasury_accountability_polls` | Recurring evaluation cycles per enacted proposal (PK: `tx_hash, index, cycle_number`) |
+| `treasury_accountability_responses` | Per-user per-cycle accountability votes (PK: `tx_hash, index, cycle, user_address`) |
+| `governance_stats` | Singleton epoch tracker for generate-epoch-summary |
+| `governance_events` | Per-user governance timeline events |
+| `proposals.meta_json` | New JSONB column for future AI timeline extraction |
+
+### New API Routes
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/treasury/current` | GET | Balance, runway, health score, pending count |
+| `/api/treasury/history` | GET | Epoch-level snapshots + income vs outflow |
+| `/api/treasury/pending` | GET | Pending withdrawal proposals with impact |
+| `/api/treasury/simulate` | GET | Multi-scenario runway projections + counterfactual |
+| `/api/treasury/accountability` | GET/POST | Accountability poll data + vote submission |
+| `/api/treasury/similar` | GET | Similar past proposal matching |
+| `/api/og/treasury` | GET | Treasury OG image |
+| `/api/og/treasury-scenario` | GET | Simulation scenario OG image |
+| `/api/og/treasury-accountability` | GET | Accountability scorecard OG image |
+
+### New Components
+
+| Component | Location |
+|---|---|
+| `TreasuryDashboard` | Main `/treasury` page orchestrator |
+| `TreasuryCharts` | Balance + income/outflow charts with time range |
+| `TreasuryPendingProposals` | Pending withdrawal proposals with impact analysis |
+| `TreasurySimulator` | What-If scenario projections with interactive controls |
+| `TreasuryHistoryTimeline` | Epoch-grouped enacted withdrawal history |
+| `TreasuryAccountabilitySection` | Spending effectiveness scorecard |
+| `TreasuryAccountabilityPoll` | Per-proposal accountability poll UI |
+| `SimilarProposalsCard` | "Learn From History" similar proposals |
+| `TreasuryHealthWidget` | Compact treasury card for /pulse |
+| `DRepTreasuryStance` | Treasury track record for DRep profiles |
+| `FinancialImpactCard` | Reusable treasury context on proposals |
+| `GovernanceCitizenSection` | Wrapper wiring orphaned Session 6 components |
+
+### Why This Is the "Wow"
+
+- **First treasury health intelligence in crypto.** No governance tool on any chain tracks treasury health with a composite score, runway projections, and spending accountability.
+- **Closes the accountability loop.** Money goes out → time passes → community rates outcome → record informs future votes. Nobody else does this.
+- **Creates shareable content.** "Cardano Treasury Health: 78/100" and "Only 60% of treasury spending delivered on promises" are headlines that get debated on X.
+- **Makes individual DRep voting records tangible.** "This DRep approved 3 projects that didn't deliver" is concrete accountability.
+- **Forces honest reflection on new proposals.** "Similar proposals have a 50% delivery rate" makes voters think harder.
+- **Positions DRepScore as governance infrastructure.** Not just tracking scores — tracking whether governance *works*.
+
+### Relationship to Session 8 (Platform Deepening)
+
+Session 8 item #9 "Proposal financial impact simulation" was previously listed as "Build simplified" — it is now **fully built** as the Treasury Intelligence Dashboard with What-If Simulator and counterfactual analysis far exceeding the original scope.
+
+### Success Criteria
+- `/treasury` becomes a top-5 trafficked page within first month
+- Treasury Health Score gets shared on social media as a community health metric
+- What-If Simulator usage: >20% of treasury page visitors interact with controls
+- Accountability polls receive responses within first eligible cycle
+- DReps and delegators reference treasury track records in governance discussions
+- At least one media/researcher uses the accountability data in public analysis
+
+---
+
+## Session 8 — Platform Deepening & Strategic Bets
 
 ### Goal
 Evaluate high-complexity, high-impact ideas that could transform DRepScore from a governance analytics tool into the governance operating system for Cardano. Each item is assessed for strategic value, complexity, dependencies, and recommendation.
@@ -799,7 +915,7 @@ Evaluate high-complexity, high-impact ideas that could transform DRepScore from 
 - **Strategic value:** High for the ecosystem. Makes governance decisions tangible and concrete for delegators.
 - **Complexity:** High. Requires financial modeling per proposal type (treasury math, parameter impact modeling, staking reward calculations), data sources for treasury state, and visualization.
 - **Dependencies:** Treasury data APIs, parameter change impact formulas, proposal type-specific modeling.
-- **Recommendation:** **Build (simplified).** Start with treasury withdrawal proposals (simple subtraction math, high impact). Treasury balance is available from Koios. Defer parameter change simulation to later.
+- **Status:** **FULLY BUILT in Session 7.** The Treasury Intelligence Dashboard includes a What-If Simulator with multi-scenario projections, counterfactual analysis, interactive spending rate controls, and cross-app integration (FinancialImpactCard on every treasury proposal). Far exceeds the original "simplified" scope. Remaining opportunity: parameter change impact simulation (non-treasury proposals).
 
 ### Priority Matrix
 
@@ -808,7 +924,7 @@ Evaluate high-complexity, high-impact ideas that could transform DRepScore from 
 | Governance identity visualization | Medium-high | Low | **Build now** |
 | AI governance brief | High | Medium-high | **Build next** |
 | Delegation event detection | Medium | Medium | **Build simplified** |
-| Financial impact simulation | High | High | **Build simplified** |
+| Financial impact simulation | High | High | **BUILT (Session 7)** |
 | On-chain rationale submission | Highest | Very high | **Revisit after data** |
 | AI score coach | Medium-high | Medium-high | **Revisit after data** |
 | Proposal discussion threads | Medium-high | Medium | **Defer** |

@@ -257,5 +257,28 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 
 Server-side API routes also need `captureServerEvent` for success + error tracking. OG image routes on Edge runtime are the exception — track via the client share event, not the server render.
 
+### 2026-03-01: dreps table uses `id` not `drep_id`, and name/ticker/handle are in `info` JSON
+**Promoted to rule**: Yes — `architecture.md` now has a `dreps` Table Schema Convention section.
+**Issue**: Leaderboard route queried `dreps.drep_id`, `dreps.name`, `dreps.ticker`, `dreps.handle` — none of which exist as columns. Caused Supabase 400 errors. Took 3 fix iterations to fully diagnose because each column absence surfaced separately.
+**Takeaway**: The `dreps` PK is `id`. Display metadata lives in the `info` JSONB column. All other tables use `drep_id` as FK. When writing new queries against `dreps`, select `id, score, info, ...` and extract display fields from `info`.
+
+### 2026-03-01: JSX in API routes requires .tsx extension
+**Promoted to rule**: Yes — `architecture.md` now has a File Extension Rule for JSX.
+**Issue**: `app/api/badge/[drepId]/route.ts` contained `ImageResponse` JSX (`<div>`, `<img>` elements). TypeScript doesn't parse JSX in `.ts` files. CI type-check and lint both failed with cryptic parse errors (`'>' expected`, `Parsing error`).
+**Takeaway**: Any route using `ImageResponse` or raw JSX must be `.tsx`. This applies to all OG image routes and the badge route.
+
+### 2026-03-01: Never `git add -A` after cross-branch stash/pop
+**Promoted to rule**: Yes — `workflow.md` anti-patterns updated.
+**Issue**: After stashing work from `feature/session-5-governance-citizen` and popping on `main`, `git add -A` swept in 6 unrelated Session 5 files (treasury route, new components, a migration). Pushed to main, broke CI, required a revert.
+**Takeaway**: After any branch switch or stash pop, always use targeted `git add <specific-files>`. `git add -A` is only safe when you're confident the working tree only contains your intended changes.
+
+### 2026-03-01: Railway deploy lag — CI green does not mean deployed
+**Issue**: After CI passed, repeatedly hit the leaderboard endpoint expecting the fix to be live. Railway Docker builds take 5-8 minutes after push (npm ci + next build + image push + container swap). Spent significant debug time polling a stale deployment.
+**Takeaway**: After CI passes, budget 5-8 minutes for Railway deploy propagation. Don't debug production against stale code. Use the deploy timing rule in `deploy.md` for realistic expectations.
+
+### 2026-03-01: Supabase errors are objects, not Error instances
+**Issue**: Leaderboard route catch block used `String(err)` which gave `[object Object]`. Supabase query errors are plain objects with `message`, `details`, `hint` properties — not `Error` instances.
+**Takeaway**: When catching Supabase errors, use `err?.message || err?.details || JSON.stringify(err)`. Same pattern as the earlier KoiosError lesson — never assume thrown values are `Error` instances.
+
 *Last updated: 2026-03-01*
 *Review this file at the start of every session.*

@@ -67,9 +67,11 @@ Before committing, classify the change to determine the release path.
    - Re-monitor CI
    - Max 3 retry attempts before escalating to user
 
-## Monitor Railway Deployment (~1-2 min)
+## Monitor Railway Deployment (~5 min)
 
 - Railway auto-deploys on push to main
+- Docker build takes ~5 min: `npm ci` (~90s, cached when deps unchanged) → `next build` (~2-3 min) → image push + container swap (~30-60s)
+- CI green does NOT mean deployed — Railway builds independently. Budget 5 min after push before validating production.
 - Check Railway dashboard Deployments tab for build status
 - Wait for deployment to show "Active"
 - If deploy fails: check build logs and deploy logs in Railway dashboard, fix, push again

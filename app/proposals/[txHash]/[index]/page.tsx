@@ -21,6 +21,9 @@ import {
 import { getProposalStatus } from '@/utils/proposalPriority';
 import { DRepVoteCallout } from '@/components/DRepVoteCallout';
 import { SentimentPoll } from '@/components/SentimentPoll';
+import { FinancialImpactCard } from '@/components/FinancialImpactCard';
+import { TreasuryAccountabilityPoll } from '@/components/TreasuryAccountabilityPoll';
+import { SimilarProposalsCard } from '@/components/SimilarProposalsCard';
 
 interface ProposalDetailPageProps {
   params: Promise<{ txHash: string; index: string }>;
@@ -126,9 +129,10 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
         </div>
 
         {proposal.withdrawalAmount && (
-          <p className="text-sm font-medium">
-            Withdrawal: {proposal.withdrawalAmount.toLocaleString()} ADA
-          </p>
+          <FinancialImpactCard
+            withdrawalAda={proposal.withdrawalAmount}
+            treasuryTier={proposal.treasuryTier || null}
+          />
         )}
       </div>
 
@@ -140,6 +144,25 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
 
       {/* Community Sentiment Poll */}
       <SentimentPoll txHash={txHash} proposalIndex={proposalIndex} isOpen={isOpen} />
+
+      {/* Treasury Accountability (enacted withdrawals) */}
+      {proposal.proposalType === 'TreasuryWithdrawals' && (
+        <TreasuryAccountabilityPoll
+          txHash={txHash}
+          proposalIndex={proposalIndex}
+          isEnacted={!!proposal.enactedEpoch}
+        />
+      )}
+
+      {/* Similar Past Proposals (treasury withdrawals) */}
+      {proposal.proposalType === 'TreasuryWithdrawals' && proposal.withdrawalAmount && (
+        <SimilarProposalsCard
+          title={proposal.title || ''}
+          withdrawalAda={proposal.withdrawalAmount}
+          treasuryTier={proposal.treasuryTier || null}
+          excludeTxHash={txHash}
+        />
+      )}
 
       {/* Full Description (abstract) */}
       <ProposalDescription aiSummary={null} abstract={proposal.abstract} />
