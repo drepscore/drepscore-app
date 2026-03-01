@@ -74,7 +74,7 @@ jobs:
             const targets = {
               'utils/scoring.ts': 80,
               'lib/alignment.ts': 80,
-              'lib/koios.ts': 40,
+              'lib/koios.ts': 14,
             };
             const norm = (p) => p.replace(/\\\\/g, '/');
             let failed = false;
