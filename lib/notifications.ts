@@ -13,7 +13,12 @@ export type EventType =
   | 'delegation-change'
   | 'critical-proposal-open'
   | 'profile-view'
-  | 'api-health-alert';
+  | 'api-health-alert'
+  | 'delegator-growth'
+  | 'rank-change'
+  | 'near-milestone'
+  | 'proposal-deadline'
+  | 'score-opportunity';
 
 export type Channel = 'push' | 'discord' | 'telegram';
 
@@ -39,11 +44,11 @@ async function sendDiscordWebhook(
   event: NotificationEvent
 ): Promise<boolean> {
   try {
-    const color = event.eventType === 'urgent-deadline' || event.eventType === 'critical-proposal-open'
+    const color = event.eventType === 'urgent-deadline' || event.eventType === 'critical-proposal-open' || event.eventType === 'proposal-deadline'
       ? 0xff4444
-      : event.eventType === 'api-health-alert'
+      : event.eventType === 'api-health-alert' || event.eventType === 'near-milestone'
       ? 0xf59e0b
-      : event.eventType === 'score-change'
+      : event.eventType === 'score-change' || event.eventType === 'delegator-growth' || event.eventType === 'rank-change' || event.eventType === 'score-opportunity'
       ? 0x22c55e
       : 0x3b82f6;
 

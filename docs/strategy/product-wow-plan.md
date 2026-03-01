@@ -17,8 +17,9 @@
 6. [Session 4 — Shareable Moments & Viral Mechanics](#session-4--shareable-moments--viral-mechanics)
 7. [Session 5 — Governance Citizen Experience](#session-5--governance-citizen-experience)
 8. [Session 6 — Visual Identity & Polish](#session-6--visual-identity--polish)
-9. [Anti-Patterns to Avoid](#anti-patterns-to-avoid)
-10. [Competitive Positioning](#competitive-positioning)
+9. [Session 7 — Platform Deepening & Strategic Bets](#session-7--platform-deepening--strategic-bets)
+10. [Anti-Patterns to Avoid](#anti-patterns-to-avoid)
+11. [Competitive Positioning](#competitive-positioning)
 
 ---
 
@@ -329,126 +330,88 @@ The OnboardingWizard (6 abstract value cards) is replaced by the **Governance DN
 
 ---
 
-## Session 3 — DRep Command Center
+## Session 3 — DRep Command Center (Implemented)
 
 ### Goal
-Transform the DRep experience from a read-only report card into an actionable command center that makes DReps addicted to the platform. Fix the claim funnel to create FOMO and ceremony. Build the foundation for DRep Pro monetization.
+Transform the DRep experience from a read-only report card into an actionable command center that makes DReps return weekly — with inline rationale authoring, delegator analytics, competitive leaderboard, delegator representation scoring, score simulation, activity heatmaps, gamification milestones, positioning tools, a FOMO-driven claim funnel, and shareable report cards.
 
-### Problems This Solves
+### What Was Built
 
-**Claim experience:**
-- Claim page sells features ("Dashboard," "Inbox," "Alerts") instead of outcomes (more delegators, more credibility, more influence)
-- No preview of the dashboard — DReps don't know what they're claiming
-- No FOMO — no sense that other DReps are actively using the platform
-- No competitive context — "DReps like you who already claimed are scoring higher"
-- Post-claim celebration is a small green banner, not a moment
+**Phase 1: Data Foundation + Claim Funnel**
+- Migration `023_drep_command_center.sql`: 4 new tables (`drep_milestones`, `position_statements`, `vote_explanations`, `governance_philosophy`) + `users.onboarding_checklist` JSONB + `drep_power_snapshots.delegator_count` + RLS policies + updated_at triggers
+- Claim page overhaul (`ClaimPageClient.tsx`): outcome-driven hero with live governance pulse stats, blurred dashboard preview, social proof (top claimed DReps), competitive nudge, lowest-pillar identification
+- Post-claim celebration (`ClaimCelebration.tsx`): full-screen confetti, animated score reveal, pillar breakdown, "first 3 actions" checklist
 
-**Dashboard experience:**
-- Dashboard is read-only — almost nothing to DO
-- Recommendations say "improve rationale rate" but don't let you act on it right there
-- Missing rationale table shows votes without rationale but doesn't surface the Rationale Assistant inline
-- No delegator analytics (growth/loss trends, who's viewing, sentiment)
-- No competitive context ("DReps with similar voting power who score higher")
-- Score improvement is informational, not gamified (no progress tracking, streaks, milestones, badges)
-- No DRep positioning tools (governance philosophy, position statements)
-- No shareable DRep report card
-- Profile editing bounces to external tools (gov.tools) with no guidance
-- No DRep-to-DRep visibility or activity feed
+**Phase 2: Dashboard Action Center**
+- **Rationale dual-flow**: Pre-vote "Draft Rationale" buttons in GovernanceInboxWidget + post-vote "Explain Your Vote" in DRepDashboard with `VoteExplanationEditor` (off-chain explanations with AI assist, stored in `vote_explanations`, clearly labeled as DRepScore-native)
+- **Vote explanations API**: `GET/POST /api/drep/[drepId]/explanations` with session auth
+- **Delegator analytics**: `DelegatorTrendChart` + `GET /api/dashboard/delegator-trends` — voting power over time from `drep_power_snapshots`
+- **Competitive context**: `CompetitiveContext` + `GET /api/dashboard/competitive` — rank, nearby DReps (2 above/below), top-10 path with pillar gap analysis
+- **Onboarding checklist**: `OnboardingChecklist` + `GET/POST /api/dashboard/onboarding` — persistent interactive checklist stored in `users.onboarding_checklist`
+- **Representation scorecard**: `RepresentationScorecard` + `GET /api/dashboard/representation` — aggregate DRep-vs-delegator alignment from `poll_responses` (min 3 responses per proposal), per-proposal breakdown, divergence alerts
+- **Score simulator**: `ScoreSimulator` + `GET /api/dashboard/simulate` — interactive sliders for vote/rationale count, real-time score projection using actual scoring formula, rank impact, quick presets
+- **Activity heatmap**: `ActivityHeatmap` — GitHub-style epoch grid from `drep_votes`, tooltip with vote/rationale counts, displayed on dashboard + public profile
 
-**Rationale Assistant:**
-- Buried inside vote detail sheets on individual proposals
-- Tagged as "Pro" but no paywall or upgrade flow
-- Not surfaced in the dashboard where DReps see their missing rationales
-- Should be the #1 tool a DRep uses, but it's hidden
+**Phase 3: Gamification + Positioning**
+- **Milestone system**: `lib/milestones.ts` (9 milestone definitions + check logic), `MilestoneBadges` component, `GET/POST /api/dashboard/milestones` — badges on dashboard + public profile
+- **Governance philosophy**: `GovernancePhilosophyEditor` + `GET/POST /api/drep/[drepId]/philosophy` — free-text editor, read-only on public profile
+- **Position statements**: `PositionStatementEditor` + `GET/POST /api/drep/[drepId]/positions` — pre-vote intent per proposal
+- **Shareable report card**: `DRepReportCard` — score preview card, share on X, copy link
 
-### Specific Changes
+**Phase 4: Notifications + Dashboard Layout**
+- **Notification wiring**: 5 new DRep-specific event types (`delegator-growth`, `rank-change`, `near-milestone`, `proposal-deadline`, `score-opportunity`) + Inngest `check-notifications` function wiring all 5 previously-untriggered types (`score-change`, `pending-proposals`, `urgent-deadline`, `delegation-change`, `profile-view`)
+- **Dashboard layout overhaul**: Score hero + onboarding → left column (Inbox, Recommendations, Score Simulator, Score History) → right column (Competitive Context, Representation, Delegator Analytics, At a Glance, Activity Heatmap, Achievements, Profile Health) → bottom (Philosophy, Report Card)
+- **Public profile enhanced**: Milestone badges (compact), governance philosophy (read-only), activity heatmap
 
-**1. Claim page overhaul**
-- Replace feature-list pitch with outcome-driven pitch: "X delegators searched for DReps this week. Your profile is live. Own your reputation."
-- Show a blurred/preview dashboard screenshot so DReps see what they're getting
-- Social proof: "X DReps have claimed. Here are some:" (show top-scoring claimed DReps)
-- Competitive nudge: "DReps who claimed their profile average 12 points higher" (if data supports)
-- Show the DRep's current score prominently with "your biggest opportunity: [quick win]"
-- Post-claim: Full-screen celebration moment with confetti (use canvas-confetti dep already installed), personalized score breakdown, "Your first 3 actions" checklist
+### Data Model
+| Table | Purpose |
+|---|---|
+| `drep_milestones` | `(drep_id, milestone_key)` PK, `achieved_at` |
+| `position_statements` | `drep_id`, `proposal_tx_hash`, `proposal_index`, `statement_text` |
+| `vote_explanations` | `drep_id`, `proposal_tx_hash`, `proposal_index`, `explanation_text`, `ai_assisted` |
+| `governance_philosophy` | `drep_id` PK, `philosophy_text` |
+| `users.onboarding_checklist` | JSONB column for checklist state |
+| `drep_power_snapshots.delegator_count` | INT column for historical delegator tracking |
 
-**2. Post-claim onboarding flow**
-- After claim celebration, guided walkthrough: "Here's your score. Here's your weakest pillar. Here's the #1 thing you can do right now to improve."
-- Interactive checklist that persists: "Complete your profile (0/5 fields) → Write your first rationale → Vote on a pending proposal → Share your score"
-- Checklist visible on dashboard until complete
+### New API Routes
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/drep/[drepId]/explanations` | GET/POST | Vote explanation CRUD |
+| `/api/drep/[drepId]/philosophy` | GET/POST | Governance philosophy CRUD |
+| `/api/drep/[drepId]/positions` | GET/POST | Position statement CRUD |
+| `/api/dashboard/delegator-trends` | GET | Delegator + power trends |
+| `/api/dashboard/competitive` | GET | Rank, nearby DReps, top-10 gap |
+| `/api/dashboard/onboarding` | GET/POST | Onboarding checklist state |
+| `/api/dashboard/milestones` | GET/POST | Milestone check + fetch |
+| `/api/dashboard/representation` | GET | Delegator alignment scorecard |
+| `/api/dashboard/simulate` | GET | Score projection from hypothetical actions |
 
-**3. Inline Rationale Assistant**
-- In the missing rationale table, add a "Write Rationale" button on each row
-- Clicking opens the RationaleAssistant pre-loaded with that proposal's context (title, abstract, AI summary, proposal type)
-- After generating and copying, mark the row with a visual indicator
-- This is the single most impactful UX improvement for DRep engagement
-
-**4. Delegator analytics**
-- Delegator count trend chart (reuse ScoreHistoryChart pattern)
-- "This week: +8 delegators, -2 delegators, net +6"
-- Delegator size distribution (how many small vs large delegators)
-- Profile view stats enhanced: daily/weekly views, trend, referral sources if possible
-- Correlation insights (stretch): "Your score increase of 5 points last week coincided with gaining 12 delegators"
-
-**5. Competitive context**
-- "Leaderboard position: #15 of 200 active DReps"
-- "DReps near you": Show 2-3 DReps just above and below in score, with their pillar breakdown
-- "To reach top 10, focus on: [specific pillar recommendation]"
-- Weekly rank change indicator: "↑3 positions this week"
-
-**6. Gamification layer**
-- Score improvement progress: "You've completed 2 of 4 recommendations this month"
-- Streaks: "5 consecutive votes with rationale" (visible on public profile as a badge)
-- Milestones: First 10 delegators, First 100 delegators, Score above 80 for 30 days, All pillars Strong
-- Milestone badges visible on public DRep profile page
-- Each milestone triggers a shareable moment card
-
-**7. DRep positioning tools**
-- "Governance Philosophy" field — free-text that appears on public profile (stored in Supabase, not CIP-119)
-- "Position Statements" — DReps can write a position on active proposals before voting, visible to delegators browsing proposals
-- These are DRepScore-native features that don't require CIP-119 metadata changes
-- Creates platform lock-in: this content only lives on DRepScore
-
-**8. Shareable DRep report card**
-- "Generate Report Card" button on dashboard
-- Produces a beautiful, branded image: score, pillar breakdown, key stats (delegators, votes, rationale rate), score trend mini-chart, rank
-- Designed for X/Twitter sharing with proper dimensions
-- Periodic auto-generation: "Your monthly governance report is ready to share"
-
-**9. Notification enhancements for DReps**
-- "Your delegator polling shows 70% disagreement on your last vote — consider posting an explanation"
-- "You're 3 points away from the top 10 — one more rationale would get you there"
-- "You gained 5 delegators this week" (with shareable card)
-- "3 proposals expire in 2 epochs — vote now to maintain your participation rate"
-
-### Data Model Changes
-- `users` table: Add `first_visit_at`, `last_visit_at`, `onboarding_checklist` (JSONB)
-- New `drep_milestones` table: `drep_id`, `milestone_key`, `achieved_at`
-- New `position_statements` table: `drep_id`, `proposal_tx_hash`, `proposal_index`, `statement_text`, `created_at`
-- New `governance_philosophy` column on `dreps` table (or separate table)
-- `drep_power_snapshots` — ensure delegator count is tracked over time (may already exist)
-
-### Files Affected
-- `app/claim/[drepId]/ClaimPageClient.tsx` — Complete rewrite
-- `app/dashboard/page.tsx` — Major enhancement
-- `components/DRepDashboard.tsx` — Add inline rationale, gamification, competitive context
-- `components/GovernanceInboxWidget.tsx` — Add rationale assistant integration
-- `components/RationaleAssistant.tsx` — Make embeddable in different contexts
-- `components/ProfileViewStats.tsx` — Enhance with trends
-- New: `components/DelegatorTrendChart.tsx`
-- New: `components/CompetitiveContext.tsx`
-- New: `components/OnboardingChecklist.tsx`
-- New: `components/MilestoneBadges.tsx`
-- New: `components/DRepReportCard.tsx`
-- New: `components/PositionStatementEditor.tsx`
-- New: `components/GovernancePhilosophyEditor.tsx`
-- New: API routes for position statements, governance philosophy, milestones, delegator trends
+### New Components
+| Component | Location |
+|---|---|
+| `ClaimCelebration` | Post-claim confetti + score reveal + first actions |
+| `VoteExplanationEditor` | Off-chain vote explanation dialog |
+| `DelegatorTrendChart` | Voting power line chart over epochs |
+| `CompetitiveContext` | Rank, nearby DReps, top-10 path |
+| `OnboardingChecklist` | Persistent post-claim checklist |
+| `RepresentationScorecard` | DRep-vs-delegator alignment |
+| `ScoreSimulator` | What-if score projection |
+| `ActivityHeatmap` | GitHub-style epoch voting grid |
+| `MilestoneBadges` | Achievement badges (full + compact) |
+| `GovernancePhilosophyEditor` | Philosophy editor/viewer |
+| `PositionStatementEditor` | Pre-vote position statement dialog |
+| `DRepReportCard` | Shareable score card with X share |
 
 ### Success Criteria
-- DReps return to the dashboard at least weekly (measured by PostHog)
-- Claim conversion rate increases (claim page viewed → claimed)
-- Rationale provision rate increases for claimed DReps
-- DReps share their report cards on social media (trackable via UTM params on shared URLs)
+- DReps return to dashboard weekly (PostHog `dashboard_viewed` frequency)
+- Claim conversion rate increases (`claim_page_viewed` → `claim_completed`)
+- On-chain rationale rate increases via pre-vote drafting flow
+- Vote explanation adoption: >30% of missing-rationale votes get DRepScore explanations within first month
+- At least 10 DReps share report cards in first month
 - Onboarding checklist completion rate > 50%
+- Representation Scorecard engagement: >50% of claimed DReps view within first month
+- Score Simulator usage: >30% of dashboard visitors interact with sliders
+- All 5 previously-untriggered notification types fire within first week
 
 ---
 
@@ -765,6 +728,92 @@ Create a visual identity that is instantly recognizable — every screenshot, ev
 - Dark mode and light mode are equally polished
 - Page transitions feel native-app quality
 - Celebration moments are shared on social media as screenshots/recordings
+
+---
+
+## Session 7 — Platform Deepening & Strategic Bets
+
+### Goal
+Evaluate high-complexity, high-impact ideas that could transform DRepScore from a governance analytics tool into the governance operating system for Cardano. Each item is assessed for strategic value, complexity, dependencies, and recommendation.
+
+### Ideas to Evaluate
+
+**1. On-chain rationale submission via DRepScore**
+- **Description:** Host CIP-100 metadata, let DReps vote and submit rationale without leaving the platform. DRepScore becomes the place where governance actions happen, not just where they're tracked.
+- **Strategic value:** Highest. Transforms DRepScore from scoring tool to governance tool. Creates strongest possible lock-in.
+- **Complexity:** Very high. Requires transaction building (cardano-serialization-lib), CIP-100 metadata hosting, wallet signing integration, and deep understanding of governance transaction structure.
+- **Dependencies:** Wallet integration improvements, metadata hosting infrastructure, CIP-100 compliance.
+- **Recommendation:** **Revisit after data.** Monitor GovTool usage patterns. If DReps consistently draft rationale in DRepScore then context-switch to GovTool, the demand signal is clear. Start with a prototype that pre-fills GovTool with DRepScore-drafted rationale before building full submission.
+
+**2. AI-powered personalized governance brief**
+- **Description:** Weekly AI-generated digest personalized to DRep's voting pattern, delegator sentiment, upcoming proposals, and competitive position. Delivered via email, push, Discord, or Telegram.
+- **Strategic value:** High. Creates a weekly touchpoint that pulls DReps back. Differentiates from every other governance tool.
+- **Complexity:** Medium-high. Requires AI pipeline (prompt engineering, context assembly from multiple data sources), delivery infrastructure (already partially built via notification system), and content quality control.
+- **Dependencies:** Notification channels (Session 3), DRep data richness, AI API costs.
+- **Recommendation:** **Build.** Start with a simple template-based brief using existing data, progressively add AI personalization. The notification infrastructure from Session 3 handles delivery.
+
+**3. Proposal discussion threads**
+- **Description:** Comment threads per proposal for DRep deliberation. Creates engagement and platform-exclusive content visible to delegators.
+- **Strategic value:** Medium-high. Creates content moat and engagement loop. DReps discussing proposals publicly is extremely valuable for delegators making decisions.
+- **Complexity:** Medium. Requires comment storage, moderation infrastructure, spam prevention, and UX for threaded discussions.
+- **Dependencies:** User auth (already exists), moderation policy, potential abuse mitigation.
+- **Recommendation:** **Defer.** High moderation overhead for a small user base. Revisit when claimed DRep count exceeds 50. In the meantime, position statements (Session 3) serve a similar purpose with lower risk.
+
+**4. Delegation event detection + ceremony**
+- **Description:** Detect individual delegation/undelegation events and celebrate them. "You just received a new delegator with X ADA!" with shareable moment card.
+- **Strategic value:** Medium. Creates delightful moments and content for sharing. Strengthens the DRep-delegator relationship.
+- **Complexity:** Medium. Requires per-delegator tracking (currently only aggregate count from Koios), which means monitoring delegation transactions or polling Koios delegator lists.
+- **Dependencies:** Koios delegator list API, background sync enhancement, `drep_power_snapshots.delegator_count` (added in Session 3).
+- **Recommendation:** **Build (simplified).** Start with epoch-level "you gained/lost N delegators" detection (already wired in Session 3 notifications). Full per-delegation ceremony requires transaction monitoring — defer that to after data validation.
+
+**5. DRep governance identity visualization**
+- **Description:** Surface existing alignment scores (6 dimensions already stored on `dreps` table) as a radar/spider chart showing governance identity. "This DRep prioritizes fiscal conservatism and protocol stability."
+- **Strategic value:** Medium-high. Instantly communicable identity. Radar charts are highly shareable and differentiate DReps visually.
+- **Complexity:** Low. Data already exists. Visualization is the only work.
+- **Dependencies:** `dreps.alignment_*` scores (already computed by sync).
+- **Recommendation:** **Build.** Low effort, high visual impact. Add to DRep profile page and discovery cards. Could be part of Session 4's visual identity work.
+
+**6. Watchlist intelligence**
+- **Description:** Transform passive watchlist into active monitoring with alerts on watched DRep events. "DRep X on your watchlist dropped 8 points after missing 3 critical votes."
+- **Strategic value:** Medium. More of a delegator feature than DRep feature. Strengthens the governance citizen experience.
+- **Complexity:** Medium. Requires event detection per watched DRep, notification routing, and UI for watchlist dashboard.
+- **Dependencies:** Notification system (Session 3), watchlist data (already exists in profile).
+- **Recommendation:** **Defer to Session 5.** This fits naturally into the Governance Citizen Experience session. The notification infrastructure from Session 3 enables it.
+
+**7. Multi-DRep team dashboard**
+- **Description:** Team management for organizational DReps (e.g., stake pools running DReps, governance organizations). Multiple team members can access and manage a single DRep profile.
+- **Strategic value:** Low-medium. Niche audience but high retention for those who need it.
+- **Complexity:** High. Requires auth/permissions infrastructure, invitation system, role management.
+- **Dependencies:** Robust auth system, team identity model.
+- **Recommendation:** **Defer.** Very few organizations currently run team DReps. Revisit when demand signals emerge from claimed DReps requesting multi-user access.
+
+**8. AI score coach chatbot**
+- **Description:** Conversational AI with full DRep context for personalized improvement advice. "How do I get to 90?" → contextual answer based on their specific pillar gaps, recent activity, and competitive position.
+- **Strategic value:** Medium-high. Highly engaging, creates a "personal advisor" feeling. Strong differentiation.
+- **Complexity:** Medium-high. Requires RAG pipeline with DRep context, conversation management, guardrails to prevent hallucination about scoring.
+- **Dependencies:** Scoring formula understanding, DRep data access, AI API.
+- **Recommendation:** **Revisit after data.** The Score Simulator (Session 3) serves the "how do I improve" use case with a deterministic UI. Monitor whether DReps want more nuanced guidance before building a chatbot.
+
+**9. Proposal financial impact simulation**
+- **Description:** Interactive visualizations of treasury/parameter proposal consequences. "If this passes, the treasury will have X ADA remaining. At current burn rate, that's Y months of runway."
+- **Strategic value:** High for the ecosystem. Makes governance decisions tangible and concrete for delegators.
+- **Complexity:** High. Requires financial modeling per proposal type (treasury math, parameter impact modeling, staking reward calculations), data sources for treasury state, and visualization.
+- **Dependencies:** Treasury data APIs, parameter change impact formulas, proposal type-specific modeling.
+- **Recommendation:** **Build (simplified).** Start with treasury withdrawal proposals (simple subtraction math, high impact). Treasury balance is available from Koios. Defer parameter change simulation to later.
+
+### Priority Matrix
+
+| Idea | Impact | Complexity | Recommendation |
+|---|---|---|---|
+| Governance identity visualization | Medium-high | Low | **Build now** |
+| AI governance brief | High | Medium-high | **Build next** |
+| Delegation event detection | Medium | Medium | **Build simplified** |
+| Financial impact simulation | High | High | **Build simplified** |
+| On-chain rationale submission | Highest | Very high | **Revisit after data** |
+| AI score coach | Medium-high | Medium-high | **Revisit after data** |
+| Proposal discussion threads | Medium-high | Medium | **Defer** |
+| Watchlist intelligence | Medium | Medium | **Defer to Session 5** |
+| Multi-DRep team dashboard | Low-medium | High | **Defer** |
 
 ---
 
