@@ -76,7 +76,21 @@ When the user says "merge" from the **main worktree** (`drepscore-app`):
    ```
 3. If the feature touched sync routes or analytics: trigger a sync and/or verify the analytics deploy hook fired.
 
-**If user asks to merge from a feature worktree, refuse.** Say: "Merges happen from the drepscore-app window (main). Switch there and ask me to merge."
+When the user says "merge" from a **feature worktree** (e.g. `drepscore-<name>`):
+
+`gh pr merge` will fail because it tries to checkout main, which is locked by another worktree. Use the GitHub API directly:
+
+```
+gh api repos/drepscore/drepscore-app/pulls/<pr-number>/merge -X PUT -f merge_method=squash -f commit_title="feat: <description> (#<pr-number>)"
+```
+
+Then pull into the main worktree and clean up:
+```
+# From drepscore-app (main worktree):
+git pull origin main
+git worktree remove ..\drepscore-<name>
+git branch -d feature/<name>
+```
 
 ## Worktree Decision Logic
 
@@ -108,3 +122,31 @@ All `analytics/src/data/*.json.ts` files query Postgres directly at build time. 
 - **Analytics dashboard**: separate Observable Framework project in `analytics/`, deployed via Railway
 - **Post-sync rebuild**: `dreps` and `votes` sync routes fire `ANALYTICS_DEPLOY_HOOK` automatically
 - **Background jobs**: All syncs/crons run via Inngest Cloud (no cron secrets needed for scheduling)
+
+## Deployment Monitoring
+
+After merging to main, Railway deploys automatically. Monitor via:
+
+```
+gh api repos/drepscore/drepscore-app/commits/<sha>/status --jq '.statuses[] | {state, description}'
+```
+
+- Railway builds take 3-7 minutes. Poll every 60-120s.
+- When status shows `success`, verify the actual endpoint (e.g. a new API route) returns 200 — don't rely solely on the status API.
+- If status shows `failure`, check the Railway dashboard link in the `target_url` field.
+
+## Build Failure Triage
+
+Before debugging a build failure, **always verify it exists on the base branch first**:
+
+```
+git stash
+npx next build 2>&1 | Select-String "Build error|Module not found"
+git stash pop
+```
+
+This avoids wasting time on pre-existing issues (e.g. the Turbopack `libsodium-sumo.mjs` error with Mesh SDK — use `next build --webpack` to work around it).
+
+## Shared Type Construction
+
+When adding a field to a TypeScript interface, search for ALL places that construct that type — not just the API route. Server-side data fetching in `page.tsx` files often duplicates the same shape. Run `npx tsc --noEmit` after any interface change.

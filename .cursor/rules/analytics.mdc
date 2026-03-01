@@ -39,8 +39,8 @@ Every feature or meaningful change must include analytics considerations in the 
 |-------|------|----------|
 | Client events | PostHog JS SDK | `lib/posthog.ts`, components |
 | Server events | PostHog Node SDK | `lib/posthog-server.ts`, API routes |
-| Dashboards | Observable Framework | `analytics/src/*.md` (11 pages) |
-| Data loaders | Observable + Supabase | `analytics/src/data/*.json.ts` (12 loaders) |
+| Dashboards | Observable Framework | `analytics/src/*.md` (12 pages incl. growth) |
+| Data loaders | Observable + Supabase | `analytics/src/data/*.json.ts` (17 loaders) |
 | Alerts | Cron + webhooks | `/api/admin/integrity/alert`, `/api/admin/inbox-alert` |
 | In-app alerts | `useAlignmentAlerts` hook | `hooks/useAlignmentAlerts.ts` |
 | Sync health | Supabase `sync_log` | `/api/sync/*` routes |
@@ -56,6 +56,28 @@ Every feature or meaningful change must include analytics considerations in the 
 | `governance_matches_calculated` | Server | `/api/governance/matches` | `matches_count`, `top_match_score`, `has_current_drep_match` |
 | `drep_view_mode_changed` | Client | `DRepTableClient` | `mode` |
 | `drep_quick_view_opened` | Client | `DRepTableClient` | `drep_id`, `drep_score`, `has_match`, `view_mode` |
+
+### Page View Tracking (Session 8)
+
+Use `<PageViewTracker event="..." />` in server-rendered pages to capture client-side page views without converting to a client component:
+
+| Event | Page |
+|-------|------|
+| `homepage_viewed` | `app/page.tsx` |
+| `discover_page_viewed` | `app/discover/page.tsx` |
+| `proposals_page_viewed` | `app/proposals/page.tsx` |
+| `compare_page_viewed` | `app/compare/page.tsx` |
+| `governance_page_viewed` | `app/governance/page.tsx` |
+| `governance_calendar_fetched` | Server: `/api/governance/calendar` |
+| `calendar_proposal_clicked` | Client: `GovernanceCalendar` |
+
+### Observable Data Loaders Added (Session 8)
+
+| Loader | Data |
+|--------|------|
+| `notification-log.json.ts` | Notification delivery and read rates |
+| `user-activity.json.ts` | User signups, claims, daily activity |
+| `governance-events.json.ts` | Poll activity, watchlist activity |
 
 ## Implementation Standards
 
