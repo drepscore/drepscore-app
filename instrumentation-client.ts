@@ -12,3 +12,5 @@ Sentry.init({
     Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false }),
   ],
 });
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
