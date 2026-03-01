@@ -1,0 +1,8 @@
+fix: add missing PostHog events and Discord alerts from plan review
+
+- Emit sync_validation_error PostHog event + Discord alert on Zod failures
+  in proposals (Inngest + route), votes, and dreps sync routes
+- Emit sync_self_healed PostHog event from freshness guard
+- Add proposals integration tests (happy path, Koios error, empty, malformed)
+
+Closes gaps G1-G4 from pre-PR plan review.

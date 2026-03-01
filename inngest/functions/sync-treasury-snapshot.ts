@@ -91,7 +91,7 @@ export const syncTreasurySnapshot = inngest.createFunction(
       await pingHeartbeat('HEARTBEAT_URL_DAILY');
 
       await step.run('heartbeat-daily', () =>
-        pingHeartbeat(process.env.HEARTBEAT_URL_DAILY)
+        pingHeartbeat('HEARTBEAT_URL_DAILY')
       );
 
       return { epoch: snapshot.epoch, balance: snapshot.balanceLovelace };

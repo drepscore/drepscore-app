@@ -46,7 +46,11 @@ export const syncProposals = inngest.createFunction(
 
       const rawProposals = await fetchProposals();
       const { valid: validProposals, invalidCount, errors: validationErrors } = validateArray(rawProposals, KoiosProposalSchema, 'proposals');
-      if (invalidCount > 0) errors.push(...validationErrors);
+      if (invalidCount > 0) {
+        errors.push(...validationErrors);
+        emitPostHog(true, 'proposals', 0, { event_override: 'sync_validation_error', record_type: 'proposal', invalid_count: invalidCount });
+        alertDiscord('Validation Errors: proposals', `${invalidCount} proposal records failed Zod validation`);
+      }
       const classified = classifyProposals(validProposals as unknown as ProposalListResponse);
 
       const proposalRows = [...new Map(
@@ -246,7 +250,7 @@ export const syncProposals = inngest.createFunction(
         `${allErrors.length > 0 ? ` (${allErrors.length} errors)` : ''}`
       );
 
-      if (success) await pingHeartbeat(process.env.HEARTBEAT_URL_PROPOSALS);
+      if (success) await pingHeartbeat('HEARTBEAT_URL_PROPOSALS');
     });
 
     await step.run('heartbeat', () => pingHeartbeat('HEARTBEAT_URL_PROPOSALS'));

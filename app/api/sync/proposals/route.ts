@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { fetchProposals, fetchVotesForProposals, fetchProposalVotingSummary } from '@/utils/koios';
 import { classifyProposals } from '@/lib/alignment';
-import { authorizeCron, initSupabase, SyncLogger, errMsg, emitPostHog } from '@/lib/sync-utils';
+import { authorizeCron, initSupabase, SyncLogger, errMsg, emitPostHog, alertDiscord } from '@/lib/sync-utils';
 import { KoiosProposalSchema, validateArray } from '@/utils/koios-schemas';
 import type { ProposalListResponse } from '@/types/koios';
 
@@ -59,7 +59,11 @@ export async function GET(request: NextRequest) {
     try {
       const rawProposals = await withRetry(() => fetchProposals(), 'fetchProposals');
       const { valid: validProposals, invalidCount, errors: valErrors } = validateArray(rawProposals, KoiosProposalSchema, 'proposals');
-      if (invalidCount > 0) errors.push(...valErrors);
+      if (invalidCount > 0) {
+        errors.push(...valErrors);
+        emitPostHog(true, 'proposals', 0, { event_override: 'sync_validation_error', record_type: 'proposal', invalid_count: invalidCount });
+        alertDiscord('Validation Errors: proposals', `${invalidCount} proposal records failed Zod validation`);
+      }
       const classified = classifyProposals(validProposals as unknown as ProposalListResponse);
 
       const proposalRows = [...new Map(

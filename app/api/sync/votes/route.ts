@@ -10,6 +10,7 @@ import {
   errMsg,
   emitPostHog,
   triggerAnalyticsDeploy,
+  alertDiscord,
 } from '@/lib/sync-utils';
 import { KoiosVoteListSchema, validateArray } from '@/utils/koios-schemas';
 
@@ -82,6 +83,10 @@ export async function GET(request: NextRequest) {
 
     const { valid: validatedVotes, invalidCount } = validateArray(dedupedVoteRows, KoiosVoteListSchema, 'votes');
     validationErrors = invalidCount;
+    if (invalidCount > 0) {
+      emitPostHog(true, 'votes', 0, { event_override: 'sync_validation_error', record_type: 'vote', invalid_count: invalidCount });
+      alertDiscord('Validation Errors: votes', `${invalidCount} vote records failed Zod validation`);
+    }
 
     if (validatedVotes.length > 0) {
       const result = await batchUpsert(

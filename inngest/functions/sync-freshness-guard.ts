@@ -7,7 +7,7 @@
 import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { callSyncRoute } from '@/inngest/helpers';
-import { alertDiscord, pingHeartbeat, errMsg } from '@/lib/sync-utils';
+import { alertDiscord, pingHeartbeat, errMsg, emitPostHog, type SyncType } from '@/lib/sync-utils';
 
 const FRESHNESS_THRESHOLDS: Record<string, { mins: number; route: string }> = {
   proposals: { mins: 90, route: '/api/sync/proposals' },
@@ -79,6 +79,11 @@ export const syncFreshnessGuard = inngest.createFunction(
         console.log(`[FreshnessGuard] Retriggering ${syncType} (${staleMins}m stale)`);
         try {
           const { status } = await callSyncRoute(route, 300_000);
+          emitPostHog(true, syncType as SyncType, 0, {
+            event_override: 'sync_self_healed',
+            staleness_minutes: staleMins,
+            retrigger_status: status,
+          });
           await alertDiscord(
             `Self-Healed: ${syncType}`,
             `Sync was ${staleMins}m stale. Retriggered via freshness guard → ${status}.`,
