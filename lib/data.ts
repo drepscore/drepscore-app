@@ -464,7 +464,6 @@ export interface ProposalWithVoteSummary {
   noCount: number;
   abstainCount: number;
   totalVotes: number;
-  paramChanges: Record<string, any> | null;
   voterDrepIds: string[];
   ratifiedEpoch: number | null;
   enactedEpoch: number | null;
@@ -605,7 +604,6 @@ export async function getProposalByKey(
       proposalType: row.proposal_type,
       withdrawalAmount: row.withdrawal_amount,
       treasuryTier: row.treasury_tier,
-      paramChanges: row.param_changes ?? null,
       relevantPrefs: row.relevant_prefs || [],
       proposedEpoch: row.proposed_epoch,
       blockTime: row.block_time,

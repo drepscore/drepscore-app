@@ -11,10 +11,10 @@
 
 1. [Core Thesis](#core-thesis)
 2. [What We Built vs What We Need](#what-we-built-vs-what-we-need)
-3. [Session 1 — IA Restructure & Narrative Homepage (Deployed)](#session-1--ia-restructure--narrative-homepage-deployed)
-4. [Session 2 — DRep Discovery Reimagined (Deployed)](#session-2--drep-discovery-reimagined-deployed)
-5. [Session 3 — DRep Command Center (Deployed)](#session-3--drep-command-center-deployed)
-6. [Session 4 — Shareable Moments & Viral Mechanics (Deployed)](#session-4--shareable-moments--viral-mechanics-deployed)
+3. [Session 1 — IA Restructure & Narrative Homepage](#session-1--ia-restructure--narrative-homepage)
+4. [Session 2 — DRep Discovery Reimagined](#session-2--drep-discovery-reimagined)
+5. [Session 3 — DRep Command Center](#session-3--drep-command-center)
+6. [Session 4 — Shareable Moments & Viral Mechanics](#session-4--shareable-moments--viral-mechanics)
 7. [Session 5 — Governance Citizen Experience](#session-5--governance-citizen-experience)
 8. [Session 6 — Visual Identity & Polish](#session-6--visual-identity--polish)
 9. [Session 7 — Platform Deepening & Strategic Bets](#session-7--platform-deepening--strategic-bets)
@@ -138,7 +138,7 @@ DRepScore is a two-sided marketplace. Both sides need to feel the product is ind
 
 ---
 
-## Session 1 — IA Restructure & Narrative Homepage (Deployed)
+## Session 1 — IA Restructure & Narrative Homepage
 
 ### Goal
 Transform the homepage from a table-first data display into a story-first governance experience that adapts to user state. Restructure navigation to follow user intent, not product architecture.
@@ -232,17 +232,9 @@ Transform the homepage from a table-first data display into a story-first govern
 - Dual-mode complexity — need clean separation between auth/unauth experiences
 - Moving the table to `/discover` changes the primary flow; need clear CTAs from homepage to discovery
 
-### Implementation Notes (Deployed March 1, 2026)
-
-Shipped as planned via PR #15 (`feature/session-1-ia-homepage`). Key deviations and lessons:
-
-- **`force-dynamic` required**: Converting `app/page.tsx` from client-only to server-fetching (Supabase calls at render time) caused Railway Docker builds to crash — env vars aren't available during `next build` static generation. All server-rendered pages must export `dynamic = 'force-dynamic'`. Promoted to architecture rule.
-- **Preference system removal broke alerts**: Killing `OnboardingWizard` and the preference system made `useAlignmentAlerts` gate ALL alerts on `userPrefs.length === 0` (permanently true). The entire in-app alert system was silently disabled. Lesson: when deprecating a system, grep for consumers of its **output data and state**, not just component imports.
-- **Actual files created**: `HomepageDualMode.tsx` (orchestrator), `HomepageAuth.tsx`, `HomepageUnauth.tsx`, `GovernancePulse.tsx`, `SinceLastVisit.tsx`, `DRepDiscoveryPreview.tsx`. API: `/api/governance/pulse`, `/api/governance/since-visit`, `/api/governance/summary`.
-
 ---
 
-## Session 2 — DRep Discovery Reimagined (Deployed)
+## Session 2 — DRep Discovery Reimagined
 
 ### Goal
 Transform DRep discovery from a desktop-first data table into a mobile-first, progressive, intelligent experience powered by **Governance DNA** — behavioral matching that learns how you'd govern from real decisions, not abstract labels. Kill the preference system entirely.
@@ -336,18 +328,9 @@ The OnboardingWizard (6 abstract value cards) is replaced by the **Governance DN
 - "Best Match" becomes the most-used sort option for users with quiz data
 - OnboardingWizard is fully deleted from the codebase
 
-### Implementation Notes (Deployed March 1, 2026)
-
-Shipped as planned via PR #16 (`feature/session-2`). Key deviations and lessons:
-
-- **`revalidate` vs `force-dynamic` — third recurrence**: `/discover` shipped with `revalidate = 900` and `/api/governance/quiz-proposals` with `revalidate = 3600`. Both crashed Railway's Docker build (same pattern as Session 1 homepage fix). Architecture rule now explicitly bans `revalidate` on any Supabase-touching route.
-- **7 interactions shipped without PostHog events**: Quiz start/vote/complete/retake, view mode toggle, quick view, matches API — all built with zero `posthog.capture()` calls. Only caught during explicit post-build analytics audit. Promoted to rule: analytics events must ship inline with the UI interaction, not as a follow-up.
-- **Deprecation audit lesson**: Session 1's preference removal broke `useAlignmentAlerts` because it consumed preference *state*, not preference *imports*. Caught and fixed during Session 2 cleanup.
-- **Actual files created**: `DRepCard.tsx`, `DRepCardGrid.tsx`, `GovernanceDNAQuiz.tsx`, `GovernanceDNAReveal.tsx`, `DRepQuickView.tsx`, `SmartSearch.tsx`, `FilterPanel.tsx`, `lib/representationMatch.ts`. APIs: `/api/governance/quiz-proposals`, `/api/governance/matches`. Killed: `OnboardingWizard.tsx`, `ValueSelector.tsx`.
-
 ---
 
-## Session 3 — DRep Command Center (Deployed)
+## Session 3 — DRep Command Center (Implemented)
 
 ### Goal
 Transform the DRep experience from a read-only report card into an actionable command center that makes DReps return weekly — with inline rationale authoring, delegator analytics, competitive leaderboard, delegator representation scoring, score simulation, activity heatmaps, gamification milestones, positioning tools, a FOMO-driven claim funnel, and shareable report cards.
@@ -432,7 +415,7 @@ Transform the DRep experience from a read-only report card into an actionable co
 
 ---
 
-## Session 4 — Shareable Moments & Viral Mechanics (Deployed)
+## Session 4 — Shareable Moments & Viral Mechanics
 
 ### Goal
 Build the organic growth engine. Every feature should have a shareable output. Create mechanics that spread without the user explicitly deciding to share.
@@ -526,20 +509,12 @@ Build the organic growth engine. Every feature should have a shareable output. C
 - Delegation ceremony completion → social share rate > 15%
 - DRep leaderboard creates organic X/Twitter discussion
 
-### Implementation Notes (Deployed March 1, 2026)
-
-Shipped as planned via PR #18 (`feature/session-4-viral-growth`). Key deviations and lessons:
-
-- **7 viral surfaces shipped without `*_viewed` events**: Wrapped cards, delegation ceremony, score change moments, milestone celebrations, DNA reveal, badge embed, and pulse page all got `ShareActions` wired for share clicks, but zero view/impression events. Without `*_viewed` events, share rates (views → shares) can't be calculated. Promoted to rule: every viral surface needs three layers — view event, share action, outcome.
-- **Pulse API vote casing bug**: `communityGap` in `/api/governance/pulse` compares `pv.vote === 'Yes'` and `pv.vote === 'No'`, but `poll_responses` stores lowercase `'yes'`/`'no'`. Community gap data is silently broken. Discovered during Session 5 planning. Fix scheduled for Session 5 Phase 1.
-- **Actual files created**: `ShareableScoreCard.tsx`, `DelegationCeremony.tsx`, `BadgeEmbed.tsx`, `ScoreChangeMoment.tsx`, `MilestoneCelebration.tsx`, `GovernanceDNARevealCard.tsx`, `LeaderboardTable.tsx`, `DelegatorPulse.tsx`. APIs: `/api/governance/leaderboard`, badge enhancement, OG image overhaul.
-
 ---
 
 ## Session 5 — Governance Citizen Experience
 
 ### Goal
-Build the features that transform ADA holders from passive DRep shoppers into active governance citizens. This is the differentiator that no other crypto governance tool has built — the first governance *relationship* platform. Three phases build from "governance is real money" (Phase 1) through "this is MY governance" (Phase 2) to "I keep coming back" (Phase 3).
+Build the features that transform ADA holders from passive DRep shoppers into active governance citizens. This is the differentiator that no other crypto governance tool has built — the first governance *relationship* platform.
 
 ### Problems This Solves
 - Financial stakes of governance are invisible to ADA holders
@@ -551,225 +526,109 @@ Build the features that transform ADA holders from passive DRep shoppers into ac
 - No governance digest / "since you were last here" depth
 - No delegator collective identity
 - No sense that participation is consequential
-- DRep-authored content (Session 3: explanations, positions, philosophy) invisible to delegators
-- Poll voting is a dead-end interaction with no feedback loop
-- No persistent governance risk awareness for delegators
-- No shareable identity for ADA holders (only DReps have shareable cards)
-- No celebration of the delegation relationship over time
 
-### Design Principles
+### Specific Changes
 
-1. **Financial stakes first.** Every governance interaction should connect to real ADA.
-2. **Intelligence, not information.** Don't show data — surface insights and recommendations.
-3. **Natural cadence.** Epochs (~5 days) are the heartbeat. Design around epoch rhythms.
-4. **Elevate, don't duplicate.** Session 5 builds on existing data/APIs — avoid parallel infrastructure.
-5. **Three layers**: View event, interaction event, outcome event (lesson from Session 4).
+**1. Financial impact framing on proposals**
+- Every proposal page shows financial context:
+  - Treasury proposals: "This would withdraw X ADA (Y% of the Z ADA treasury)"
+  - Parameter changes: "This changes [parameter] from X to Y. Here's what that means for staking rewards / fees / block sizes."
+  - Hard forks: "This is a fundamental protocol change. Only N have been proposed in Cardano's history."
+- On the homepage governance pulse: "X billion ADA is under governance. Y ADA has been requested from the treasury this quarter."
+- ADA-denominated thinking throughout: if we know the user's wallet balance, show "Your X ADA gives your DRep Y% of their voting power"
 
-### Phase 1: Financial Stakes + Governance Calendar
+**2. Personal governance timeline**
+- `/governance/timeline` or section within My Governance
+- Chronological story: "Connected March 1 → Delegated to DRep X March 5 → DRep X voted Yes on Proposal Y March 8 → You polled Abstain on Proposal Y March 10 → DRep X's score rose 3 points March 15 → You gained Governance Guardian status"
+- Visual timeline with icons for each event type
+- Events: wallet connection, delegation changes, DRep votes on your behalf, your poll votes, score changes, milestone achievements, proposal outcomes
+- Data sources: `users` table (connection/delegation), `drep_votes` (DRep activity), `poll_responses` (user polls), `drep_score_history` (score changes)
+- This creates a narrative of ongoing participation, not a snapshot
 
-**Theme**: "Governance is real money." Make proposals feel consequential and time-sensitive.
+**3. "What if" delegation intelligence (deepens Session 2 Governance DNA)**
+- Session 2 builds the foundation: Governance DNA Quiz, `representationMatch.ts`, `/api/governance/matches`, "Best Match" sort on /discover
+- Session 5 deepens this with **proactive suggestions and triggers** on the governance dashboard:
+- "Based on your 12 poll votes, here's how other DReps would represent you:" (top 3 best-match DReps with profile link)
+- Current DRep's match rate for comparison: "Switch to DRep Y for 92% representation (vs 61% current)"
+- Trigger: recalculate and surface a nudge whenever user casts a new poll vote
+- The representation matching engine (`lib/representationMatch.ts`) is shared between /discover and /governance — Session 5 adds proactive triggers, not duplicate logic
 
-**1.1 Financial Impact Framing on Proposals**
-- Treasury proposals: "This would withdraw X ADA (Y% of the Z ADA treasury). At current withdrawal rates, the treasury has ~N months of runway."
-- Parameter changes: Render `proposals.param_changes` JSONB with human-readable descriptions
-- Connected users: "Your X ADA gives your DRep Y% of their voting power on this decision"
-- All proposals: Show total ADA voting power committed so far (from `proposal_voting_summary`)
-- New `FinancialImpactCard` component on proposal detail pages
-- Treasury balance from Koios stored in new `governance_stats` table, synced via Inngest
+**4. Watchlist intelligence**
+- Transform watchlist from passive filter to active monitoring tool
+- Watchlist dashboard section (in My Governance):
+  - "DRep X dropped 8 points this week after missing 3 critical votes"
+  - "DRep Y published rationale on the treasury proposal — here's what they said"
+  - "DRep Z gained 50 delegators this month — fastest growing on your watchlist"
+- Watchlist notifications: push/email alerts when watched DReps have significant events
+- "Why you're watching vs why you're delegated" tension: "DRep Z on your watchlist has an 88% representation match vs your current DRep's 61%" (based on Governance DNA / poll vote comparison)
 
-**1.2 Community Pulse on Individual Proposals**
-- Narrative insight per proposal page: "72% of polled delegators support this, but only 45% of DReps voted Yes — a 27-point gap"
-- DRep-vs-community tension highlighted when gap > 15 points
-- New `CommunityPulseInsight` component on proposal detail pages and `/pulse`
-- Fix pulse API vote casing bug (`'Yes'` vs `'yes'` — `communityGap` data is broken)
+**5. Governance calendar / "what's coming"**
+- Section on homepage (auth mode) and My Governance
+- Next epoch boundary with countdown
+- Proposals expiring this epoch with urgency markers
+- Recently opened proposals
+- Historical: recent proposal outcomes
+- Future: any known upcoming governance events
+- Simple timeline view, not a full calendar — think "upcoming" section in a news app
 
-**1.3 Treasury Health on Pulse Page**
-- Treasury balance, recent withdrawals, burn rate on `/pulse`
-- "X ADA has been requested from the treasury this quarter. Y ADA approved."
-- New `TreasuryHealth` component
+**6. Community governance pulse**
+- Aggregate poll data into community-wide insights:
+  - "72% of polled delegators support Proposal X, but only 45% of DReps voted Yes"
+  - "Growing gap between community sentiment and DRep voting on treasury proposals"
+  - "Delegators who voted No on treasury proposals are 80% opposed to this withdrawal" (behavioral cohort derived from poll data, not self-selected labels)
+- Visible on proposal pages and on the `/pulse` public page
+- This is the "headline" feature — the insight people share and discuss
+- Creates narrative tension that drives engagement
 
-**1.4 Governance Calendar ("What's Coming")**
-- Epoch countdown, proposals expiring this epoch (urgency markers), recently opened, recent outcomes
-- Simple "upcoming" timeline, not a full calendar
-- New `GovernanceCalendar` component on authenticated homepage + My Governance
+**7. Governance digest**
+- In-app: "Since your last visit" section on authenticated homepage (built in Session 1, enriched here)
+- Push/email: Epoch-based summary
+  - "This epoch: 2 proposals closed (1 passed, 1 failed), 3 new proposals opened, your DRep voted on 4 and provided rationale on 3"
+  - "Your representation score: 75% (↑5% from last epoch)"
+  - "Community highlight: Proposal X passed with 82% DRep support despite 45% delegator opposition"
+- Designed to be the thing that pulls users back weekly
 
-**1.5 Smart Poll Feedback Loop** *(new — not in original vision)*
-- After casting a poll vote, show instant feedback instead of dead-end "thanks":
-  - "You align with X% of the community"
-  - "Your DRep voted [Same/Differently]" with alignment indicator
-  - If divergent: "Your DRep explained: '[snippet]'" (from Session 3's `vote_explanations`)
-  - Updated representation match delta
-- New `PollFeedback` component, enhanced `SentimentPoll` response
+**8. Governance impact / agency framing**
+- On proposal outcome pages: "Your DRep's vote was part of the [winning/losing] majority. Your ADA helped shape this outcome."
+- On delegation: "Your X ADA represents Y% of your DRep's voting power"
+- On My Governance: "Since you delegated, your DRep has voted on Z proposals on your behalf, shaping decisions worth W ADA in treasury allocations"
+- This creates the feeling that participation is consequential, not performative
 
-**1.6 Database Migration**
-- `governance_stats` table: single-row ecosystem metrics (treasury balance, epoch info)
-- `governance_events` table: personal timeline events per wallet address
-- `users` columns: `governance_level`, `poll_count`, `visit_streak`, `last_epoch_visited`
-- RLS policies for all new tables
+**9. Delegator collective identity (behavioral cohorts)**
+- Based on voting patterns (Governance DNA), not self-selected preferences: "You and 340 other delegators who voted No on large treasury withdrawals represent 22M ADA in combined voting power"
+- Behavioral cohorts derived from poll data clustering (e.g., "treasury skeptics", "innovation advocates") — labels generated from voting patterns, not declared by users
+- Cohort stats: how your cohort's DReps are performing, how cohort sentiment compares to outcomes
+- This makes individual delegators feel part of a movement
+- Potential for cohort leaderboards or badges (stretch)
 
-### Phase 2: Personal Intelligence + Watchlist
+### Data Model Changes
+- `users` table: `last_visit_at` (timestamp for "since last visit"), `governance_events` (JSONB log or separate table)
+- New `governance_events` table: `user_address`, `event_type`, `event_data` (JSONB), `created_at` — for personal timeline
+- Enhancement to `poll_responses`: aggregate views for community pulse
+- New `proposal_outcomes` tracking: store pass/fail results for impact framing
+- New governance stats API: total ADA governed, participation rates, sentiment gaps
 
-**Theme**: "This is MY governance." Make every connected user feel monitored and advised.
-
-**2.1 Watchlist Intelligence**
-- Transform watchlist from filter to active monitoring: score trends, vote activity, match % comparison
-- Watchlist-vs-delegation tension: "DRep Z on your watchlist has 88% match vs current DRep's 61%"
-- Server-side Inngest notifications for watched DRep events
-- New `WatchlistIntelligence` component on My Governance
-
-**2.2 "What If" Delegation Intelligence (Proactive)**
-- Always show top 3 alternative DReps (not just when rep score < 50)
-- "Switch analysis": score comparison, voting pattern comparison, pillar strengths
-- Recalculate on poll vote submission
-- Replace `RedelegationNudge` with persistent `DelegationIntelligence` section
-
-**2.3 Personal Governance Timeline**
-- Chronological narrative: delegation changes, DRep votes, poll votes, score changes, proposal outcomes
-- Visual timeline with epoch groupings and event type icons
-- `governance_events` table populated by poll votes, Inngest sync, delegation detection
-- New `GovernanceTimeline` component + `/api/governance/timeline` route
-
-**2.4 DRep Accountability View**
-- Elevate `PollHistorySection` into "How My DRep Represents Me" with visual alignment indicators
-- Per-proposal vote comparison with green/red badges, summary stats, trend over time
-
-**2.5 DRep Communication Feed — "From Your Representative"** *(new — not in original vision)*
-- Surface Session 3 content (vote explanations, position statements, philosophy) to delegators
-- "Your DRep voted Yes on the treasury proposal and explained: '...'"
-- Empty state as DRep incentive: "Your DRep hasn't shared explanations yet"
-- New `DRepCommunicationFeed` component + `/api/governance/drep-feed` route
-- Closes the Session 3 flywheel: DReps create content → delegators see it → DReps create more
-
-**2.6 Governance Risk Signals** *(new — not in original vision)*
-- Persistent traffic-light card on My Governance (red/amber/green)
-- Red: DRep inactive 2+ epochs, score below 50, critical proposal unvoted
-- Amber: DRep vs community divergence, rep match drop, large treasury proposal open
-- Green: "All clear — your DRep is active and aligned"
-- Elevates `useAlignmentAlerts` from dismissible toasts to structured dashboard element
-
-### Phase 3: Engagement Loops + Community Identity
-
-**Theme**: "I keep coming back." Create natural return cadence and collective identity.
-
-**3.1 Governance Digest (Epoch Summary)**
-- Enriched "Since your last visit" with proposal outcomes, sentiment highlights, DRep activity
-- Auto-generated epoch summary cards, shareable
-- Inngest function `generate-epoch-summary` at epoch boundary
-- New `EpochSummaryCard` component
-
-**3.2 Governance Impact / Agency Framing**
-- Proposal outcomes: "Your DRep's vote was part of the [winning/losing] majority"
-- Delegation stats: "Since you delegated, your DRep voted on Z proposals worth W ADA"
-- New `GovernanceImpactHero` on My Governance with cumulative impact stats
-
-**3.3 Delegator Engagement Levels** *(new — not in original vision)*
-- Observer → Voter → Guardian → Champion based on behavior
-- Observer: connected wallet. Voter: 3+ polls. Guardian: delegated + 10+ polls + 3 epochs. Champion: 25+ polls + 10 epochs + shared content
-- Level-up celebration moments (reuses Session 4 ceremony pattern)
-- New `GovernanceLevelBadge` + `lib/governanceLevels.ts`
-
-**3.4 Proposal Outcome Impact Cards** *(new — not in original vision)*
-- Auto-generated shareable card when a proposal closes
-- "Proposal X PASSED. Your DRep voted Yes. You were part of the winning majority."
-- Detected by Inngest sync on status transitions
-- New `ProposalOutcomeCard` component
-
-**3.5 Delegator Governance Share Card — "Who's Your DRep?"** *(new — not in original vision)*
-- Shareable card for ADA holders: governance level, DRep name + score, representation match %, poll count
-- Server-side OG image generation (1080x1080 for X, 1080x1920 for stories)
-- Completes the demand-side viral loop (Session 4 built supply-side)
-- New `DelegatorShareCard` + `/api/og/delegator` route
-
-**3.6 "Your Votes Mattered" — Close Vote Impact Proof** *(new — not in original vision)*
-- For narrow outcomes: "Your DRep's voting power (including your X ADA) represented Y% of the winning margin"
-- Mathematical proof that participation was consequential
-- New `lib/voteImpact.ts`, integrates into `ProposalOutcomeCard` and proposal pages
-
-**3.7 Delegation Anniversary Milestones** *(new — not in original vision)*
-- 1 month / 3 months / 6 months / 1 year with shareable celebration cards
-- "1 month with [DRep]. Together you've shaped X proposals worth Y ADA."
-- New `lib/delegationMilestones.ts` + `DelegationAnniversaryCard`
-
-**3.8 Delegator Collective Identity (Stretch)**
-- Behavioral cohorts from poll data: "You and 340 delegators who voted No on treasury withdrawals represent 22M ADA"
-- Labels derived from voting patterns ("Treasury Skeptics", "Innovation Advocates")
-- Gated on minimum 50 poll voters per cohort
-- New `CohortIdentity` + `/api/governance/cohorts`
-
-### Data Model
-
-| Table/Column | Purpose |
-|---|---|
-| `governance_stats` | Single-row: treasury balance, epoch info, updated by Inngest |
-| `governance_events` | `wallet_address`, `event_type`, `event_data` JSONB, `epoch`, `created_at` |
-| `users.governance_level` | Observer / Voter / Guardian / Champion |
-| `users.poll_count` | Cumulative poll vote count |
-| `users.visit_streak` | Consecutive epoch visit streak |
-| `users.last_epoch_visited` | Last epoch the user visited |
-
-### New API Routes
-
-| Route | Method | Purpose |
-|---|---|---|
-| `/api/governance/treasury` | GET | Treasury balance, runway, recent withdrawals |
-| `/api/governance/timeline` | GET | Personal governance event history |
-| `/api/governance/drep-feed` | GET | DRep explanations + positions + philosophy for delegator's DRep |
-| `/api/governance/cohorts` | GET | Behavioral cohort membership + stats |
-| `/api/og/delegator` | GET | Server-side image generation for delegator share cards |
-
-### New Components (20)
-
-| Component | Phase | Purpose |
-|---|---|---|
-| `FinancialImpactCard` | 1 | Per-proposal financial context |
-| `CommunityPulseInsight` | 1 | DRep-vs-community sentiment narrative |
-| `TreasuryHealth` | 1 | Treasury balance + runway on /pulse |
-| `GovernanceCalendar` | 1 | Forward-looking governance timeline |
-| `PollFeedback` | 1 | Instant alignment + DRep explanation after poll vote |
-| `WatchlistIntelligence` | 2 | Active watchlist monitoring |
-| `DelegationIntelligence` | 2 | Proactive match suggestions |
-| `GovernanceTimeline` | 2 | Personal governance journey |
-| `DRepCommunicationFeed` | 2 | DRep explanations/positions surfaced to delegators |
-| `GovernanceRiskSignals` | 2 | Persistent risk/health traffic-light card |
-| `EpochSummaryCard` | 3 | Shareable epoch summary |
-| `GovernanceImpactHero` | 3 | Cumulative participation impact |
-| `GovernanceLevelBadge` | 3 | Delegator engagement level |
-| `ProposalOutcomeCard` | 3 | Shareable proposal outcome moment |
-| `DelegatorShareCard` | 3 | "Who's your DRep?" viral card for delegators |
-| `DelegationAnniversaryCard` | 3 | Delegation relationship milestone celebration |
-| `CohortIdentity` | 3 | Behavioral cohort membership |
-
-### New Libraries (3)
-
-| Library | Purpose |
-|---|---|
-| `lib/governanceLevels.ts` | Delegator level definitions + check logic |
-| `lib/voteImpact.ts` | Close-vote margin calculation |
-| `lib/delegationMilestones.ts` | Delegation anniversary milestone definitions |
-
-### Risks
-- **Treasury balance API**: Koios `tip` endpoint may not include treasury balance directly. Fallback: calculate from treasury proposals.
-- **Governance events volume**: Writing events on every sync could grow fast. Add TTL (90 days) and pruning.
-- **Poll data sparsity**: Community pulse, cohorts, smart poll feedback, and close-vote impact all depend on poll participation. Gate on minimum thresholds. The smart poll feedback loop should itself increase participation (virtuous cycle).
-- **Epoch timing**: Epoch boundary detection requires Koios epoch schedule. Cache in `governance_stats`.
-- **Notification fatigue**: Watchlist + anniversaries + risk signals add volume. Default in-app only; email/push opt-in.
-- **DRep communication feed empty state**: If few DReps have written explanations, design empty state as supply-side pressure CTA.
-- **Phase 3 scope**: If scope pressure hits, priority order: Digest > Impact > Levels > DelegatorShareCard > OutcomeCards > CloseVote > Anniversaries > Cohorts (stretch).
+### Files Affected
+- `app/governance/page.tsx` — Major enhancement with timeline, watchlist intelligence, calendar
+- `components/GovernanceDashboard.tsx` — Add "what if" intelligence, governance calendar
+- `app/proposals/[txHash]/[index]/page.tsx` — Add financial impact framing, community pulse
+- `components/ProposalDescription.tsx` or new component — Financial context
+- New: `components/GovernanceTimeline.tsx`
+- New: `components/WatchlistIntelligence.tsx`
+- New: `components/GovernanceCalendar.tsx`
+- New: `components/CommunityPulse.tsx`
+- New: `components/GovernanceDigest.tsx`
+- New: `components/DelegationImpact.tsx`
+- New: `components/CohortIdentity.tsx`
+- Enhancement: Inngest functions for governance event tracking, digest generation
 
 ### Success Criteria
-- Connected users return weekly (measured by `users.last_visit_at` frequency)
-- Financial framing increases poll voting participation by 20%+
-- Smart poll feedback loop increases repeat poll voting
-- Community pulse insights generate social shares
-- Watchlist intelligence drives measurable re-delegation events
-- Governance calendar gets > 50% of authenticated homepage views
-- "What if" delegation intelligence surfaces to all connected users
-- DRep communication feed viewed by > 40% of My Governance visitors
-- Risk signals card scanned by > 60% of My Governance visitors
-- At least 30% of users achieve "Voter" level within first month
-- Governance digest (epoch summary) has > 30% view rate
-- "Who's your DRep?" delegator share cards generate measurable inbound traffic
-- At least 5 delegation anniversaries shared in first month
+- Connected users return weekly (measured by `last_visit_at` frequency)
+- "What if" intelligence drives measurable re-delegation events
+- Community pulse insights get shared on social media
+- Financial framing increases poll voting participation
+- Governance digest push notifications have > 30% open rate
+- Users describe DRepScore as "my governance dashboard" not "that DRep scoring site"
 
 ---
 
@@ -944,17 +803,17 @@ Evaluate high-complexity, high-impact ideas that could transform DRepScore from 
 
 ### Priority Matrix
 
-| Idea | Impact | Complexity | Recommendation | Status |
-|---|---|---|---|---|
-| Governance identity visualization | Medium-high | Low | **Build now** | Partially addressed (Session 2 trait tags on cards); full radar pending Session 6/7 |
-| AI governance brief | High | Medium-high | **Build next** | Pending |
-| Delegation event detection | Medium | Medium | **Build simplified** | Partially addressed (Session 3 epoch-level delegator count notifications) |
-| Financial impact simulation | High | High | **Build simplified** | **Included in Session 5** (Phase 1: `FinancialImpactCard`, `TreasuryHealth`) |
-| On-chain rationale submission | Highest | Very high | **Revisit after data** | Pending |
-| AI score coach | Medium-high | Medium-high | **Revisit after data** | Pending |
-| Proposal discussion threads | Medium-high | Medium | **Defer** | Deferred |
-| Watchlist intelligence | Medium | Medium | **Defer to Session 5** | **Included in Session 5** (Phase 2: `WatchlistIntelligence`) |
-| Multi-DRep team dashboard | Low-medium | High | **Defer** | Deferred |
+| Idea | Impact | Complexity | Recommendation |
+|---|---|---|---|
+| Governance identity visualization | Medium-high | Low | **Build now** |
+| AI governance brief | High | Medium-high | **Build next** |
+| Delegation event detection | Medium | Medium | **Build simplified** |
+| Financial impact simulation | High | High | **Build simplified** |
+| On-chain rationale submission | Highest | Very high | **Revisit after data** |
+| AI score coach | Medium-high | Medium-high | **Revisit after data** |
+| Proposal discussion threads | Medium-high | Medium | **Defer** |
+| Watchlist intelligence | Medium | Medium | **Defer to Session 5** |
+| Multi-DRep team dashboard | Low-medium | High | **Defer** |
 
 ---
 

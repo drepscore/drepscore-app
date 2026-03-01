@@ -15,7 +15,6 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Compass, ArrowRight } from 'lucide-react';
-import { GovernanceCalendar } from '@/components/GovernanceCalendar';
 
 interface HomepageAuthProps {
   previousVisitAt: string | null;
@@ -74,8 +73,6 @@ export function HomepageAuth({ previousVisitAt }: HomepageAuthProps) {
           </div>
 
           <ActiveProposalsSection proposals={data.activeProposals} />
-
-          <GovernanceCalendar />
 
           {data.redelegationSuggestions.length > 0 &&
             data.representationScore.score !== null &&
