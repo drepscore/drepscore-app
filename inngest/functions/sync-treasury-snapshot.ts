@@ -88,6 +88,7 @@ export const syncTreasurySnapshot = inngest.createFunction(
         reserves_income_lovelace: reservesIncome,
       });
       await emitPostHog(true, 'treasury', logger.elapsed, { epoch: snapshot.epoch });
+      await pingHeartbeat('HEARTBEAT_URL_DAILY');
 
       await step.run('heartbeat-daily', () =>
         pingHeartbeat(process.env.HEARTBEAT_URL_DAILY)

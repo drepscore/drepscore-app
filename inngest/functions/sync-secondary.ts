@@ -13,9 +13,7 @@ export const syncSecondary = inngest.createFunction(
     const result = await step.run('execute-secondary-sync', () =>
       callSyncRoute('/api/sync/secondary', 300_000)
     );
-    await step.run('heartbeat-batch', () =>
-      pingHeartbeat(process.env.HEARTBEAT_URL_BATCH)
-    );
+    await step.run('heartbeat-batch', () => pingHeartbeat('HEARTBEAT_URL_BATCH'));
     return result;
   },
 );

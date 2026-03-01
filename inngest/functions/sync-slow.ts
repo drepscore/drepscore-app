@@ -1,5 +1,6 @@
 import { inngest } from '@/lib/inngest';
 import { callSyncRoute } from '@/inngest/helpers';
+import { pingHeartbeat } from '@/lib/sync-utils';
 
 export const syncSlow = inngest.createFunction(
   {
@@ -9,8 +10,10 @@ export const syncSlow = inngest.createFunction(
   },
   { cron: '0 4 * * *' },
   async ({ step }) => {
-    return step.run('execute-slow-sync', () =>
+    const result = await step.run('execute-slow-sync', () =>
       callSyncRoute('/api/sync/slow', 300_000)
     );
+    await step.run('heartbeat', () => pingHeartbeat('HEARTBEAT_URL_DAILY'));
+    return result;
   },
 );
