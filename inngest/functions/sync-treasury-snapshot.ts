@@ -1,14 +1,12 @@
 /**
- * Treasury Snapshot Sync — runs alongside epoch sync.
+ * Treasury Snapshot Sync — runs daily at 22:30 UTC.
  * Fetches current treasury balance from Koios /totals and stores epoch-level snapshots.
  */
 
 import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { fetchTreasuryBalance, fetchTreasuryHistory } from '@/utils/koios';
-import { blockTimeToEpoch } from '@/lib/koios';
-import { captureServerEvent } from '@/lib/posthog-server';
-import { pingHeartbeat } from '@/lib/sync-utils';
+import { fetchTreasuryBalance } from '@/utils/koios';
+import { SyncLogger, emitPostHog, errMsg, pingHeartbeat } from '@/lib/sync-utils';
 
 export const syncTreasurySnapshot = inngest.createFunction(
   {
@@ -18,70 +16,89 @@ export const syncTreasurySnapshot = inngest.createFunction(
   },
   { cron: '30 22 * * *' },
   async ({ step }) => {
+    const supabase = getSupabaseAdmin();
+    const logger = new SyncLogger(supabase, 'treasury');
+    await logger.start();
 
-    const snapshot = await step.run('fetch-treasury-balance', async () => {
-      const treasury = await fetchTreasuryBalance();
-      return {
-        epoch: treasury.epoch,
-        balanceLovelace: treasury.balance.toString(),
-        reservesLovelace: treasury.reserves.toString(),
-      };
-    });
+    let snapshotEpoch = 0;
+    let errorMessage: string | null = null;
 
-    const withdrawals = await step.run('calculate-epoch-withdrawals', async () => {
-      const supabase = getSupabaseAdmin();
-      const { data } = await supabase
-        .from('proposals')
-        .select('withdrawal_amount')
-        .eq('proposal_type', 'TreasuryWithdrawals')
-        .eq('enacted_epoch', snapshot.epoch);
+    try {
+      const snapshot = await step.run('fetch-treasury-balance', async () => {
+        const treasury = await fetchTreasuryBalance();
+        return {
+          epoch: treasury.epoch,
+          balanceLovelace: treasury.balance.toString(),
+          reservesLovelace: treasury.reserves.toString(),
+        };
+      });
 
-      const total = (data || []).reduce((sum, p) => sum + BigInt(p.withdrawal_amount || 0) * BigInt(1_000_000), BigInt(0));
-      return total.toString();
-    });
+      snapshotEpoch = snapshot.epoch;
 
-    const prevSnapshot = await step.run('calculate-income', async () => {
-      const supabase = getSupabaseAdmin();
-      const { data } = await supabase
-        .from('treasury_snapshots')
-        .select('balance_lovelace, epoch_no')
-        .eq('epoch_no', snapshot.epoch - 1)
-        .single();
+      const withdrawals = await step.run('calculate-epoch-withdrawals', async () => {
+        const sb = getSupabaseAdmin();
+        const { data } = await sb
+          .from('proposals')
+          .select('withdrawal_amount')
+          .eq('proposal_type', 'TreasuryWithdrawals')
+          .eq('enacted_epoch', snapshot.epoch);
 
-      return data;
-    });
+        const total = (data || []).reduce(
+          (sum, p) => sum + BigInt(p.withdrawal_amount || 0) * BigInt(1_000_000),
+          BigInt(0),
+        );
+        return total.toString();
+      });
 
-    const reservesIncome = prevSnapshot
-      ? (BigInt(snapshot.balanceLovelace) - BigInt(prevSnapshot.balance_lovelace) + BigInt(withdrawals)).toString()
-      : '0';
+      const prevSnapshot = await step.run('calculate-income', async () => {
+        const sb = getSupabaseAdmin();
+        const { data } = await sb
+          .from('treasury_snapshots')
+          .select('balance_lovelace, epoch_no')
+          .eq('epoch_no', snapshot.epoch - 1)
+          .single();
 
-    await step.run('upsert-snapshot', async () => {
-      const supabase = getSupabaseAdmin();
-      const { error } = await supabase
-        .from('treasury_snapshots')
-        .upsert({
-          epoch_no: snapshot.epoch,
-          balance_lovelace: snapshot.balanceLovelace,
-          reserves_lovelace: snapshot.reservesLovelace,
-          withdrawals_lovelace: withdrawals,
-          reserves_income_lovelace: reservesIncome,
-          snapshot_at: new Date().toISOString(),
-        }, { onConflict: 'epoch_no' });
+        return data;
+      });
 
-      if (error) throw new Error(`Treasury snapshot upsert failed: ${error.message}`);
-    });
+      const reservesIncome = prevSnapshot
+        ? (BigInt(snapshot.balanceLovelace) - BigInt(prevSnapshot.balance_lovelace) + BigInt(withdrawals)).toString()
+        : '0';
 
-    captureServerEvent('treasury_snapshot_synced', {
-      epoch: snapshot.epoch,
-      balance_lovelace: snapshot.balanceLovelace,
-      withdrawals_lovelace: withdrawals,
-      reserves_income_lovelace: reservesIncome,
-    });
+      await step.run('upsert-snapshot', async () => {
+        const sb = getSupabaseAdmin();
+        const { error } = await sb
+          .from('treasury_snapshots')
+          .upsert({
+            epoch_no: snapshot.epoch,
+            balance_lovelace: snapshot.balanceLovelace,
+            reserves_lovelace: snapshot.reservesLovelace,
+            withdrawals_lovelace: withdrawals,
+            reserves_income_lovelace: reservesIncome,
+            snapshot_at: new Date().toISOString(),
+          }, { onConflict: 'epoch_no' });
 
-    await step.run('heartbeat-daily', () =>
-      pingHeartbeat(process.env.HEARTBEAT_URL_DAILY)
-    );
+        if (error) throw new Error(`Treasury snapshot upsert failed: ${error.message}`);
+      });
 
-    return { epoch: snapshot.epoch, balance: snapshot.balanceLovelace };
-  }
+      await logger.finalize(true, null, {
+        epoch: snapshot.epoch,
+        balance_lovelace: snapshot.balanceLovelace,
+        withdrawals_lovelace: withdrawals,
+        reserves_income_lovelace: reservesIncome,
+      });
+      await emitPostHog(true, 'treasury', logger.elapsed, { epoch: snapshot.epoch });
+
+      await step.run('heartbeat-daily', () =>
+        pingHeartbeat(process.env.HEARTBEAT_URL_DAILY)
+      );
+
+      return { epoch: snapshot.epoch, balance: snapshot.balanceLovelace };
+    } catch (e) {
+      errorMessage = errMsg(e);
+      await logger.finalize(false, errorMessage, { epoch: snapshotEpoch });
+      await emitPostHog(false, 'treasury', logger.elapsed, { epoch: snapshotEpoch });
+      throw e;
+    }
+  },
 );

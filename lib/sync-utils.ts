@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
-export type SyncType = 'dreps' | 'votes' | 'proposals' | 'secondary' | 'slow' | 'full' | 'fast' | 'integrity_check';
+export type SyncType = 'dreps' | 'votes' | 'proposals' | 'secondary' | 'slow' | 'full' | 'treasury' | 'integrity_check' | 'api_health_check';
 
 const BATCH_SIZE = 100;
 
