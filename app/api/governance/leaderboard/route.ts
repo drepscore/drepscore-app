@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
-import { getDRepPrimaryName } from '@/utils/display';
+import { shortenDRepId } from '@/utils/display';
 import { captureServerEvent } from '@/lib/posthog-server';
 
 export const dynamic = 'force-dynamic';
+
+function displayName(row: any): string {
+  const info = row.info || {};
+  return info.name || info.ticker || info.handle || shortenDRepId(row.id);
+}
 
 export async function GET(request: NextRequest) {
   const tier = request.nextUrl.searchParams.get('tier') || 'all';
@@ -15,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('dreps')
-      .select('id, name, ticker, handle, score, size_tier, info, effective_participation, rationale_rate, reliability_score, profile_completeness')
+      .select('id, score, size_tier, info, effective_participation, rationale_rate, reliability_score, profile_completeness')
       .order('score', { ascending: false })
       .limit(limit);
 
@@ -29,7 +34,7 @@ export async function GET(request: NextRequest) {
     const leaderboard = (topDreps || []).map((d: any, i: number) => ({
       rank: i + 1,
       drepId: d.id,
-      name: getDRepPrimaryName({ ...d, drepId: d.id }),
+      name: displayName(d),
       score: d.score ?? 0,
       sizeTier: d.size_tier,
       isActive: d.info?.isActive ?? false,
@@ -56,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     const { data: currentDreps } = await supabase
       .from('dreps')
-      .select('id, name, ticker, handle, score')
+      .select('id, score, info')
       .gt('score', 0)
       .order('score', { ascending: false });
 
@@ -66,7 +71,7 @@ export async function GET(request: NextRequest) {
         if (old === undefined) return null;
         return {
           drepId: d.id,
-          name: getDRepPrimaryName({ ...d, drepId: d.id }),
+          name: displayName(d),
           currentScore: d.score,
           previousScore: old,
           delta: d.score - old,
@@ -100,12 +105,12 @@ export async function GET(request: NextRequest) {
     if (hallOfFameIds.length > 0) {
       const { data: hofDreps } = await supabase
         .from('dreps')
-        .select('id, name, ticker, handle, score')
+        .select('id, score, info')
         .in('id', hallOfFameIds.slice(0, 20));
 
       hallOfFame = (hofDreps || []).map((d: any) => ({
         drepId: d.id,
-        name: getDRepPrimaryName({ ...d, drepId: d.id }),
+        name: displayName(d),
         score: d.score,
         days: drepDayCounts.get(d.id) || 0,
       })).sort((a, b) => b.days - a.days);
@@ -129,9 +134,6 @@ export async function GET(request: NextRequest) {
     const msg = err?.message || err?.details || err?.hint || JSON.stringify(err);
     console.error('[Leaderboard API] Error:', msg);
     captureServerEvent('leaderboard_api_error', { error: msg });
-    return NextResponse.json({
-      error: 'Internal error',
-      detail: msg,
-    }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
