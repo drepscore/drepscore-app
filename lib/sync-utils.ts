@@ -127,7 +127,7 @@ export async function triggerAnalyticsDeploy(syncType: SyncType): Promise<void> 
   if (!hook) return;
   try {
     await new Promise(r => setTimeout(r, 5000));
-    const res = await fetch(hook, { method: 'POST' });
+    const res = await fetch(hook, { method: 'POST', signal: AbortSignal.timeout(10_000) });
     if (res.ok) {
       console.log(`[${syncType}] Analytics deploy hook triggered (${res.status})`);
     } else {

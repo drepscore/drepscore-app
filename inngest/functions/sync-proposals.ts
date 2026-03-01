@@ -201,7 +201,7 @@ export const syncProposals = inngest.createFunction(
           url: `${baseUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
           metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
         };
-        await broadcastDiscord(event).catch(() => {});
+        await broadcastDiscord(event).catch((e) => console.error('[proposals] broadcastDiscord failed:', e));
         const sent = await broadcastEvent(event);
         return sent;
       } catch (err) {
