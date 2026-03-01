@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { HeaderClient } from "@/components/HeaderClient";
-import { DelegationInsightBannerClient } from "@/components/DelegationInsightBannerClient";
 import { Footer } from "@/components/Footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Providers } from "@/components/Providers";
@@ -47,7 +46,6 @@ export default function RootLayout({
         >
           <Providers>
             <HeaderClient />
-            <DelegationInsightBannerClient />
             <main className="min-h-screen">
               {children}
             </main>

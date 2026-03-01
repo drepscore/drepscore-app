@@ -29,7 +29,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  return NextResponse.json(data as SupabaseUser);
+  const previousVisitAt = data.last_visit_at || null;
+
+  await supabase
+    .from('users')
+    .update({ last_visit_at: new Date().toISOString() })
+    .eq('wallet_address', walletAddress);
+
+  return NextResponse.json({
+    ...data,
+    previousVisitAt,
+  } as SupabaseUser & { previousVisitAt: string | null });
 }
 
 export async function PATCH(request: NextRequest) {

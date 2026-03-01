@@ -158,7 +158,7 @@ export function DRepDashboard({ drep, scoreHistory, isSimulated }: DRepDashboard
               To update your DRep profile metadata (name, objectives, social links), use a wallet that supports CIP-119 metadata editing such as{' '}
               <a href="https://gov.tools" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">gov.tools</a>
               {' '}or your wallet&apos;s governance section.{' '}
-              <a href="/methodology" className="underline hover:text-foreground">Learn more about scoring</a>.
+              Scoring methodology is explained on each DRep&apos;s profile page.
             </p>
           </div>
         )}

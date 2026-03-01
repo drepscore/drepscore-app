@@ -56,8 +56,8 @@ export function Footer() {
 
           {/* Center: Nav links */}
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <Link href="/methodology" className="hover:text-foreground transition-colors">
-              Methodology
+            <Link href="/discover" className="hover:text-foreground transition-colors">
+              Discover DReps
             </Link>
             <Link href="/proposals" className="hover:text-foreground transition-colors">
               Proposals

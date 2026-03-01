@@ -13,6 +13,7 @@ import { type PillarStatus } from '@/utils/scoring';
 import { useWallet } from '@/utils/wallet';
 import { ScoreRing } from '@/components/ScoreRing';
 import { PillarCard } from '@/components/PillarCard';
+import { MethodologyAccordion } from '@/components/MethodologyAccordion';
 
 function XIcon({ className }: { className?: string }) {
   return (
@@ -178,6 +179,10 @@ export function ScoreCard({
             hint={hints[i]}
           />
         ))}
+
+        <div className="border-t pt-4">
+          <MethodologyAccordion />
+        </div>
       </CardContent>
     </Card>
   );

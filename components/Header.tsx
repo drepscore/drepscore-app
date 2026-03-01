@@ -31,7 +31,7 @@ import {
   TrendingDown,
   Wallet,
   Info,
-  BookOpen,
+  Compass,
   ScrollText,
   AlertTriangle,
   FileText,
@@ -122,8 +122,6 @@ export function Header() {
       .catch(() => {});
   }, [ownDRepId]);
 
-  const showInbox = ownDRepId || isAdmin;
-
   useEffect(() => {
     const handler = () => setWalletModalOpen(true);
     window.addEventListener('openWalletConnect', handler);
@@ -142,9 +140,9 @@ export function Header() {
             <ScrollText className="h-4 w-4" />
             <span>Proposals</span>
           </Link>
-          <Link href="/methodology" className={navLinkClass('/methodology')}>
-            <BookOpen className="h-4 w-4" />
-            <span>Methodology</span>
+          <Link href="/discover" className={navLinkClass('/discover')}>
+            <Compass className="h-4 w-4" />
+            <span>Discover</span>
           </Link>
           {isAuthenticated && (
             <Link href="/governance" className={navLinkClass('/governance')}>
@@ -156,17 +154,6 @@ export function Header() {
             <Link href="/dashboard" className={navLinkClass('/dashboard')}>
               <Sparkles className="h-4 w-4" />
               <span>DRep Dashboard</span>
-            </Link>
-          )}
-          {showInbox && (
-            <Link href={ownDRepId ? `/dashboard/inbox?drepId=${encodeURIComponent(ownDRepId)}` : '/dashboard/inbox'} className={navLinkClass('/dashboard/inbox')}>
-              <Inbox className="h-4 w-4" />
-              <span>Inbox</span>
-              {inboxCount > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white tabular-nums">
-                  {inboxCount > 99 ? '99+' : inboxCount}
-                </span>
-              )}
             </Link>
           )}
           
