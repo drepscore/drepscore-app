@@ -13,10 +13,9 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createClient();
 
-    // Top DReps by score
     let query = supabase
       .from('dreps')
-      .select('drep_id, name, ticker, handle, score, size_tier, info, effective_participation, rationale_rate, reliability_score, profile_completeness')
+      .select('id, name, ticker, handle, score, size_tier, info, effective_participation, rationale_rate, reliability_score, profile_completeness')
       .order('score', { ascending: false })
       .limit(limit);
 
@@ -29,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     const leaderboard = (topDreps || []).map((d: any, i: number) => ({
       rank: i + 1,
-      drepId: d.drep_id,
+      drepId: d.id,
       name: getDRepPrimaryName(d),
       score: d.score ?? 0,
       sizeTier: d.size_tier,
@@ -39,7 +38,6 @@ export async function GET(request: NextRequest) {
       reliability: d.reliability_score ?? 0,
     }));
 
-    // Weekly movers: compare current score vs 7-day-old snapshot
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
 
     const { data: historyData } = await supabase
@@ -58,16 +56,16 @@ export async function GET(request: NextRequest) {
 
     const { data: currentDreps } = await supabase
       .from('dreps')
-      .select('drep_id, name, ticker, handle, score')
+      .select('id, name, ticker, handle, score')
       .gt('score', 0)
       .order('score', { ascending: false });
 
     const movers = (currentDreps || [])
       .map((d: any) => {
-        const old = oldScoreMap.get(d.drep_id);
+        const old = oldScoreMap.get(d.id);
         if (old === undefined) return null;
         return {
-          drepId: d.drep_id,
+          drepId: d.id,
           name: getDRepPrimaryName(d),
           currentScore: d.score,
           previousScore: old,
@@ -80,7 +78,6 @@ export async function GET(request: NextRequest) {
     const gainers = movers.filter(m => m.delta > 0).slice(0, 5);
     const losers = movers.filter(m => m.delta < 0).slice(0, 5);
 
-    // Hall of Fame: score >= 80 for 90+ days
     const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
 
     const { data: hallData } = await supabase
@@ -103,14 +100,14 @@ export async function GET(request: NextRequest) {
     if (hallOfFameIds.length > 0) {
       const { data: hofDreps } = await supabase
         .from('dreps')
-        .select('drep_id, name, ticker, handle, score')
-        .in('drep_id', hallOfFameIds.slice(0, 20));
+        .select('id, name, ticker, handle, score')
+        .in('id', hallOfFameIds.slice(0, 20));
 
       hallOfFame = (hofDreps || []).map((d: any) => ({
-        drepId: d.drep_id,
+        drepId: d.id,
         name: getDRepPrimaryName(d),
         score: d.score,
-        days: drepDayCounts.get(d.drep_id) || 0,
+        days: drepDayCounts.get(d.id) || 0,
       })).sort((a, b) => b.days - a.days);
     }
 
