@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Landmark, TrendingUp, TrendingDown, Minus, Clock, Shield, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { formatAda } from '@/lib/treasury';
+import { posthog } from '@/lib/posthog';
 
 interface TreasuryWidgetData {
   balance: number;
@@ -21,7 +22,10 @@ export function TreasuryHealthWidget() {
   useEffect(() => {
     fetch('/api/treasury/current')
       .then(r => r.ok ? r.json() : null)
-      .then(setData)
+      .then(d => {
+        setData(d);
+        if (d) posthog.capture('treasury_widget_viewed', { health_score: d.healthScore, balance: d.balance });
+      })
       .catch(() => {});
   }, []);
 

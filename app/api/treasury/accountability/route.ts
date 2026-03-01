@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, getSupabaseAdmin } from '@/lib/supabase';
 import { getSpendingEffectiveness } from '@/lib/treasury';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,6 +89,14 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    captureServerEvent('treasury_accountability_vote_submitted', {
+      proposal_tx_hash: txHash,
+      proposal_index: index,
+      cycle_number: cycleNumber,
+      delivered_rating: deliveredRating,
+      would_approve_again: wouldApproveAgain,
+    }, userAddress);
 
     return NextResponse.json({ success: true });
   } catch (error) {

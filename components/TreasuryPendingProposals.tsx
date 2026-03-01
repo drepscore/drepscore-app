@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Scale, ExternalLink, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { formatAda } from '@/lib/treasury';
+import { posthog } from '@/lib/posthog';
 
 interface PendingData {
   proposals: Array<{
@@ -41,7 +42,13 @@ export function TreasuryPendingProposals({ treasuryBalanceAda, runwayMonths }: P
   useEffect(() => {
     fetch('/api/treasury/pending')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { setData(d); setLoading(false); })
+      .then(d => {
+        setData(d);
+        setLoading(false);
+        if (d?.proposals?.length) {
+          posthog.capture('treasury_pending_viewed', { count: d.proposals.length, total_ada: d.totalAda });
+        }
+      })
       .catch(() => setLoading(false));
   }, []);
 

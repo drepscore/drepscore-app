@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+import { posthog } from '@/lib/posthog';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Legend, ReferenceLine,
@@ -41,7 +42,7 @@ export function TreasuryCharts() {
             key={r}
             variant={range === r ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setRange(r)}
+            onClick={() => { setRange(r); posthog.capture('treasury_chart_range_changed', { range: r }); }}
           >
             {r === 500 ? 'All Time' : `${r} Epochs`}
           </Button>

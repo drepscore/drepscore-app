@@ -18,7 +18,10 @@ export type EventType =
   | 'rank-change'
   | 'near-milestone'
   | 'proposal-deadline'
-  | 'score-opportunity';
+  | 'score-opportunity'
+  | 'treasury-health-alert'
+  | 'treasury-proposal-new'
+  | 'treasury-accountability-open';
 
 export type Channel = 'push' | 'discord' | 'telegram';
 

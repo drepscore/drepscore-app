@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Landmark, ThumbsUp, ThumbsDown, Scale, Award } from 'lucide-react';
 import { formatAda, type DRepTreasuryRecord } from '@/lib/treasury';
+import { posthog } from '@/lib/posthog';
 
 interface Props {
   drepId: string;
@@ -19,7 +20,17 @@ export function DRepTreasuryStance({ drepId, compact = false }: Props) {
   useEffect(() => {
     import('@/lib/treasury').then(({ getDRepTreasuryTrackRecord }) => {
       getDRepTreasuryTrackRecord(drepId)
-        .then(r => { setRecord(r); setLoading(false); })
+        .then(r => {
+          setRecord(r);
+          setLoading(false);
+          if (r && r.totalProposals > 0) {
+            posthog.capture('drep_treasury_stance_viewed', {
+              drep_id: drepId,
+              total_proposals: r.totalProposals,
+              judgment_score: r.judgmentScore,
+            });
+          }
+        })
         .catch(() => setLoading(false));
     });
   }, [drepId]);

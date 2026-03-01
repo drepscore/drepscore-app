@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingDown, AlertTriangle, Landmark, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { formatAda } from '@/lib/treasury';
+import { posthog } from '@/lib/posthog';
 
 interface FinancialImpactCardProps {
   withdrawalAda: number;
@@ -23,6 +24,16 @@ export function FinancialImpactCard({
   treasuryTier,
   compact = false,
 }: FinancialImpactCardProps) {
+  useEffect(() => {
+    if (!compact) {
+      posthog.capture('financial_impact_card_viewed', {
+        withdrawal_ada: withdrawalAda,
+        treasury_tier: treasuryTier,
+        pct_of_treasury: treasuryBalanceAda ? ((withdrawalAda / treasuryBalanceAda) * 100).toFixed(2) : null,
+      });
+    }
+  }, [withdrawalAda, treasuryTier, treasuryBalanceAda, compact]);
+
   const pctOfTreasury = useMemo(() => {
     if (!treasuryBalanceAda || treasuryBalanceAda <= 0) return null;
     return ((withdrawalAda / treasuryBalanceAda) * 100).toFixed(2);

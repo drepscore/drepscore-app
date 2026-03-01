@@ -7,6 +7,7 @@ import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { fetchTreasuryBalance, fetchTreasuryHistory } from '@/utils/koios';
 import { blockTimeToEpoch } from '@/lib/koios';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 export const syncTreasurySnapshot = inngest.createFunction(
   {
@@ -67,6 +68,13 @@ export const syncTreasurySnapshot = inngest.createFunction(
         }, { onConflict: 'epoch_no' });
 
       if (error) throw new Error(`Treasury snapshot upsert failed: ${error.message}`);
+    });
+
+    captureServerEvent('treasury_snapshot_synced', {
+      epoch: snapshot.epoch,
+      balance_lovelace: snapshot.balanceLovelace,
+      withdrawals_lovelace: withdrawals,
+      reserves_income_lovelace: reservesIncome,
     });
 
     return { epoch: snapshot.epoch, balance: snapshot.balanceLovelace };

@@ -126,6 +126,36 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── Treasury snapshot staleness check ──
+
+  const { data: latestTreasury } = await supabase
+    .from('treasury_snapshots')
+    .select('epoch_no, snapshot_at')
+    .order('epoch_no', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (latestTreasury) {
+    const snapshotAge = Math.round((now - new Date(latestTreasury.snapshot_at).getTime()) / 60000);
+    if (snapshotAge > 1500) {
+      alerts.push({
+        level: 'warning',
+        metric: 'Treasury Snapshot — Stale',
+        value: `Last snapshot: epoch ${latestTreasury.epoch_no}, ${Math.floor(snapshotAge / 60)}h ago`,
+        threshold: 'daily (via Inngest)',
+        action: 'Check Inngest dashboard for sync-treasury-snapshot failures. The function runs at 22:30 UTC daily.',
+      });
+    }
+  } else {
+    alerts.push({
+      level: 'warning',
+      metric: 'Treasury Snapshot — No Data',
+      value: 'No treasury snapshots found',
+      threshold: 'at least 1 snapshot',
+      action: 'Trigger sync-treasury-snapshot via Inngest Cloud or wait for next daily run.',
+    });
+  }
+
   // ── Self-healing: trigger stale syncs ──
 
   const recoveries: string[] = [];

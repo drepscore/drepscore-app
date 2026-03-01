@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { History, CheckCircle2, XCircle, Clock, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { formatAda } from '@/lib/treasury';
+import { posthog } from '@/lib/posthog';
 
 interface SimilarProposal {
   txHash: string;
@@ -48,7 +49,14 @@ export function SimilarProposalsCard({ title, withdrawalAda, treasuryTier, exclu
     fetch(`/api/treasury/similar?${params}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data?.similar) setSimilar(data.similar);
+        if (data?.similar) {
+          setSimilar(data.similar);
+          posthog.capture('similar_proposals_viewed', {
+            count: data.similar.length,
+            proposal_title: title,
+            withdrawal_ada: withdrawalAda,
+          });
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));

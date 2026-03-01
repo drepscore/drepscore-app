@@ -215,6 +215,65 @@ export const checkNotifications = inngest.createFunction(
       }
     });
 
+    // Step 6: Treasury health alerts and new withdrawal proposals
+    await step.run('check-treasury-alerts', async () => {
+      const supabase = getSupabaseAdmin();
+
+      const { data: latestSnapshot } = await supabase
+        .from('treasury_snapshots')
+        .select('epoch_no, balance_lovelace')
+        .order('epoch_no', { ascending: false })
+        .limit(2);
+
+      if (latestSnapshot && latestSnapshot.length >= 2) {
+        const current = Number(BigInt(latestSnapshot[0].balance_lovelace) / BigInt(1_000_000));
+        const previous = Number(BigInt(latestSnapshot[1].balance_lovelace) / BigInt(1_000_000));
+        const pctChange = ((current - previous) / previous) * 100;
+
+        if (pctChange < -5) {
+          await broadcastEvent({
+            eventType: 'treasury-health-alert',
+            title: 'Treasury balance dropped significantly',
+            body: `Treasury declined ${Math.abs(pctChange).toFixed(1)}% this epoch. Current balance: ${(current / 1_000_000).toFixed(1)}M ADA.`,
+            url: `${BASE_URL}/treasury`,
+          });
+        }
+      }
+
+      const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
+      const { data: newTreasuryProposals } = await supabase
+        .from('proposals')
+        .select('tx_hash, proposal_index, title, withdrawal_amount, treasury_tier')
+        .eq('proposal_type', 'TreasuryWithdrawals')
+        .eq('proposed_epoch', currentEpoch);
+
+      for (const p of newTreasuryProposals || []) {
+        if (p.treasury_tier === 'major' || p.treasury_tier === 'significant') {
+          await broadcastEvent({
+            eventType: 'treasury-proposal-new',
+            title: `New ${p.treasury_tier} treasury proposal`,
+            body: `"${p.title || 'Untitled'}" requests ${(p.withdrawal_amount || 0).toLocaleString()} ADA from the treasury.`,
+            url: `${BASE_URL}/proposals/${p.tx_hash}/${p.proposal_index}`,
+          });
+        }
+      }
+
+      const { data: openPolls } = await supabase
+        .from('treasury_accountability_polls')
+        .select('proposal_tx_hash, proposal_index, cycle_number')
+        .eq('status', 'open')
+        .eq('opened_epoch', currentEpoch);
+
+      for (const poll of openPolls || []) {
+        await broadcastEvent({
+          eventType: 'treasury-accountability-open',
+          title: 'Treasury accountability poll opened',
+          body: `Cycle ${poll.cycle_number} accountability poll is now open. Rate whether this treasury spending delivered.`,
+          url: `${BASE_URL}/proposals/${poll.proposal_tx_hash}/${poll.proposal_index}`,
+        });
+      }
+    });
+
     return { stats };
   }
 );

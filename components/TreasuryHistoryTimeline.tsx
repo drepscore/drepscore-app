@@ -8,6 +8,7 @@ import { History, ArrowDown, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import { formatAda } from '@/lib/treasury';
+import { posthog } from '@/lib/posthog';
 
 interface EnactedProposal {
   tx_hash: string;
@@ -34,6 +35,9 @@ export function TreasuryHistoryTimeline() {
       .then(({ data }) => {
         setProposals((data as EnactedProposal[]) || []);
         setLoading(false);
+        if (data?.length) {
+          posthog.capture('treasury_history_viewed', { enacted_count: data.length });
+        }
       });
   }, []);
 

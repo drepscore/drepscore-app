@@ -7,6 +7,7 @@
 import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
+import { captureServerEvent } from '@/lib/posthog-server';
 import {
   getAccountabilityDelay,
   getNextCycleEpoch,
@@ -167,6 +168,15 @@ export const checkAccountabilityPolls = inngest.createFunction(
       }
       return scheduledCount;
     });
+
+    if (newPolls > 0 || closed > 0 || scheduled > 0) {
+      captureServerEvent('accountability_polls_processed', {
+        epoch: currentEpoch,
+        polls_opened: newPolls,
+        polls_closed: closed,
+        cycles_scheduled: scheduled,
+      });
+    }
 
     return { currentEpoch, newPolls, closed, scheduled };
   }
