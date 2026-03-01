@@ -78,12 +78,21 @@ When the user says "merge" from the **main worktree** (`drepscore-app`):
 
 **If user asks to merge from a feature worktree, refuse.** Say: "Merges happen from the drepscore-app window (main). Switch there and ask me to merge."
 
-## Quick Hotfixes on Main
+## Worktree Decision Logic
 
-For single-commit fixes that don't need a feature branch:
-- Work directly on `main` in `drepscore-app`
-- Commit, push, done
-- No worktree or PR needed
+**Work directly on main (no worktree):**
+- Single-commit fixes (typos, config, lint)
+- Cursor rule / documentation updates
+- Plan file creation (plans are authored on main by design)
+
+**Worktree required:**
+- Any plan with 2+ phases of code changes
+- New features visible to users
+- Database migrations bundled with code changes
+- Multi-file refactors (10+ files)
+- Anything that needs a PR per the release gating criteria in `deploy.md`
+
+Single decision rule: **if it needs a PR, it needs a worktree.**
 
 ## Analytics Loaders
 
@@ -94,8 +103,8 @@ All `analytics/src/data/*.json.ts` files query Postgres directly at build time. 
 
 ## Deployment
 
-- **Production**: deploys from `main` via Vercel Git integration (push = deploy)
-- **Preview**: Vercel auto-deploys every feature branch push
-- **Analytics dashboard**: separate Vercel project, root directory `analytics/`, framework preset "Other"
+- **Production**: deploys from `main` via Railway Git integration (push = deploy)
+- **Preview**: Railway auto-deploys every PR branch as an ephemeral preview environment
+- **Analytics dashboard**: separate Observable Framework project in `analytics/`, deployed via Railway
 - **Post-sync rebuild**: `dreps` and `votes` sync routes fire `ANALYTICS_DEPLOY_HOOK` automatically
-- **CRON_SECRET**: production value differs from local `.env.local` — use `vercel env pull` if you need to trigger syncs manually
+- **Background jobs**: All syncs/crons run via Inngest Cloud (no cron secrets needed for scheduling)

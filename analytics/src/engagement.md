@@ -181,3 +181,9 @@ notifTable.length > 0
 <div class="tip-box">
   <strong>Engagement funnel</strong> — Track inbox opens → proposal clicks → rationale generated → vote submitted in PostHog for the full conversion funnel. This dashboard covers the operational/governance side; PostHog covers user behavior analytics.
 </div>
+
+---
+
+```js
+display(html`<span class="muted" style="font-size: 0.75rem">Epoch ${currentEpoch} · Dashboard built: ${new Date().toLocaleString()}</span>`);
+```

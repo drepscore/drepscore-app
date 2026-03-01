@@ -11,7 +11,7 @@ alwaysApply: true
 
 ## Before Running Any Command That Mutates State
 1. **Identify the target environment.** If the command will write to a database, call an API, or trigger a side effect, determine whether it points at production or a test environment.
-2. **If production: STOP.** Do not run sync operations, data backfills, migrations, or write-path tests against production from localhost. Validate these via Vercel preview deploys or Supabase branch databases instead.
+2. **If production: STOP.** Do not run sync operations, data backfills, migrations, or write-path tests against production from localhost. Validate these via Railway preview environments (PR-based) or Supabase branch databases instead.
 3. **If ambiguous: ASK.** If you're unsure whether an operation could mutate production state, ask the user before proceeding. Never default to "probably safe."
 
 ## What "Test Locally" Means
@@ -27,11 +27,12 @@ alwaysApply: true
 - Executing Supabase migrations against production without the user confirming the target
 
 ## Deploy Verification Protocol
-After pushing code that will trigger a Vercel deploy:
+After pushing code that will trigger a Railway deploy:
 1. Wait for the deploy to complete — do not mark the task as done after `git push`
-2. Run `npx vercel inspect <deployment-url>` and confirm status is "Ready"
-3. If status is "Error", inspect logs, fix the issue, and re-push in the same session
-4. Only then mark the deploy task as complete
+2. Check Railway dashboard Deployments tab for build status; confirm "Active"
+3. Run `npm run smoke-test` to validate production endpoints
+4. If deploy fails: check build/deploy logs in Railway dashboard, fix, re-push
+5. Only then mark the deploy task as complete
 
 ## Pre-Commit Safety Check
 When staging files for commit:

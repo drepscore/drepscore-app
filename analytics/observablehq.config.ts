@@ -403,12 +403,15 @@ figure[class*="plot"] {
         { name: "Voting Intelligence", path: "/voting" },
         { name: "Score Trends", path: "/trends" },
         { name: "DRep Engagement", path: "/engagement" },
+        { name: "Voting Power", path: "/voting-power" },
+        { name: "Rationale Quality", path: "/rationale-quality" },
       ],
     },
     {
       name: "Operations",
       open: false,
       pages: [
+        { name: "System Status", path: "/system-status" },
         { name: "Data Quality", path: "/data-quality" },
         { name: "API Analytics", path: "/api-analytics" },
       ],

@@ -10,11 +10,14 @@ alwaysApply: false
 Cardano governance tool for casual ADA holders to discover DReps aligned with their values via scorecards and easy delegation. Brand: `$drepscore`. Tone: neutral, educational.
 
 ## Tech Stack
-- **Framework**: Next.js 15 App Router, TypeScript strict, server components for data fetching
+- **Framework**: Next.js 16 App Router, TypeScript strict, server components for data fetching
 - **UI**: shadcn/ui + Tailwind CSS v4 + Recharts/Tremor. Dark mode via next-themes
 - **Wallet**: MeshJS (Eternl, Nami, Lace, Typhon+). Wallet connection is optional — show value first
 - **Data**: Koios API (mainnet) → Supabase (cache) → Next.js (reads)
-- **Deployment**: Vercel (Pro, $20/mo) with cron jobs for sync
+- **Hosting**: Railway (Docker, health checks, auto-deploy from `main`)
+- **CDN/DNS**: Cloudflare
+- **Background Jobs**: Inngest Cloud (8 durable functions — syncs, integrity, notifications)
+- **Error Tracking**: Sentry (Next.js SDK)
 - **Analytics**: PostHog (JS + Node SDKs)
 
 ## Data Flow (Canonical)
@@ -61,12 +64,18 @@ DRep Score (0-100) =
 - **Integrity alerts** (`/api/admin/integrity/alert`): Every 6 hours, Slack/Discord webhooks
 
 ## Database (Supabase)
-19 migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `delegator_polls`, `sync_log`
+22+ migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`
 
-## Cron Jobs (vercel.json)
-- `/api/sync/fast` — every 30 min
-- `/api/sync` — daily 2am UTC
-- `/api/admin/integrity/alert` — every 6 hours
+## Background Jobs (Inngest Cloud)
+All scheduled work runs via Inngest durable functions (no vercel.json crons):
+- `sync-fast` — every 30 min (new proposals, active votes)
+- `sync-full` — daily 2am UTC (all DReps, votes, rationales, scores)
+- `sync-secondary` — daily 3am UTC (social links, power snapshots)
+- `integrity-check` — every 6 hours (data quality + Discord alerts)
+- `push-notifications` — every 30 min
+- `inbox-check` — every 30 min (new proposal alerts)
+- `integrity-snapshot` — daily (capture data quality KPIs)
+- `api-health-alert` — every 6 hours
 
 ## UX Principles
 - Show value first (no forced wallet connect)
@@ -77,4 +86,4 @@ DRep Score (0-100) =
 - Encourage delegation to smaller, quality DReps (size tier badges, decentralization scoring)
 
 ## Production URL
-https://drepscore-app.vercel.app/
+https://drepscore.io

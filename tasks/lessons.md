@@ -196,5 +196,14 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Issue**: Marked deploy todo as complete after `git push` succeeded, without waiting for or checking the Vercel build result.
 **Fix**: After pushing, run `vercel inspect` on the latest deployment and confirm status is "Ready" before considering deploy complete. If it fails, fix and re-push in the same session.
 
-*Last updated: 2026-02-28*
+### 2026-03-01: Always monitor CI after push — never report completion until green
+**Issue**: After pushing the `feature/pre-launch-hardening` branch and creating PR #2, treated the task as "done" and reported success to the user. CI failed (`lib/koios.ts` coverage threshold raised to 40% but actual coverage was 14.22%). The deploy rule explicitly documents the monitor-and-fix loop, but it was skipped.
+**Fix**: After every `git push`, immediately run `gh run list --limit 1` to get the run ID, then poll `gh run view <id>` until completion. If CI fails, run `gh run view <id> --log-failed`, fix the issue, commit, push, and re-monitor. Never report completion until all CI jobs are green. This applies to both `main` pushes and PR branches.
+**Promoted to rule**: Yes — `deploy.md` already documents this; the failure was execution, not documentation.
+
+### 2026-03-01: Don't raise coverage thresholds without matching tests
+**Issue**: Phase 6 of the hardening plan raised `lib/koios.ts` from 10% to 40%, but no new koios-specific tests were written. Coverage was only 14.22%.
+**Fix**: Coverage thresholds must only be raised when accompanied by tests that achieve the target. Set thresholds to slightly below current coverage (14% in this case) as a regression gate, then raise incrementally as tests are added.
+
+*Last updated: 2026-03-01*
 *Review this file at the start of every session.*

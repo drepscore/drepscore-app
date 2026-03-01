@@ -345,3 +345,9 @@ Plot.plot({
 <div class="tip-box">
   <strong>Insight:</strong> DRep sync runs every 6 hours. If many DReps exceed 12h, that means at least 2 consecutive sync cycles have failed — check the sync operations and reliability charts above.
 </div>
+
+---
+
+```js
+display(html`<span class="muted" style="font-size: 0.75rem">Dashboard built: ${new Date().toLocaleString()}</span>`);
+```
