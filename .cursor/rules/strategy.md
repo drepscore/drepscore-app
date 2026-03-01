@@ -26,7 +26,7 @@ DRepScore has a comprehensive monetization and growth strategy documented in `do
 - **Governance Data API** — Public API product. See `docs/strategy/api-product.md`.
 
 ## Product "Wow" Plan
-`docs/strategy/product-wow-plan.md` is the comprehensive 6-session execution plan to transform DRepScore from a governance tool into the product that makes the crypto space say "wow." Reference it when making UX, feature, or architecture decisions.
+`docs/strategy/product-wow-plan.md` is the comprehensive 7-session execution plan to transform DRepScore from a governance tool into the product that makes the crypto space say "wow." Reference it when making UX, feature, or architecture decisions.
 
 ## Architecture Implications
 When building features, consider:

@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import confetti from 'canvas-confetti';
 import { posthog } from '@/lib/posthog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -19,7 +21,10 @@ import {
   FileText,
   CheckCircle2,
   Lock,
+  X,
 } from 'lucide-react';
+import { ShareActions } from '@/components/ShareActions';
+import { buildDRepUrl } from '@/lib/share';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Shield, Users, Star, Target, FileText, CheckCircle2,
@@ -43,10 +48,12 @@ interface MilestoneBadgesProps {
 export function MilestoneBadges({ drepId, compact = false }: MilestoneBadgesProps) {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
+  const [celebratingMilestone, setCelebratingMilestone] = useState<Milestone | null>(null);
+  const previousAchievedRef = useRef<Set<string>>(new Set());
+  const confettiFired = useRef(false);
 
   useEffect(() => {
     if (!drepId) return;
-    // Check for new milestones first, then fetch
     fetch('/api/dashboard/milestones', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -55,11 +62,49 @@ export function MilestoneBadges({ drepId, compact = false }: MilestoneBadgesProp
       .then(() => fetch(`/api/dashboard/milestones?drepId=${encodeURIComponent(drepId)}`))
       .then(r => r.json())
       .then(d => {
-        if (d.milestones) setMilestones(d.milestones);
+        if (d.milestones) {
+          setMilestones(d.milestones);
+          const newlyAchieved = (d.milestones as Milestone[]).filter(
+            m => m.achieved && !previousAchievedRef.current.has(m.key)
+          );
+          if (newlyAchieved.length > 0 && previousAchievedRef.current.size > 0) {
+            setCelebratingMilestone(newlyAchieved[0]);
+          }
+          previousAchievedRef.current = new Set(
+            (d.milestones as Milestone[]).filter(m => m.achieved).map(m => m.key)
+          );
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [drepId]);
+
+  useEffect(() => {
+    if (!celebratingMilestone || confettiFired.current) return;
+    confettiFired.current = true;
+    posthog.capture('milestone_celebration_viewed', {
+      drep_id: drepId,
+      milestone_key: celebratingMilestone.key,
+      milestone_label: celebratingMilestone.label,
+    });
+    confetti({
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.7 },
+      colors: ['#f59e0b', '#6366f1', '#22c55e'],
+    });
+  }, [celebratingMilestone, drepId]);
+
+  const dismissCelebration = useCallback(() => {
+    if (celebratingMilestone) {
+      posthog.capture('milestone_celebration_dismissed', {
+        drep_id: drepId,
+        milestone_key: celebratingMilestone.key,
+      });
+    }
+    setCelebratingMilestone(null);
+    confettiFired.current = false;
+  }, [celebratingMilestone, drepId]);
 
   useEffect(() => {
     const achieved = milestones.filter(m => m.achieved);
@@ -114,6 +159,37 @@ export function MilestoneBadges({ drepId, compact = false }: MilestoneBadgesProp
   }
 
   return (
+    <>
+    {/* Milestone celebration overlay */}
+    {celebratingMilestone && (
+      <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <Card className="max-w-sm w-full border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+          <CardContent className="p-6 text-center space-y-4">
+            <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-8 w-8" onClick={dismissCelebration}>
+              <X className="h-4 w-4" />
+            </Button>
+            <div className="text-4xl">🏆</div>
+            <div>
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium uppercase tracking-wider">
+                Achievement Unlocked
+              </p>
+              <h3 className="text-xl font-bold mt-1">{celebratingMilestone.label}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{celebratingMilestone.description}</p>
+            </div>
+            <ShareActions
+              url={buildDRepUrl(drepId)}
+              text={`Achievement Unlocked on @drepscore: ${celebratingMilestone.label}! ${celebratingMilestone.description}.`}
+              imageUrl={`/api/og/moment/milestone/${encodeURIComponent(drepId)}/${celebratingMilestone.key}`}
+              imageFilename={`milestone-${celebratingMilestone.key}.png`}
+              surface="milestone_celebration"
+              metadata={{ drep_id: drepId, milestone: celebratingMilestone.key }}
+            />
+            <Button variant="outline" size="sm" onClick={dismissCelebration}>Continue</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )}
+
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
@@ -162,5 +238,6 @@ export function MilestoneBadges({ drepId, compact = false }: MilestoneBadgesProp
         </TooltipProvider>
       </CardContent>
     </Card>
+    </>
   );
 }

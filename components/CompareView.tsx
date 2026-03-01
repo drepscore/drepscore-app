@@ -29,13 +29,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ScoreRing } from '@/components/ScoreRing';
+import { ShareActions } from '@/components/ShareActions';
 import { useWallet } from '@/utils/wallet';
 import {
   ArrowLeft,
-  Share2,
   GitCompareArrows,
-  Copy,
-  Check,
   ExternalLink,
   AlertTriangle,
   Bookmark,
@@ -143,7 +141,6 @@ export function CompareView({ initialDrepIds }: CompareViewProps) {
   const [data, setData] = useState<CompareData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [showAllDisagreements, setShowAllDisagreements] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
@@ -227,20 +224,11 @@ export function CompareView({ initialDrepIds }: CompareViewProps) {
     router.push(`/compare?dreps=${newIds.join(',')}`);
   }, [delegatedDrepId, data, router]);
 
-  const handleCopyLink = useCallback(() => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, []);
-
-  const handleShareX = useCallback(() => {
-    if (!data) return;
-    const names = data.dreps.map(d => d.name || d.drepId.slice(0, 12)).join(' vs ');
-    const scores = data.dreps.map(d => d.drepScore).join(' vs ');
-    const text = `Comparing ${names}: ${scores} on DRepScore. Who would you delegate to?`;
-    const url = window.location.href;
-    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
-  }, [data]);
+  const compareShareText = data
+    ? `Comparing ${data.dreps.map(d => d.name || d.drepId.slice(0, 12)).join(' vs ')}: ${data.dreps.map(d => d.drepScore).join(' vs ')} on DRepScore. Who would you delegate to?`
+    : '';
+  const compareShareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const compareOgUrl = data ? `/api/og/compare?dreps=${data.dreps.map(d => d.drepId).join(',')}` : '';
 
   // Radar chart data for pillar comparison
   const radarData = useMemo(() => {
@@ -334,14 +322,13 @@ export function CompareView({ initialDrepIds }: CompareViewProps) {
               {isSaved ? <BookmarkCheck className="h-3.5 w-3.5 mr-1.5" /> : <Bookmark className="h-3.5 w-3.5 mr-1.5" />}
               {isSaved ? 'Saved' : 'Save'}
             </Button>
-            <Button variant="outline" size="sm" onClick={handleShareX} className="text-xs">
-              <Share2 className="h-3.5 w-3.5 mr-1.5" />
-              Share on X
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleCopyLink} className="text-xs">
-              {copied ? <Check className="h-3.5 w-3.5 mr-1.5" /> : <Copy className="h-3.5 w-3.5 mr-1.5" />}
-              {copied ? 'Copied' : 'Copy Link'}
-            </Button>
+            <ShareActions
+              url={compareShareUrl}
+              text={compareShareText}
+              imageUrl={compareOgUrl}
+              surface="compare"
+              variant="compact"
+            />
           </div>
         </div>
 

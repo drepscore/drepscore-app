@@ -144,6 +144,10 @@ export function Header() {
             <Compass className="h-4 w-4" />
             <span>Discover</span>
           </Link>
+          <Link href="/pulse" className={navLinkClass('/pulse')}>
+            <Activity className="h-4 w-4" />
+            <span>Pulse</span>
+          </Link>
           {isAuthenticated && (
             <Link href="/governance" className={navLinkClass('/governance')}>
               <Vote className="h-4 w-4" />

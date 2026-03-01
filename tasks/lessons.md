@@ -216,5 +216,46 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Root cause of missed detection**: Local pre-push hook ran with env vars present so the build passed. The CI build also passed. Only the Docker build (Railway) failed because it separates build and runtime env vars.
 **Takeaway**: When converting a page from client-only to server-fetching, always add `export const dynamic = 'force-dynamic'`. This is especially critical for the homepage and any page calling `createClient()` or `getSupabaseAdmin()` at the module/function level.
 
+### 2026-03-01: `revalidate` vs `force-dynamic` — third recurrence
+**Promoted to rule**: Yes — `architecture.md` now explicitly bans `revalidate` on Supabase-touching routes.
+**Issue**: Session 2 shipped `/discover` with `revalidate = 900` and `/api/governance/quiz-proposals` with `revalidate = 3600`. Both crashed Railway's Docker build (no env vars at build time). This is the same pattern as the homepage fix (`3a5f65e`), now hitting two more routes.
+**Root cause**: The existing rule said "must use force-dynamic" but didn't explicitly ban `revalidate`. The developer instinct (and Next.js docs) encourage `revalidate` for ISR, making it a natural but dangerous default.
+**Fix**: Architecture rule now says **NEVER use `revalidate`** on any route that touches Supabase. Default to `force-dynamic` for all new server routes. Cache at the application layer if needed.
+
+### 2026-03-01: Deprecation audit — search data consumers, not just imports
+**Promoted to rule**: Yes — `workflow.md` build phase now includes deprecation audit checklist.
+**Issue**: Session 1 killed the preference system (OnboardingWizard, ValueSelector). Session 2 cleaned up all direct importers. But `useAlignmentAlerts` gated ALL alerts on `userPrefs.length === 0` — which became permanently true. The entire in-app alert system was silently broken for every user. Missed because `useAlignmentAlerts` didn't import the deleted files — it imported `getUserPrefs` from a still-existing utility.
+**Takeaway**: When deprecating a system, grep for consumers of its **output data and state**, not just its component imports. Ask: "What other code reads the data this system produces?" and "What conditional logic depends on this system's state being non-empty?"
+
+### 2026-03-01: Analytics must ship inline with features, not as a follow-up
+**Promoted to rule**: Yes — `workflow.md` build phase now requires analytics inline.
+**Issue**: Session 2 built 7 new user-facing interactions (quiz start/vote/complete/retake, view mode toggle, quick view, matches API) with zero PostHog events. Only caught during an explicit post-build analytics audit. The analytics rule said "don't ship dark features" but it sat in `analytics.mdc` as a planning checklist — not enforced during the build phase.
+**Takeaway**: Add `posthog.capture()` in the same diff as the UI interaction. If you create a button click handler, the analytics event goes in that handler, not in a follow-up commit.
+
+### 2026-03-01: Inngest step.run return types must have consistent shape
+**Issue**: `check-notifications.ts` step `gather-claimed-dreps` had an early return `{ users: [], dreps: [], proposals: [] }` and a normal return `{ users, dreps, proposals, allDreps }`. TypeScript inferred a union type. Accessing `context.allDreps` in a later step failed because the property didn't exist on one branch of the union.
+**Fix**: All code paths in a `step.run` must return the same shape. Include all properties in the early return (with empty defaults). This is a general Inngest pattern — steps are serialized and the return type must be uniform.
+
+### 2026-03-01: Supabase MCP apply_migration wraps its own transaction
+**Issue**: Migration file had `BEGIN;`/`COMMIT;` wrapping. The Supabase MCP `apply_migration` tool handles transaction semantics internally.
+**Takeaway**: Strip `BEGIN`/`COMMIT` from SQL passed to `apply_migration`. The tool manages this. Including them may cause nested transaction issues.
+
+### 2026-03-01: PowerShell on Windows doesn't support `&&` for command chaining
+**Issue**: Commands like `cd path && git status` fail with "The token '&&' is not a valid statement separator." PowerShell requires `;` for sequential commands or separate invocations.
+**Takeaway**: In this workspace (Windows + PowerShell), always use `;` to chain commands or run them as separate tool calls. Never use `&&`.
+
+### 2026-03-01: Pre-push hook runs full build — budget ~4 minutes
+**Issue**: The repo's pre-push hook runs `tsc --noEmit` + `vitest run` + `next build --webpack` sequentially. This takes ~4 minutes locally. Not just type-check — the full build catches import resolution, static generation, and module boundary errors that `tsc` alone misses.
+**Takeaway**: Budget 4-5 minutes per push. Don't background the push and assume it succeeded. Wait for the hook to complete and verify exit code 0.
+
+### 2026-03-01: Viral surfaces need view + share + outcome events — not just share
+**Issue**: Session 4 built 7 viral share surfaces (wrapped cards, delegation ceremony, score change moments, milestone celebrations, DNA reveal, badge embed, pulse page) with `ShareActions` wired for share clicks, but zero view/impression events. Without `*_viewed` events, we can't calculate share rates (views → shares) or identify which surfaces drive engagement.
+**Takeaway**: Every viral surface needs three layers of instrumentation:
+1. **View event** — fires on mount/render (`posthog.capture('<surface>_viewed', { ... })`)
+2. **Share action** — fires on interaction (handled by `trackShare` in `lib/share.ts`)
+3. **Outcome** — success/failure on the action (`trackShare(..., 'success' | 'failed')`)
+
+Server-side API routes also need `captureServerEvent` for success + error tracking. OG image routes on Edge runtime are the exception — track via the client share event, not the server render.
+
 *Last updated: 2026-03-01*
 *Review this file at the start of every session.*
