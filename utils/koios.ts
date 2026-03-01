@@ -723,6 +723,59 @@ export async function checkKoiosHealth(): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
+// Treasury Data
+// ---------------------------------------------------------------------------
+
+interface KoiosTotalsRow {
+  epoch_no: number;
+  circulation: string;
+  treasury: string;
+  reward: string;
+  supply: string;
+  reserves: string;
+}
+
+/**
+ * Fetch treasury balance for the current epoch (latest row from /totals).
+ */
+export async function fetchTreasuryBalance(): Promise<{ epoch: number; balance: bigint; reserves: bigint }> {
+  const data = await koiosFetch<KoiosTotalsRow[]>(
+    '/totals?limit=1&order=epoch_no.desc'
+  );
+  if (!data || data.length === 0) {
+    throw new Error('No treasury data returned from Koios /totals');
+  }
+  const row = data[0];
+  return {
+    epoch: row.epoch_no,
+    balance: BigInt(row.treasury),
+    reserves: BigInt(row.reserves),
+  };
+}
+
+/**
+ * Fetch treasury history (multiple epochs) from /totals.
+ * Returns rows ordered by epoch ascending.
+ */
+export async function fetchTreasuryHistory(
+  epochCount = 100
+): Promise<Array<{ epoch: number; balance: bigint; reserves: bigint; supply: bigint; fees: bigint }>> {
+  const data = await koiosFetch<KoiosTotalsRow[]>(
+    `/totals?limit=${epochCount}&order=epoch_no.desc`
+  );
+  if (!data) return [];
+  return data
+    .map(row => ({
+      epoch: row.epoch_no,
+      balance: BigInt(row.treasury),
+      reserves: BigInt(row.reserves),
+      supply: BigInt(row.supply),
+      fees: BigInt(row.reward),
+    }))
+    .reverse();
+}
+
+// ---------------------------------------------------------------------------
 // ADA Handle Resolution
 // ---------------------------------------------------------------------------
 

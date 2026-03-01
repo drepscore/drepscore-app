@@ -9,6 +9,9 @@ import { alertIntegrity } from '@/inngest/functions/alert-integrity';
 import { alertInbox } from '@/inngest/functions/alert-inbox';
 import { alertApiHealth } from '@/inngest/functions/alert-api-health';
 import { checkNotifications } from '@/inngest/functions/check-notifications';
+import { generateEpochSummary } from '@/inngest/functions/generate-epoch-summary';
+import { syncTreasurySnapshot } from '@/inngest/functions/sync-treasury-snapshot';
+import { checkAccountabilityPolls } from '@/inngest/functions/check-accountability-polls';
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -22,5 +25,8 @@ export const { GET, POST, PUT } = serve({
     alertInbox,
     alertApiHealth,
     checkNotifications,
+    generateEpochSummary,
+    syncTreasurySnapshot,
+    checkAccountabilityPolls,
   ],
 });
