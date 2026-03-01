@@ -9,6 +9,8 @@ import { blockTimeToEpoch } from '@/lib/koios';
 import { fetchProposals, fetchVotesForProposals, fetchProposalVotingSummary } from '@/utils/koios';
 import { classifyProposals } from '@/lib/alignment';
 import { errMsg, emitPostHog, pingHeartbeat, alertDiscord } from '@/lib/sync-utils';
+import { KoiosProposalSchema, validateArray } from '@/utils/koios-schemas';
+import type { ProposalListResponse } from '@/types/koios';
 
 const BATCH_SIZE = 100;
 const SUMMARY_CONCURRENCY = 5;
@@ -43,7 +45,9 @@ export const syncProposals = inngest.createFunction(
       }
 
       const rawProposals = await fetchProposals();
-      const classified = classifyProposals(rawProposals);
+      const { valid: validProposals, invalidCount, errors: validationErrors } = validateArray(rawProposals, KoiosProposalSchema, 'proposals');
+      if (invalidCount > 0) errors.push(...validationErrors);
+      const classified = classifyProposals(validProposals as unknown as ProposalListResponse);
 
       const proposalRows = [...new Map(
         classified.map(p => [`${p.txHash}-${p.index}`, {

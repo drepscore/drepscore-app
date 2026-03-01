@@ -11,6 +11,7 @@ import {
   emitPostHog,
   triggerAnalyticsDeploy,
 } from '@/lib/sync-utils';
+import { KoiosVoteListSchema, validateArray } from '@/utils/koios-schemas';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -77,12 +78,16 @@ export async function GET(request: NextRequest) {
     }
 
     const dedupedVoteRows = [...new Map(voteRows.map(r => [r.vote_tx_hash, r])).values()];
+    let validationErrors = 0;
 
-    if (dedupedVoteRows.length > 0) {
+    const { valid: validatedVotes, invalidCount } = validateArray(dedupedVoteRows, KoiosVoteListSchema, 'votes');
+    validationErrors = invalidCount;
+
+    if (validatedVotes.length > 0) {
       const result = await batchUpsert(
         supabase,
         'drep_votes',
-        dedupedVoteRows as unknown as Record<string, unknown>[],
+        validatedVotes as unknown as Record<string, unknown>[],
         'vote_tx_hash',
         'Votes',
       );
@@ -153,7 +158,7 @@ export async function GET(request: NextRequest) {
 
     // ── Finalize ────────────────────────────────────────────────────────────
 
-    const metrics = { votes_synced: votesSynced, reconciled, ...getKoiosMetrics() };
+    const metrics = { votes_synced: votesSynced, reconciled, validation_errors: validationErrors, ...getKoiosMetrics() };
     await logger.finalize(true, null, metrics);
     await emitPostHog(true, 'votes', logger.elapsed, metrics);
     triggerAnalyticsDeploy('votes'); // fire-and-forget

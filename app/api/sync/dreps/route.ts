@@ -3,7 +3,8 @@ import { getEnrichedDReps } from '@/lib/koios';
 import { fetchProposals, resolveADAHandles, resetKoiosMetrics, getKoiosMetrics } from '@/utils/koios';
 import { classifyProposals, computeAllCategoryScores } from '@/lib/alignment';
 import { authorizeCron, initSupabase, SyncLogger, batchUpsert, errMsg, emitPostHog, triggerAnalyticsDeploy } from '@/lib/sync-utils';
-import type { ClassifiedProposal } from '@/types/koios';
+import { KoiosProposalSchema, validateArray } from '@/utils/koios-schemas';
+import type { ClassifiedProposal, ProposalListResponse } from '@/types/koios';
 import type { ProposalContext } from '@/utils/scoring';
 import { DRepVote } from '@/types/koios';
 
@@ -56,8 +57,9 @@ export async function GET(request: NextRequest) {
 
     try {
       const raw = await fetchProposals();
-      if (raw.length > 0) {
-        classifiedProposalsList = classifyProposals(raw);
+      const { valid: validRaw } = validateArray(raw, KoiosProposalSchema, 'dreps-proposals');
+      if (validRaw.length > 0) {
+        classifiedProposalsList = classifyProposals(validRaw as unknown as ProposalListResponse);
         for (const p of classifiedProposalsList) {
           proposalContextMap.set(`${p.txHash}-${p.index}`, {
             proposalType: p.type,

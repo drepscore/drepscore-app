@@ -9,6 +9,8 @@ import { blockTimeToEpoch } from '@/lib/koios';
 import { fetchProposals, fetchVotesForProposals, fetchProposalVotingSummary } from '@/utils/koios';
 import { classifyProposals } from '@/lib/alignment';
 import { authorizeCron, initSupabase, SyncLogger, errMsg, emitPostHog } from '@/lib/sync-utils';
+import { KoiosProposalSchema, validateArray } from '@/utils/koios-schemas';
+import type { ProposalListResponse } from '@/types/koios';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -56,7 +58,9 @@ export async function GET(request: NextRequest) {
 
     try {
       const rawProposals = await withRetry(() => fetchProposals(), 'fetchProposals');
-      const classified = classifyProposals(rawProposals);
+      const { valid: validProposals, invalidCount, errors: valErrors } = validateArray(rawProposals, KoiosProposalSchema, 'proposals');
+      if (invalidCount > 0) errors.push(...valErrors);
+      const classified = classifyProposals(validProposals as unknown as ProposalListResponse);
 
       const proposalRows = [...new Map(
         classified.map(p => [`${p.txHash}-${p.index}`, {
