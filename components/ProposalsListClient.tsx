@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Select,
   SelectContent,
@@ -376,9 +377,14 @@ export function ProposalsListClient({ proposals, watchlist = [], currentEpoch }:
       </div>
 
       {filtered.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          No proposals match the current filters.
-        </div>
+        <EmptyState
+          icon="search"
+          title="No Proposals Match"
+          message="No proposals match your filters. Try broadening your search or view all proposals."
+          action={{ label: 'Clear Filters', onClick: () => { setTypeFilter('all'); setSearchQuery(''); } }}
+          compact
+          component="ProposalsListClient"
+        />
       )}
     </div>
   );

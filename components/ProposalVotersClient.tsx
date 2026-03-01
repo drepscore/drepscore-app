@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { EmptyState } from '@/components/EmptyState';
 import { ChevronDown, ChevronUp, ChevronRight, Search, Heart, UserCheck, ShieldCheck, ShieldAlert } from 'lucide-react';
 import {
   Tooltip,
@@ -235,9 +236,14 @@ export function ProposalVotersClient({
         )}
 
         {filtered.length === 0 && (
-          <p className="text-center py-8 text-muted-foreground">
-            No votes match the current filter.
-          </p>
+          <EmptyState
+            icon="search"
+            title="No Votes Match"
+            message="No votes match the current filter. Try selecting a different vote type."
+            action={filter !== 'all' ? { label: 'Show All Votes', onClick: () => setFilter('all') } : undefined}
+            compact
+            component="ProposalVotersClient"
+          />
         )}
       </CardContent>
     </Card>

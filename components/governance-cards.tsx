@@ -28,7 +28,9 @@ import {
   ChevronRight,
   TrendingUp,
   TrendingDown,
+  ScrollText,
 } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 
 export interface DelegationHealth {
   drepId: string;
@@ -375,7 +377,14 @@ export function ActiveProposalsSection({ proposals }: { proposals: ActiveProposa
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">No open proposals right now.</p>
+          <EmptyState
+            icon={ScrollText}
+            title="All Quiet on the Governance Front"
+            message="No proposals are open right now. Check back next epoch, or review recent outcomes."
+            action={{ label: 'View Past Proposals', href: '/proposals' }}
+            compact
+            component="ActiveProposals"
+          />
         </CardContent>
       </Card>
     );
