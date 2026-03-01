@@ -7,9 +7,9 @@ if (existsSync(envPath)) process.loadEnvFile(envPath);
 const sql = postgres(process.env.DATABASE_URL!);
 
 const currentEpoch = await sql`
-  SELECT FLOOR(EXTRACT(EPOCH FROM now()) - 1591566291) / 432000 + 208 AS epoch
+  SELECT COALESCE(MAX(epoch_no), 0) AS epoch FROM drep_votes
 `;
-const epoch = Math.floor(Number(currentEpoch[0].epoch));
+const epoch = Number(currentEpoch[0].epoch);
 
 const openProposals = await sql`
   SELECT

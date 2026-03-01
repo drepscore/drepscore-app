@@ -5,6 +5,7 @@ const dreps = FileAttachment("data/dreps.json").json();
 const history = FileAttachment("data/score-history.json").json();
 const votes = FileAttachment("data/votes.json").json();
 const syncHealth = FileAttachment("data/sync-health.json").json();
+const systemStatus = FileAttachment("data/system-status.json").json();
 ```
 
 ```js
@@ -35,6 +36,10 @@ function formatAda(v) {
   return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
+const currentEpoch = votes.length > 0 ? d3.max(votes, d => d.epoch_no) : null;
+const { buildTime } = systemStatus;
+const recentSyncFails = systemStatus.recentFailures?.length ?? 0;
+
 const snapDates = [...new Set(history.map(d => d.snapshot_date))].sort();
 const latestDate = snapDates.at(-1);
 const prevDate = snapDates.length >= 2 ? snapDates.at(-2) : null;
@@ -43,6 +48,23 @@ const prevScoresArr = prevDate ? history.filter(d => d.snapshot_date === prevDat
 const latestAvgScore = d3.mean(latestScoresArr, d => d.score) ?? avgScore;
 const prevAvgScore = prevScoresArr.length ? d3.mean(prevScoresArr, d => d.score) : null;
 const scoreDelta = prevAvgScore != null ? latestAvgScore - prevAvgScore : null;
+```
+
+```js
+if (recentSyncFails > 0) {
+  display(html`<div class="alert-box" style="border-left-color: #ef4444; background: color-mix(in srgb, #ef4444 6%, transparent);">
+    <strong style="color: #ef4444">Sync Alert:</strong> ${recentSyncFails} sync failure${recentSyncFails > 1 ? "s" : ""} in the last 24 hours. <a href="./system-status" style="color:#ef4444">View details →</a>
+  </div>`);
+}
+```
+
+```js
+if (currentEpoch != null) {
+  display(html`<div style="display:flex;gap:1rem;align-items:center;margin-bottom:0.5rem;">
+    <span class="badge badge-blue">Epoch ${currentEpoch}</span>
+    <span class="muted" style="font-size:0.78rem">Dashboard built: ${new Date(buildTime).toLocaleString()}</span>
+  </div>`);
+}
 ```
 
 <div class="kpi-row cols-4">
@@ -167,7 +189,7 @@ const atRiskDreps = activeDreps
       (d[p.key] ?? 100) < (d[min.key] ?? 100) ? p : min, pillars[0]);
     return {
       Name: d.name || d.drep_id.slice(0, 20) + "…",
-      ID: d.drep_id.slice(0, 16) + "…",
+      _drepId: d.drep_id,
       Score: Math.round(d.score),
       "Voting Power": d.voting_power ?? 0,
       "Weakest Pillar": weakest.label,
@@ -188,7 +210,9 @@ atRiskDreps.length > 0
   ? Inputs.table(atRiskDreps, {
       sort: "Voting Power",
       reverse: true,
+      columns: ["Name", "Score", "Voting Power", "Weakest Pillar", "Pillar Value", "Participation", "Rationale"],
       format: {
+        Name: (d, i) => html`<a href="https://drepscore.io/drep/${atRiskDreps[i]._drepId}" target="_blank" style="color:var(--accent)">${d}</a>`,
         Score: d => html`<span class="score-pill ${d >= 60 ? 'good' : d >= 30 ? 'warn' : 'bad'}">${d}</span>`,
         "Voting Power": d => formatAda(d),
         "Pillar Value": d => html`<span class="score-pill bad">${d}</span>`,
@@ -312,3 +336,7 @@ const incompleteProfile = activeDreps.filter(d => (d.profile_completeness ?? 0) 
     <div class="kpi-bar" style="background: ${incompleteProfile > 0 ? 'var(--accent-amber)' : 'var(--accent-green)'}"></div>
   </div>
 </div>
+
+---
+
+<span class="muted" style="font-size: 0.75rem">Dashboard built: ${new Date(buildTime).toLocaleString()}</span>

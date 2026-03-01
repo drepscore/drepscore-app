@@ -31,11 +31,31 @@ If lint/type-check errors are in YOUR changes, fix them. If they're pre-existing
 - Sequential 3-digit prefix: `001_`, `002_`, etc.
 - Descriptive snake_case suffix: `020_feature_name.sql`
 
+## Release Gating
+
+Before committing, classify the change to determine the release path.
+
+**Direct to main (autonomous, no PR):**
+- Single-commit bug fixes with all tests passing
+- Cursor rule / documentation updates
+- Copy/content/config changes
+- Dependency patches
+
+**PR + Railway preview required (human reviews before merge):**
+- Database migrations (irreversible DDL)
+- Changes to public API contract (`/api/v1/*`)
+- Auth or security changes (RLS, session, crypto)
+- Scoring model changes
+- New user-facing features or major UI changes
+- Any change touching 10+ files
+- Inngest function schedule changes
+
 ## Commit + Push
 
 1. `git add` relevant changes (never stage `.env*`, `credentials`, or secrets)
 2. Commit with descriptive message following repo style
-3. `git push origin main`
+3. **If direct-to-main**: `git push origin main`
+4. **If PR required**: create branch, push, open PR via `gh pr create`, report preview URL
 
 ## Monitor CI (~2-3 min)
 

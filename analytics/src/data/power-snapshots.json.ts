@@ -13,6 +13,7 @@ const power = await sql`
     amount_lovelace,
     created_at
   FROM drep_power_snapshots
+  WHERE epoch_no >= (SELECT MAX(epoch_no) - 20 FROM drep_power_snapshots)
   ORDER BY epoch_no ASC
 `;
 

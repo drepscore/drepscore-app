@@ -22,6 +22,7 @@ const votes = await sql`
   LEFT JOIN proposals p
     ON v.proposal_tx_hash = p.tx_hash
     AND v.proposal_index = p.proposal_index
+  WHERE v.block_time > EXTRACT(EPOCH FROM now() - interval '6 months')::int
   ORDER BY v.block_time DESC
 `;
 

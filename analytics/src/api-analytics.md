@@ -259,5 +259,11 @@ if (keys.length > 0) {
 ```
 
 <div class="tip-box">
-  <strong>Note:</strong> This dashboard shows requests that hit the serverless function. Requests served from Vercel's Edge CDN cache (via <code>s-maxage</code> headers) are not counted here — check Vercel Analytics for total request volume including CDN hits.
+  <strong>Note:</strong> This dashboard shows requests that hit the Railway server. Requests served from Cloudflare's CDN cache (via <code>s-maxage</code> headers) are not counted here — check Cloudflare Analytics for total request volume including CDN hits.
 </div>
+
+---
+
+```js
+display(html`<span class="muted" style="font-size: 0.75rem">Dashboard built: ${new Date().toLocaleString()}</span>`);
+```
