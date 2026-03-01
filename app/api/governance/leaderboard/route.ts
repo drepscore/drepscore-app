@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const leaderboard = (topDreps || []).map((d: any, i: number) => ({
       rank: i + 1,
       drepId: d.id,
-      name: getDRepPrimaryName(d),
+      name: getDRepPrimaryName({ ...d, drepId: d.id }),
       score: d.score ?? 0,
       sizeTier: d.size_tier,
       isActive: d.info?.isActive ?? false,
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         if (old === undefined) return null;
         return {
           drepId: d.id,
-          name: getDRepPrimaryName(d),
+          name: getDRepPrimaryName({ ...d, drepId: d.id }),
           currentScore: d.score,
           previousScore: old,
           delta: d.score - old,
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
 
       hallOfFame = (hofDreps || []).map((d: any) => ({
         drepId: d.id,
-        name: getDRepPrimaryName(d),
+        name: getDRepPrimaryName({ ...d, drepId: d.id }),
         score: d.score,
         days: drepDayCounts.get(d.id) || 0,
       })).sort((a, b) => b.days - a.days);
