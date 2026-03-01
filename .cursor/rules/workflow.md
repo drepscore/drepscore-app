@@ -19,6 +19,15 @@ alwaysApply: true
 5. Every plan must include explicit **validation gates**: "After step N, validate X before proceeding"
 6. **Commit the plan to `main` before creating a worktree.** This is mandatory — the plan must be in the repo so the new worktree conversation can read it. Use commit message: `docs: plan for <feature>`
 
+### Session Chunking for Large Features
+When a feature spans multiple areas (IA, UX, visual, data, infra), break it into focused sessions of 15-20 changes max. Each session should:
+- Have a single theme (e.g., "IA Restructure", "Visual Identity", "DRep Command Center")
+- Be independently deployable and testable
+- Preserve strategic context in a shared doc (e.g., `docs/strategy/`) so future sessions maintain alignment
+- Complete with a PR and deploy before starting the next session
+
+This prevents context degradation, keeps diffs reviewable, and allows course correction between sessions.
+
 ### First-Principles Checklist
 Before any plan is finalized, answer:
 - **What's the actual problem?** → If the user proposes a solution, diagnose the underlying constraint first. The simplest fix is often the platform's own feature, not an external tool.

@@ -13,6 +13,7 @@ const polls = await sql`
     pr.vote AS user_vote,
     pr.delegated_drep_id,
     pr.created_at,
+    COALESCE(pr.source, 'organic') AS source,
     p.title AS proposal_title,
     p.proposal_type,
     dv.vote AS drep_vote

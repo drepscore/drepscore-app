@@ -636,6 +636,60 @@ export function getAlignmentColor(alignment: number): string {
 }
 
 // ============================================================================
+// DREP TRAIT TAGS (derived from pre-computed alignment scores)
+// ============================================================================
+
+interface TraitRule {
+  field: keyof Pick<EnrichedDRep, 'alignmentTreasuryConservative' | 'alignmentTreasuryGrowth' | 'alignmentDecentralization' | 'alignmentSecurity' | 'alignmentInnovation' | 'alignmentTransparency'>;
+  threshold: number;
+  direction: 'gte' | 'lte';
+  label: string;
+}
+
+const TRAIT_RULES: TraitRule[] = [
+  { field: 'alignmentTreasuryConservative', threshold: 75, direction: 'gte', label: 'Cautious on treasury spending' },
+  { field: 'alignmentTreasuryGrowth', threshold: 75, direction: 'gte', label: 'Supports strategic treasury use' },
+  { field: 'alignmentDecentralization', threshold: 75, direction: 'gte', label: 'Decentralization advocate' },
+  { field: 'alignmentSecurity', threshold: 75, direction: 'gte', label: 'Security-first voter' },
+  { field: 'alignmentInnovation', threshold: 75, direction: 'gte', label: 'Supports innovation & growth' },
+  { field: 'alignmentTransparency', threshold: 75, direction: 'gte', label: 'Detailed rationale provider' },
+  { field: 'alignmentTreasuryConservative', threshold: 30, direction: 'lte', label: 'Open to treasury spending' },
+  { field: 'alignmentSecurity', threshold: 30, direction: 'lte', label: 'Favors protocol changes' },
+];
+
+const MAX_TAGS = 3;
+
+/**
+ * Derive human-readable behavioral trait tags from a DRep's pre-computed alignment scores.
+ * Returns up to MAX_TAGS labels, prioritizing the most distinctive traits (furthest from 50).
+ */
+export function getDRepTraitTags(drep: EnrichedDRep): string[] {
+  const matches: { label: string; distance: number }[] = [];
+
+  for (const rule of TRAIT_RULES) {
+    const value = drep[rule.field];
+    if (value == null) continue;
+    const passes = rule.direction === 'gte' ? value >= rule.threshold : value <= rule.threshold;
+    if (passes) {
+      matches.push({ label: rule.label, distance: Math.abs(value - 50) });
+    }
+  }
+
+  matches.sort((a, b) => b.distance - a.distance);
+
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const m of matches) {
+    if (seen.has(m.label)) continue;
+    seen.add(m.label);
+    tags.push(m.label);
+    if (tags.length >= MAX_TAGS) break;
+  }
+
+  return tags;
+}
+
+// ============================================================================
 // PRE-COMPUTED ALIGNMENT (used by sync route and client)
 // ============================================================================
 

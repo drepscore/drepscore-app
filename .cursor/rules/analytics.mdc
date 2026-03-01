@@ -39,10 +39,23 @@ Every feature or meaningful change must include analytics considerations in the 
 |-------|------|----------|
 | Client events | PostHog JS SDK | `lib/posthog.ts`, components |
 | Server events | PostHog Node SDK | `lib/posthog-server.ts`, API routes |
-| Dashboards | Observable Framework | `analytics/src/*.md` (7 pages) |
-| Data loaders | Observable + Supabase | `analytics/src/data/*.json.ts` (10 loaders) |
+| Dashboards | Observable Framework | `analytics/src/*.md` (11 pages) |
+| Data loaders | Observable + Supabase | `analytics/src/data/*.json.ts` (12 loaders) |
 | Alerts | Cron + webhooks | `/api/admin/integrity/alert`, `/api/admin/inbox-alert` |
+| In-app alerts | `useAlignmentAlerts` hook | `hooks/useAlignmentAlerts.ts` |
 | Sync health | Supabase `sync_log` | `/api/sync/*` routes |
+
+### Governance DNA / Discovery Events (Session 2)
+
+| Event | Type | Location | Properties |
+|-------|------|----------|------------|
+| `governance_dna_quiz_started` | Client | `GovernanceDNAQuiz` | `proposal_count` |
+| `governance_dna_quiz_vote` | Client | `GovernanceDNAQuiz` | `vote`, `proposal_type`, `question_number` |
+| `governance_dna_quiz_completed` | Client | `GovernanceDNAQuiz` | `votes_count`, `top_match_score`, `matches_found` |
+| `governance_dna_quiz_retake` | Client | `GovernanceDNAQuiz` | `previous_votes_count` |
+| `governance_matches_calculated` | Server | `/api/governance/matches` | `matches_count`, `top_match_score`, `has_current_drep_match` |
+| `drep_view_mode_changed` | Client | `DRepTableClient` | `mode` |
+| `drep_quick_view_opened` | Client | `DRepTableClient` | `drep_id`, `drep_score`, `has_match`, `view_mode` |
 
 ## Implementation Standards
 

@@ -35,7 +35,7 @@ export interface DelegationHealth {
   participationRate: number;
   votedOnOpen: number;
   openProposalCount: number;
-  alignmentScore: number | null;
+  representationScore: number | null;
 }
 
 export interface RepresentationData {
@@ -248,10 +248,10 @@ export function DelegationHealthCard({ health }: { health: DelegationHealth | nu
             <span className="text-muted-foreground">Participation</span>
             <p className="font-semibold tabular-nums">{health.participationRate}%</p>
           </div>
-          {health.alignmentScore !== null && (
+          {health.representationScore !== null && (
             <div>
-              <span className="text-muted-foreground">Value Alignment</span>
-              <p className="font-semibold tabular-nums">{health.alignmentScore}%</p>
+              <span className="text-muted-foreground">Representation</span>
+              <p className="font-semibold tabular-nums">{health.representationScore}%</p>
             </div>
           )}
         </div>

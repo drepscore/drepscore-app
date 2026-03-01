@@ -74,6 +74,13 @@ Before committing, classify the change to determine the release path.
 - Wait for deployment to show "Active"
 - If deploy fails: check build logs and deploy logs in Railway dashboard, fix, push again
 
+### Build Environment Parity Warning
+Railway's Docker build separates build-time and runtime env vars. During `next build` inside Docker, **no runtime env vars are available** (no `NEXT_PUBLIC_SUPABASE_URL`, no `SUPABASE_SECRET_KEY`, etc.). This means:
+- Local `next build` (which has `.env.local`) is **NOT equivalent** to Railway's Docker build
+- CI builds may also pass if they have env vars configured as secrets
+- Any page that calls Supabase server-side without `export const dynamic = 'force-dynamic'` will crash during Docker build prerendering
+- Always verify Railway deploy succeeds — don't assume local build = production build
+
 ## Post-deploy Validation (~15s)
 
 Run ALL checks. If ANY fails, rollback and investigate.

@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 
 const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
-  'alignment-shift': TrendingDown,
+  'representation-shift': TrendingDown,
   'inactivity': AlertTriangle,
   'new-proposals': FileText,
   'vote-activity': Vote,
@@ -59,7 +59,7 @@ const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
 };
 
 const ALERT_COLORS: Record<AlertType, string> = {
-  'alignment-shift': 'text-amber-500',
+  'representation-shift': 'text-amber-500',
   'inactivity': 'text-amber-500',
   'new-proposals': 'text-blue-500',
   'vote-activity': 'text-primary',
