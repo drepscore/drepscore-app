@@ -11,11 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Sparkles, AlertCircle, ArrowUpRight, ArrowDownRight, Minus, FileText, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Sparkles, AlertCircle, ArrowUpRight, ArrowDownRight, Minus, FileText, CheckCircle2, ExternalLink, PenLine } from 'lucide-react';
 import { VoteRecord } from '@/types/drep';
 import { type ScoreSnapshot } from '@/lib/data';
 import { type Recommendation, generateRecommendations, getMissingRationaleVotes } from '@/utils/recommendations';
 import { getStoredSession } from '@/lib/supabaseAuth';
+import { VoteExplanationEditor } from '@/components/VoteExplanationEditor';
 
 interface DRepDashboardProps {
   drep: {
@@ -53,6 +54,7 @@ const IMPORTANCE_BADGE: Record<string, string> = {
 
 export function DRepDashboard({ drep, scoreHistory, isSimulated }: DRepDashboardProps) {
   const [claimed, setClaimed] = useState(false);
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
   const recommendations = generateRecommendations(drep);
   const missingRationale = getMissingRationaleVotes(drep.votes);
 
@@ -163,47 +165,74 @@ export function DRepDashboard({ drep, scoreHistory, isSimulated }: DRepDashboard
           </div>
         )}
 
-        {/* Missing Rationale Votes */}
+        {/* Explain Your Vote — votes missing on-chain rationale */}
         {missingRationale.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-              Votes Missing Rationale ({missingRationale.length})
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <PenLine className="h-4 w-4 text-primary" />
+                Explain Your Vote ({missingRationale.length})
+              </h3>
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                DRepScore Explanations
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              These votes lack on-chain rationale. Add a DRepScore explanation so delegators understand your reasoning.
+            </p>
             <div className="border rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Proposal</TableHead>
-                    <TableHead className="w-[120px]">Type</TableHead>
-                    <TableHead className="w-[80px]">Vote</TableHead>
-                    <TableHead className="w-[100px]">Date</TableHead>
+                    <TableHead className="w-[100px]">Type</TableHead>
+                    <TableHead className="w-[70px]">Vote</TableHead>
+                    <TableHead className="w-[90px]">Date</TableHead>
+                    <TableHead className="w-[80px] text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {missingRationale.slice(0, 10).map((v) => (
-                    <TableRow key={v.voteTxHash}>
-                      <TableCell className="text-xs font-medium">
-                        {v.title || 'Unknown Proposal'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] ${IMPORTANCE_BADGE[v.proposalType || ''] || ''}`}
-                        >
-                          {v.proposalType || 'Standard'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={v.vote === 'Yes' ? 'default' : v.vote === 'No' ? 'destructive' : 'secondary'} className="text-[10px]">
-                          {v.vote}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(v.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {missingRationale.slice(0, 10).map((v) => {
+                    const key = `${v.proposalTxHash}-${v.proposalIndex}`;
+                    const hasExplanation = !!explanations[key];
+                    return (
+                      <TableRow key={v.voteTxHash}>
+                        <TableCell className="text-xs font-medium">
+                          {v.title || 'Unknown Proposal'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`text-[10px] ${IMPORTANCE_BADGE[v.proposalType || ''] || ''}`}>
+                            {v.proposalType || 'Standard'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={v.vote === 'Yes' ? 'default' : v.vote === 'No' ? 'destructive' : 'secondary'} className="text-[10px]">
+                            {v.vote}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {new Date(v.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {hasExplanation ? (
+                            <Badge variant="secondary" className="text-[10px]">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Done
+                            </Badge>
+                          ) : (
+                            <VoteExplanationEditor
+                              drepId={drep.drepId}
+                              proposalTxHash={v.proposalTxHash}
+                              proposalIndex={v.proposalIndex}
+                              proposalTitle={v.title || 'Unknown Proposal'}
+                              vote={v.vote}
+                              onSaved={(text) => setExplanations(prev => ({ ...prev, [key]: text }))}
+                            />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

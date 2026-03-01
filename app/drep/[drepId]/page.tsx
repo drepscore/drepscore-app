@@ -32,6 +32,9 @@ import { AboutSection } from '@/components/AboutSection';
 import { SocialIconsLarge } from '@/components/SocialIconsLarge';
 import { CompareButton } from '@/components/CompareButton';
 import { ProfileViewTracker } from '@/components/ProfileViewTracker';
+import { MilestoneBadges } from '@/components/MilestoneBadges';
+import { GovernancePhilosophyEditor } from '@/components/GovernancePhilosophyEditor';
+import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import {
   getDRepById,
   getVotesByDRepId,
@@ -380,8 +383,17 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         profileHint={profileHint}
       />
 
+      {/* Milestone Badges */}
+      <MilestoneBadges drepId={drep.drepId} compact />
+
       {/* Score History Chart */}
       <ScoreHistoryChart history={scoreHistory} />
+
+      {/* Governance Philosophy */}
+      <GovernancePhilosophyEditor drepId={drep.drepId} readOnly />
+
+      {/* Activity Heatmap */}
+      <ActivityHeatmap drepId={drep.drepId} />
 
       {/* About Section */}
       <AboutSection 

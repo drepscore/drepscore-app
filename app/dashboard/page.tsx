@@ -35,6 +35,15 @@ import { ScoreHistoryChart } from '@/components/ScoreHistoryChart';
 import { DRepDashboard } from '@/components/DRepDashboard';
 import { GovernanceInboxWidget } from '@/components/GovernanceInboxWidget';
 import { ProfileViewStats } from '@/components/ProfileViewStats';
+import { DelegatorTrendChart } from '@/components/DelegatorTrendChart';
+import { CompetitiveContext } from '@/components/CompetitiveContext';
+import { OnboardingChecklist } from '@/components/OnboardingChecklist';
+import { RepresentationScorecard } from '@/components/RepresentationScorecard';
+import { ScoreSimulator } from '@/components/ScoreSimulator';
+import { ActivityHeatmap } from '@/components/ActivityHeatmap';
+import { MilestoneBadges } from '@/components/MilestoneBadges';
+import { GovernancePhilosophyEditor } from '@/components/GovernancePhilosophyEditor';
+import { DRepReportCard } from '@/components/DRepReportCard';
 import { formatAda, getPillarStatus, applyRationaleCurve, getMissingProfileFields } from '@/utils/scoring';
 import type { ScoreSnapshot } from '@/lib/data';
 import type { VoteRecord } from '@/types/drep';
@@ -301,56 +310,43 @@ export default function MyDRepPage() {
         </CardContent>
       </Card>
 
+      {/* Onboarding Checklist (if incomplete) */}
+      {sessionAddress && (
+        <div className="mb-6">
+          <OnboardingChecklist
+            drepId={drep.drepId}
+            walletAddress={sessionAddress}
+            profileCompleteness={drep.profileCompleteness}
+          />
+        </div>
+      )}
+
       {/* Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column — Main Content (2/3) */}
+        {/* Left Column — Action Center (2/3) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Recommendations + Missing Rationale — actionable first */}
+          {/* Recommendations + Explain Your Vote */}
           <DRepDashboard drep={drep} scoreHistory={scoreHistory} />
 
-          {/* Score Trend */}
+          {/* Score Simulator */}
+          <ScoreSimulator drepId={drep.drepId} pendingCount={0} />
+
+          {/* Score History */}
           <ScoreHistoryChart history={scoreHistory} />
         </div>
 
-        {/* Right Column — Sidebar (1/3) */}
+        {/* Right Column — Intelligence (1/3) */}
         <div className="space-y-6">
-          {/* Reliability Breakdown */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Reliability Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ReliabilityStat
-                icon={<Zap className="h-3.5 w-3.5" />}
-                label="Active Streak"
-                value={`${drep.reliabilityStreak} epoch${drep.reliabilityStreak !== 1 ? 's' : ''}`}
-                detail="Consecutive epochs with votes"
-              />
-              <ReliabilityStat
-                icon={<Clock className="h-3.5 w-3.5" />}
-                label="Last Voted"
-                value={drep.reliabilityRecency === 0 ? 'This epoch' : `${drep.reliabilityRecency} epoch${drep.reliabilityRecency !== 1 ? 's' : ''} ago`}
-                detail="Recency of activity"
-              />
-              <ReliabilityStat
-                icon={<Activity className="h-3.5 w-3.5" />}
-                label="Longest Gap"
-                value={`${drep.reliabilityLongestGap} epoch${drep.reliabilityLongestGap !== 1 ? 's' : ''}`}
-                detail="Longest period without voting"
-              />
-              <ReliabilityStat
-                icon={<Award className="h-3.5 w-3.5" />}
-                label="Tenure"
-                value={`${drep.reliabilityTenure} epoch${drep.reliabilityTenure !== 1 ? 's' : ''}`}
-                detail="Time since first vote"
-              />
-            </CardContent>
-          </Card>
+          {/* Competitive Context */}
+          <CompetitiveContext drepId={drep.drepId} />
 
-          {/* Delegator Summary */}
+          {/* Representation Scorecard */}
+          <RepresentationScorecard drepId={drep.drepId} />
+
+          {/* Delegator Analytics */}
+          <DelegatorTrendChart drepId={drep.drepId} />
+
+          {/* At a Glance */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -371,6 +367,12 @@ export default function MyDRepPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Activity Heatmap */}
+          <ActivityHeatmap drepId={drep.drepId} />
+
+          {/* Achievements */}
+          <MilestoneBadges drepId={drep.drepId} />
 
           {/* Profile Health Check */}
           <Card>
@@ -429,27 +431,6 @@ export default function MyDRepPage() {
             </CardContent>
           </Card>
 
-          {/* Coach's Note */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Coach&apos;s Note
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {percentile >= 90
-                  ? 'Excellent — you\'re among the top-performing DReps. Keep up the consistency and your delegators will notice.'
-                  : percentile >= 70
-                  ? 'Strong performance. Focus on your weakest pillar to break into the top tier. Small improvements compound fast.'
-                  : percentile >= 50
-                  ? 'Above average. Check your recommendations above for quick wins that can meaningfully boost your score.'
-                  : 'Room to grow. Your action plan above highlights the fastest path to improvement — start with rationale quality.'}
-              </p>
-            </CardContent>
-          </Card>
-
           {/* Public Profile Link */}
           <Card>
             <CardContent className="pt-6">
@@ -460,6 +441,22 @@ export default function MyDRepPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* Bottom Section — Full Width */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <GovernancePhilosophyEditor drepId={drep.drepId} />
+        <DRepReportCard
+          drepId={drep.drepId}
+          name={drep.name || drep.drepId.slice(0, 20)}
+          score={drep.drepScore}
+          rank={null}
+          delegators={drep.delegatorCount}
+          participation={drep.effectiveParticipation}
+          rationale={adjustedRationale}
+          reliability={drep.reliabilityScore}
+          profile={drep.profileCompleteness}
+        />
       </div>
     </div>
   );

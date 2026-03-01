@@ -8,6 +8,7 @@ import { syncSlow } from '@/inngest/functions/sync-slow';
 import { alertIntegrity } from '@/inngest/functions/alert-integrity';
 import { alertInbox } from '@/inngest/functions/alert-inbox';
 import { alertApiHealth } from '@/inngest/functions/alert-api-health';
+import { checkNotifications } from '@/inngest/functions/check-notifications';
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -20,5 +21,6 @@ export const { GET, POST, PUT } = serve({
     alertIntegrity,
     alertInbox,
     alertApiHealth,
+    checkNotifications,
   ],
 });

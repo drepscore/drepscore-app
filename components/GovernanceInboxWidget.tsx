@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Clock,
   Vote,
+  FileText,
 } from 'lucide-react';
 
 interface PendingProposal {
@@ -126,6 +127,14 @@ export function GovernanceInboxWidget({ drepId }: { drepId: string }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Draft rationale banner */}
+        <div className="flex items-center gap-2 text-xs bg-primary/5 border border-primary/20 rounded-md px-3 py-2">
+          <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="text-muted-foreground">
+            <span className="font-medium text-foreground">Draft rationale before voting</span> — proposals with rationale boost your score by up to 35%
+          </span>
+        </div>
+
         {/* Urgency callout */}
         {hasUrgent && (
           <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-md px-3 py-2">
@@ -153,6 +162,12 @@ export function GovernanceInboxWidget({ drepId }: { drepId: string }) {
                     {p.epochsRemaining}ep
                   </span>
                 )}
+                <Link href={`/dashboard/inbox?drepId=${encodeURIComponent(drepId)}&proposal=${p.txHash}`}>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] gap-1">
+                    <FileText className="h-3 w-3" />
+                    Draft
+                  </Button>
+                </Link>
               </div>
             </div>
           ))}
