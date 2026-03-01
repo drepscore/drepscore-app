@@ -32,7 +32,7 @@ describe('GET /api/health', () => {
     mockSelect.mockResolvedValue({
       data: [
         { sync_type: 'proposals', last_run: now, last_success: true, success_count: 10, failure_count: 0 },
-        { sync_type: 'fast', last_run: now, last_success: true, success_count: 5, failure_count: 0 },
+        { sync_type: 'treasury', last_run: now, last_success: true, success_count: 5, failure_count: 0 },
       ],
       error: null,
     });
