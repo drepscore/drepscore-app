@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 /**
  * Select proposals where DReps are most split (30-70% Yes/No ratio).
