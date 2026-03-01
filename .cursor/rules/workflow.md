@@ -10,6 +10,7 @@ alwaysApply: true
 1. Read `tasks/lessons.md` for relevant patterns before doing anything
 2. Read `tasks/todo.md` for any in-progress work from prior sessions
 3. Orient to current state: check git status, recent commits, any open PRs
+4. **Orphan audit**: Check `git status` for untracked/uncommitted files from prior sessions. Look for unwired components, unregistered Inngest functions, and missing migrations. These are free value — flag them for inclusion in the current session's first commit or plan
 
 ## Planning Phase (Required for 3+ step tasks)
 1. Review `tasks/lessons.md` for patterns that appeared 2+ times — propose promoting to cursor rule before proceeding
@@ -95,6 +96,8 @@ This project runs on Windows with PowerShell as the default shell. Avoid:
 - `head`, `tail`, `grep` — use `Select-Object`, `Select-String`, or ripgrep (`rg`)
 - Heredoc (`<<'EOF'`) — not supported; use single-line commit messages or write to a file first
 - `cat` for file reading — use the Read tool
+
+**PR creation**: `gh pr create --body "..."` with multi-line markdown breaks in PowerShell. Write the body to a temp file and use `gh pr create --body-file .pr-body.md`, then delete the file after.
 
 ## Anti-Patterns (Do Not)
 - Do NOT create `*_STATUS_REPORT.md` files in the project root — use `tasks/todo.md` for tracking

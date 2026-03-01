@@ -96,7 +96,7 @@ GET https://drepscore.io/api/health → expect 200, status != "error"
 ```
 PUT https://drepscore.io/api/inngest → expect 200
 ```
-This registers all 9 Inngest functions with Inngest Cloud.
+This registers all 12 Inngest functions with Inngest Cloud.
 
 ### Smoke Tests
 ```
@@ -141,7 +141,7 @@ The `tim-dd` account does not have collaborator access to the repo.
 `.cursor/mcp.json` is gitignored and contains secrets. **NEVER overwrite, recreate, or edit this file.**
 
 ### Inngest
-- All 9 background jobs run via Inngest Cloud
+- All 12 background jobs run via Inngest Cloud (see `architecture.md` for full list)
 - After every deploy: `PUT https://drepscore.io/api/inngest` to sync functions
 - `INNGEST_SERVE_HOST=https://drepscore.io` ensures SDK advertises production URL
 

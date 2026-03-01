@@ -280,5 +280,15 @@ Server-side API routes also need `captureServerEvent` for success + error tracki
 **Issue**: Leaderboard route catch block used `String(err)` which gave `[object Object]`. Supabase query errors are plain objects with `message`, `details`, `hint` properties — not `Error` instances.
 **Takeaway**: When catching Supabase errors, use `err?.message || err?.details || JSON.stringify(err)`. Same pattern as the earlier KoiosError lesson — never assume thrown values are `Error` instances.
 
+### 2026-03-01: Orphan audit at session start unlocks free value
+**Promoted to rule**: Yes — `workflow.md` Session Start updated with orphan audit step.
+**Issue**: Session 7 (Treasury Intelligence) discovered ~12 unwired components, 1 unregistered Inngest function (`generateEpochSummary`), and 2 missing migrations — all from prior sessions, sitting as untracked files. Wiring these in took minimal effort but dramatically enriched the governance citizen experience.
+**Takeaway**: At session start, `git status` isn't just for orientation — it's a discovery tool. Untracked files from prior sessions are often complete features waiting to be activated. Check for: unwired components (files in `components/` not imported anywhere), unregistered Inngest functions (defined but not in `app/api/inngest/route.ts`), and uncommitted migrations.
+
+### 2026-03-01: Hard-coded counts in rules go stale — add maintenance notes
+**Promoted to rule**: Yes — `architecture.md` and `deploy.md` updated.
+**Issue**: Rules referenced "9 Inngest functions" but we added 3 more. The stale count would mislead future sessions into thinking a function was missing or extra.
+**Takeaway**: When rules reference specific counts (functions, tables, API routes), add a note to update the count when the list changes. Better yet, reference the list rather than a number where possible.
+
 *Last updated: 2026-03-01*
 *Review this file at the start of every session.*

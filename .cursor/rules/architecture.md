@@ -16,7 +16,7 @@ Cardano governance tool for casual ADA holders to discover DReps aligned with th
 - **Data**: Koios API (mainnet) → Supabase (cache) → Next.js (reads)
 - **Hosting**: Railway (Docker, health checks, auto-deploy from `main`)
 - **CDN/DNS**: Cloudflare
-- **Background Jobs**: Inngest Cloud (9 durable functions — syncs, integrity, notifications)
+- **Background Jobs**: Inngest Cloud (12 durable functions — syncs, integrity, notifications, treasury)
 - **Error Tracking**: Sentry (Next.js SDK)
 - **Analytics**: PostHog (JS + Node SDKs)
 
@@ -80,7 +80,8 @@ The `lib/data.ts` `mapRow()` function unpacks `info` into flat `EnrichedDRep` pr
 Any API route that uses JSX (e.g., `ImageResponse` from `next/og`) **must** use the `.tsx` extension, not `.ts`. TypeScript will not parse JSX syntax in `.ts` files. This applies to all OG image routes under `app/api/og/` and the badge route under `app/api/badge/`.
 
 ## Background Jobs (Inngest Cloud)
-All scheduled work runs via Inngest durable functions (no vercel.json crons):
+All scheduled work runs via Inngest durable functions (no vercel.json crons).
+When adding or removing functions, update this list AND the count in the Tech Stack section above.
 - `sync-fast` — every 30 min (new proposals, active votes)
 - `sync-full` — daily 2am UTC (all DReps, votes, rationales, scores)
 - `sync-secondary` — daily 3am UTC (social links, power snapshots)
@@ -89,7 +90,10 @@ All scheduled work runs via Inngest durable functions (no vercel.json crons):
 - `inbox-check` — every 30 min (new proposal alerts)
 - `integrity-snapshot` — daily (capture data quality KPIs)
 - `api-health-alert` — every 6 hours
-- `check-notifications` — every 6 hours (DRep-specific: score changes, delegation, rank, milestones, deadlines)
+- `check-notifications` — every 6 hours (DRep-specific: score changes, delegation, rank, milestones, deadlines, treasury alerts)
+- `generate-epoch-summary` — on epoch boundary (governance citizen epoch summaries)
+- `sync-treasury-snapshot` — daily 22:30 UTC (Koios /totals → treasury_snapshots)
+- `check-accountability-polls` — daily 23:00 UTC (open/close/schedule treasury accountability polls)
 
 ### Inngest Step Return Type Rule
 All code paths in a `step.run()` callback must return the same object shape. Inngest serializes step results to JSON; TypeScript infers a union from divergent return paths. Later steps accessing properties that only exist on one branch will fail type-check. Always include all properties in early returns with empty defaults.
