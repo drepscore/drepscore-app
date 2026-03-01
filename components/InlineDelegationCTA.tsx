@@ -2,7 +2,6 @@
 
 import { useWallet } from '@/utils/wallet';
 import { useDelegation } from '@/hooks/useDelegation';
-import { getUserPrefs } from '@/utils/userPrefs';
 import { Button } from '@/components/ui/button';
 import {
   Vote,
@@ -12,7 +11,6 @@ import {
   ExternalLink,
   AlertTriangle,
   Share2,
-  Settings2,
 } from 'lucide-react';
 import { DelegationRisksModal } from './InfoModal';
 import confetti from 'canvas-confetti';
@@ -67,10 +65,6 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
     );
   };
 
-  const handleSetPrefs = () => {
-    window.dispatchEvent(new Event('openPreferencesWizard'));
-  };
-
   // Already delegated to this DRep
   if (isAlreadyDelegated && phase.status !== 'success') {
     return (
@@ -86,7 +80,6 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
 
   // Success state with post-delegation CTAs
   if (phase.status === 'success') {
-    const hasPrefs = !!getUserPrefs()?.userPrefs?.length;
     return (
       <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg space-y-3">
         <div className="text-center space-y-1">
@@ -117,17 +110,6 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
             <Share2 className="h-3 w-3" />
             Share
           </Button>
-          {!hasPrefs && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 gap-1 text-xs"
-              onClick={handleSetPrefs}
-            >
-              <Settings2 className="h-3 w-3" />
-              Set Preferences
-            </Button>
-          )}
         </div>
       </div>
     );

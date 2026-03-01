@@ -1,14 +1,10 @@
 'use client';
 
-/**
- * DRep Table Client Wrapper
- * Handles client-side pagination, sorting, filtering, and search
- * Fetches data from API route to avoid 128KB server component prop limit
- * Calculates alignment data and hybrid scores based on user preferences
- */
-
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { DRepTable, DRepAlignmentData } from '@/components/DRepTable';
+import { useRouter } from 'next/navigation';
+import { DRepTable } from '@/components/DRepTable';
+import { DRepCardGrid } from '@/components/DRepCardGrid';
+import { DRepQuickView, type DRepMatchDetail } from '@/components/DRepQuickView';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorBanner } from '@/components/ErrorBanner';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
@@ -16,9 +12,9 @@ import { EnrichedDRep } from '@/lib/koios';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RotateCcw, ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import { Search, RotateCcw, ChevronLeft, ChevronRight, Info, LayoutGrid, TableProperties } from 'lucide-react';
 import { SizeTier } from '@/utils/scoring';
-import { GitCompareArrows } from 'lucide-react';
+import { GitCompareArrows, X, Heart, UserCheck } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -33,14 +29,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { UserPrefKey } from '@/types/drep';
-import { Badge } from '@/components/ui/badge';
-import { Settings2, X, Heart, UserCheck } from 'lucide-react';
 import { useWallet } from '@/utils/wallet';
-import { 
-  computeOverallAlignment,
-  getPrecomputedBreakdown,
-} from '@/lib/alignment';
+import { cn } from '@/lib/utils';
 
 export type SortKey = 'drepScore' | 'votingPower' | 'sizeTier' | 'match';
 export type SortDirection = 'asc' | 'desc';
@@ -50,76 +40,130 @@ export interface SortConfig {
   direction: SortDirection;
 }
 
+type ViewMode = 'table' | 'cards';
+
 const PAGE_SIZE = 10;
+const CARD_PAGE_SIZE = 21;
+const VIEW_MODE_KEY = 'drepscore_view_mode';
+
+function getInitialViewMode(): ViewMode {
+  if (typeof window === 'undefined') return 'cards';
+  try {
+    const stored = localStorage.getItem(VIEW_MODE_KEY);
+    if (stored === 'table' || stored === 'cards') return stored;
+  } catch { /* noop */ }
+  return window.innerWidth >= 768 ? 'table' : 'cards';
+}
 
 interface DRepTableClientProps {
-  userPrefs?: UserPrefKey[];
+  initialDReps?: EnrichedDRep[];
+  initialAllDReps?: EnrichedDRep[];
+  initialTotalAvailable?: number;
   watchlist?: string[];
   onWatchlistToggle?: (drepId: string) => void;
   isConnected?: boolean;
-  onRemovePref?: (pref: UserPrefKey) => void;
-  onClearPrefs?: () => void;
-  onResetToSaved?: () => void;
-  onOpenWizard?: () => void;
-  hasUnsavedChanges?: boolean;
+  matchData?: Record<string, number>;
 }
 
-export function DRepTableClient({ 
-  userPrefs = [], 
-  watchlist = [], 
-  onWatchlistToggle, 
+export function DRepTableClient({
+  initialDReps,
+  initialAllDReps,
+  initialTotalAvailable,
+  watchlist = [],
+  onWatchlistToggle,
   isConnected = false,
-  onRemovePref,
-  onClearPrefs,
-  onResetToSaved,
-  onOpenWizard,
-  hasUnsavedChanges = false,
+  matchData = {},
 }: DRepTableClientProps) {
+  const router = useRouter();
   const { delegatedDrepId } = useWallet();
 
-  // Data fetching state
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [initialDReps, setInitialDReps] = useState<EnrichedDRep[]>([]);
-  const [allDReps, setAllDReps] = useState<EnrichedDRep[]>([]);
-  const [totalAvailable, setTotalAvailable] = useState(0);
-  
-  const hasPrefs = userPrefs.length > 0;
+  // Quick view state
+  const [quickViewDrep, setQuickViewDrep] = useState<EnrichedDRep | null>(null);
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
 
-  // Fetch data on mount
+  const hasServerData = !!initialDReps;
+  const [loading, setLoading] = useState(!hasServerData);
+  const [error, setError] = useState<string | null>(null);
+  const [wellDocDReps, setWellDocDReps] = useState<EnrichedDRep[]>(initialDReps ?? []);
+  const [allDReps, setAllDReps] = useState<EnrichedDRep[]>(initialAllDReps ?? []);
+  const [totalAvailable, setTotalAvailable] = useState(initialTotalAvailable ?? 0);
+
+  const hasMatch = Object.keys(matchData).length > 0;
+
+  // Client-side fetch only when no server data provided
   useEffect(() => {
+    if (hasServerData) return;
     fetch('/api/dreps')
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch DReps');
         return res.json();
       })
       .then(data => {
-        setInitialDReps(data.dreps || []);
+        setWellDocDReps(data.dreps || []);
         setAllDReps(data.allDReps || []);
         setTotalAvailable(data.totalAvailable || 0);
         setLoading(false);
-        if (data.error) {
-          setError('Data may be stale - try refreshing');
-        }
+        if (data.error) setError('Data may be stale - try refreshing');
       })
       .catch(err => {
         console.error('Error fetching DReps:', err);
         setError('Failed to load DReps. Please try refreshing the page.');
         setLoading(false);
       });
-  }, []);
+  }, [hasServerData]);
+
   // State
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [filterWellDocumented, setFilterWellDocumented] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sizeFilters, setSizeFilters] = useState<Set<SizeTier>>(new Set(['Small', 'Medium', 'Large', 'Whale']));
   const [showMyDrepOnly, setShowMyDrepOnly] = useState(false);
   const [showWatchlistOnly, setShowWatchlistOnly] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: hasPrefs ? 'match' : 'drepScore',
+    key: 'drepScore',
     direction: 'desc',
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCardCount, setVisibleCardCount] = useState(CARD_PAGE_SIZE);
   const [compareSelection, setCompareSelection] = useState<Set<string>>(new Set());
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Restore view mode from localStorage after mount
+  useEffect(() => {
+    setViewMode(getInitialViewMode());
+  }, []);
+
+  // Reset visible card count when filters change
+  useEffect(() => {
+    setVisibleCardCount(CARD_PAGE_SIZE);
+  }, [filterWellDocumented, sizeFilters, searchQuery, showMyDrepOnly, showWatchlistOnly]);
+
+  // IntersectionObserver for infinite scroll in card mode
+  useEffect(() => {
+    if (viewMode !== 'cards') return;
+    const el = loadMoreRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCardCount((prev) => prev + CARD_PAGE_SIZE);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [viewMode]);
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    setCurrentPage(1);
+    try { localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* noop */ }
+    import('@/lib/posthog').then(({ posthog }) => {
+      posthog.capture('drep_view_mode_changed', { mode });
+    }).catch(() => {});
+  };
 
   const handleCompareToggle = useCallback((drepId: string) => {
     setCompareSelection(prev => {
@@ -137,17 +181,9 @@ export function DRepTableClient({
     });
   }, []);
 
-  // Update default sort when prefs change
-  useEffect(() => {
-    setSortConfig(current => ({
-      key: hasPrefs ? 'match' : 'drepScore',
-      direction: current.direction,
-    }));
-  }, [hasPrefs]);
-
   // Filter Logic
   const filteredDReps = useMemo(() => {
-    let result = filterWellDocumented ? initialDReps : allDReps;
+    let result = filterWellDocumented ? wellDocDReps : allDReps;
 
     result = result.filter((drep) => sizeFilters.has(drep.sizeTier));
 
@@ -168,32 +204,15 @@ export function DRepTableClient({
       const ticker = drep.ticker?.toLowerCase() || '';
       const id = drep.drepId.toLowerCase();
       const handle = drep.handle?.toLowerCase() || '';
-      
-      return name.includes(query) || 
-             ticker.includes(query) || 
-             id.includes(query) || 
+
+      return name.includes(query) ||
+             ticker.includes(query) ||
+             id.includes(query) ||
              handle.includes(query);
     });
-  }, [filterWellDocumented, sizeFilters, searchQuery, allDReps, initialDReps, showMyDrepOnly, showWatchlistOnly, delegatedDrepId, watchlist]);
+  }, [filterWellDocumented, sizeFilters, searchQuery, allDReps, wellDocDReps, showMyDrepOnly, showWatchlistOnly, delegatedDrepId, watchlist]);
 
-  // Size tier ordering for sorting
-  const sizeTierOrder = { 'Small': 1, 'Medium': 2, 'Large': 3, 'Whale': 4 };
-
-  // Build alignment data from pre-computed per-category scores stored in DRep records
-  const alignmentData = useMemo(() => {
-    if (!hasPrefs) return {};
-    
-    const data: Record<string, DRepAlignmentData> = {};
-    const drepsToProcess = filterWellDocumented ? initialDReps : allDReps;
-    
-    for (const drep of drepsToProcess) {
-      const alignment = computeOverallAlignment(drep, userPrefs);
-      const breakdown = getPrecomputedBreakdown(drep, userPrefs);
-      data[drep.drepId] = { alignment, breakdown };
-    }
-    
-    return data;
-  }, [initialDReps, allDReps, userPrefs, hasPrefs, filterWellDocumented]);
+  const sizeTierOrder: Record<string, number> = { 'Small': 1, 'Medium': 2, 'Large': 3, 'Whale': 4 };
 
   // Sorting Logic
   const sortedDReps = useMemo(() => {
@@ -202,8 +221,8 @@ export function DRepTableClient({
       let bValue: number;
 
       if (sortConfig.key === 'match') {
-        aValue = alignmentData[a.drepId]?.alignment ?? 50;
-        bValue = alignmentData[b.drepId]?.alignment ?? 50;
+        aValue = matchData[a.drepId] ?? 0;
+        bValue = matchData[b.drepId] ?? 0;
       } else if (sortConfig.key === 'sizeTier') {
         aValue = sizeTierOrder[a.sizeTier] ?? 0;
         bValue = sizeTierOrder[b.sizeTier] ?? 0;
@@ -219,14 +238,15 @@ export function DRepTableClient({
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filteredDReps, sortConfig, alignmentData, sizeTierOrder]);
+  }, [filteredDReps, sortConfig, matchData, sizeTierOrder]);
 
   // Pagination Logic
-  const totalPages = Math.ceil(sortedDReps.length / PAGE_SIZE);
+  const pageSize = viewMode === 'cards' ? CARD_PAGE_SIZE : PAGE_SIZE;
+  const totalPages = Math.ceil(sortedDReps.length / pageSize);
   const paginatedDReps = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
-    return sortedDReps.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [sortedDReps, currentPage]);
+    const startIndex = (currentPage - 1) * pageSize;
+    return sortedDReps.slice(startIndex, startIndex + pageSize);
+  }, [sortedDReps, currentPage, pageSize]);
 
   // Handlers
   const handleSort = (key: SortKey) => {
@@ -235,7 +255,7 @@ export function DRepTableClient({
       direction:
         current.key === key && current.direction === 'desc' ? 'asc' : 'desc',
     }));
-    setCurrentPage(1); // Reset to first page on sort
+    setCurrentPage(1);
   };
 
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -266,7 +286,7 @@ export function DRepTableClient({
 
   const handleReset = () => {
     setSearchQuery('');
-    setSortConfig({ key: hasPrefs ? 'match' : 'drepScore', direction: 'desc' });
+    setSortConfig({ key: 'drepScore', direction: 'desc' });
     setFilterWellDocumented(true);
     setSizeFilters(new Set(['Small', 'Medium', 'Large', 'Whale']));
     setShowMyDrepOnly(false);
@@ -293,15 +313,13 @@ export function DRepTableClient({
     setCurrentPage(1);
   };
 
-  // Loading state
   if (loading) {
     return <TableSkeleton />;
   }
 
-  // Error state
   if (error) {
     return (
-      <ErrorBanner 
+      <ErrorBanner
         message={error}
         retryable={true}
       />
@@ -312,70 +330,7 @@ export function DRepTableClient({
     <div className="space-y-4">
       {/* Controls Bar */}
       <div className="p-4 rounded-lg border bg-card/50 backdrop-blur-sm space-y-4">
-        
-        {/* Row 1: Preference badges */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {hasPrefs ? (
-              <>
-                <span className="text-sm font-medium text-muted-foreground">
-                  Your Values:
-                </span>
-                {userPrefs.map(pref => (
-                  <Badge key={pref} variant="secondary" className="gap-1 pr-1">
-                    {pref.replace(/-/g, ' ')}
-                    {onRemovePref && (
-                      <button
-                        onClick={() => onRemovePref(pref)}
-                        className="hover:bg-muted rounded-full p-0.5"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </Badge>
-                ))}
-                {hasUnsavedChanges && onResetToSaved && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onResetToSaved}
-                    className="text-xs h-6 px-2 text-muted-foreground hover:text-primary"
-                  >
-                    Reset to Saved
-                  </Button>
-                )}
-                {onClearPrefs && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClearPrefs}
-                    className="text-xs h-6 px-2 text-muted-foreground hover:text-destructive"
-                  >
-                    Clear All
-                  </Button>
-                )}
-              </>
-            ) : (
-              <span className="text-sm text-muted-foreground">
-                Personalize your DRep list based on your values.
-              </span>
-            )}
-          </div>
-          
-          {onOpenWizard && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenWizard}
-              className="gap-2 shrink-0"
-            >
-              <Settings2 className="w-4 h-4" />
-              {hasPrefs ? 'Change Preferences' : 'Personalize My View'}
-            </Button>
-          )}
-        </div>
-        
-        {/* Row 2: Search and filters */}
+        {/* Search and filters */}
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           {/* Left: Search */}
           <div className="relative w-full md:w-96">
@@ -390,6 +345,30 @@ export function DRepTableClient({
 
           {/* Right: Toggles & Reset */}
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end flex-wrap">
+
+          {/* View toggle */}
+          <div className="flex items-center gap-0.5 rounded-lg border p-0.5">
+            <button
+              onClick={() => handleViewModeChange('cards')}
+              className={cn(
+                'p-1.5 rounded-md transition-colors',
+                viewMode === 'cards' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-label="Card view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => handleViewModeChange('table')}
+              className={cn(
+                'p-1.5 rounded-md transition-colors',
+                viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-label="Table view"
+            >
+              <TableProperties className="h-4 w-4" />
+            </button>
+          </div>
 
           {/* My DRep + Watchlist quick filters */}
           <div className="flex items-center gap-1.5">
@@ -416,6 +395,18 @@ export function DRepTableClient({
               </Button>
             )}
           </div>
+
+          {/* Sort by match (if user has match data) */}
+          {hasMatch && (
+            <Button
+              variant={sortConfig.key === 'match' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleSort('match')}
+              className="gap-1.5 text-xs"
+            >
+              Best Match
+            </Button>
+          )}
 
           <div className="flex items-center gap-2">
             <Switch
@@ -488,9 +479,9 @@ export function DRepTableClient({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleReset}
             className="text-muted-foreground hover:text-primary hover:bg-primary/10"
           >
@@ -507,8 +498,8 @@ export function DRepTableClient({
         {totalAvailable > 0 && ` (${totalAvailable} registered)`}
       </div>
 
-      {/* Table Content */}
-      {paginatedDReps.length === 0 ? (
+      {/* Content */}
+      {sortedDReps.length === 0 ? (
         <EmptyState
           title="No DReps found"
           message={
@@ -529,23 +520,54 @@ export function DRepTableClient({
                 }
           }
         />
+      ) : viewMode === 'cards' ? (
+        <>
+          <DRepCardGrid
+            dreps={sortedDReps.slice(0, visibleCardCount)}
+            matchData={matchData}
+            watchlist={watchlist}
+            onWatchlistToggle={onWatchlistToggle}
+            delegatedDrepId={delegatedDrepId}
+            onCardClick={(drep) => {
+              setQuickViewDrep(drep);
+              setQuickViewOpen(true);
+              import('@/lib/posthog').then(({ posthog }) => {
+                posthog.capture('drep_quick_view_opened', {
+                  drep_id: drep.drepId,
+                  drep_score: drep.drepScore,
+                  has_match: !!matchData[drep.drepId],
+                  view_mode: viewMode,
+                });
+              }).catch(() => {});
+            }}
+          />
+          {visibleCardCount < sortedDReps.length && (
+            <div ref={loadMoreRef} className="flex justify-center py-6">
+              <Button
+                variant="outline"
+                onClick={() => setVisibleCardCount(prev => prev + CARD_PAGE_SIZE)}
+              >
+                Load More ({sortedDReps.length - visibleCardCount} remaining)
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <>
-          <DRepTable 
-            dreps={paginatedDReps} 
+          <DRepTable
+            dreps={paginatedDReps}
             sortConfig={sortConfig}
             onSort={handleSort}
             watchlist={watchlist}
             onWatchlistToggle={onWatchlistToggle}
-            alignmentData={alignmentData}
-            userPrefs={userPrefs}
             isConnected={isConnected}
             delegatedDrepId={delegatedDrepId}
             compareSelection={compareSelection}
             onCompareToggle={handleCompareToggle}
+            matchData={matchData}
           />
-          
-          {/* Pagination Controls */}
+
+          {/* Pagination Controls (table mode only) */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-4">
               <Button
@@ -571,6 +593,22 @@ export function DRepTableClient({
           )}
         </>
       )}
+
+      {/* Quick View Sheet */}
+      <DRepQuickView
+        drep={quickViewDrep}
+        open={quickViewOpen}
+        onOpenChange={setQuickViewOpen}
+        matchDetail={quickViewDrep && matchData[quickViewDrep.drepId] != null ? {
+          matchScore: matchData[quickViewDrep.drepId],
+          agreed: 0,
+          total: 0,
+          comparisons: [],
+        } : undefined}
+        isWatchlisted={quickViewDrep ? watchlist.includes(quickViewDrep.drepId) : false}
+        onWatchlistToggle={onWatchlistToggle}
+        isDelegated={quickViewDrep?.drepId === delegatedDrepId}
+      />
 
       {/* Floating Compare Bar */}
       {compareSelection.size >= 2 && (

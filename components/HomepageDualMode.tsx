@@ -5,10 +5,7 @@ import { useWallet } from '@/utils/wallet';
 import { getStoredSession } from '@/lib/supabaseAuth';
 import { HomepageUnauth } from '@/components/HomepageUnauth';
 import { HomepageAuth } from '@/components/HomepageAuth';
-import { OnboardingWizard } from '@/components/OnboardingWizard';
-import { getUserPrefs, saveUserPrefs } from '@/utils/userPrefs';
 import type { PulseData } from '@/components/GovernancePulseHero';
-import type { UserPrefKey } from '@/types/drep';
 
 interface PreviewDRep {
   drepId: string;
@@ -27,15 +24,10 @@ interface HomepageDualModeProps {
 
 export function HomepageDualMode({ pulseData, topDReps }: HomepageDualModeProps) {
   const { isAuthenticated, reconnecting } = useWallet();
-  const [wizardOpen, setWizardOpen] = useState(false);
   const [previousVisitAt, setPreviousVisitAt] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
-    const prefs = getUserPrefs();
-    if (!prefs) {
-      setWizardOpen(true);
-    }
     setHasLoaded(true);
   }, []);
 
@@ -54,25 +46,12 @@ export function HomepageDualMode({ pulseData, topDReps }: HomepageDualModeProps)
       .catch(() => {});
   }, [isAuthenticated]);
 
-  const handleWizardComplete = (prefs: UserPrefKey[]) => {
-    saveUserPrefs({ hasSeenOnboarding: true, userPrefs: prefs });
-    setWizardOpen(false);
-  };
-
   if (!hasLoaded || reconnecting) {
     return <div className="min-h-[60vh]" />;
   }
 
   return (
     <>
-      <OnboardingWizard
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        onComplete={handleWizardComplete}
-        onSaveForever={() => setWizardOpen(false)}
-        initialPrefs={[]}
-      />
-
       {isAuthenticated ? (
         <HomepageAuth previousVisitAt={previousVisitAt} />
       ) : (

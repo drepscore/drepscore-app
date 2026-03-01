@@ -11,6 +11,7 @@ import { getDRepById } from '@/lib/data';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { getProposalPriority } from '@/utils/proposalPriority';
 import { getDRepPrimaryName } from '@/utils/display';
+import { calculateRepresentationMatch, findBestMatchDReps } from '@/lib/representationMatch';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Parallel fetch: user's poll votes, DRep data, open proposals, DRep votes
-    const [pollResult, drepData, proposalsResult, drepVotesResult, userResult] = await Promise.all([
+    const [pollResult, drepData, proposalsResult, drepVotesResult] = await Promise.all([
       supabase
         .from('poll_responses')
         .select('proposal_tx_hash, proposal_index, vote, initial_vote, created_at')
@@ -55,11 +56,6 @@ export async function GET(request: NextRequest) {
             .select('proposal_tx_hash, proposal_index, vote, block_time')
             .eq('drep_id', delegatedDrepId)
         : Promise.resolve({ data: [], error: null }),
-      supabase
-        .from('users')
-        .select('prefs')
-        .eq('wallet_address', walletAddress)
-        .single(),
     ]);
 
     const pollVotes = pollResult.data || [];
@@ -88,67 +84,20 @@ export async function GET(request: NextRequest) {
       proposalMap.set(`${p.tx_hash}-${p.proposal_index}`, p);
     }
 
-    // --- Representation Score ---
-    const comparisons: {
-      proposalTxHash: string;
-      proposalIndex: number;
-      proposalTitle: string | null;
-      userVote: string;
-      drepVote: string;
-      aligned: boolean;
-    }[] = [];
-
-    for (const pv of pollVotes) {
-      const key = `${pv.proposal_tx_hash}-${pv.proposal_index}`;
-      const drepVote = drepVoteMap.get(key);
-      if (!drepVote) continue;
-
-      const normalizedUserVote = normalizeVote(pv.vote);
-      const aligned = normalizedUserVote === drepVote;
-      const proposal = proposalMap.get(key);
-
-      comparisons.push({
-        proposalTxHash: pv.proposal_tx_hash,
-        proposalIndex: pv.proposal_index,
-        proposalTitle: proposal?.title || null,
-        userVote: normalizedUserVote,
-        drepVote,
-        aligned,
-      });
+    // --- Representation Score (using shared matching engine) ---
+    const proposalTitleMap = new Map<string, string | null>();
+    for (const [key, p] of proposalMap) {
+      proposalTitleMap.set(key, p.title || null);
     }
 
-    const alignedCount = comparisons.filter(c => c.aligned).length;
-    const repScore = comparisons.length > 0
-      ? Math.round((alignedCount / comparisons.length) * 100)
-      : null;
+    const repMatch = calculateRepresentationMatch(pollVotes, drepVotes, proposalTitleMap);
+    const repScore = repMatch.score;
+    const comparisons = repMatch.comparisons;
+    const alignedCount = repMatch.aligned;
 
     // --- Delegation Health ---
     let delegationHealth = null;
     if (delegatedDrepId && drepData) {
-      const userPrefs: string[] = userResult.data?.prefs?.userPrefs || [];
-
-      const alignmentFields: Record<string, string> = {
-        'Treasury Conservative': 'alignmentTreasuryConservative',
-        'Treasury Growth-Oriented': 'alignmentTreasuryGrowth',
-        'Decentralization First': 'alignmentDecentralization',
-        'Protocol Security & Stability': 'alignmentSecurity',
-        'Innovation & DeFi Growth': 'alignmentInnovation',
-        'Transparency & Accountability': 'alignmentTransparency',
-      };
-
-      let alignmentScore: number | null = null;
-      if (userPrefs.length > 0) {
-        const scores = userPrefs
-          .map(pref => {
-            const field = alignmentFields[pref];
-            return field ? (drepData as unknown as Record<string, unknown>)[field] as number | null : null;
-          })
-          .filter((s): s is number => s !== null);
-        if (scores.length > 0) {
-          alignmentScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-        }
-      }
-
       const votedOnOpen = drepVotes.filter(v => {
         const p = proposalMap.get(`${v.proposal_tx_hash}-${v.proposal_index}`);
         return p && !p.ratified_epoch && !p.enacted_epoch && !p.dropped_epoch && !p.expired_epoch;
@@ -165,7 +114,7 @@ export async function GET(request: NextRequest) {
         participationRate: drepData.effectiveParticipation,
         votedOnOpen: votedOnOpen,
         openProposalCount: openCount,
-        alignmentScore,
+        representationScore: repScore,
       };
     }
 
@@ -253,7 +202,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // --- Re-delegation Suggestions (only if representation score < 50%) ---
+    // --- Re-delegation Suggestions (using shared matching engine) ---
     let redelegationSuggestions: {
       drepId: string;
       drepName: string | null;
@@ -264,65 +213,21 @@ export async function GET(request: NextRequest) {
     }[] = [];
 
     if (repScore !== null && repScore < 50 && pollVotes.length >= 3) {
-      // Find DReps whose on-chain votes match the user's poll votes
-      const userVoteKeys = pollVotes.map(pv => pv.proposal_tx_hash);
+      const { matches } = await findBestMatchDReps(walletAddress, {
+        excludeDrepId: delegatedDrepId,
+        minOverlap: 2,
+        minMatchRate: 0.6,
+        limit: 5,
+      });
 
-      const { data: candidateVotes } = await supabase
-        .from('drep_votes')
-        .select('drep_id, proposal_tx_hash, proposal_index, vote')
-        .in('proposal_tx_hash', userVoteKeys)
-        .neq('drep_id', delegatedDrepId || '');
-
-      if (candidateVotes && candidateVotes.length > 0) {
-        const drepMatchMap = new Map<string, { matched: number; total: number }>();
-
-        for (const cv of candidateVotes) {
-          const key = `${cv.proposal_tx_hash}-${cv.proposal_index}`;
-          const pollEntry = pollVoteMap.get(key);
-          if (!pollEntry) continue;
-
-          const entry = drepMatchMap.get(cv.drep_id) || { matched: 0, total: 0 };
-          entry.total++;
-          if (normalizeVote(pollEntry.vote) === cv.vote) entry.matched++;
-          drepMatchMap.set(cv.drep_id, entry);
-        }
-
-        // Filter to DReps with >= 60% match and at least 2 comparisons
-        const candidates = [...drepMatchMap.entries()]
-          .filter(([, m]) => m.total >= 2 && (m.matched / m.total) >= 0.6)
-          .sort((a, b) => (b[1].matched / b[1].total) - (a[1].matched / a[1].total))
-          .slice(0, 5);
-
-        if (candidates.length > 0) {
-          const candidateDrepIds = candidates.map(([id]) => id);
-          const { data: drepRows } = await supabase
-            .from('dreps')
-            .select('id, info, score')
-            .in('id', candidateDrepIds);
-
-          const drepInfoMap = new Map<string, { name: string | null; score: number }>();
-          if (drepRows) {
-            for (const d of drepRows) {
-              drepInfoMap.set(d.id, {
-                name: (d.info as Record<string, unknown>)?.name as string || null,
-                score: d.score || 0,
-              });
-            }
-          }
-
-          redelegationSuggestions = candidates.map(([drepId, match]) => {
-            const info = drepInfoMap.get(drepId);
-            return {
-              drepId,
-              drepName: info?.name || null,
-              drepScore: info?.score || 0,
-              matchCount: match.matched,
-              totalComparisons: match.total,
-              matchRate: Math.round((match.matched / match.total) * 100),
-            };
-          });
-        }
-      }
+      redelegationSuggestions = matches.map(m => ({
+        drepId: m.drepId,
+        drepName: m.drepName,
+        drepScore: m.drepScore,
+        matchCount: m.agreed,
+        totalComparisons: m.overlapping,
+        matchRate: m.matchScore,
+      }));
     }
 
     return NextResponse.json({

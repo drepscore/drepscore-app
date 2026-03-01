@@ -205,7 +205,12 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Issue**: Phase 6 of the hardening plan raised `lib/koios.ts` from 10% to 40%, but no new koios-specific tests were written. Coverage was only 14.22%.
 **Fix**: Coverage thresholds must only be raised when accompanied by tests that achieve the target. Set thresholds to slightly below current coverage (14% in this case) as a regression gate, then raise incrementally as tests are added.
 
+### 2026-03-01: Pre-existing build failures mask new ones
+**Issue**: The `libsodium-sumo.mjs` MeshJS error was already failing local `next build`. This trained me to dismiss build issues as "pre-existing." When the new `force-dynamic` failure was introduced, I didn't catch it because the local build was already broken for an unrelated reason.
+**Takeaway**: When a pre-existing build failure exists, don't just stash-test to confirm "same error." Instead, fix or isolate the pre-existing failure first so new failures are immediately visible. If the pre-existing failure can't be fixed (upstream dep issue), add `|| true` guards or conditional checks so the build pipeline still surfaces *new* errors distinctly.
+
 ### 2026-03-01: Server components with Supabase calls must be force-dynamic
+**Promoted to rule**: Yes — `architecture.md` now includes Server Component Constraints section.
 **Issue**: Rewrote `app/page.tsx` from a client component into an async server component that calls `createClient()` at render time. Locally this worked (env vars present). In Docker/Railway builds, env vars aren't available during `next build` static generation phase — the build tries to prerender `/` and crashes with "Missing Supabase environment variables."
 **Fix**: Any page that calls Supabase (or any runtime-only service) server-side must export `dynamic = 'force-dynamic'` to skip static generation. The old page worked because it had zero server-side data fetching.
 **Root cause of missed detection**: Local pre-push hook ran with env vars present so the build passed. The CI build also passed. Only the Docker build (Railway) failed because it separates build and runtime env vars.

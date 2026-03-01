@@ -73,7 +73,6 @@ DRepScore is a two-sided marketplace. Both sides need to feel the product is ind
 ```
 / (Homepage)
 ├── Hero "Your ADA. Your Voice." + 3 step cards
-├── OnboardingWizard (if no prefs)
 ├── GovernanceWidget (small, for connected users)
 └── DRepTableClient (the main table)
 
@@ -124,17 +123,17 @@ DRepScore is a two-sided marketplace. Both sides need to feel the product is ind
 |---|---|---|
 | `HeroSection` | Static marketing copy, same for everyone | Dual-mode: unauth sees governance pulse with financial stakes; auth sees personal governance summary |
 | `DRepTableClient` | Table with 8+ visible controls, overwhelming | Default: search + sort; everything else behind progressive "Filters" expand; card view toggle for mobile |
-| `HomepageShell` | Orchestrates table + onboarding | Orchestrates dual-mode homepage experience |
+| `HomepageShell` | Orchestrates table + onboarding | Orchestrates dual-mode homepage experience (no onboarding wizard; quiz moves to /discover) |
 | `GovernanceWidget` | Small widget on homepage for connected users | Promoted to hero component for authenticated homepage |
 | `GovernanceDashboard` | Full page at `/governance` | Core content integrated into authenticated homepage |
 | `DelegationInsightBanner` | Dismissible banner below header | Integrated into homepage layout, not a banner |
-| `OnboardingWizard` | 3-step dialog: welcome → 6 value cards → done | Complete overhaul: governance context → deeper quiz → delegation impact preview → ceremony |
+| `OnboardingWizard` | 3-step dialog: welcome → 6 value cards → done | **Kill.** Replace with non-blocking Governance DNA Quiz on /discover (Session 2). Users vote on real proposals, not abstract categories. |
 | `ScoreCard` | Dense dashboard with ring, bars, hints | Add score storytelling: what does this score MEAN for the delegator |
 | `EmptyState` | Generic icon + title + message | Contextual storytelling: guide, educate, motivate |
 | `DRepDashboard` | Read-only recommendations + missing rationale table | Actionable command center with inline rationale assistant, delegator analytics |
 | `GovernanceInboxWidget` | Top proposals with score impact | Enhanced with rationale assistant integration |
 | `ClaimPageClient` | Score + 3 value props + CTA | FOMO-driven: show platform activity, delegator search volume, competitive positioning |
-| `ValueSelector` / `OnboardingWizard` | 6 static value cards | Deeper personality quiz with governance context |
+| `ValueSelector` / `OnboardingWizard` | 6 static value cards | **Kill entirely.** Governance DNA Quiz replaces both. |
 
 ---
 
@@ -237,77 +236,96 @@ Transform the homepage from a table-first data display into a story-first govern
 ## Session 2 — DRep Discovery Reimagined
 
 ### Goal
-Transform DRep discovery from a desktop-first data table into a mobile-first, progressive, intelligent experience that works beautifully on every device.
+Transform DRep discovery from a desktop-first data table into a mobile-first, progressive, intelligent experience powered by **Governance DNA** — behavioral matching that learns how you'd govern from real decisions, not abstract labels. Kill the preference system entirely.
+
+### The Systemic Change: Preferences → Governance DNA
+
+The OnboardingWizard (6 abstract value cards) is replaced by the **Governance DNA Quiz** — a non-blocking, engaging quiz where users vote on real governance proposals and get matched to DReps based on actual vote agreement. This is the personalization engine for the entire platform going forward.
+
+**What dies:** `OnboardingWizard`, `ValueSelector`, `UserPrefKey` as primary matching input, preference-based "Match %" column, the wizard-before-content anti-pattern.
+
+**What stays (repositioned):** Pre-computed per-category alignment scores on `dreps` table — repurposed as DRep descriptive trait tags (labels on cards/profiles), not user-selected matching input. `poll_responses` table becomes the primary data source for matching. Existing representation score logic in `governance/holder` API already compares poll votes to DRep on-chain votes — this is extracted and generalized.
 
 ### Problems This Solves
-- The DRep table is hostile on mobile (horizontal scroll, tiny text, 8+ filter controls visible)
+- The DRep table is hostile on mobile (horizontal scroll, tiny text, 8+ filter controls)
 - Discovery is a spreadsheet, not an experience
-- Filter bar overwhelms new users (preference badges, search, well-documented toggle, size filter, my DRep, watchlist, sort, reset)
-- Search is basic client-side string matching with no intelligence
+- The OnboardingWizard asks users to self-declare abstract ideologies before seeing any DReps — a gate, not a hook
+- "Match %" is based on category-level proxies, not actual vote agreement
+- Search is basic client-side substring matching with no intelligence
 - Pagination is prev/next buttons instead of modern patterns
 - All DReps fetched client-side, blocking first meaningful paint
 - No visual DRep card format for casual browsing
-- "What if" delegation comparisons don't exist
+- No quick preview without full-page navigation
 
 ### Specific Changes
 
-**1. Card-based discovery view for mobile**
-- New `DRepCard` component: DRep avatar/initial, name, ticker, score ring, top 2-3 pillar indicators, alignment match (if prefs set), quick-delegate CTA
-- Cards in a responsive grid: 1 column on mobile, 2 on tablet, 3+ on desktop
-- Swipeable on mobile (consider swipe-to-compare or swipe-to-watchlist gestures)
-- Toggle between card view and table view (persist preference in localStorage)
-- Default to cards on mobile, table on desktop
+**Phase 0: Session 1 Cleanup**
+- Remove `OnboardingWizard` from `HomepageDualMode.tsx` (currently auto-opens if no prefs stored)
+- Remove `openPreferencesWizard` event dispatch from `InlineDelegationCTA.tsx`
+- Homepage (Session 1 output) stops gating on preferences immediately
 
-**2. Progressive filter disclosure**
-- Default visible: Search bar + Sort dropdown only
-- "Filters" button expands to reveal: well-documented toggle, size filters, my DRep, watchlist
-- Active filter count badge on the "Filters" button
-- Preference badges move inside the filter panel
-- This reduces cognitive load for new users while keeping power available
+**Phase 1: Server-rendered foundation + DRep cards**
+- Server-render `/discover` with first 20 DReps from Supabase (kill the loading skeleton)
+- New `DRepCard` component: avatar/initial, name, score ring, DRep trait tags (derived from `alignment_*` scores), pillar mini-bars, size/power, action buttons
+- Responsive card grid: 1 column on mobile, 2 on tablet, 3 on desktop
+- Toggle between card view and table view (persist in localStorage, default cards on mobile)
+- Background hydration loads full dataset for client-side filtering
 
-**3. Smart search**
-- Fuzzy matching (allow typos in DRep names)
-- Search suggestions as you type (top 5 matches)
-- "Did you mean?" for close mismatches
-- Recent searches (localStorage)
-- Search by governance position ("DReps who voted Yes on [proposal]") — stretch goal
+**Phase 2: Governance DNA Quiz + Progressive Filters**
+- New `GovernanceDNAQuiz` component — non-blocking CTA above the DRep grid: "Find Your Ideal DRep in 60 Seconds"
+- Quiz shows 5-7 real proposals that are maximally discriminating (close to 50/50 DRep vote split)
+- Each question: proposal type badge, title, plain-language summary, financial context, Yes/No/Abstain buttons
+- Quiz votes go directly into `poll_responses` (same table, same schema — zero new infrastructure)
+- **The reveal:** Quiz card transforms into results showing top 3 matching DReps with vote agreement counts, delta vs current DRep, grid re-sorts by match
+- New API route `GET /api/governance/quiz-proposals` — selects maximally discriminating proposals
+- Progressive filter disclosure: search + sort always visible, filters behind expand button with active count badge
+- Smart search with `fuse.js` fuzzy matching, suggestions dropdown, recent searches
+- **Kill preference system:** Delete `OnboardingWizard.tsx`, gut preference management from `HomepageShell` and `DRepTableClient`, remove pref-based Match column
 
-**4. Server-rendered first page**
-- `/discover` server-renders the first 10 DReps (by score, well-documented default)
-- Client-side hydration takes over for all interactions
-- Eliminates the loading skeleton on initial page load
+**Phase 3: Infinite scroll + Quick View**
+- Replace prev/next pagination with `IntersectionObserver` infinite scroll + "Load more" fallback
+- New `DRepQuickView` bottom sheet (mobile) / side sheet (desktop)
+- Quick view shows: score breakdown, recent votes, Governance DNA match with vote-by-vote comparison (for users with quiz/poll data), DRep trait tags fallback (for users without)
+- "View Full Profile" and "Delegate" CTAs
 
-**5. Infinite scroll or load-more**
-- Replace prev/next pagination with "Load more" button or infinite scroll
-- Keep prev/next as a fallback for accessibility
-
-**6. "What if" delegation comparison**
-- On each DRep card/row, subtle indicator: "If you delegated here, your representation would be X%" (based on poll history)
-- Only shown for authenticated users with poll history
-- Links to full comparison view
-- This turns passive browsing into active decision-making
-
-**7. DRep "quick view" sheet**
-- Clicking a DRep card on mobile opens a bottom sheet with key stats, score breakdown, recent votes
-- "View Full Profile" and "Delegate" CTAs in the sheet
-- Avoids full page navigation for casual browsing
+**Phase 4: Representation Matching Engine**
+- Extract matching logic from `governance/holder` API into shared `lib/representationMatch.ts`
+- New API route `GET /api/governance/matches` — returns match scores for all DReps based on user's poll history
+- "Best Match" sort option on discovery page (available when user has >= 3 poll votes)
+- Match % appears on cards/table rows, quick view shows vote-by-vote comparison
+- Fix broken alignment score bug in `governance/holder` route (display-label key mismatch) by replacing with representation score
+- Refactor governance dashboard to use shared matching functions
 
 ### Files Affected
-- `app/discover/page.tsx` — New route (server-rendered first page)
-- `components/DRepTableClient.tsx` — Add view toggle, progressive filters, infinite scroll
-- `components/DRepTable.tsx` — Enhance for dual view mode
-- New: `components/DRepCard.tsx` — Card-based DRep display
+- `components/HomepageDualMode.tsx` — Remove wizard integration (Phase 0)
+- `components/InlineDelegationCTA.tsx` — Remove preference event dispatch (Phase 0)
+- `app/discover/page.tsx` — Rewrite as server component with data fetching
+- `lib/data.ts` — Add `getDRepsPage()` function
+- `lib/alignment.ts` — Add `getDRepTraitTags()` utility
+- `components/DRepTableClient.tsx` — Complete overhaul (remove prefs, add view toggle, infinite scroll, quiz integration)
+- `components/DRepTable.tsx` — Remove pref-based Match column (re-added as behavioral match in Phase 4)
+- `components/HomepageShell.tsx` — Gut preference management, add quiz CTA
+- New: `components/DRepCard.tsx` — Card-based DRep display with trait tags / match %
 - New: `components/DRepCardGrid.tsx` — Responsive card grid layout
-- New: `components/DRepQuickView.tsx` — Bottom sheet for mobile
+- New: `components/GovernanceDNAQuiz.tsx` — The quiz experience
+- New: `components/GovernanceDNAReveal.tsx` — Quiz results card
+- New: `components/DRepQuickView.tsx` — Bottom/side sheet for quick preview
 - New: `components/SmartSearch.tsx` — Fuzzy search with suggestions
 - New: `components/FilterPanel.tsx` — Progressive filter disclosure
-- `app/api/dreps/route.ts` — Add pagination params, fuzzy search support
+- New: `lib/representationMatch.ts` — Shared matching functions
+- New: `app/api/governance/quiz-proposals/route.ts` — Quiz proposal selection
+- New: `app/api/governance/matches/route.ts` — Discovery-page matching
+- Kill: `components/OnboardingWizard.tsx` — Delete
+- Kill: `components/ValueSelector.tsx` — Delete
+- Update: `app/api/governance/holder/route.ts` — Refactor to use shared matching, fix broken alignment score
 
 ### Success Criteria
+- A new user goes from landing on /discover to personalized DRep matches in under 90 seconds (quiz flow)
+- Quiz completion rate > 60% of users who start it
 - Mobile discovery feels native-app quality, not a shrunken desktop table
-- A new user sees DReps immediately without loading skeleton
-- Filters are discoverable but not overwhelming
-- "What if" comparison creates measurable increase in delegation conversions
+- Page loads with DReps visible in < 1 second (server-rendered)
+- "Best Match" becomes the most-used sort option for users with quiz data
+- OnboardingWizard is fully deleted from the codebase
 
 ---
 
@@ -564,14 +582,13 @@ Build the features that transform ADA holders from passive DRep shoppers into ac
 - Data sources: `users` table (connection/delegation), `drep_votes` (DRep activity), `poll_responses` (user polls), `drep_score_history` (score changes)
 - This creates a narrative of ongoing participation, not a snapshot
 
-**3. "What if" delegation intelligence**
-- Proactive, not just when representation drops below 50%
-- On the governance dashboard: "Based on your 8 poll votes, here's how other DReps would represent you:"
-  - Top 3 best-match DReps with match percentage and profile link
-  - Current DRep's match rate for comparison
-  - "Switch to DRep Y for 92% representation (vs 61% current)"
-- Trigger: recalculate whenever user casts a new poll vote
-- Also accessible from the DRep discovery page: "Best match for your voting history" sort option
+**3. "What if" delegation intelligence (deepens Session 2 Governance DNA)**
+- Session 2 builds the foundation: Governance DNA Quiz, `representationMatch.ts`, `/api/governance/matches`, "Best Match" sort on /discover
+- Session 5 deepens this with **proactive suggestions and triggers** on the governance dashboard:
+- "Based on your 12 poll votes, here's how other DReps would represent you:" (top 3 best-match DReps with profile link)
+- Current DRep's match rate for comparison: "Switch to DRep Y for 92% representation (vs 61% current)"
+- Trigger: recalculate and surface a nudge whenever user casts a new poll vote
+- The representation matching engine (`lib/representationMatch.ts`) is shared between /discover and /governance — Session 5 adds proactive triggers, not duplicate logic
 
 **4. Watchlist intelligence**
 - Transform watchlist from passive filter to active monitoring tool
@@ -580,7 +597,7 @@ Build the features that transform ADA holders from passive DRep shoppers into ac
   - "DRep Y published rationale on the treasury proposal — here's what they said"
   - "DRep Z gained 50 delegators this month — fastest growing on your watchlist"
 - Watchlist notifications: push/email alerts when watched DReps have significant events
-- "Why you're watching vs why you're delegated" tension: "DRep Z on your watchlist has a higher alignment with your values (88%) than your current DRep (61%)"
+- "Why you're watching vs why you're delegated" tension: "DRep Z on your watchlist has an 88% representation match vs your current DRep's 61%" (based on Governance DNA / poll vote comparison)
 
 **5. Governance calendar / "what's coming"**
 - Section on homepage (auth mode) and My Governance
@@ -595,7 +612,7 @@ Build the features that transform ADA holders from passive DRep shoppers into ac
 - Aggregate poll data into community-wide insights:
   - "72% of polled delegators support Proposal X, but only 45% of DReps voted Yes"
   - "Growing gap between community sentiment and DRep voting on treasury proposals"
-  - "Delegators in the 'Treasury Conservative' cohort are 80% opposed to this withdrawal"
+  - "Delegators who voted No on treasury proposals are 80% opposed to this withdrawal" (behavioral cohort derived from poll data, not self-selected labels)
 - Visible on proposal pages and on the `/pulse` public page
 - This is the "headline" feature — the insight people share and discuss
 - Creates narrative tension that drives engagement
@@ -614,9 +631,10 @@ Build the features that transform ADA holders from passive DRep shoppers into ac
 - On My Governance: "Since you delegated, your DRep has voted on Z proposals on your behalf, shaping decisions worth W ADA in treasury allocations"
 - This creates the feeling that participation is consequential, not performative
 
-**9. Delegator collective identity**
-- Based on selected values: "You and 340 other 'Treasury Conservative' delegators represent 22M ADA in combined voting power"
-- Cohort stats: how your value cohort's DReps are performing, how cohort sentiment compares to outcomes
+**9. Delegator collective identity (behavioral cohorts)**
+- Based on voting patterns (Governance DNA), not self-selected preferences: "You and 340 other delegators who voted No on large treasury withdrawals represent 22M ADA in combined voting power"
+- Behavioral cohorts derived from poll data clustering (e.g., "treasury skeptics", "innovation advocates") — labels generated from voting patterns, not declared by users
+- Cohort stats: how your cohort's DReps are performing, how cohort sentiment compares to outcomes
 - This makes individual delegators feel part of a movement
 - Potential for cohort leaderboards or badges (stretch)
 

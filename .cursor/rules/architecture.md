@@ -77,6 +77,11 @@ All scheduled work runs via Inngest durable functions (no vercel.json crons):
 - `integrity-snapshot` — daily (capture data quality KPIs)
 - `api-health-alert` — every 6 hours
 
+## Server Component Constraints
+- Any `app/**/page.tsx` that calls `createClient()`, `getSupabaseAdmin()`, or any runtime-only service must export `dynamic = 'force-dynamic'`. Railway's Docker build has no env vars at build time — Next.js will attempt static prerendering and crash.
+- Client components (`'use client'`) that fetch via `useEffect` are unaffected since they never run during build.
+- When converting a page from client-only to server-fetching, always add the `force-dynamic` export.
+
 ## UX Principles
 - Show value first (no forced wallet connect)
 - Educational tooltips on every metric

@@ -2,14 +2,11 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useWallet } from '@/utils/wallet';
-import { getUserPrefs } from '@/utils/userPrefs';
-import { computeOverallAlignment } from '@/lib/alignment';
 import { EnrichedDRep } from '@/lib/koios';
-import { UserPrefKey } from '@/types/drep';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export type AlertType = 'alignment-shift' | 'inactivity' | 'new-proposals' | 'vote-activity'
+export type AlertType = 'representation-shift' | 'inactivity' | 'new-proposals' | 'vote-activity'
   | 'drep-score-change' | 'drep-profile-gap' | 'drep-missed-epoch'
   | 'drep-pending-proposals' | 'drep-urgent-deadline'
   | 'critical-proposal-open' | 'drep-missing-votes';
@@ -33,13 +30,11 @@ export interface VoteActivityItem {
   blockTime: number;
   proposalTitle: string | null;
   proposalType: string | null;
-  alignment: 'aligned' | 'unaligned' | 'neutral';
-  reasons: string[];
 }
 
 // ── LocalStorage keys ───────────────────────────────────────────────────────
 
-const PREV_SCORECARDS_KEY = 'drepscore_prev_scorecards';
+const PREV_MATCH_SCORES_KEY = 'drepscore_prev_match_scores';
 const LAST_VISIT_KEY = 'drepscore_last_visit';
 const DISMISSED_ALERTS_KEY = 'drepscore_dismissed_alerts';
 const WATCHLIST_KEY = 'drepscore_watchlist';
@@ -51,16 +46,16 @@ const THIRTY_DAYS_SEC = 30 * 24 * 60 * 60;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function getStoredScorecards(): Record<string, { overall: number; timestamp: number }> {
+function getStoredMatchScores(): Record<string, { score: number; timestamp: number }> {
   if (typeof window === 'undefined') return {};
   try {
-    return JSON.parse(localStorage.getItem(PREV_SCORECARDS_KEY) || '{}');
+    return JSON.parse(localStorage.getItem(PREV_MATCH_SCORES_KEY) || '{}');
   } catch { return {}; }
 }
 
-function storeScorecards(data: Record<string, { overall: number; timestamp: number }>) {
+function storeMatchScores(data: Record<string, { score: number; timestamp: number }>) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(PREV_SCORECARDS_KEY, JSON.stringify(data));
+  localStorage.setItem(PREV_MATCH_SCORES_KEY, JSON.stringify(data));
 }
 
 function getLastVisit(): number {
@@ -97,7 +92,7 @@ function getWatchlist(): string[] {
 export function useAlignmentAlerts() {
   const { connected, delegatedDrepId, ownDRepId, isAuthenticated } = useWallet();
   const [allDReps, setAllDReps] = useState<EnrichedDRep[]>([]);
-  const [userPrefs, setUserPrefs] = useState<UserPrefKey[]>([]);
+  const [matchData, setMatchData] = useState<Record<string, number>>({});
   const [voteActivity, setVoteActivity] = useState<VoteActivityItem[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [newProposalCount, setNewProposalCount] = useState(0);
@@ -107,9 +102,7 @@ export function useAlignmentAlerts() {
   const [inboxData, setInboxData] = useState<{ pendingCount: number; criticalCount: number; urgentCount: number; potentialGain: number } | null>(null);
   const [govSummary, setGovSummary] = useState<{ openCount: number; criticalOpenCount: number; drepVotedCount?: number; drepMissingCount?: number } | null>(null);
 
-  // Load initial state from localStorage
   useEffect(() => {
-    setUserPrefs(getUserPrefs()?.userPrefs || []);
     setDismissedIds(getDismissedAlerts());
     setLastVisitTime(getLastVisit());
   }, []);
@@ -155,14 +148,13 @@ export function useAlignmentAlerts() {
 
   // Fetch recent vote activity for delegated DRep
   useEffect(() => {
-    if (!delegatedDrepId || userPrefs.length === 0) return;
+    if (!delegatedDrepId) return;
     let cancelled = false;
 
     (async () => {
       try {
-        const prefsStr = userPrefs.join(',');
         const res = await fetch(
-          `/api/alignment/recent-votes?drepId=${encodeURIComponent(delegatedDrepId)}&prefs=${prefsStr}`
+          `/api/alignment/recent-votes?drepId=${encodeURIComponent(delegatedDrepId)}`
         );
         if (!res.ok) return;
         const data = await res.json();
@@ -171,7 +163,35 @@ export function useAlignmentAlerts() {
     })();
 
     return () => { cancelled = true; };
-  }, [delegatedDrepId, userPrefs]);
+  }, [delegatedDrepId]);
+
+  // Fetch representation match data when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { getStoredSession } = await import('@/lib/supabaseAuth');
+        const token = getStoredSession();
+        if (!token) return;
+        const res = await fetch('/api/governance/matches', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const map: Record<string, number> = {};
+          for (const m of data.matches || []) {
+            map[m.drepId] = m.matchScore;
+          }
+          setMatchData(map);
+        }
+      } catch { /* ignore */ }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated]);
 
   // Fetch DRep-specific score data for DRep alerts
   useEffect(() => {
@@ -255,53 +275,54 @@ export function useAlignmentAlerts() {
 
   // Build all alerts
   const alerts: Alert[] = useMemo(() => {
-    if (!loaded || !connected || userPrefs.length === 0) return [];
+    if (!loaded || !connected) return [];
 
     const result: Alert[] = [];
     const now = Math.floor(Date.now() / 1000);
     const watchlist = getWatchlist();
     const drepMap = new Map(allDReps.map(d => [d.drepId, d]));
+    const hasMatchData = Object.keys(matchData).length > 0;
 
-    // ── 1. Alignment shift alerts (delegated + watchlist) ───────────────
-    const prevScorecards = getStoredScorecards();
-    const newScorecards: Record<string, { overall: number; timestamp: number }> = {};
-    const drepIdsToCheck = [
-      ...(delegatedDrepId ? [delegatedDrepId] : []),
-      ...watchlist,
-    ];
-    const uniqueIds = [...new Set(drepIdsToCheck)];
+    // ── 1. Representation match shift alerts (delegated + watchlist) ─────
+    if (hasMatchData) {
+      const prevScores = getStoredMatchScores();
+      const newScores: Record<string, { score: number; timestamp: number }> = {};
+      const drepIdsToCheck = [
+        ...(delegatedDrepId ? [delegatedDrepId] : []),
+        ...watchlist,
+      ];
+      const uniqueIds = [...new Set(drepIdsToCheck)];
 
-    for (const id of uniqueIds) {
-      const drep = drepMap.get(id);
-      if (!drep) continue;
+      for (const id of uniqueIds) {
+        const currentMatch = matchData[id];
+        if (currentMatch == null) continue;
 
-      const currentOverall = computeOverallAlignment(drep, userPrefs);
-      newScorecards[id] = { overall: currentOverall, timestamp: now };
-
-      const prev = prevScorecards[id];
-      if (prev) {
-        const delta = currentOverall - prev.overall;
-        if (delta <= -SHIFT_THRESHOLD) {
-          const drepName = drep.name || drep.ticker || drep.handle || `${id.slice(0, 12)}...`;
-          const isDelegated = id === delegatedDrepId;
-          result.push({
-            id: `shift-${id}`,
-            type: 'alignment-shift',
-            title: isDelegated
-              ? `Your DRep's alignment dropped`
-              : `${drepName}'s alignment dropped`,
-            description: `Alignment went from ${prev.overall}% to ${currentOverall}% (${delta} pts).`,
-            link: `/drep/${encodeURIComponent(id)}?tab=scorecard`,
-            timestamp: now,
-            read: false,
-            metadata: { drepId: id, drepName, previousMatch: prev.overall, currentMatch: currentOverall, delta },
-          });
+        newScores[id] = { score: currentMatch, timestamp: now };
+        const drep = drepMap.get(id);
+        const prev = prevScores[id];
+        if (prev) {
+          const delta = currentMatch - prev.score;
+          if (delta <= -SHIFT_THRESHOLD) {
+            const drepName = drep?.name || drep?.ticker || drep?.handle || `${id.slice(0, 12)}...`;
+            const isDelegated = id === delegatedDrepId;
+            result.push({
+              id: `shift-${id}`,
+              type: 'representation-shift',
+              title: isDelegated
+                ? `Your DRep's representation match dropped`
+                : `${drepName}'s representation match dropped`,
+              description: `Match went from ${prev.score}% to ${currentMatch}% (${delta > 0 ? '+' : ''}${delta} pts) based on recent votes.`,
+              link: `/drep/${encodeURIComponent(id)}?tab=scorecard`,
+              timestamp: now,
+              read: false,
+              metadata: { drepId: id, drepName, previousMatch: prev.score, currentMatch, delta },
+            });
+          }
         }
       }
-    }
 
-    // Update stored scorecards (merge, don't overwrite unrelated entries)
-    storeScorecards({ ...prevScorecards, ...newScorecards });
+      storeMatchScores({ ...prevScores, ...newScores });
+    }
 
     // ── 2. DRep inactivity warning ──────────────────────────────────────
     if (delegatedDrepId) {
@@ -337,20 +358,18 @@ export function useAlignmentAlerts() {
     }
 
     // ── 4. Vote activity summary ────────────────────────────────────────
-    const relevantVotes = voteActivity.filter(v => v.alignment !== 'neutral');
-    for (const v of relevantVotes.slice(0, 3)) {
+    for (const v of voteActivity.slice(0, 3)) {
       const title = v.proposalTitle || `Proposal ${v.proposalTxHash.slice(0, 8)}...`;
-      const verb = v.alignment === 'aligned' ? 'aligned with' : 'conflicts with';
 
       result.push({
         id: `vote-${v.voteTxHash}`,
         type: 'vote-activity',
         title: `Your DRep voted ${v.vote}`,
-        description: `On "${title}" — ${verb} your preferences.${v.reasons.length > 0 ? ' ' + v.reasons[0] : ''}`,
+        description: `On "${title}".`,
         link: `/proposals/${v.proposalTxHash}/${v.proposalIndex}`,
         timestamp: v.blockTime,
         read: false,
-        metadata: { alignment: v.alignment, vote: v.vote },
+        metadata: { vote: v.vote },
       });
     }
 
@@ -455,7 +474,7 @@ export function useAlignmentAlerts() {
     setLastVisit(now);
 
     return result;
-  }, [loaded, connected, userPrefs, allDReps, delegatedDrepId, ownDRepId, ownDRepScore, voteActivity, lastVisitTime, newProposalCount, inboxData, govSummary]);
+  }, [loaded, connected, matchData, allDReps, delegatedDrepId, ownDRepId, ownDRepScore, voteActivity, lastVisitTime, newProposalCount, inboxData, govSummary]);
 
   // Filter out dismissed alerts
   const activeAlerts = useMemo(
