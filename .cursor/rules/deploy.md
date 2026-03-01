@@ -55,7 +55,7 @@ Before committing, classify the change to determine the release path.
 1. `git add` relevant changes (never stage `.env*`, `credentials`, or secrets)
 2. Commit with descriptive message following repo style
 3. **If direct-to-main**: `git push origin main`
-4. **If PR required**: create branch, push, open PR via `gh pr create`, report preview URL
+4. **If PR required**: create branch, push, then `gh auth switch --user drepscore` and open PR via `gh pr create`, report preview URL
 
 ## Monitor CI (~2-3 min)
 
@@ -120,6 +120,13 @@ After successful deploy, provide a concise summary:
 - **Supabase project**: `pbfprhbaayvcrxokgicr`
 - **Production URL**: `https://drepscore.io`
 - **Cron secret**: stored in `.env.local` as `CRON_SECRET`
+
+### GitHub CLI
+Two accounts are configured. **Always switch to `drepscore` before any `gh` API calls** (PR creation, run monitoring, etc.):
+```
+gh auth switch --user drepscore
+```
+The `tim-dd` account does not have collaborator access to the repo.
 
 ### MCP Configuration — DO NOT MODIFY
 `.cursor/mcp.json` is gitignored and contains secrets. **NEVER overwrite, recreate, or edit this file.**

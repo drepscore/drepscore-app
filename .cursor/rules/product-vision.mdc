@@ -1,0 +1,37 @@
+---
+description: Product vision and UX principles for DRepScore — ensures all UI work aligns with the "wow" product vision
+globs:
+  - components/**
+  - app/**
+alwaysApply: false
+---
+
+# Product Vision — DRepScore
+
+## Core Thesis
+DRepScore is a **governance relationship platform**, not a DRep directory. Treat users as governance citizens, not DRep shoppers.
+
+## Design Principles
+1. **Story first, data second.** Every screen tells a story before showing a spreadsheet.
+2. **Financial stakes are real.** Connect governance decisions to ADA holdings.
+3. **Emotional moments matter.** Design for celebration, warning, pride, and discovery — not just information.
+4. **Mobile is primary.** Design for phones, adapt for desktop.
+5. **Viral by design.** Every feature should have a shareable output.
+6. **Progressive complexity.** Simple by default, powerful on demand.
+7. **Return users ≠ new users.** The homepage adapts. "Since you were last here" > "Welcome."
+
+## Two User Segments
+
+**ADA Holders:** Not shoppers — citizens. Show them financial stakes, representation quality, and community identity.
+
+**DReps:** Not report-card readers — commanders. Give them an actionable dashboard with delegation management, competitive context, gamification, and positioning tools.
+
+## Key UX Rules
+- Never show marketing copy to a returning authenticated user
+- Empty states must guide, educate, and motivate — never just "no results found"
+- Scores must tell stories: "72 means your DRep is solid but missed 3 recent votes" — not just "72"
+- Filter controls: progressive disclosure (search + sort visible, rest behind "Filters")
+- Every shareable moment needs a beautiful, branded output image
+
+## Full Plan
+See `docs/strategy/product-wow-plan.md` for the complete 6-session execution plan.
