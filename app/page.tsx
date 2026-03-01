@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { getProposalPriority } from '@/utils/proposalPriority';
 import { HomepageDualMode } from '@/components/HomepageDualMode';
+import { PageViewTracker } from '@/components/PageViewTracker';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 300;
@@ -66,6 +67,7 @@ async function getGovernancePulse() {
       title: spotlight.title,
       proposalType: spotlight.proposal_type,
       priority: getProposalPriority(spotlight.proposal_type),
+      voteCoverage: null,
     } : null,
     currentEpoch,
   };
@@ -99,6 +101,7 @@ export default async function HomePage() {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
+      <PageViewTracker event="homepage_viewed" />
       <HomepageDualMode pulseData={pulseData} topDReps={topDReps} />
     </div>
   );

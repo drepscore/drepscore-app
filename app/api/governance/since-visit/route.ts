@@ -49,11 +49,12 @@ export async function GET(request: NextRequest) {
 
     let drepVotesCast = 0;
     let drepScoreChange: number | null = null;
+    let delegatorChange: number | null = null;
 
     if (drepId) {
-      const [votesResult, latestScoreResult, oldScoreResult] = await Promise.all([
+      const [votesResult, latestScoreResult, oldScoreResult, currentDrepResult] = await Promise.all([
         supabase.from('drep_votes')
-          .select('id', { count: 'exact', head: true })
+          .select('vote_tx_hash', { count: 'exact', head: true })
           .eq('drep_id', drepId)
           .gt('block_time', sinceBlockTime),
         supabase.from('drep_score_history')
@@ -67,6 +68,10 @@ export async function GET(request: NextRequest) {
           .lte('recorded_at', sinceDate.toISOString())
           .order('recorded_at', { ascending: false })
           .limit(1),
+        supabase.from('dreps')
+          .select('info')
+          .eq('drep_id', drepId)
+          .single(),
       ]);
 
       drepVotesCast = votesResult.count || 0;
@@ -77,6 +82,11 @@ export async function GET(request: NextRequest) {
       if (latestScore !== null && oldScore !== null) {
         drepScoreChange = Math.round((latestScore - oldScore) * 10) / 10;
       }
+
+      const currentDelegators = currentDrepResult.data?.info?.delegatorCount ?? null;
+      if (currentDelegators !== null) {
+        delegatorChange = currentDelegators;
+      }
     }
 
     return NextResponse.json({
@@ -84,6 +94,7 @@ export async function GET(request: NextRequest) {
       proposalsClosed,
       drepVotesCast,
       drepScoreChange,
+      delegatorChange,
     });
   } catch (err) {
     console.error('[Since Visit API] Error:', err);

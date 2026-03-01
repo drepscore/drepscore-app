@@ -67,6 +67,7 @@ interface PulseData {
     pollYes: number;
     pollNo: number;
     pollTotal: number;
+    drepVotePct: number;
   }[];
 }
 
@@ -219,7 +220,9 @@ export default function PulsePage() {
                     <div className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{g.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{g.pollTotal} community votes</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {g.pollTotal} community votes · {g.drepVotePct}% DReps voted
+                        </p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <div className="text-center">

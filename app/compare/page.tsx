@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { CompareView } from '@/components/CompareView';
+import { PageViewTracker } from '@/components/PageViewTracker';
 
 interface Props {
   searchParams: Promise<{ dreps?: string }>;
@@ -38,6 +39,7 @@ export default async function ComparePage({ searchParams }: Props) {
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-6xl">
+      <PageViewTracker event="compare_page_viewed" properties={{ initial_count: initialDrepIds.length }} />
       <CompareView initialDrepIds={initialDrepIds} />
     </div>
   );

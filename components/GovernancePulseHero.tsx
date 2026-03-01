@@ -22,6 +22,7 @@ export interface PulseData {
     title: string;
     proposalType: string;
     priority: string;
+    voteCoverage: number | null;
   } | null;
   currentEpoch: number;
 }
@@ -77,7 +78,7 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, suffix, accent = 'text-primary' }: StatCardProps) {
   return (
-    <div className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl bg-card/60 backdrop-blur-sm border border-border/50">
+    <div className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl bg-card/60 backdrop-blur-sm border border-border/50" role="group" aria-label={`${label}: ${value}${suffix || ''}`}>
       <div className={`${accent}`}>{icon}</div>
       <span className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight">
         <AnimatedCounter value={value} suffix={suffix} />
@@ -142,6 +143,11 @@ export function GovernancePulseHero({ data }: { data: PulseData }) {
               <span className="text-sm font-medium truncate max-w-md">
                 {data.spotlightProposal.title}
               </span>
+              {data.spotlightProposal.voteCoverage !== null && (
+                <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                  {data.spotlightProposal.voteCoverage}% voted
+                </span>
+              )}
               <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
             </Link>
           </div>

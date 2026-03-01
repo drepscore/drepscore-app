@@ -849,6 +849,8 @@ Session 8 item #9 "Proposal financial impact simulation" was previously listed a
 
 ## Session 8 — Platform Deepening & Strategic Bets
 
+> **Superseded:** Session 8 was expanded into Sessions 8-11 in `docs/strategy/product-wow-plan-v1.5.md` after a comprehensive audit revealed gaps in Sessions 1-7, analytics instrumentation, and infrastructure. The original Session 8 ideas (below) informed the v1.5 plan but are no longer the execution target.
+
 ### Goal
 Evaluate high-complexity, high-impact ideas that could transform DRepScore from a governance analytics tool into the governance operating system for Cardano. Each item is assessed for strategic value, complexity, dependencies, and recommendation.
 
