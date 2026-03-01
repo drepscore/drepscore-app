@@ -47,19 +47,12 @@ If lint/type-check errors are in YOUR changes, fix them. If they're pre-existing
    - Re-monitor CI
    - Max 3 retry attempts before escalating to user
 
-## Monitor Deployment (~1-2 min)
+## Monitor Railway Deployment (~1-2 min)
 
-### Current: Vercel
-- Vercel auto-deploys on push to main
-- `npx vercel ls | Select-Object -First 10` — check status
-- Wait for status "Ready"
-- If "Error": `npx vercel inspect <url> --logs` — read build output, fix, re-push
-
-### Future: Railway (after Phase 5-6 cutover)
-- Railway auto-deploys when CI passes on main
-- `railway status` — wait for "Active"
-- `railway logs --latest` — check for startup errors
-- If deploy fails: read logs, fix, push again
+- Railway auto-deploys on push to main
+- Check Railway dashboard Deployments tab for build status
+- Wait for deployment to show "Active"
+- If deploy fails: check build logs and deploy logs in Railway dashboard, fix, push again
 
 ## Post-deploy Validation (~15s)
 
@@ -88,8 +81,7 @@ This runs `scripts/smoke-test.ts` which checks:
 - `/api/auth/nonce` — 200, nonce + signature
 
 ### On Failure
-- **Current (Vercel)**: `npx vercel rollback` — revert to previous deployment
-- **Future (Railway)**: `railway rollback` — revert to previous deployment
+- In Railway dashboard, click "Rollback" on the previous healthy deployment
 - Investigate root cause, fix, restart from Pre-flight Checks
 
 ## Report
