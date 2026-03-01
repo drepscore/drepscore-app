@@ -35,7 +35,7 @@ export async function GET(
     const percentile = totalDReps ? Math.round(((totalDReps - rank) / totalDReps) * 100) : 0;
 
     const stats = [
-      { label: 'Votes Cast', value: `${drep.votes?.length || 0}` },
+      { label: 'Votes Cast', value: `${drep.totalVotes || 0}` },
       { label: 'Rationale Rate', value: `${drep.rationaleRate}%` },
       { label: 'Delegators', value: `${drep.delegatorCount}` },
       { label: 'Rank', value: `#${rank}` },
