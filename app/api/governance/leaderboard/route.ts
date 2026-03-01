@@ -125,12 +125,13 @@ export async function GET(request: NextRequest) {
       weeklyMovers: { gainers, losers },
       hallOfFame,
     });
-  } catch (err) {
-    console.error('[Leaderboard API] Error:', err);
-    captureServerEvent('leaderboard_api_error', { error: String(err) });
+  } catch (err: any) {
+    const msg = err?.message || err?.details || err?.hint || JSON.stringify(err);
+    console.error('[Leaderboard API] Error:', msg);
+    captureServerEvent('leaderboard_api_error', { error: msg });
     return NextResponse.json({
       error: 'Internal error',
-      detail: err instanceof Error ? err.message : String(err),
+      detail: msg,
     }, { status: 500 });
   }
 }
