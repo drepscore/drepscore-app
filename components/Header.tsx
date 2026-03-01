@@ -42,6 +42,7 @@ import {
   Clock,
   Activity,
   Inbox,
+  Landmark,
 } from 'lucide-react';
 
 const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
@@ -147,6 +148,10 @@ export function Header() {
           <Link href="/pulse" className={navLinkClass('/pulse')}>
             <Activity className="h-4 w-4" />
             <span>Pulse</span>
+          </Link>
+          <Link href="/treasury" className={navLinkClass('/treasury')}>
+            <Landmark className="h-4 w-4" />
+            <span>Treasury</span>
           </Link>
           {isAuthenticated && (
             <Link href="/governance" className={navLinkClass('/governance')}>
