@@ -66,6 +66,19 @@ DRep Score (0-100) =
 ## Database (Supabase)
 23+ migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`, `drep_milestones`, `position_statements`, `vote_explanations`, `governance_philosophy`
 
+### `dreps` Table Schema Convention
+The `dreps` table uses `id` as its primary key (the full `drep1...` bech32 string). All other tables use `drep_id` as their foreign key column. **Do not query `dreps.drep_id` — it does not exist.**
+
+Display metadata (`name`, `ticker`, `handle`, `description`, `isActive`, `votingPower`, etc.) is stored inside the `info` JSONB column, not as top-level columns. To get a DRep's display name from a raw Supabase row:
+```
+const info = row.info || {};
+const name = info.name || info.ticker || info.handle || shortenDRepId(row.id);
+```
+The `lib/data.ts` `mapRow()` function unpacks `info` into flat `EnrichedDRep` properties. When writing new API routes that query `dreps` directly via Supabase, select `id, score, info, ...` — never `name`, `ticker`, or `handle` as columns.
+
+### File Extension Rule for JSX
+Any API route that uses JSX (e.g., `ImageResponse` from `next/og`) **must** use the `.tsx` extension, not `.ts`. TypeScript will not parse JSX syntax in `.ts` files. This applies to all OG image routes under `app/api/og/` and the badge route under `app/api/badge/`.
+
 ## Background Jobs (Inngest Cloud)
 All scheduled work runs via Inngest durable functions (no vercel.json crons):
 - `sync-fast` — every 30 min (new proposals, active votes)
