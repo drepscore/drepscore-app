@@ -44,6 +44,9 @@ import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { MilestoneBadges } from '@/components/MilestoneBadges';
 import { GovernancePhilosophyEditor } from '@/components/GovernancePhilosophyEditor';
 import { DRepReportCard } from '@/components/DRepReportCard';
+import { BadgeEmbed } from '@/components/BadgeEmbed';
+import { WrappedShareCard } from '@/components/WrappedShareCard';
+import { ScoreChangeMoment } from '@/components/ScoreChangeMoment';
 import { formatAda, getPillarStatus, applyRationaleCurve, getMissingProfileFields } from '@/utils/scoring';
 import type { ScoreSnapshot } from '@/lib/data';
 import type { VoteRecord } from '@/types/drep';
@@ -113,6 +116,7 @@ export default function MyDRepPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedDRepId, setSelectedDRepId] = useState<string | null>(null);
   const [drepList, setDrepList] = useState<DRepListItem[]>([]);
+  const [inboxPendingCount, setInboxPendingCount] = useState(0);
 
   // Check admin status — use sessionAddress if authenticated, fall back to connected address
   const adminCheckAddress = sessionAddress || address;
@@ -189,6 +193,14 @@ export default function MyDRepPage() {
       setState('not-drep');
     }
   }, [connected, isAuthenticated, reconnecting, activeDRepId, isAdmin, connecting, fetchDashboard]);
+
+  useEffect(() => {
+    if (!activeDRepId) return;
+    fetch(`/api/dashboard/inbox?drepId=${encodeURIComponent(activeDRepId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.pendingCount) setInboxPendingCount(d.pendingCount); })
+      .catch(() => {});
+  }, [activeDRepId]);
 
   const handleDRepSelect = (drepId: string) => {
     setSelectedDRepId(drepId);
@@ -321,6 +333,9 @@ export default function MyDRepPage() {
         </div>
       )}
 
+      {/* Score Change Moment */}
+      <ScoreChangeMoment drepId={drep.drepId} drepName={drep.name || drep.drepId.slice(0, 20)} currentScore={drep.drepScore} />
+
       {/* Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column — Action Center (2/3) */}
@@ -329,7 +344,7 @@ export default function MyDRepPage() {
           <DRepDashboard drep={drep} scoreHistory={scoreHistory} />
 
           {/* Score Simulator */}
-          <ScoreSimulator drepId={drep.drepId} pendingCount={0} />
+          <ScoreSimulator drepId={drep.drepId} pendingCount={inboxPendingCount} />
 
           {/* Score History */}
           <ScoreHistoryChart history={scoreHistory} />
@@ -444,19 +459,20 @@ export default function MyDRepPage() {
       </div>
 
       {/* Bottom Section — Full Width */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         <GovernancePhilosophyEditor drepId={drep.drepId} />
-        <DRepReportCard
+        <WrappedShareCard
+          variant="drep"
           drepId={drep.drepId}
-          name={drep.name || drep.drepId.slice(0, 20)}
+          drepName={drep.name || drep.drepId.slice(0, 20)}
           score={drep.drepScore}
-          rank={null}
-          delegators={drep.delegatorCount}
           participation={drep.effectiveParticipation}
           rationale={adjustedRationale}
           reliability={drep.reliabilityScore}
-          profile={drep.profileCompleteness}
+          rank={null}
+          delegators={drep.delegatorCount}
         />
+        <BadgeEmbed drepId={drep.drepId} drepName={drep.name || drep.drepId.slice(0, 20)} />
       </div>
     </div>
   );

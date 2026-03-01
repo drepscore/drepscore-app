@@ -1,10 +1,13 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dna, RefreshCw, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { ShareActions } from '@/components/ShareActions';
+import { posthog } from '@/lib/posthog';
 
 export interface QuizMatchDRep {
   drepId: string;
@@ -32,6 +35,15 @@ function getMatchColor(score: number) {
 }
 
 export function GovernanceDNAReveal({ result, onRetake }: GovernanceDNARevealProps) {
+  useEffect(() => {
+    posthog.capture('governance_dna_reveal_viewed', {
+      votes_count: result.votesCount,
+      top_match_score: result.topMatches[0]?.matchScore ?? null,
+      matches_count: result.topMatches.length,
+      has_current_drep_match: !!result.currentDRepMatch,
+    });
+  }, [result]);
+
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
       <CardContent className="p-6 space-y-4">
@@ -92,6 +104,18 @@ export function GovernanceDNAReveal({ result, onRetake }: GovernanceDNARevealPro
         <p className="text-xs text-muted-foreground">
           The DRep grid below is now sorted by your match.
         </p>
+
+        {/* Share your Governance DNA */}
+        {result.topMatches.length > 0 && (
+          <ShareActions
+            url="https://drepscore.io/discover"
+            text={`I took the Governance DNA Quiz on @drepscore! My top match: ${result.topMatches[0].name} (${result.topMatches[0].matchScore}%). Find your ideal DRep:`}
+            imageUrl={`/api/og/governance-dna?votes=${result.votesCount}${result.topMatches.slice(0, 3).map((m, i) => `&m${i + 1}name=${encodeURIComponent(m.name)}&m${i + 1}score=${m.matchScore}`).join('')}`}
+            imageFilename="my-governance-dna.png"
+            surface="governance_dna"
+            metadata={{ votes_count: result.votesCount, top_match: result.topMatches[0]?.drepId }}
+          />
+        )}
 
         <div className="flex gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onRetake} className="gap-1.5">

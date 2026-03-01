@@ -15,7 +15,9 @@ import {
   Clock,
   Vote,
   FileText,
+  MessageSquare,
 } from 'lucide-react';
+import { PositionStatementEditor } from '@/components/PositionStatementEditor';
 
 interface PendingProposal {
   txHash: string;
@@ -162,6 +164,12 @@ export function GovernanceInboxWidget({ drepId }: { drepId: string }) {
                     {p.epochsRemaining}ep
                   </span>
                 )}
+                <PositionStatementEditor
+                  drepId={drepId}
+                  proposalTxHash={p.txHash}
+                  proposalIndex={p.proposalIndex}
+                  proposalTitle={p.title || `Proposal ${p.txHash.slice(0, 8)}...`}
+                />
                 <Link href={`/dashboard/inbox?drepId=${encodeURIComponent(drepId)}&proposal=${p.txHash}`}>
                   <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] gap-1">
                     <FileText className="h-3 w-3" />

@@ -10,10 +10,10 @@ import {
   Loader2,
   ExternalLink,
   AlertTriangle,
-  Share2,
 } from 'lucide-react';
 import { DelegationRisksModal } from './InfoModal';
-import confetti from 'canvas-confetti';
+import { DelegationCeremony } from './DelegationCeremony';
+import { useState } from 'react';
 
 interface InlineDelegationCTAProps {
   drepId: string;
@@ -38,6 +38,8 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
     delegatedDrepId,
     canDelegate,
   } = useDelegation();
+  const [showCeremony, setShowCeremony] = useState(false);
+  const [ceremonyScore, setCeremonyScore] = useState(0);
 
   const isAlreadyDelegated = !!delegatedDrepId && delegatedDrepId === drepId;
 
@@ -52,17 +54,12 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
   const handleConfirm = async () => {
     const result = await confirmDelegation(drepId);
     if (result) {
-      confetti({ particleCount: 60, spread: 50, origin: { y: 0.8 } });
+      fetch(`/api/dreps/${encodeURIComponent(drepId)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.drepScore) setCeremonyScore(data.drepScore); })
+        .catch(() => {});
+      setShowCeremony(true);
     }
-  };
-
-  const handleShare = () => {
-    const text = `I just delegated my Cardano voting power to ${drepName} on @draborak's DRepScore! Check your DRep alignment:`;
-    const url = `${window.location.origin}/drep/${encodeURIComponent(drepId)}`;
-    window.open(
-      `https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
-      '_blank',
-    );
   };
 
   // Already delegated to this DRep
@@ -78,8 +75,19 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
     );
   }
 
-  // Success state with post-delegation CTAs
+  // Success — show delegation ceremony overlay
   if (phase.status === 'success') {
+    if (showCeremony) {
+      return (
+        <DelegationCeremony
+          drepId={drepId}
+          drepName={drepName}
+          score={ceremonyScore || 0}
+          onContinue={() => setShowCeremony(false)}
+        />
+      );
+    }
+
     return (
       <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg space-y-3">
         <div className="text-center space-y-1">
@@ -99,17 +107,6 @@ export function InlineDelegationCTA({ drepId, drepName }: InlineDelegationCTAPro
           >
             View transaction <ExternalLink className="h-3 w-3" />
           </a>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-1 text-xs"
-            onClick={handleShare}
-          >
-            <Share2 className="h-3 w-3" />
-            Share
-          </Button>
         </div>
       </div>
     );

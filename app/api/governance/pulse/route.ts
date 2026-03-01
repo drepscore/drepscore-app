@@ -17,11 +17,13 @@ export async function GET() {
       proposalsResult,
       votesThisWeekResult,
       claimedResult,
+      pollsResult,
     ] = await Promise.all([
       supabase.from('dreps').select('score, participation_rate, rationale_rate, effective_participation, info, size_tier'),
       supabase.from('proposals').select('tx_hash, proposal_index, proposal_type, title, ratified_epoch, enacted_epoch, dropped_epoch, expired_epoch, created_at'),
       supabase.from('drep_votes').select('id', { count: 'exact', head: true }).gt('block_time', oneWeekAgoBlockTime),
       supabase.from('users').select('wallet_address', { count: 'exact', head: true }).not('claimed_drep_id', 'is', null),
+      supabase.from('poll_responses').select('proposal_tx_hash, proposal_index, vote').limit(5000),
     ]);
 
     const dreps = drepsResult.data || [];
@@ -67,6 +69,32 @@ export async function GET() {
         return bTime - aTime;
       })[0] || null;
 
+    // Community vs DRep gap: aggregate poll votes per open proposal
+    const pollVotes = pollsResult.data || [];
+    const pollAgg = new Map<string, { yes: number; no: number; abstain: number }>();
+    for (const pv of pollVotes) {
+      const key = `${pv.proposal_tx_hash}:${pv.proposal_index}`;
+      const agg = pollAgg.get(key) || { yes: 0, no: 0, abstain: 0 };
+      if (pv.vote === 'Yes') agg.yes++;
+      else if (pv.vote === 'No') agg.no++;
+      else agg.abstain++;
+      pollAgg.set(key, agg);
+    }
+
+    const communityGap = openProposals.slice(0, 5).map((p: any) => {
+      const key = `${p.tx_hash}:${p.proposal_index}`;
+      const agg = pollAgg.get(key);
+      return {
+        txHash: p.tx_hash,
+        index: p.proposal_index,
+        title: p.title || 'Untitled',
+        pollYes: agg?.yes || 0,
+        pollNo: agg?.no || 0,
+        pollAbstain: agg?.abstain || 0,
+        pollTotal: (agg?.yes || 0) + (agg?.no || 0) + (agg?.abstain || 0),
+      };
+    }).filter(g => g.pollTotal > 0);
+
     return NextResponse.json({
       totalAdaGoverned: formattedAda,
       totalAdaGovernedRaw: totalAdaGovernedLovelace,
@@ -86,6 +114,7 @@ export async function GET() {
         priority: getProposalPriority(spotlight.proposal_type),
       } : null,
       currentEpoch,
+      communityGap,
     });
   } catch (err) {
     console.error('[Governance Pulse API] Error:', err);

@@ -5,30 +5,16 @@ import { useRouter } from 'next/navigation';
 import { DRepTable } from '@/components/DRepTable';
 import { DRepCardGrid } from '@/components/DRepCardGrid';
 import { DRepQuickView, type DRepMatchDetail } from '@/components/DRepQuickView';
+import { SmartSearch } from '@/components/SmartSearch';
+import { FilterPanel } from '@/components/FilterPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorBanner } from '@/components/ErrorBanner';
 import { TableSkeleton } from '@/components/LoadingSkeleton';
 import { EnrichedDRep } from '@/lib/koios';
-import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, RotateCcw, ChevronLeft, ChevronRight, Info, LayoutGrid, TableProperties } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, TableProperties } from 'lucide-react';
 import { SizeTier } from '@/utils/scoring';
-import { GitCompareArrows, X, Heart, UserCheck } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { GitCompareArrows, X } from 'lucide-react';
 import { useWallet } from '@/utils/wallet';
 import { cn } from '@/lib/utils';
 
@@ -80,6 +66,36 @@ export function DRepTableClient({
   // Quick view state
   const [quickViewDrep, setQuickViewDrep] = useState<EnrichedDRep | null>(null);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const [quickViewMatchDetail, setQuickViewMatchDetail] = useState<DRepMatchDetail | null>(null);
+
+  useEffect(() => {
+    if (!quickViewOpen || !quickViewDrep || matchData[quickViewDrep.drepId] == null) {
+      setQuickViewMatchDetail(null);
+      return;
+    }
+    let cancelled = false;
+    const token = typeof window !== 'undefined'
+      ? localStorage.getItem('drepscore_session_token')
+      : null;
+    if (!token) return;
+
+    fetch(`/api/governance/matches/detail?drepId=${encodeURIComponent(quickViewDrep.drepId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!cancelled && data) {
+          setQuickViewMatchDetail({
+            matchScore: data.matchScore,
+            agreed: data.agreed,
+            total: data.total,
+            comparisons: data.comparisons,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [quickViewOpen, quickViewDrep, matchData]);
 
   const hasServerData = !!initialDReps;
   const [loading, setLoading] = useState(!hasServerData);
@@ -258,31 +274,14 @@ export function DRepTableClient({
     setCurrentPage(1);
   };
 
-  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setSearchQuery(val);
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query);
     setCurrentPage(1);
+  }, []);
 
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (val.length >= 3) {
-      searchTimerRef.current = setTimeout(() => {
-        const trimmed = val.trim();
-        const searchType =
-          trimmed.startsWith('$') ? 'handle' :
-          trimmed.startsWith('drep1') ? 'drep_id' :
-          trimmed.toUpperCase() === trimmed && trimmed.length <= 10 ? 'ticker' :
-          'name';
-        import('@/lib/posthog').then(({ posthog }) => {
-          posthog.capture('drep_table_searched', {
-            query: val,
-            result_count: sortedDReps.length,
-            search_type: searchType,
-          });
-        }).catch(() => {});
-      }, 1000);
-    }
-  };
+  const handleSearchSelectDRep = useCallback((drepId: string) => {
+    router.push(`/drep/${encodeURIComponent(drepId)}`);
+  }, [router]);
 
   const handleReset = () => {
     setSearchQuery('');
@@ -331,164 +330,56 @@ export function DRepTableClient({
       {/* Controls Bar */}
       <div className="p-4 rounded-lg border bg-card/50 backdrop-blur-sm space-y-4">
         {/* Search and filters */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          {/* Left: Search */}
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by Name, Ticker, ID, or Handle..."
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <SmartSearch
+              dreps={filterWellDocumented ? wellDocDReps : allDReps}
               value={searchQuery}
-              onChange={handleSearch}
-              className="pl-9 bg-background/50 border-primary/20 focus:border-primary/50 transition-colors"
+              onChange={handleSearchChange}
+              onSelectDRep={handleSearchSelectDRep}
+              className="w-full md:w-96"
             />
-          </div>
 
-          {/* Right: Toggles & Reset */}
-          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end flex-wrap">
-
-          {/* View toggle */}
-          <div className="flex items-center gap-0.5 rounded-lg border p-0.5">
-            <button
-              onClick={() => handleViewModeChange('cards')}
-              className={cn(
-                'p-1.5 rounded-md transition-colors',
-                viewMode === 'cards' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-              aria-label="Card view"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => handleViewModeChange('table')}
-              className={cn(
-                'p-1.5 rounded-md transition-colors',
-                viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-              aria-label="Table view"
-            >
-              <TableProperties className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* My DRep + Watchlist quick filters */}
-          <div className="flex items-center gap-1.5">
-            {delegatedDrepId && (
-              <Button
-                variant={showMyDrepOnly ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => preserveScroll(() => { setShowMyDrepOnly(!showMyDrepOnly); setCurrentPage(1); })}
-                className="gap-1.5 text-xs hover:text-primary hover:bg-primary/10"
-              >
-                <UserCheck className="h-3.5 w-3.5" />
-                My DRep
-              </Button>
-            )}
-            {watchlist.length > 0 && (
-              <Button
-                variant={showWatchlistOnly ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => preserveScroll(() => { setShowWatchlistOnly(!showWatchlistOnly); setCurrentPage(1); })}
-                className="gap-1.5 text-xs hover:text-primary hover:bg-primary/10"
-              >
-                <Heart className="h-3.5 w-3.5" />
-                Watchlist ({watchlist.length})
-              </Button>
-            )}
-          </div>
-
-          {/* Sort by match (if user has match data) */}
-          {hasMatch && (
-            <Button
-              variant={sortConfig.key === 'match' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleSort('match')}
-              className="gap-1.5 text-xs"
-            >
-              Best Match
-            </Button>
-          )}
-
-          <div className="flex items-center gap-2">
-            <Switch
-              id="filter-well-documented"
-              checked={filterWellDocumented}
-              onCheckedChange={(checked) => {
-                setFilterWellDocumented(checked);
-                setCurrentPage(1);
-              }}
-            />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <label htmlFor="filter-well-documented" className="cursor-pointer text-sm font-medium flex items-center gap-1.5">
-                    Well-Documented
-                    <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                  </label>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">
-                    When enabled (default), only shows DReps that have provided metadata (name and description/ticker).
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 hover:text-primary hover:bg-primary/10">
-                Size Filter
-                {sizeFilters.size < 4 && (
-                  <span className="text-xs bg-primary text-primary-foreground rounded-full h-5 w-5 flex items-center justify-center">
-                    {sizeFilters.size}
-                  </span>
+            <div className="flex items-center gap-0.5 rounded-lg border p-0.5">
+              <button
+                onClick={() => handleViewModeChange('cards')}
+                className={cn(
+                  'p-1.5 rounded-md transition-colors',
+                  viewMode === 'cards' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                 )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Filter by Size</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={sizeFilters.has('Small')}
-                onCheckedChange={() => toggleSizeFilter('Small')}
-                onSelect={(e) => e.preventDefault()}
+                aria-label="Card view"
               >
-                Small (&lt;100k ADA)
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={sizeFilters.has('Medium')}
-                onCheckedChange={() => toggleSizeFilter('Medium')}
-                onSelect={(e) => e.preventDefault()}
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleViewModeChange('table')}
+                className={cn(
+                  'p-1.5 rounded-md transition-colors',
+                  viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+                aria-label="Table view"
               >
-                Medium (100k-5M)
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={sizeFilters.has('Large')}
-                onCheckedChange={() => toggleSizeFilter('Large')}
-                onSelect={(e) => e.preventDefault()}
-              >
-                Large (5M-50M)
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={sizeFilters.has('Whale')}
-                onCheckedChange={() => toggleSizeFilter('Whale')}
-                onSelect={(e) => e.preventDefault()}
-              >
-                Whale (&gt;50M ADA)
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleReset}
-            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset
-          </Button>
+                <TableProperties className="h-4 w-4" />
+              </button>
+            </div>
           </div>
+
+          <FilterPanel
+            filterWellDocumented={filterWellDocumented}
+            onFilterWellDocumentedChange={(checked) => { setFilterWellDocumented(checked); setCurrentPage(1); }}
+            sizeFilters={sizeFilters}
+            onToggleSizeFilter={toggleSizeFilter}
+            showMyDrepOnly={showMyDrepOnly}
+            onToggleMyDrep={() => preserveScroll(() => { setShowMyDrepOnly(!showMyDrepOnly); setCurrentPage(1); })}
+            hasMyDrep={!!delegatedDrepId}
+            showWatchlistOnly={showWatchlistOnly}
+            onToggleWatchlist={() => preserveScroll(() => { setShowWatchlistOnly(!showWatchlistOnly); setCurrentPage(1); })}
+            watchlistCount={watchlist.length}
+            onReset={handleReset}
+            hasMatch={hasMatch}
+            sortKey={sortConfig.key}
+            onSortByMatch={() => handleSort('match')}
+          />
         </div>
       </div>
 
@@ -599,12 +490,12 @@ export function DRepTableClient({
         drep={quickViewDrep}
         open={quickViewOpen}
         onOpenChange={setQuickViewOpen}
-        matchDetail={quickViewDrep && matchData[quickViewDrep.drepId] != null ? {
+        matchDetail={quickViewMatchDetail ?? (quickViewDrep && matchData[quickViewDrep.drepId] != null ? {
           matchScore: matchData[quickViewDrep.drepId],
           agreed: 0,
           total: 0,
           comparisons: [],
-        } : undefined}
+        } : undefined)}
         isWatchlisted={quickViewDrep ? watchlist.includes(quickViewDrep.drepId) : false}
         onWatchlistToggle={onWatchlistToggle}
         isDelegated={quickViewDrep?.drepId === delegatedDrepId}

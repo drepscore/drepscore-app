@@ -16,7 +16,7 @@ Cardano governance tool for casual ADA holders to discover DReps aligned with th
 - **Data**: Koios API (mainnet) → Supabase (cache) → Next.js (reads)
 - **Hosting**: Railway (Docker, health checks, auto-deploy from `main`)
 - **CDN/DNS**: Cloudflare
-- **Background Jobs**: Inngest Cloud (8 durable functions — syncs, integrity, notifications)
+- **Background Jobs**: Inngest Cloud (9 durable functions — syncs, integrity, notifications)
 - **Error Tracking**: Sentry (Next.js SDK)
 - **Analytics**: PostHog (JS + Node SDKs)
 
@@ -64,7 +64,7 @@ DRep Score (0-100) =
 - **Integrity alerts** (`/api/admin/integrity/alert`): Every 6 hours, Slack/Discord webhooks
 
 ## Database (Supabase)
-22+ migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`
+23+ migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`, `drep_milestones`, `position_statements`, `vote_explanations`, `governance_philosophy`
 
 ## Background Jobs (Inngest Cloud)
 All scheduled work runs via Inngest durable functions (no vercel.json crons):
@@ -76,11 +76,16 @@ All scheduled work runs via Inngest durable functions (no vercel.json crons):
 - `inbox-check` — every 30 min (new proposal alerts)
 - `integrity-snapshot` — daily (capture data quality KPIs)
 - `api-health-alert` — every 6 hours
+- `check-notifications` — every 6 hours (DRep-specific: score changes, delegation, rank, milestones, deadlines)
+
+### Inngest Step Return Type Rule
+All code paths in a `step.run()` callback must return the same object shape. Inngest serializes step results to JSON; TypeScript infers a union from divergent return paths. Later steps accessing properties that only exist on one branch will fail type-check. Always include all properties in early returns with empty defaults.
 
 ## Server Component Constraints
-- Any `app/**/page.tsx` that calls `createClient()`, `getSupabaseAdmin()`, or any runtime-only service must export `dynamic = 'force-dynamic'`. Railway's Docker build has no env vars at build time — Next.js will attempt static prerendering and crash.
+- Any `app/**/page.tsx` or `app/**/route.ts` that calls `createClient()`, `getSupabaseAdmin()`, or any runtime-only service must export `dynamic = 'force-dynamic'`. Railway's Docker build has no env vars at build time — Next.js will attempt static prerendering and crash.
+- **NEVER use `export const revalidate`** on routes that touch Supabase or any env-var-dependent service. `revalidate` triggers build-time prerendering, which crashes in Railway's Docker build. This has caused production deploy failures 3 times. Use `force-dynamic` instead — cache at the application layer if needed.
 - Client components (`'use client'`) that fetch via `useEffect` are unaffected since they never run during build.
-- When converting a page from client-only to server-fetching, always add the `force-dynamic` export.
+- When creating any new server page or API route that fetches data, default to `force-dynamic`. Only use static generation for truly static content (no DB, no env vars).
 
 ## UX Principles
 - Show value first (no forced wallet connect)
