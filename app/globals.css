@@ -183,3 +183,44 @@
 .animation-delay-400 {
   animation-delay: 0.4s;
 }
+
+/* Micro-interaction: button press */
+button:not(:disabled):active,
+[role="button"]:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* Micro-interaction: card hover lift */
+[data-slot="card"] {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+[data-slot="card"]:hover {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+  transform: translateY(-1px);
+}
+.dark [data-slot="card"]:hover {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+}
+
+/* Pillar bar stagger animation */
+@keyframes grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.animate-grow {
+  animation: grow 0.5s ease-out both;
+  transform-origin: bottom;
+}
+.animation-delay-100 { animation-delay: 0.1s; }
+.animation-delay-300 { animation-delay: 0.3s; }
+.animation-delay-500 { animation-delay: 0.5s; }
+
+/* Copy button morph */
+@keyframes check-pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-check-pop {
+  animation: check-pop 0.3s ease-out;
+}

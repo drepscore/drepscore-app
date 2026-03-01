@@ -26,6 +26,8 @@ import {
   Repeat,
   BarChart3,
   ChevronRight,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 
 export interface DelegationHealth {
@@ -89,6 +91,7 @@ export interface DashboardData {
   }[];
   redelegationSuggestions: RedelegationSuggestion[];
   currentEpoch: number;
+  repScoreDelta: number | null;
 }
 
 const VOTE_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string; bg: string }> = {
@@ -173,7 +176,7 @@ function DeadlineBadge({ epochsRemaining }: { epochsRemaining: number | null }) 
   );
 }
 
-export function DelegationHealthCard({ health }: { health: DelegationHealth | null }) {
+export function DelegationHealthCard({ health, scoreDelta }: { health: DelegationHealth | null; scoreDelta?: number | null }) {
   if (!health) {
     return (
       <Card>
@@ -219,7 +222,15 @@ export function DelegationHealthCard({ health }: { health: DelegationHealth | nu
             >
               {health.drepName || health.drepId.slice(0, 16) + '...'}
             </Link>
-            <p className="text-xs text-muted-foreground">Score: {health.drepScore}/100</p>
+            <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+              Score: {health.drepScore}/100
+              {scoreDelta != null && scoreDelta !== 0 && (
+                <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${scoreDelta > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {scoreDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {scoreDelta > 0 ? '+' : ''}{scoreDelta}
+                </span>
+              )}
+            </p>
           </div>
           <Link href={`/drep/${encodeURIComponent(health.drepId)}`}>
             <Button variant="outline" size="sm" className="gap-1 text-xs hover:text-primary hover:bg-primary/10">

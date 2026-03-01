@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { getAllDReps } from '@/lib/data';
 import { HomepageShell } from '@/components/HomepageShell';
+import { PageViewTracker } from '@/components/PageViewTracker';
 
 export const metadata: Metadata = {
   title: 'Discover DReps — DRepScore',
@@ -20,6 +21,7 @@ export default async function DiscoverPage() {
           Find Cardano governance representatives aligned with your governance values.
         </p>
       </div>
+      <PageViewTracker event="discover_page_viewed" />
       <HomepageShell
         initialDReps={dreps}
         initialAllDReps={allDReps}

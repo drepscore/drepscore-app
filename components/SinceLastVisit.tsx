@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { FileText, Vote, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { FileText, Vote, TrendingUp, TrendingDown, Minus, CheckSquare, Users } from 'lucide-react';
 import { getStoredSession } from '@/lib/supabaseAuth';
 
 interface SinceVisitData {
@@ -9,6 +9,7 @@ interface SinceVisitData {
   proposalsClosed: number;
   drepVotesCast: number;
   drepScoreChange: number | null;
+  delegatorChange: number | null;
 }
 
 interface SinceLastVisitProps {
@@ -39,7 +40,7 @@ export function SinceLastVisit({ previousVisitAt, delegatedDrepId }: SinceLastVi
 
   if (!data) return null;
 
-  const hasActivity = data.proposalsOpened > 0 || data.drepVotesCast > 0 || data.drepScoreChange !== null;
+  const hasActivity = data.proposalsOpened > 0 || data.proposalsClosed > 0 || data.drepVotesCast > 0 || data.drepScoreChange !== null;
   if (!hasActivity) return null;
 
   const scoreIcon = data.drepScoreChange === null ? null
@@ -48,12 +49,18 @@ export function SinceLastVisit({ previousVisitAt, delegatedDrepId }: SinceLastVi
     : <Minus className="h-4 w-4 text-muted-foreground" />;
 
   return (
-    <div className="flex flex-wrap items-center gap-4 px-5 py-3 rounded-xl bg-card border border-border/60 text-sm">
+    <div className="flex flex-wrap items-center gap-4 px-5 py-3 rounded-xl bg-card border border-border/60 text-sm" role="status" aria-live="polite">
       <span className="text-muted-foreground font-medium">Since your last visit:</span>
       {data.proposalsOpened > 0 && (
         <span className="inline-flex items-center gap-1.5">
           <FileText className="h-4 w-4 text-blue-500" />
           <strong>{data.proposalsOpened}</strong> proposal{data.proposalsOpened > 1 ? 's' : ''} opened
+        </span>
+      )}
+      {data.proposalsClosed > 0 && (
+        <span className="inline-flex items-center gap-1.5">
+          <CheckSquare className="h-4 w-4 text-green-500" />
+          <strong>{data.proposalsClosed}</strong> resolved
         </span>
       )}
       {data.drepVotesCast > 0 && (
@@ -66,6 +73,12 @@ export function SinceLastVisit({ previousVisitAt, delegatedDrepId }: SinceLastVi
         <span className="inline-flex items-center gap-1.5">
           {scoreIcon}
           Score {data.drepScoreChange > 0 ? '+' : ''}{data.drepScoreChange}
+        </span>
+      )}
+      {data.delegatorChange !== null && (
+        <span className="inline-flex items-center gap-1.5">
+          <Users className="h-4 w-4 text-primary" />
+          <strong>{data.delegatorChange}</strong> delegator{data.delegatorChange !== 1 ? 's' : ''}
         </span>
       )}
     </div>

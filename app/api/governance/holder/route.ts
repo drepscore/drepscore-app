@@ -230,6 +230,20 @@ export async function GET(request: NextRequest) {
       }));
     }
 
+    let repScoreDelta: number | null = null;
+    if (delegatedDrepId) {
+      const { data: scoreHistory } = await supabase
+        .from('drep_score_history')
+        .select('score')
+        .eq('drep_id', delegatedDrepId)
+        .order('recorded_at', { ascending: false })
+        .limit(2);
+
+      if (scoreHistory && scoreHistory.length === 2) {
+        repScoreDelta = Math.round((scoreHistory[0].score - scoreHistory[1].score) * 10) / 10;
+      }
+    }
+
     return NextResponse.json({
       delegationHealth,
       representationScore: {
@@ -243,6 +257,7 @@ export async function GET(request: NextRequest) {
       pollHistory,
       redelegationSuggestions,
       currentEpoch,
+      repScoreDelta,
     });
   } catch (error) {
     console.error('[Governance Dashboard API] Error:', error);

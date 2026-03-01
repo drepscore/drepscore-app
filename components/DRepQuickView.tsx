@@ -16,6 +16,7 @@ import { ScoreBreakdownTooltip } from './ScoreBreakdown';
 import { SocialIcons } from './SocialIcons';
 import { Heart, Vote, ExternalLink, Check, X as XIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import Link from 'next/link';
 
 export interface MatchComparison {
@@ -52,6 +53,8 @@ export function DRepQuickView({
   onWatchlistToggle,
   isDelegated = false,
 }: DRepQuickViewProps) {
+  const isMobile = useIsMobile();
+
   if (!drep) return null;
 
   const displayName = getDRepDisplayName(drep);
@@ -66,7 +69,7 @@ export function DRepQuickView({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent side={isMobile ? 'bottom' : 'right'} className={cn('overflow-y-auto', isMobile ? 'max-h-[85vh] rounded-t-2xl' : 'w-full sm:max-w-md')}>
         <SheetHeader className="pb-4">
           <SheetTitle className="flex items-center gap-2 text-left">
             <span className="truncate">{displayName}</span>

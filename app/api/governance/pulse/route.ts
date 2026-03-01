@@ -69,6 +69,18 @@ export async function GET() {
         return bTime - aTime;
       })[0] || null;
 
+    let spotlightVoteCoverage: number | null = null;
+    if (spotlight && activeDReps.length > 0) {
+      const { count } = await supabase
+        .from('drep_votes')
+        .select('drep_id', { count: 'exact', head: true })
+        .eq('proposal_tx_hash', spotlight.tx_hash)
+        .eq('proposal_index', spotlight.proposal_index);
+      spotlightVoteCoverage = count
+        ? Math.round((count / activeDReps.length) * 100)
+        : 0;
+    }
+
     // Community vs DRep gap: aggregate poll votes per open proposal
     const pollVotes = pollsResult.data || [];
     const pollAgg = new Map<string, { yes: number; no: number; abstain: number }>();
@@ -81,9 +93,27 @@ export async function GET() {
       pollAgg.set(key, agg);
     }
 
-    const communityGap = openProposals.slice(0, 5).map((p: any) => {
+    const topOpenForGap = openProposals.slice(0, 5);
+    let drepVoteCounts = new Map<string, number>();
+    if (topOpenForGap.length > 0) {
+      const txHashes = topOpenForGap.map((p: any) => p.tx_hash);
+      const { data: drepVotesForGap } = await supabase
+        .from('drep_votes')
+        .select('proposal_tx_hash, proposal_index')
+        .in('proposal_tx_hash', txHashes);
+      if (drepVotesForGap) {
+        for (const dv of drepVotesForGap) {
+          const key = `${dv.proposal_tx_hash}:${dv.proposal_index}`;
+          drepVoteCounts.set(key, (drepVoteCounts.get(key) || 0) + 1);
+        }
+      }
+    }
+
+    const communityGap = topOpenForGap.map((p: any) => {
       const key = `${p.tx_hash}:${p.proposal_index}`;
       const agg = pollAgg.get(key);
+      const drepVoteCount = drepVoteCounts.get(key) || 0;
+      const drepVotePct = activeDReps.length > 0 ? Math.round((drepVoteCount / activeDReps.length) * 100) : 0;
       return {
         txHash: p.tx_hash,
         index: p.proposal_index,
@@ -92,6 +122,7 @@ export async function GET() {
         pollNo: agg?.no || 0,
         pollAbstain: agg?.abstain || 0,
         pollTotal: (agg?.yes || 0) + (agg?.no || 0) + (agg?.abstain || 0),
+        drepVotePct,
       };
     }).filter(g => g.pollTotal > 0);
 
@@ -112,6 +143,7 @@ export async function GET() {
         title: spotlight.title,
         proposalType: spotlight.proposal_type,
         priority: getProposalPriority(spotlight.proposal_type),
+        voteCoverage: spotlightVoteCoverage,
       } : null,
       currentEpoch,
       communityGap,

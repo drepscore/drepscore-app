@@ -38,11 +38,15 @@ export function DRepCard({
 
   return (
     <div
+      role="listitem"
+      tabIndex={0}
+      aria-label={`${displayName}, score ${score}`}
       className={cn(
-        'group relative flex flex-col gap-3 p-4 rounded-xl border bg-card hover:shadow-md transition-all cursor-pointer',
+        'group relative flex flex-col gap-3 p-4 rounded-xl border bg-card hover:shadow-md transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         isDelegated && 'ring-2 ring-primary/30'
       )}
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
     >
       {/* Top row: score + name + size */}
       <div className="flex items-start gap-3">
