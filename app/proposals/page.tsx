@@ -1,6 +1,7 @@
 import { getAllProposalsWithVoteSummary } from '@/lib/data';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { ProposalsPageClient } from '@/components/ProposalsPageClient';
+import { PageViewTracker } from '@/components/PageViewTracker';
 
 export const revalidate = 900; // 15 min cache
 
@@ -16,6 +17,7 @@ export default async function ProposalsPage() {
           All Cardano governance proposals with DRep vote breakdowns. Click any proposal to see how DReps voted.
         </p>
       </div>
+      <PageViewTracker event="proposals_page_viewed" />
       <ProposalsPageClient proposals={proposals} currentEpoch={currentEpoch} />
     </div>
   );

@@ -12,6 +12,7 @@ import {
   RedelegationNudge,
   type DashboardData,
 } from '@/components/governance-cards';
+import { GovernanceCalendar } from '@/components/GovernanceCalendar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Compass, ArrowRight } from 'lucide-react';
@@ -68,9 +69,11 @@ export function HomepageAuth({ previousVisitAt }: HomepageAuthProps) {
       {data ? (
         <>
           <div className="grid gap-6 md:grid-cols-2">
-            <DelegationHealthCard health={data.delegationHealth} />
+            <DelegationHealthCard health={data.delegationHealth} scoreDelta={data.repScoreDelta} />
             <RepresentationScoreCard rep={data.representationScore} />
           </div>
+
+          <GovernanceCalendar />
 
           <ActiveProposalsSection proposals={data.activeProposals} />
 

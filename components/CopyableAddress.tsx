@@ -32,7 +32,7 @@ export function CopyableAddress({ address, truncate = false, className = '' }: C
     >
       {truncate ? shorten(address) : address}
       {copied
-        ? <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+        ? <Check className="h-3.5 w-3.5 text-green-500 shrink-0 animate-check-pop" />
         : <Copy className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />}
     </button>
   );

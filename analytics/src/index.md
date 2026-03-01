@@ -6,6 +6,8 @@ const history = FileAttachment("data/score-history.json").json();
 const votes = FileAttachment("data/votes.json").json();
 const syncHealth = FileAttachment("data/sync-health.json").json();
 const systemStatus = FileAttachment("data/system-status.json").json();
+const userActivity = FileAttachment("data/user-activity.json").json();
+const govEvents = FileAttachment("data/governance-events.json").json();
 ```
 
 ```js
@@ -66,6 +68,45 @@ if (currentEpoch != null) {
   </div>`);
 }
 ```
+
+```js
+const recentSyncs = syncHealth.filter(s => {
+  const age = (Date.now() - new Date(s.created_at).getTime()) / 3600000;
+  return age < 24;
+});
+const syncSuccessRate = recentSyncs.length > 0
+  ? Math.round(recentSyncs.filter(s => s.success).length / recentSyncs.length * 100)
+  : null;
+const totalUsers = userActivity?.users?.length ?? 0;
+const recentLogins = userActivity?.users?.filter(u => {
+  if (!u.last_login) return false;
+  return (Date.now() - new Date(u.last_login).getTime()) / 86400000 < 7;
+}).length ?? 0;
+const totalPolls = govEvents?.pollActivity?.reduce((s, d) => s + d.votes, 0) ?? 0;
+```
+
+<div class="kpi-row cols-4" style="margin-bottom: 0.5rem">
+  <div class="kpi" style="border-left: 3px solid ${syncSuccessRate == null ? '#888' : syncSuccessRate >= 95 ? '#10b981' : syncSuccessRate >= 80 ? '#f59e0b' : '#ef4444'}">
+    <span class="kpi-label">Sync Health (24h)</span>
+    <span class="kpi-value">${syncSuccessRate != null ? syncSuccessRate + '%' : '—'}</span>
+    <span class="kpi-sub">${recentSyncs.length} runs · ${recentSyncs.filter(s => !s.success).length} failures</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Registered Users</span>
+    <span class="kpi-value">${totalUsers}</span>
+    <span class="kpi-sub">${recentLogins} active in last 7 days</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Community Poll Votes</span>
+    <span class="kpi-value">${totalPolls.toLocaleString()}</span>
+    <span class="kpi-sub">last 90 days</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-label">Recent Sync Failures</span>
+    <span class="kpi-value" style="color: ${recentSyncFails > 0 ? '#ef4444' : '#10b981'}">${recentSyncFails}</span>
+    <span class="kpi-sub">last 24 hours</span>
+  </div>
+</div>
 
 <div class="kpi-row cols-4">
   <div class="kpi">

@@ -408,6 +408,13 @@ figure[class*="plot"] {
       ],
     },
     {
+      name: "Growth",
+      open: false,
+      pages: [
+        { name: "User Growth & Engagement", path: "/growth" },
+      ],
+    },
+    {
       name: "Operations",
       open: false,
       pages: [
