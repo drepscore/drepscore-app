@@ -4,7 +4,6 @@ import { blockTimeToEpoch } from '@/lib/koios';
 import { getProposalPriority } from '@/utils/proposalPriority';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 300;
 
 export async function GET() {
   try {
@@ -75,8 +74,8 @@ export async function GET() {
     for (const pv of pollVotes) {
       const key = `${pv.proposal_tx_hash}:${pv.proposal_index}`;
       const agg = pollAgg.get(key) || { yes: 0, no: 0, abstain: 0 };
-      if (pv.vote === 'Yes') agg.yes++;
-      else if (pv.vote === 'No') agg.no++;
+      if (pv.vote === 'yes') agg.yes++;
+      else if (pv.vote === 'no') agg.no++;
       else agg.abstain++;
       pollAgg.set(key, agg);
     }

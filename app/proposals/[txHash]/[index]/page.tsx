@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getProposalByKey, getVotesByProposal } from '@/lib/data';
 import { blockTimeToEpoch } from '@/lib/koios';
+import { createClient } from '@/lib/supabase';
 import { ProposalVotersWithContext } from '@/components/ProposalVotersWithContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,10 @@ import {
 } from '@/components/ProposalStatusBadge';
 import { getProposalStatus } from '@/utils/proposalPriority';
 import { DRepVoteCallout } from '@/components/DRepVoteCallout';
+import { FinancialImpactCard } from '@/components/FinancialImpactCard';
 import { SentimentPoll } from '@/components/SentimentPoll';
+import { CommunityPulseInsight } from '@/components/CommunityPulseInsight';
+import { createClient } from '@/lib/supabase';
 
 interface ProposalDetailPageProps {
   params: Promise<{ txHash: string; index: string }>;
@@ -44,12 +48,69 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
 
   if (isNaN(proposalIndex)) notFound();
 
-  const [proposal, votes] = await Promise.all([
+  const supabase = createClient();
+
+  const [proposal, votes, pollAgg, votingSummary] = await Promise.all([
     getProposalByKey(txHash, proposalIndex),
     getVotesByProposal(txHash, proposalIndex),
+    supabase
+      .from('poll_responses')
+      .select('vote')
+      .eq('proposal_tx_hash', txHash)
+      .eq('proposal_index', proposalIndex)
+      .then(({ data }) => {
+        const rows = data ?? [];
+        return {
+          yes: rows.filter(r => r.vote === 'yes').length,
+          no: rows.filter(r => r.vote === 'no').length,
+          abstain: rows.filter(r => r.vote === 'abstain').length,
+          total: rows.length,
+        };
+      }),
+    supabase
+      .from('proposal_voting_summary')
+      .select('drep_yes_votes_cast, drep_no_votes_cast, drep_abstain_votes_cast')
+      .eq('proposal_tx_hash', txHash)
+      .eq('proposal_index', proposalIndex)
+      .order('epoch_no', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => data),
   ]);
 
   if (!proposal) notFound();
+
+  const supabase = createClient();
+  const [treasuryRes, voteSummaryRes] = await Promise.all([
+    supabase
+      .from('governance_stats')
+      .select('treasury_balance_lovelace')
+      .eq('id', 1)
+      .single(),
+    supabase
+      .from('proposal_voting_summary')
+      .select('drep_yes_vote_power, drep_no_vote_power, drep_abstain_vote_power')
+      .eq('proposal_tx_hash', txHash)
+      .eq('proposal_index', proposalIndex)
+      .order('epoch_no', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const treasuryBalanceAda = treasuryRes.data?.treasury_balance_lovelace
+    ? Number(treasuryRes.data.treasury_balance_lovelace) / 1_000_000
+    : null;
+
+  const vs = voteSummaryRes.data;
+  const totalVotePowerAda = vs
+    ? (Number(vs.drep_yes_vote_power ?? 0) +
+       Number(vs.drep_no_vote_power ?? 0) +
+       Number(vs.drep_abstain_vote_power ?? 0)) / 1_000_000
+    : null;
+
+  const withdrawalAmountAda = proposal.withdrawalAmount
+    ? Number(proposal.withdrawalAmount) / 1_000_000
+    : null;
 
   const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
   const config = TYPE_CONFIG[proposal.proposalType];
@@ -135,11 +196,37 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
       {/* AI Summary - immediately after header for at-a-glance understanding */}
       <ProposalAiSummary summary={proposal.aiSummary} />
 
+      {/* Financial / Protocol Impact */}
+      <FinancialImpactCard
+        proposalType={proposal.proposalType}
+        withdrawalAmount={withdrawalAmountAda}
+        treasuryTier={proposal.treasuryTier}
+        paramChanges={proposal.paramChanges}
+        treasuryBalance={treasuryBalanceAda}
+        totalVotePower={totalVotePowerAda}
+      />
+
       {/* DRep Vote Callout */}
       <DRepVoteCallout txHash={txHash} proposalIndex={proposalIndex} />
 
       {/* Community Sentiment Poll */}
       <SentimentPoll txHash={txHash} proposalIndex={proposalIndex} isOpen={isOpen} />
+
+      {/* Community vs DRep Sentiment Gap */}
+      <CommunityPulseInsight
+        communityYes={pollAgg.yes}
+        communityNo={pollAgg.no}
+        communityAbstain={pollAgg.abstain}
+        communityTotal={pollAgg.total}
+        drepYesCount={votingSummary?.drep_yes_votes_cast ?? 0}
+        drepNoCount={votingSummary?.drep_no_votes_cast ?? 0}
+        drepAbstainCount={votingSummary?.drep_abstain_votes_cast ?? 0}
+        drepTotal={
+          (votingSummary?.drep_yes_votes_cast ?? 0) +
+          (votingSummary?.drep_no_votes_cast ?? 0) +
+          (votingSummary?.drep_abstain_votes_cast ?? 0)
+        }
+      />
 
       {/* Full Description (abstract) */}
       <ProposalDescription aiSummary={null} abstract={proposal.abstract} />

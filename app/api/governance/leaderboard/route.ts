@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
     captureServerEvent('leaderboard_api_error', { error: String(err) });
     return NextResponse.json({
       error: 'Internal error',
-      detail: err instanceof Error ? err.message : String(err),
+      detail: err instanceof Error ? err.message : JSON.stringify(err),
     }, { status: 500 });
   }
 }

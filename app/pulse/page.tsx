@@ -20,6 +20,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { posthog } from '@/lib/posthog';
+import { TreasuryHealth } from '@/components/TreasuryHealth';
 
 export const dynamic = 'force-dynamic';
 
@@ -192,6 +193,9 @@ export default function PulsePage() {
           </Card>
         </div>
       )}
+
+      {/* Treasury Health */}
+      <TreasuryHealth />
 
       {/* Community vs DRep Gap */}
       {pulse && pulse.communityGap.length > 0 && (
