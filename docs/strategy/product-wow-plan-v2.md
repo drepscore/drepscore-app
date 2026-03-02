@@ -189,47 +189,95 @@ Rendered below the hero in normal document flow to prevent ticker overlap.
 
 ### Thesis
 
-The single biggest gap between "good app" and "wow" is visual identity. DRepScore screenshots look like any well-built shadcn app. The Governance Identity Radar — a 6-dimension radar visualization of each DRep's governance personality — becomes the signature visual of the entire platform. Combined with a hexagonal score display and per-DRep identity colors, every DRep gets a unique visual "face" generated from their governance data.
+Session 12 gave the homepage a visual identity with the R3F constellation. Session 13 extends that premium quality to every DRep — giving each one a unique, generative visual "face" derived from their governance data. The Governance Identity Radar and Hex Score become the two signature visuals of the platform: instantly recognizable, inherently shareable, and impossible to reproduce with off-the-shelf chart libraries.
+
+**Design north star:** Every DRep profile should feel like entering that DRep's "world." Identity color permeates the page. The radar reveals their governance personality through animated geometry. The hex score pulses as their living signature. This is not a dashboard — it's a portrait.
 
 ### What Changes
 
-**1. Governance Identity Radar.** Recharts `RadarChart` showing the 6 alignment dimensions already stored on every DRep (treasury conservative, treasury growth, decentralization, security, innovation, transparency). Appears on: DRep profiles (hero), discovery cards (mini 48x48), quick view, compare page (overlaid), report cards, OG images, badge embeds. Styled with DRep's dominant identity color.
+**1. Governance Identity Radar — custom SVG with animated geometry (NOT Recharts).** A bespoke radar visualization — no chart library. 6 axis lines radiate from center, one per alignment dimension. Data points connected by a filled polygon with:
+- **SVG filter glow**: `feGaussianBlur` + `feComposite` for a soft bloom matching the identity color, achieving the same premium feel as the constellation's WebGL bloom but in SVG
+- **Gradient fill**: Radial gradient from identity color center (30% opacity) to edge (5% opacity), creating depth
+- **Animated reveal**: On mount, each axis extends outward from center with Framer Motion spring physics (`stiffness: 200, damping: 20`). The polygon "unfolds" as dimensions animate to their values.
+- **Adaptive sizes**: Full (200px profile hero with axis labels + dimension names), medium (80px for discovery cards with axes only), mini (32px for inline badges — silhouette only, no labels). All three sizes are a single `<GovernanceRadar>` component with a `size` prop.
+- **Compare mode**: Two overlaid radar polygons with distinct identity-color fills and reduced opacity. Used on compare page.
+- **Interactive tooltips**: Hover a dimension axis to see score value + percentile rank among all DReps.
+- **Placement**: DRep profile hero (primary), discovery cards, quick view modal, compare page, report cards, OG images, badge embeds.
 
-**2. DRep identity color system extension.** Extend the existing `lib/drepIdentity.ts` (created in Session 12) with hex score mapping and radar configuration. The 6 identity colors are already defined: Treasury Conservative = Deep Red, Treasury Growth = Emerald, Decentralization = Purple, Security = Amber, Innovation = Cyan, Transparency = Blue. Session 13 adds: color as accent ring on score, gradient on profile header, radar fill, OG tint.
+**2. Hex Score — procedural generative visualization.** Replace `ScoreRing` donut with a hexagonal score display where the 6 sides map to 6 alignment dimensions. Each vertex radius is proportional to the dimension score, creating an asymmetric shape unique to each DRep:
+- **Generative edge particles**: Tiny dots drift along the hexagon edges using `requestAnimationFrame`, emitting from vertices at a rate proportional to the dimension's score. Creates a "living" feel.
+- **Breathing glow**: Subtle pulsing box-shadow/SVG filter in the identity color, 3s cycle, amplitude ±15%. Makes the score feel alive, not static.
+- **Noise-textured fill**: SVG `feTurbulence` filter for a subtle organic texture inside the hex, avoiding the flat-color look of standard charts.
+- **Score number**: Large centered text with Framer Motion `useSpring` counting animation (0 → score on mount, spring physics for overshooting feel).
+- **Morph animation**: When navigating between DRep profiles, the hex shape morphs smoothly using Framer Motion `animate` with path interpolation.
+- **Sizes**: Hero (120px, full effects), card (48px, simplified — glow + number only, no particles), badge (24px, solid shape only).
 
-**3. Hexagonal score visualization.** Replace the standard `ScoreRing` donut with a hexagonal shape where 6 sides map to 6 alignment dimensions. The shape morphs based on alignment balance — well-rounded DReps have regular hexagons, specialists have asymmetric ones. This becomes the "logo" of every DRep.
+**3. DRep profile hero — immersive identity experience.** The profile page hero becomes a full-bleed section (similar in ambition to the homepage constellation) that immerses the visitor in the DRep's identity:
+- **Identity-colored ambient gradient**: Full-width background gradient using the DRep's dominant identity color at low opacity (5-10%), fading to the dark base. Creates a subtle but unmistakable "this DRep has a color" feeling.
+- **Radar as centerpiece**: The full 200px radar animates on scroll-into-view, flanked by the DRep's name, score hex, and key stats.
+- **Delegation CTA with identity accent**: Primary CTA button uses the identity color as its accent, creating visual consistency between "who they are" and "what you can do."
+- **Parallax depth**: Slight parallax between the gradient background and the foreground content for a layered feel.
 
-**4. Framer Motion animation system.** Replace CSS-only animations with physics-based Framer Motion: staggered section reveals, spring-physics score counting, radar dimensions animating outward from center, spring-physics card hover. New dependency: `framer-motion`. New shared variants: `lib/animations.ts`.
+**4. Framer Motion animation system.** Physics-based animations as the default for all user-facing transitions:
+- **Spring presets** in `lib/animations.ts`: `snappy` (stiffness: 400, damping: 30 — for interactions), `smooth` (stiffness: 200, damping: 25 — for reveals), `bouncy` (stiffness: 300, damping: 15 — for celebrations/milestones).
+- **Staggered section reveals**: Profile sections animate in with 50ms stagger, sliding up with `smooth` spring.
+- **Score counting**: `useSpring` for score numbers across the app (ScoreRing replacement, hex score, stat cards).
+- **Card hover**: `whileHover={{ scale: 1.02, y: -2 }}` with `snappy` spring on all discovery/comparison cards.
+- **Layout animations**: `AnimatePresence` + `layout` prop for smooth tab transitions on profile and dashboard pages.
+- Dependency: `framer-motion` (~30KB gzipped, mitigated via `next/dynamic` for heavy animation components).
 
-**5. Custom chart aesthetic.** All Recharts instances get branded styling: dotted grids, dark tooltips with brand accent, gradient area fills, consistent color palette. New shared config: `lib/chartTheme.ts`.
+**5. DRep identity color system extension.** Extend `lib/drepIdentity.ts` with:
+- `getIdentityGradient(dimension)`: Returns a CSS gradient string (e.g., `linear-gradient(135deg, #a855f7 0%, #0a0b14 100%)`) for use in profile heroes and card accents.
+- `getRadarConfig(dimension)`: Returns SVG filter IDs and gradient stops for the radar's identity-colored bloom.
+- `getHexVertices(alignments, size)`: Computes the 6 vertex positions for the asymmetric hex score shape.
+- Identity color as: accent ring on score, gradient on profile header, radar fill, OG tint, card border glow, CTA button accent.
 
-**6. Dark-first design audit.** Polish dark mode: vivid hero gradients, verified chart contrast, subtle card glow borders, vivid score colors against dark backgrounds. Note: dark mode is already the default (set in Session 12 via `app/layout.tsx` `defaultTheme="dark"`).
+**6. Custom chart aesthetic — branded Recharts.** All remaining Recharts instances (score history, vote heatmap, treasury charts) get a cohesive branded skin:
+- Dark background, dotted grid lines (#1a1b2e), identity-colored area fills with gradient
+- Custom dark tooltips with brand accent border
+- Consistent axis styling: muted labels, no chart chrome
+- New shared config: `lib/chartTheme.ts`
 
-**7. OG images with radar.** New route `/api/og/governance-identity/[drepId]`. Update existing `/api/og/drep/[drepId]` and `/api/og/compare` to include mini radars.
+**7. Dark-first design audit.** Systematic pass across all components:
+- Card borders: replace solid borders with subtle `box-shadow: 0 0 0 1px rgba(identity-color, 0.1)` glow
+- Stat numbers: use `text-white` with slight text-shadow in identity color for emphasis
+- Empty states: replace generic illustrations with identity-themed subtle gradients
+- Verify all chart labels, tooltips, and badges have sufficient contrast in dark mode
+- Note: dark mode is already the default (Session 12).
+
+**8. OG images with radar + identity color.** Distinctive, shareable social images:
+- New route `/api/og/governance-identity/[drepId]`: Full-card image with DRep name, hex score, mini radar, identity-colored gradient background, DRepScore branding. This is what DReps share when they want to show their "governance personality."
+- Update existing `/api/og/drep/[drepId]`: Add mini radar, identity color gradient, modernized layout.
+- Update `/api/og/compare`: Both DReps' radars overlaid, dual identity-color gradients.
+- All OG images use `@vercel/og` `ImageResponse` with custom SVG rendering (not screenshots).
 
 ### Current State (for agent context)
 
 - `EnrichedDRep` interface has all 6 `alignment*` fields (nullable numbers, 0-100)
 - `lib/alignment.ts` — `computeAllCategoryScores()` computes all 6, `getDRepTraitTags()` generates text labels
-- `lib/drepIdentity.ts` — **Already exists** (created in Session 12) with 6 identity colors, `getDominantDimension()`, `getIdentityColor()`, `extractAlignments()`, `alignmentsToArray()`, `getDimensionLabel()`, `getDimensionOrder()`, `getAllIdentityColors()`. Session 13 extends this with hex score mapping and radar configuration.
-- `components/ScoreRing.tsx` — Standard SVG donut chart, color by score tier
-- `components/CompareView.tsx` — Has a Recharts RadarChart for *pillars* (not alignment); alignment shown as horizontal bars
+- `lib/drepIdentity.ts` — **Already exists** (created in Session 12) with 6 identity colors, `getDominantDimension()`, `getIdentityColor()`, `extractAlignments()`, `alignmentsToArray()`, `getDimensionLabel()`, `getDimensionOrder()`, `getAllIdentityColors()`. Session 13 extends this with gradient, radar, and hex vertex utilities.
+- `components/ScoreRing.tsx` — Standard SVG donut chart, color by score tier (to be replaced by HexScore)
+- `components/CompareView.tsx` — Has a Recharts RadarChart for *pillars* (not alignment); alignment shown as horizontal bars (radar to be replaced with GovernanceRadar)
+- `components/GovernanceConstellation.tsx` — R3F constellation on homepage sets the visual quality bar. Session 13 visuals must match this level of polish.
 - Current animations: CSS (`animate-fade-in-up`, `animate-gradient-shift`, `animate-grow`, card hover via Tailwind transitions) + R3F `useFrame` on homepage constellation
 - Decentralization score is discrete (5 possible values based on size tier) — may need normalization for radar visual balance
 - Dark mode is already the default (Session 12)
 
 ### Success Criteria
 
-- A screenshot of any DRep's profile is instantly recognizable as DRepScore
-- DReps share their Governance Identity Radar on X/Twitter as their "governance personality"
-- Dark mode looks intentional and premium, not auto-generated
-- Animations feel fast and purposeful (200-300ms), never slow or gratuitous
+- A screenshot of any DRep's profile is instantly recognizable as DRepScore — the radar and hex score are visual signatures no other app has
+- DReps share their Governance Identity Radar on X/Twitter as their "governance personality" — the OG image is beautiful enough to share without context
+- The profile hero creates an emotional response: "this DRep has a *presence*"
+- Animations feel fast, purposeful, and premium (200-300ms spring, never floaty or delayed)
+- Dark mode looks intentional and premium across every surface — not auto-generated
 
 ### Risks
 
-- Alignment score clustering: if most DReps have similar radar shapes, the visual loses its power. Verify score distribution before shipping; consider normalization.
-- Framer Motion bundle size (~30KB gzipped). Mitigate with dynamic imports for heavy animation components.
-- Hexagonal score is a custom SVG — needs to work at all sizes (16px badge through 120px profile hero)
+- Alignment score clustering: if most DReps have similar radar shapes, the visual loses its power. **Mitigation**: Before building, query the alignment distribution. If >70% of DReps have all dimensions within ±10 of each other, apply min-max normalization per dimension to spread the visual range.
+- Framer Motion bundle size (~30KB gzipped). Mitigate with `next/dynamic` for animation-heavy components that aren't above the fold.
+- Hex score procedural effects (particles, noise texture) must perform well on mobile. **Mitigation**: Disable particles and noise filter on `prefers-reduced-motion` or mobile; show static hex with glow only.
+- SVG filter glow on the radar has browser rendering differences. **Mitigation**: Test on Chrome, Firefox, Safari; fall back to CSS box-shadow if SVG filters are inconsistent.
+- Custom SVG radar is more implementation effort than Recharts. **Tradeoff accepted**: The "Ambitious by Default" principle (see `workflow.md`) explicitly prioritizes visual distinctiveness over implementation speed for user-facing surfaces.
 
 ---
 

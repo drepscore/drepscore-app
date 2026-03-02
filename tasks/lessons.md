@@ -292,6 +292,15 @@ Server-side API routes also need `captureServerEvent` for success + error tracki
 **Issue**: Rules referenced "9 Inngest functions" but we added 3 more. The stale count would mislead future sessions into thinking a function was missing or extra.
 **Takeaway**: When rules reference specific counts (functions, tables, API routes), add a note to update the count when the list changes. Better yet, reference the list rather than a number where possible.
 
+### 2026-03-02: "Feasible" over "ambitious" causes rework — default to premium
+**Promoted to rule**: Yes — `workflow.md` updated with "Ambitious by Default" principle.
+**Issue**: Session 12 chose Canvas 2D for the constellation to save ~200KB of bundle. The result was visually subpar and actively harmed first impressions. The rework to React Three Fiber cost more total effort than just doing R3F from the start. The same pattern nearly repeated for Session 13 (Recharts RadarChart instead of custom SVG radar).
+**Takeaway**: When choosing between implementation approaches for user-facing visuals, default to the one that produces the most distinctive result. Bundle size, implementation time, and complexity are secondary to visual quality — lazy-loading and code splitting mitigate most performance concerns. "Good enough" creates rework; "premium" ships once.
+
+### 2026-03-02: Pre-existing type errors block commits — maintain clean trunk
+**Issue**: Pre-existing `React.ElementType` type errors in `IntegrityDashboard.tsx` and `MilestoneBadges.tsx` blocked the Session 12 cleanup commit even though they were unrelated to the changes. Cost 10+ minutes of diagnosis and fixup.
+**Takeaway**: Fix type errors as soon as they appear, even if they're in "other people's" code. A clean trunk means every commit goes through without unrelated friction. When encountering pre-existing errors during a session, fix them in the same commit as a drive-by cleanup.
+
 ### 2026-03-02: Canvas 2D has a hard ceiling for premium visuals
 **Issue**: Session 12's constellation was originally built with Canvas 2D for lower bundle cost. The result was blurry, clumped nodes with no real glow or depth — the opposite of the intended "10-second hook." `shadowBlur` for glow is CPU-bound and looks painted rather than luminous. No additive blending. No real bloom.
 **Fix**: Replaced with React Three Fiber + `@react-three/postprocessing` Bloom. GPU-accelerated instanced rendering, real bloom via mipmapBlur, cinematic camera transitions. ~200KB lazy-loaded (zero LCP impact). When visual quality is the goal, Canvas 2D is a false economy.

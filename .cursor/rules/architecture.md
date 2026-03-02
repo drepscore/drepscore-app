@@ -111,6 +111,7 @@ All code paths in a `step.run()` callback must return the same object shape. Inn
 - Summary view default, depth on demand (hover tooltips, expandable sections)
 - Loading skeletons, <3s target page loads
 - Encourage delegation to smaller, quality DReps (size tier badges, decentralization scoring)
+- **Ambitious by default**: Every user-facing visual must be unmistakably DRepScore — not generic shadcn. Custom visualizations over chart libraries, physics-based animations over CSS transitions, identity-colored accents on every surface. See "Ambitious by Default" in `workflow.md` for the full decision framework.
 
 ## Production URL
 https://drepscore.io
