@@ -50,9 +50,10 @@ When a feature is complete:
    ```
    git push origin feature/<name>
    ```
-2. Create a PR:
+2. Create a PR (write body to file — inline `--body` breaks in PowerShell):
    ```
-   gh pr create --title "feat: <description>" --body "## Summary\n..."
+   # Use Write tool to create .git/PR_BODY.md, then:
+   gh pr create --title "feat: <description>" --body-file .git/PR_BODY.md --base main
    ```
 3. Tell the user: "PR created. Switch to the `drepscore-app` window to merge when ready."
 

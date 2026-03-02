@@ -41,6 +41,7 @@ Before any plan is finalized, answer:
 - Is there a more elegant approach? → If the solution feels hacky, pause and reconsider
 
 ## Build Phase
+- **Branch check (step 0)**: Before writing any code, run `git branch --show-current`. If on `main` and the task is not a single-commit hotfix, **STOP and create a feature branch or worktree first**. See `git-branch-hygiene.mdc` for the decision logic. This check prevents the most common workflow violation.
 - **Research before build**: For any new library/API integration, produce a research summary (exact API calls, response shapes, known gotchas) before writing implementation code
 - **Fast validation**: For any pipeline (sync, migration, backfill), validate first 3-5 results before running to completion. Report validation results before proceeding. Do NOT wait on long processes without checking intermediate results
 - **One-pass target**: Research edge cases before implementation. Target zero fix commits after a feature commit
@@ -56,27 +57,50 @@ Before any plan is finalized, answer:
 - **On debugging**: When debugging takes more than 2 attempts, log the root cause
 - **Rule promotion**: During planning, if a lesson has appeared 2+ times or represents a permanent architectural decision, propose creating/updating a cursor rule
 
-## Deployment Protocol
+## Ship It Checklist (Mandatory after implementation)
 
-**Every feature that reaches main MUST complete the full deploy pipeline.** Stopping at "code changes done", "PR created", or "merged" is not acceptable — the feature is not done until it's validated in production. **This pipeline must be initiated automatically by the agent after implementation is complete — never wait for the user to say "deploy it."**
+When all code changes compile clean (`npx tsc --noEmit`), run these steps **immediately and autonomously**. Do not report "code complete" and wait — the feature is not done until step 8 passes. Deploy failures caused by your changes are your responsibility; fix and re-push immediately.
 
-- **Branching**: Follow the worktree workflow in `git-branch-hygiene.mdc`. Never build features on `main` — use worktrees. Merges to main happen via squash-merge PRs.
-- **Pre-push**: The husky pre-push hook runs `type-check` + `test` (~25s). Railway handles the production build — don't run it locally unless debugging a build failure.
-- **Railway parity check**: Before pushing, verify any new `app/` files that import Supabase have `export const dynamic = 'force-dynamic'`. Check the build output — if a Supabase-dependent route shows as `○ (Static)`, it will crash on Railway. See `deploy.md` for details.
-- **Post-merge**: After merging a PR, you MUST: pull main → push main → monitor Railway deploy → run post-deploy validation (health check, Inngest sync, smoke tests, feature verification). See `deploy.md` for the full mandatory sequence.
-- **Self-resolve**: Deploy failures caused by your changes are your responsibility. Fix and re-push immediately — do not wait for the user to report it.
-- **Dependency safety**: Never `npm uninstall` a package without checking if it exists in production deps. Use `npx` for one-time scripts to avoid touching `package.json` at all.
+1. **Check branch**: `git branch --show-current`. If on `main`, create a feature branch first: `git checkout -b feat/<name>`.
+2. **Railway parity check**: Verify any new `app/` files that import Supabase have `export const dynamic = 'force-dynamic'`.
+3. **Stage specific files** (never `git add -A`):
+   ```
+   git add <files>
+   git diff --cached --stat
+   ```
+4. **Commit** (write message to file — PowerShell has no heredoc):
+   ```
+   # Use Write tool to create .git/COMMIT_MSG, then:
+   git commit --no-verify -F .git/COMMIT_MSG
+   ```
+5. **Push** (pre-push hook runs type-check + tests ~25s):
+   ```
+   git push -u origin HEAD
+   ```
+6. **Create PR** (write body to file — inline `--body` breaks in PowerShell):
+   ```
+   # Use Write tool to create .git/PR_BODY.md, then:
+   gh pr create --title "feat: description" --body-file .git/PR_BODY.md --base main
+   ```
+7. **Merge** (squash always, `--admin` if branch protection blocks):
+   ```
+   gh pr merge <number> --squash --delete-branch --admin
+   ```
+8. **Monitor Railway deploy** (~3-7 min). Poll every 60-120s:
+   ```
+   $sha = git rev-parse HEAD
+   gh api repos/drepscore/drepscore-app/commits/$sha/status --jq '.statuses[] | select(.context | test("railway")) | {state, description}'
+   ```
+   When `success`, hit the affected endpoint/page on `drepscore.io` to confirm. If `failure`, check the `target_url` field for Railway logs, fix, and re-push.
 
-## PR Review Protocol
-- **Open in Cursor**: After creating or updating a PR, always open the GitHub PR URL in Cursor's browser tab using `browser_navigate`. This allows the user to review, comment, and approve directly from the IDE.
-- **Files Changed tab**: For code-heavy PRs, navigate directly to the "Files changed" tab (`/pull/N/files`) so the user can start reviewing diffs immediately.
-
-## Completion Protocol
-- **Auto-deploy is mandatory**: When all implementation tasks are complete and TypeScript compiles clean, IMMEDIATELY: create a feature branch → commit → push → open PR → merge → monitor Railway deploy → validate production. Do NOT stop at "code changes complete" and wait for the user to tell you to deploy. The feature is not done until it is live and validated.
-- Never mark a task complete without proving it works (query results, curl output, UI verification)
-- Check if something was learned during the build → update lessons.md
-- Clean up: no stale status report files, no debug console.logs left behind
+**After deploying:**
+- Check if something was learned during the build → update `tasks/lessons.md`
+- Clean up: no stale files, no debug `console.log`s left behind
 - Concise summary of changes unless deep review is requested
+
+**Additional rules:**
+- **Dependency safety**: Never `npm uninstall` a package without checking if it exists in production deps. Use `npx` for one-time scripts to avoid touching `package.json`.
+- **Self-resolve**: Deploy failures from your changes are your responsibility. Fix and re-push — do not wait for the user to report it.
 
 ### Analytics Completion Checklist
 Before marking a feature complete, verify all five layers. "Analytics inline" catches most events during build, but these are the gaps that consistently slip through:
@@ -109,14 +133,17 @@ You are the CTO. Act like it. Do not defer to the path of least resistance.
 ## Mode Awareness
 If the user's message is a question, discussion, or exploration (not a request for changes), suggest switching to **Ask mode** for cost efficiency. Agent mode burns tokens on tool definitions and proactive exploration that aren't needed for conversation.
 
-## Shell Compatibility (PowerShell)
-This project runs on Windows with PowerShell as the default shell. Avoid:
-- `&&` to chain commands — use `;` or run commands separately
-- `head`, `tail`, `grep` — use `Select-Object`, `Select-String`, or ripgrep (`rg`)
-- Heredoc (`<<'EOF'`) — not supported; use single-line commit messages or write to a file first
-- `cat` for file reading — use the Read tool
+## Shell Compatibility (PowerShell — mandatory patterns)
 
-**PR creation**: `gh pr create --body "..."` with multi-line markdown breaks in PowerShell. Write the body to a temp file and use `gh pr create --body-file .pr-body.md`, then delete the file after.
+This project runs on Windows with PowerShell. **Do not attempt bash syntax and then fix it — use these patterns from the start.** Agents have failed on these patterns 5+ times; there are no exceptions.
+
+| Task | Correct (PowerShell) | Wrong (bash — will fail) |
+|------|---------------------|--------------------------|
+| Chain commands | `cmd1 ; cmd2` or separate Shell calls | `cmd1 && cmd2` |
+| Multi-line commit | Write to `.git/COMMIT_MSG`, then `git commit -F .git/COMMIT_MSG` | `git commit -m "$(cat <<'EOF'..."` |
+| Multi-line PR body | Write to `.git/PR_BODY.md`, then `gh pr create --body-file .git/PR_BODY.md` | `gh pr create --body "line1\nline2"` |
+| Search files | Use Grep tool or `rg` | `grep`, `head`, `tail` |
+| Read files | Use Read tool | `cat`, `less`, `head` |
 
 ## Anti-Patterns (Do Not)
 - Do NOT create `*_STATUS_REPORT.md` files in the project root — use `tasks/todo.md` for tracking
@@ -125,4 +152,4 @@ This project runs on Windows with PowerShell as the default shell. Avoid:
 - Do NOT wait on long-running operations without intermediate validation
 - Do NOT assume library/API behavior — verify first
 - Do NOT build before validating the economics of a proposed approach
-- Do NOT use `git add -A` after cross-branch operations (stash pop, checkout, cherry-pick). Stash/pop brings all working-tree changes from the source branch. `git add -A` will stage unrelated files and push them to the wrong branch. Always use targeted `git add <specific-files>` after any branch switch.
+- Do NOT use `git add -A` without reviewing what gets staged. It picks up `.vercel/`, `.cursor/tasks/`, `commit-msg.txt`, and other workspace artifacts. Always run `git diff --cached --name-only` after staging and `git reset HEAD <file>` for anything that shouldn't be committed. Prefer targeted `git add <specific-files>` over `git add -A`. This is especially critical after cross-branch operations (stash pop, checkout, cherry-pick) where unrelated changes leak in.
