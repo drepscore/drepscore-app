@@ -48,6 +48,7 @@ Before any plan is finalized, answer:
 - **Database-first**: Any feature that reads external data must go through Supabase. No new direct-API paths to the frontend
 - **Analytics inline**: Every new user-facing interaction must include its PostHog event at creation time, not as a follow-up. If you create a button, form, or state change a user triggers — add the `posthog.capture()` call in the same diff. Reference `analytics.mdc` for naming conventions.
 - **No orphaned components**: Every component created in a session must be imported and rendered somewhere in the same commit/PR. A component that exists only as a file is invisible debt — it will be forgotten. If a component isn't ready to wire in, don't build it yet.
+- **Feature-flag risky features**: Any feature that is controversial, untested with real users, or could generate community pushback should ship behind a feature flag. Use `getFeatureFlag()` (server) or `<FeatureGate>` (client) from `lib/featureFlags.ts`. Add the flag to the `feature_flags` table via migration. Gate at the call site, not inside the component. See Feature Flags section in `architecture.md`.
 - **Deprecation audit**: When removing or replacing a system (preferences, wizard, scoring model, etc.), search for all consumers of its **data and state** — not just direct imports of deleted files. Hooks, effects, API routes, and conditional logic that depend on the removed system's output will silently break if not updated.
 
 ## Continuous Learning Protocol
@@ -59,23 +60,51 @@ Before any plan is finalized, answer:
 
 ## Hotfix Protocol
 
-When the user says **"hotfix"**, **"hotfix this"**, or **"hotfix to production"**, this is a trigger to autonomously fix, commit, push, and validate — end to end. Do NOT stop at "code complete" and wait for instructions. The full sequence is mandatory:
+When the user says **"hotfix"**, **"hotfix this"**, or **"hotfix to production"**, this is a trigger to autonomously fix, commit, push, and validate — end to end. Do NOT stop at "code complete" and wait for instructions.
 
-1. **Fix the bug** on `main` (hotfixes are direct-to-main, no branch/PR)
-2. **Stage only bug fix files** — never stage docs, cursor rules, or unrelated changes
-3. **Write commit message** to `commit-msg.txt` (PowerShell has no heredoc), prefix with `fix:`
-4. **Commit**: `git commit -F commit-msg.txt`
-5. **Push**: `git push origin main` (pre-push hook runs type-check + tests ~25-40s — wait for it)
-6. **Monitor CI**: Poll `gh run list --branch main --limit 1` until conclusion is `success` or `failure`. If failure, read logs, fix, re-push.
-7. **Wait for Railway deploy** (~5 min after push). Budget the time — do not skip.
-8. **Post-deploy validation**: Run the full validation sequence from `deploy.md` (health check, Inngest sync, smoke tests, feature-specific verification)
-9. **Report**: Concise summary of what shipped, deploy status, and validation results
+### Step 0: Create todos for the FULL pipeline (MANDATORY)
 
-**Key distinction from Ship It Checklist**: Hotfixes skip branch creation, skip PR creation, skip CI watch for PR checks. They go straight to main because the bug is already triaged and the fix is confirmed.
+Before writing any code, create todos for EVERY phase below. This is not optional — it is the enforcement mechanism. The hotfix is NOT complete until every todo is marked done. Do NOT message the user with a success summary while any todo remains incomplete.
 
-**When to use hotfix path vs. PR path**: If the user explicitly says "hotfix" and the fix is a targeted bug fix (not a new feature, not a migration, not a security change), use this path. If the change touches auth/security, scoring, or database schema, push back and recommend the PR path even if the user says "hotfix".
+```
+Todos to create (use exact IDs):
+- hotfix-fix        → Fix the bug on main
+- hotfix-commit     → Stage, commit, push to main
+- hotfix-ci         → Monitor CI until green
+- hotfix-deploy     → Wait for Railway deploy (~5 min) and confirm success
+- hotfix-validate   → Post-deploy validation (health, smoke tests)
+- hotfix-report     → Report results to user
+```
 
-## Ship It Checklist (Mandatory after implementation)
+### Steps
+
+1. **Fix the bug** on `main` (hotfixes are direct-to-main, no branch/PR). Mark `hotfix-fix` complete.
+2. **Stage only bug fix files** — never stage docs, cursor rules, or unrelated changes. Write commit message to `commit-msg.txt` (PowerShell has no heredoc), prefix with `fix:`. Commit and push: `git push origin main`. Mark `hotfix-commit` complete.
+3. **Monitor CI**: Poll `gh run list --branch main --limit 1` until conclusion is `success` or `failure`. If failure, read logs with `gh run view <id> --log-failed`, fix, re-push. Mark `hotfix-ci` complete.
+4. **Wait for Railway deploy** (~5 min after push). Poll Railway status:
+   ```
+   Start-Sleep -Seconds 120 ; gh api repos/drepscore/drepscore-app/commits/<sha>/status --jq '.statuses[] | {state, description}'
+   ```
+   Repeat every 60-120s until `state` is `success` or `failure`. If failure, push an empty retrigger commit and re-monitor. Mark `hotfix-deploy` complete.
+5. **Post-deploy validation** — run ALL of these:
+   ```
+   Invoke-WebRequest -Uri "https://drepscore.io/api/health" -UseBasicParsing | Select-Object StatusCode
+   npm run smoke-test
+   ```
+   If any check fails, investigate and fix. Mark `hotfix-validate` complete.
+6. **Report**: Concise summary of what shipped, deploy time, and validation results. Mark `hotfix-report` complete.
+
+### CRITICAL: Do NOT report success prematurely
+
+**You MUST NOT send a summary message to the user until `hotfix-validate` is complete.** Pushing to main is step 2 of 6 — it is not "done." If you find yourself writing "All done" or "Hotfix shipped" before running smoke tests, you are violating this protocol. Stop and finish the remaining steps.
+
+### When to use hotfix path vs. PR path
+
+If the user explicitly says "hotfix" and the fix is a targeted bug fix (not a new feature, not a migration, not a security change), use this path. If the change touches auth/security, scoring, or database schema, push back and recommend the PR path even if the user says "hotfix".
+
+## Ship It Checklist (Mandatory — part of every session's task list)
+
+**CRITICAL**: When creating a todo/task list for any session or feature, the Ship It Checklist steps **must be included in the same `TodoWrite` call as the first implementation task** — not added later. Creating them after implementation todos are already complete is prohibited; it reliably results in skipping them. The LAST tasks in the list MUST be: branch, commit, push, PR, CI, merge, deploy confirmation. These are not optional post-session cleanup — they ARE the session. A feature that is not in production is not done. Never mark the session as complete or send a completion summary until deploy is confirmed.
 
 When all code changes compile clean (`npx tsc --noEmit`), run these steps **immediately and autonomously**. Do not report "code complete" and wait — the feature is not done until step 9 passes. Deploy failures caused by your changes are your responsibility; fix and re-push immediately.
 
@@ -92,10 +121,11 @@ When all code changes compile clean (`npx tsc --noEmit`), run these steps **imme
    # Use Write tool to create .git/COMMIT_MSG, then:
    git commit -F .git/COMMIT_MSG
    ```
-5. **Push** (pre-push hook runs type-check + tests ~25s):
+5. **Push** (no local hooks — CI is the sole gate):
    ```
    git push -u origin HEAD
    ```
+   **Optional local check**: If you want early feedback before waiting for CI, run `npm run type-check ; npm run lint` locally. CI catches everything, but local checks save a round-trip if you have obvious errors.
 6. **Create PR** (write body to file — inline `--body` breaks in PowerShell):
    ```
    # Use Write tool to create .git/PR_BODY.md, then:
@@ -112,6 +142,7 @@ When all code changes compile clean (`npx tsc --noEmit`), run these steps **imme
    ```
    gh pr merge <number> --squash --delete-branch --admin
    ```
+   **Rebase may be required**: If `main` has advanced since the branch was created, merge will fail with "not up to date." Fix: `git fetch origin main ; git stash ; git rebase origin/main ; git stash pop ; git push --force-with-lease`. This re-triggers CI (~5 min). To avoid this, rebase before the initial push in step 5.
 9. **Confirm Railway production deploy**. Railway auto-deploys on push to `main` via GitHub integration. After merge, verify CI on `main` passes (~3-5 min), then Railway builds the Docker image and swaps (~5-8 min total). Poll CI:
    ```
    $run = (gh run list --branch main --limit 1 --json databaseId --jq '.[0].databaseId')

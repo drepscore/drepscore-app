@@ -14,11 +14,26 @@ Cardano governance tool for casual ADA holders to discover DReps aligned with th
 - **UI**: shadcn/ui + Tailwind CSS v4 + Recharts/Tremor. Dark mode via next-themes
 - **Wallet**: MeshJS (Eternl, Nami, Lace, Typhon+). Wallet connection is optional — show value first
 - **Data**: Koios API (mainnet) → Supabase (cache) → Next.js (reads)
-- **Hosting**: Railway (Docker, health checks, auto-deploy from `main`)
+- **Hosting**: Railway (Docker, health checks, auto-deploy from `main`). **NOT Vercel** — see Platform Constraints below
 - **CDN/DNS**: Cloudflare
-- **Background Jobs**: Inngest Cloud (12 durable functions — syncs, integrity, notifications, treasury)
+- **Background Jobs**: Inngest Cloud (16 durable functions — syncs, integrity, notifications, treasury, cross-chain benchmarks)
 - **Error Tracking**: Sentry (Next.js SDK)
 - **Analytics**: PostHog (JS + Node SDKs)
+
+## Platform Constraints (Railway, NOT Vercel)
+This project is fully deployed on Railway. Vercel is not part of any workflow, integration, or deployment path. Agents have introduced Vercel references 3 times — this rule exists to stop it permanently.
+
+**Prohibited:**
+- `process.env.VERCEL_URL`, `VERCEL_ENV`, `VERCEL_GIT_COMMIT_SHA`, or any `VERCEL_*` env var
+- `vercel.json`, `.vercel/` directories, `@vercel/*` packages (except transitive deps in lockfile)
+- Any code path, fallback, or comment that references Vercel as a deployment target
+
+**Required for server-side URL construction:**
+```ts
+import { BASE_URL } from '@/lib/constants';
+// Uses NEXT_PUBLIC_SITE_URL (set to https://drepscore.io in Railway), falls back to localhost
+```
+Never construct base URLs from env vars directly. `BASE_URL` is the single source of truth.
 
 ## Data Flow (Canonical)
 ```
@@ -34,16 +49,32 @@ Next.js App (server components + API routes + client components)
 ## Key Files
 | Purpose | File(s) |
 |---------|---------|
+| Base URL for server-side fetches | `lib/constants.ts` (`BASE_URL`) |
 | Supabase reads (primary data source) | `lib/data.ts` |
 | Koios API helpers (used by sync) | `utils/koios.ts` |
 | Scoring & enrichment logic | `lib/koios.ts`, `utils/scoring.ts` |
 | Supabase client | `lib/supabase.ts` |
-| Full sync (daily cron) | `app/api/sync/route.ts` |
-| Fast sync (30min cron) | `app/api/sync/fast/route.ts` |
-| Bootstrap scripts | `scripts/bootstrap-sync.ts`, `scripts/sync-dreps.ts` |
+| **Sync logic (durable, callable)** | `lib/sync/dreps.ts`, `lib/sync/votes.ts`, `lib/sync/secondary.ts`, `lib/sync/slow.ts` |
+| Sync HTTP routes (thin wrappers) | `app/api/sync/dreps/`, `app/api/sync/votes/`, `app/api/sync/secondary/`, `app/api/sync/slow/` |
+| Proposals sync (inline in Inngest) | `inngest/functions/sync-proposals.ts` |
 | DRep types | `types/drep.ts`, `types/koios.ts` |
 | Alignment scoring | `lib/alignment.ts`, `utils/scoring.ts` |
 | Admin integrity | `app/api/admin/integrity/route.ts`, `app/admin/integrity/page.tsx` |
+| Feature flags | `lib/featureFlags.ts`, `components/FeatureGate.tsx`, `app/api/admin/feature-flags/route.ts` |
+| Cross-chain governance | `lib/crossChain.ts`, `inngest/functions/sync-governance-benchmarks.ts` |
+| Developer platform | `app/developers/page.tsx`, `components/DeveloperPage.tsx`, `components/ApiExplorer.tsx` |
+| Embeddable widgets | `app/embed/layout.tsx`, `public/embed.js`, `components/Embed*.tsx` |
+
+## Feature Flags
+Supabase-backed `feature_flags` table with admin UI at `/admin/flags`. Flags are cached in-memory for 60s and can be overridden via env vars (`FF_<KEY>=true|false`).
+
+- **Server components**: `const enabled = await getFeatureFlag('flag_key')` from `lib/featureFlags.ts`
+- **Client components**: `<FeatureGate flag="flag_key">{children}</FeatureGate>` from `components/FeatureGate.tsx`, or `useFeatureFlag('flag_key')` hook
+- **Inngest functions**: Check flag inside a `step.run()` and early-return if disabled
+- **API routes**: Check flag and return empty/404 if disabled
+- **Admin API**: `GET/PATCH /api/admin/feature-flags` for reading and toggling
+
+Current flags: `cross_chain_observatory`, `cross_chain_embed`, `cross_chain_sync`. New risky or controversial features should always ship behind a flag.
 
 ## Scoring Model (V3, Feb 2026)
 ```
@@ -64,7 +95,7 @@ DRep Score (0-100) =
 - **Integrity alerts** (`/api/admin/integrity/alert`): Every 6 hours, Slack/Discord webhooks
 
 ## Database (Supabase)
-23+ migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`, `drep_milestones`, `position_statements`, `vote_explanations`, `governance_philosophy`
+25+ migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`, `drep_milestones`, `position_statements`, `vote_explanations`, `governance_philosophy`, `governance_benchmarks`, `feature_flags`
 
 ### `dreps` Table Schema Convention
 The `dreps` table uses `id` as its primary key (the full `drep1...` bech32 string). All other tables use `drep_id` as their foreign key column. **Do not query `dreps.drep_id` — it does not exist.**
@@ -82,18 +113,29 @@ Any API route that uses JSX (e.g., `ImageResponse` from `next/og`) **must** use 
 ## Background Jobs (Inngest Cloud)
 All scheduled work runs via Inngest durable functions (no platform-specific crons).
 When adding or removing functions, update this list AND the count in the Tech Stack section above.
-- `sync-fast` — every 30 min (new proposals, active votes)
-- `sync-full` — daily 2am UTC (all DReps, votes, rationales, scores)
-- `sync-secondary` — daily 3am UTC (social links, power snapshots)
-- `integrity-check` — every 6 hours (data quality + Discord alerts)
-- `push-notifications` — every 30 min
-- `inbox-check` — every 30 min (new proposal alerts)
-- `integrity-snapshot` — daily (capture data quality KPIs)
-- `api-health-alert` — every 6 hours
-- `check-notifications` — every 6 hours (DRep-specific: score changes, delegation, rank, milestones, deadlines, treasury alerts)
-- `generate-epoch-summary` — on epoch boundary (governance citizen epoch summaries)
+
+**Data syncs** — call `execute*Sync()` from `lib/sync/` directly inside `step.run()`:
+- `sync-dreps` — every 6h + `drepscore/sync.dreps` event (all DReps, scores, alignment, history)
+- `sync-votes` — every 6h + `drepscore/sync.votes` event (bulk vote upsert + reconciliation)
+- `sync-secondary` — every 6h + `drepscore/sync.secondary` event (delegator counts, power snapshots, integrity)
+- `sync-slow` — daily 04:00 UTC + `drepscore/sync.slow` event (rationales, AI summaries, hash verification, push notifications)
+- `sync-proposals` — every 30 min + `drepscore/sync.proposals` event (new/updated proposals)
+- `sync-freshness-guard` — every 30 min (detects stale sync_log entries, re-triggers via `inngest.send()`)
 - `sync-treasury-snapshot` — daily 22:30 UTC (Koios /totals → treasury_snapshots)
+- `sync-governance-benchmarks` — weekly Sunday 06:00 UTC (Tally/SubSquare → governance_benchmarks, feature-flagged via `cross_chain_sync`)
+
+**Alerts & health:**
+- `alert-integrity` — every 6h (data quality + Discord alerts)
+- `alert-inbox` — daily 03:00, 09:00, 15:00, 21:00 UTC (new proposal inbox alerts)
+- `alert-api-health` — every 15 min (API health checks)
+
+**Notifications & generation:**
+- `check-notifications` — every 6h at :15 (DRep-specific: score changes, delegation, rank, milestones, deadlines, treasury)
 - `check-accountability-polls` — daily 23:00 UTC (open/close/schedule treasury accountability polls)
+- `generate-epoch-summary` — daily 22:00 UTC (detects epoch transitions, writes governance_events)
+- `snapshot-ghi` — daily 04:30 UTC (computes GHI + stores epoch snapshot)
+- `generate-governance-brief` — weekly Monday 10:00 UTC (personalized governance briefs for active users)
+- `generate-state-of-governance` — weekly Sunday 20:00 UTC (canonical State of Governance report)
 
 ### Inngest Step Return Type Rule
 All code paths in a `step.run()` callback must return the same object shape. Inngest serializes step results to JSON; TypeScript infers a union from divergent return paths. Later steps accessing properties that only exist on one branch will fail type-check. Always include all properties in early returns with empty defaults.
@@ -103,6 +145,23 @@ All code paths in a `step.run()` callback must return the same object shape. Inn
 - **NEVER use `export const revalidate`** on routes that touch Supabase or any env-var-dependent service. `revalidate` triggers build-time prerendering, which crashes in Railway's Docker build. This has caused production deploy failures 3 times. Use `force-dynamic` instead — cache at the application layer if needed.
 - Client components (`'use client'`) that fetch via `useEffect` are unaffected since they never run during build.
 - When creating any new server page or API route that fetches data, default to `force-dynamic`. Only use static generation for truly static content (no DB, no env vars).
+
+### Next.js 16 Route Export Rule
+Next.js 16 enforces strict validation of named exports from route files. **Only these exports are permitted in `app/**/route.ts` files:**
+- HTTP method handlers: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`
+- Config fields: `dynamic`, `revalidate`, `fetchCache`, `runtime`, `preferredRegion`, `maxDuration`, `generateStaticParams`
+
+**Any other named export causes a build failure**: `"X" is not a valid Route export field.`
+
+This means: helper functions, business logic, type re-exports, and utility functions **must not be exported from route files**. For sync logic that needs to be callable from both a route and an Inngest function:
+
+```
+lib/sync/<name>.ts   ← export function execute*Sync()  (durable logic lives here)
+app/api/sync/<name>/route.ts  ← import from lib/sync/, thin auth wrapper only
+inngest/functions/sync-<name>.ts  ← import from lib/sync/, call inside step.run()
+```
+
+This pattern also improves testability — lib functions can be tested without HTTP request mocking.
 
 ## UX Principles
 - Show value first (no forced wallet connect)
