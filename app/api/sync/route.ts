@@ -1066,47 +1066,35 @@ export async function GET(request: NextRequest) {
     console.warn('[Sync] Integrity snapshot failed:', err instanceof Error ? err.message : err);
   }
 
-  // ═══ PHASE 6: Push notifications ══════════════════════════════════════════
+  // ═══ PHASE 6: Critical proposal notifications ═════════════════════════════
 
   try {
-    if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-      const { getProposalPriority } = await import('@/utils/proposalPriority');
-      const { data: openCritical } = await supabase.from('proposals')
-        .select('tx_hash, proposal_index, title, proposal_type')
-        .is('ratified_epoch', null).is('enacted_epoch', null)
-        .is('dropped_epoch', null).is('expired_epoch', null);
+    const { getProposalPriority } = await import('@/utils/proposalPriority');
+    const { data: openCritical } = await supabase.from('proposals')
+      .select('tx_hash, proposal_index, title, proposal_type')
+      .is('ratified_epoch', null).is('enacted_epoch', null)
+      .is('dropped_epoch', null).is('expired_epoch', null);
 
-      const critical = (openCritical || []).filter(
-        (p: Record<string, unknown>) => getProposalPriority(p.proposal_type as string) === 'critical'
-      );
+    const critical = (openCritical || []).filter(
+      (p: Record<string, unknown>) => getProposalPriority(p.proposal_type as string) === 'critical'
+    );
 
-      if (critical.length > 0) {
-        const newest = critical[0];
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-        const pushRes = await fetch(`${baseUrl}/api/push/send`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'critical-proposal-open', proposalTitle: newest.title, txHash: newest.tx_hash, index: newest.proposal_index }),
-        });
-        if (pushRes.ok) {
-          const data = await pushRes.json();
-          pushSent = data.sent || 0;
-        }
-
-        // Broadcast to Discord + Telegram
-        const { broadcastDiscord, broadcastEvent } = await import('@/lib/notifications');
-        const event = {
-          eventType: 'critical-proposal-open' as const,
-          title: `Critical Proposal Open`,
-          body: (newest.title as string) || 'A critical governance proposal requires DRep attention.',
-          url: `${baseUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
-          metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
-        };
-        await broadcastDiscord(event).catch(() => {});
-        await broadcastEvent(event).catch(() => {});
-      }
+    if (critical.length > 0) {
+      const newest = critical[0];
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://drepscore.io';
+      const { broadcastDiscord, broadcastEvent } = await import('@/lib/notifications');
+      const event = {
+        eventType: 'critical-proposal-open' as const,
+        title: 'Critical Proposal Open',
+        body: (newest.title as string) || 'A critical governance proposal requires DRep attention.',
+        url: `${baseUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
+        metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
+      };
+      await broadcastDiscord(event).catch(() => {});
+      pushSent = await broadcastEvent(event);
     }
   } catch (err) {
-    console.warn('[Sync] Push notification phase skipped:', err);
+    console.warn('[Sync] Notification broadcast phase skipped:', err);
   }
 
   // ═══ Summary ══════════════════════════════════════════════════════════════

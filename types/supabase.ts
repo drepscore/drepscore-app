@@ -13,6 +13,9 @@ export interface SupabaseUser {
   push_subscriptions: PushSubscriptionData;
   last_active: string;
   claimed_drep_id?: string;
+  email?: string;
+  email_verified?: boolean;
+  digest_frequency?: 'weekly' | 'biweekly' | 'monthly' | 'off';
 }
 
 export interface DelegationRecord {
