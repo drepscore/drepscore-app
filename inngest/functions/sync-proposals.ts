@@ -174,11 +174,9 @@ export const syncProposals = inngest.createFunction(
       });
     }
 
-    // Step 4: Send push notifications for critical proposals
-    const pushSent = await step.run('send-push-notifications', async () => {
+    // Step 4: Broadcast critical proposal notifications via unified engine
+    const pushSent = await step.run('broadcast-critical-proposals', async () => {
       try {
-        if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return 0;
-
         const supabase = getSupabaseAdmin();
         const { getProposalPriority } = await import('@/utils/proposalPriority');
         const { data: openCritical } = await supabase.from('proposals')
@@ -193,26 +191,20 @@ export const syncProposals = inngest.createFunction(
         if (critical.length === 0) return 0;
 
         const newest = critical[0];
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
-        const pushRes = await fetch(`${baseUrl}/api/push/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'critical-proposal-open',
-            proposalTitle: newest.title,
-            txHash: newest.tx_hash,
-            index: newest.proposal_index,
-          }),
-        });
-
-        if (pushRes.ok) {
-          const data = await pushRes.json();
-          return data.sent || 0;
-        }
-        return 0;
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://drepscore.io';
+        const { broadcastEvent, broadcastDiscord } = await import('@/lib/notifications');
+        const event = {
+          eventType: 'critical-proposal-open' as const,
+          title: 'Critical Proposal Open',
+          body: (newest.title as string) || 'A critical governance proposal requires DRep attention.',
+          url: `${baseUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
+          metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
+        };
+        await broadcastDiscord(event).catch(() => {});
+        const sent = await broadcastEvent(event);
+        return sent;
       } catch (err) {
-        console.warn('[proposals] Push skipped:', err);
+        console.warn('[proposals] Notification broadcast skipped:', err);
         return 0;
       }
     });

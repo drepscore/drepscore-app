@@ -56,6 +56,7 @@ export async function PATCH(request: NextRequest) {
     'connected_wallets',
     'push_subscriptions',
     'display_name',
+    'digest_frequency',
   ];
   
   const sanitizedUpdates: Record<string, unknown> = { last_active: new Date().toISOString() };

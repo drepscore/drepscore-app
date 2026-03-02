@@ -495,11 +495,7 @@ async function runDRepMetadataHashVerification(supabase: SupabaseClient) {
 
 // ── Operation 7: Push notifications ─────────────────────────────────────────
 
-async function runPushNotifications(supabase: SupabaseClient) {
-  if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-    return { sent: 0, skipped: true };
-  }
-
+async function runCriticalProposalNotifications(supabase: SupabaseClient) {
   const { data: openCritical } = await supabase
     .from('proposals')
     .select('tx_hash, proposal_index, title, proposal_type')
@@ -515,27 +511,7 @@ async function runPushNotifications(supabase: SupabaseClient) {
   if (critical.length === 0) return { sent: 0, skipped: false };
 
   const newest = critical[0];
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  let pushSent = 0;
-
-  try {
-    const pushRes = await fetch(`${baseUrl}/api/push/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'critical-proposal-open',
-        proposalTitle: newest.title,
-        txHash: newest.tx_hash,
-        index: newest.proposal_index,
-      }),
-    });
-    if (pushRes.ok) {
-      const data = await pushRes.json();
-      pushSent = data.sent || 0;
-    }
-  } catch (e) {
-    console.warn('[SlowSync] Push send error:', errMsg(e));
-  }
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://drepscore.io';
 
   const event = {
     eventType: 'critical-proposal-open' as const,
@@ -545,10 +521,10 @@ async function runPushNotifications(supabase: SupabaseClient) {
     metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
   };
   await broadcastDiscord(event).catch(() => {});
-  await broadcastEvent(event).catch(() => {});
+  const sent = await broadcastEvent(event);
 
-  console.log(`[SlowSync] Push: ${pushSent} sent, broadcast to Discord/Telegram`);
-  return { sent: pushSent, skipped: false };
+  console.log(`[SlowSync] Critical proposal notifications: ${sent} sent`);
+  return { sent, skipped: false };
 }
 
 // ── Main Handler ────────────────────────────────────────────────────────────
@@ -582,7 +558,7 @@ export async function GET(request: NextRequest) {
     runVotePowerBackfill(supabase),
     runRationaleHashVerification(supabase),
     runDRepMetadataHashVerification(supabase),
-    runPushNotifications(supabase),
+    runCriticalProposalNotifications(supabase),
   ]);
 
   const settled = {

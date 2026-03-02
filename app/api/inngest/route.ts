@@ -12,6 +12,7 @@ import { checkNotifications } from '@/inngest/functions/check-notifications';
 import { generateEpochSummary } from '@/inngest/functions/generate-epoch-summary';
 import { syncTreasurySnapshot } from '@/inngest/functions/sync-treasury-snapshot';
 import { checkAccountabilityPolls } from '@/inngest/functions/check-accountability-polls';
+import { generateGovernanceBrief } from '@/inngest/functions/generate-governance-brief';
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -28,5 +29,6 @@ export const { GET, POST, PUT } = serve({
     generateEpochSummary,
     syncTreasurySnapshot,
     checkAccountabilityPolls,
+    generateGovernanceBrief,
   ],
 });

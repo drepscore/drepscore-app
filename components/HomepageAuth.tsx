@@ -13,6 +13,7 @@ import {
   type DashboardData,
 } from '@/components/governance-cards';
 import { GovernanceCalendar } from '@/components/GovernanceCalendar';
+import { GovernanceBriefCard } from '@/components/GovernanceBriefCard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Compass, ArrowRight } from 'lucide-react';
@@ -65,6 +66,8 @@ export function HomepageAuth({ previousVisitAt }: HomepageAuthProps) {
           delegatedDrepId={delegatedDrepId}
         />
       )}
+
+      <GovernanceBriefCard />
 
       {data ? (
         <>
