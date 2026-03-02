@@ -36,6 +36,9 @@ import { MilestoneBadges } from '@/components/MilestoneBadges';
 import { GovernancePhilosophyEditor } from '@/components/GovernancePhilosophyEditor';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { DRepTreasuryStance } from '@/components/DRepTreasuryStance';
+import { DRepProfileHero } from '@/components/DRepProfileHero';
+import { extractAlignments } from '@/lib/drepIdentity';
+import { getDRepTraitTags } from '@/lib/alignment';
 import {
   getDRepById,
   getVotesByDRepId,
@@ -182,6 +185,18 @@ async function getDRepData(drepId: string) {
       metadataHashVerified: cachedDRep.metadataHashVerified ?? null,
       votes: voteRecords,
       activeEpoch: (cachedDRep as any).activeEpoch ?? null,
+      alignmentTreasuryConservative: cachedDRep.alignmentTreasuryConservative ?? null,
+      alignmentTreasuryGrowth: cachedDRep.alignmentTreasuryGrowth ?? null,
+      alignmentDecentralization: cachedDRep.alignmentDecentralization ?? null,
+      alignmentSecurity: cachedDRep.alignmentSecurity ?? null,
+      alignmentInnovation: cachedDRep.alignmentInnovation ?? null,
+      alignmentTransparency: cachedDRep.alignmentTransparency ?? null,
+      totalVotes: cachedDRep.totalVotes,
+      yesVotes: cachedDRep.yesVotes,
+      noVotes: cachedDRep.noVotes,
+      abstainVotes: cachedDRep.abstainVotes,
+      epochVoteCounts: cachedDRep.epochVoteCounts,
+      votingPowerLovelace: cachedDRep.votingPowerLovelace,
     };
   } catch (error) {
     console.error('[DRepProfile] Error loading DRep data:', error);
@@ -238,6 +253,10 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
     ? profileHintParts.join('. ')
     : 'All profile fields completed';
 
+  const alignments = extractAlignments(drep);
+  const drepName = getDRepPrimaryName(drep);
+  const traitTags = getDRepTraitTags(drep as any);
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <ProfileViewTracker drepId={drep.drepId} />
@@ -249,128 +268,83 @@ export default async function DRepDetailPage({ params }: DRepDetailPageProps) {
         </Button>
       </Link>
 
-      {/* Header Block */}
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-        <div className="space-y-3 flex-1">
-          {/* Name and Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-3xl font-bold">
-              {getDRepPrimaryName(drep)}
-            </h1>
-            {drep.ticker && (
-              <Badge variant="outline" className="text-base px-2 py-0.5">
-                {drep.ticker.toUpperCase()}
-              </Badge>
-            )}
-            {drep.handle && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <a
-                      href={`https://cardanoscan.io/token/${drep.handle.replace('$', '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Badge variant="secondary" className="text-sm px-2 py-0.5 font-mono hover:bg-primary/10 transition-colors">
-                        {drep.handle}
-                      </Badge>
-                    </a>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">ADA Handle — verified on-chain identity</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            {drep.metadataHashVerified === true && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <ShieldCheck className="h-5 w-5 text-green-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Metadata verified against on-chain hash</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            {drep.metadataHashVerified === false && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <ShieldAlert className="h-5 w-5 text-amber-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Metadata doesn&apos;t match on-chain hash</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
-          
-          {/* Status Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant={drep.isActive ? 'default' : 'secondary'}>
-              {drep.isActive ? 'Active' : 'Inactive'}
+      {/* ── Immersive Identity Hero ── */}
+      <DRepProfileHero
+        name={drepName}
+        score={drep.drepScore}
+        rank={null}
+        delegatorCount={drep.delegatorCount}
+        votingPowerFormatted={formatAda(drep.votingPower)}
+        alignments={alignments}
+        traitTags={traitTags}
+        isActive={drep.isActive}
+      >
+        <InlineDelegationCTA drepId={drep.drepId} drepName={drepName} />
+        <CompareButton currentDrepId={drep.drepId} currentDrepName={drepName} />
+      </DRepProfileHero>
+
+      {/* Identity metadata row */}
+      <div className="flex items-center gap-3 flex-wrap text-sm text-muted-foreground">
+        {drep.ticker && (
+          <Badge variant="outline" className="text-sm px-2 py-0.5">
+            {drep.ticker.toUpperCase()}
+          </Badge>
+        )}
+        {drep.handle && (
+          <a
+            href={`https://cardanoscan.io/token/${drep.handle.replace('$', '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Badge variant="secondary" className="text-sm px-2 py-0.5 font-mono hover:bg-primary/10 transition-colors">
+              {drep.handle}
             </Badge>
-            <Badge 
-              variant="outline" 
-              className={getSizeBadgeClass(drep.sizeTier)}
-            >
-              {drep.sizeTier}
-            </Badge>
-            {!hasCustomMetadata(drep) && (
-              <Badge variant="secondary" className="text-xs">
-                No Metadata
-              </Badge>
-            )}
-            {!isClaimed && (
-              <Link href={`/claim/${encodeURIComponent(drep.drepId)}`}>
-                <Badge variant="secondary" className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                  Unclaimed Profile
-                </Badge>
-              </Link>
-            )}
-          </div>
-          
-          {/* Context Info */}
-          <div className="text-sm text-muted-foreground space-y-1">
-            <p>
-              <TrendingUp className="inline h-4 w-4 mr-1" />
-              {formatAda(drep.votingPower)} ADA voting power
-            </p>
-            {drep.activeEpoch && (
-              <p>Active since Epoch {drep.activeEpoch}</p>
-            )}
-          </div>
-          
-          {/* Social Icons */}
-          <SocialIconsLarge metadata={drep.metadata} brokenLinks={brokenLinks} />
-          
-          {/* DRep ID */}
-          <div className="pt-1">
-            <CopyableAddress address={drep.drepId} className="text-xs text-muted-foreground" />
-          </div>
-        </div>
-        
-        {/* Actions */}
-        <div className="lg:w-auto space-y-2">
-          <InlineDelegationCTA drepId={drep.drepId} drepName={getDRepPrimaryName(drep)} />
-          <CompareButton currentDrepId={drep.drepId} currentDrepName={getDRepPrimaryName(drep)} />
-        </div>
+          </a>
+        )}
+        <Badge variant={drep.isActive ? 'default' : 'secondary'}>
+          {drep.isActive ? 'Active' : 'Inactive'}
+        </Badge>
+        <Badge variant="outline" className={getSizeBadgeClass(drep.sizeTier)}>
+          {drep.sizeTier}
+        </Badge>
+        {drep.metadataHashVerified === true && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ShieldCheck className="h-4 w-4 text-green-500" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Metadata verified against on-chain hash</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {drep.metadataHashVerified === false && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ShieldAlert className="h-4 w-4 text-amber-500" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Metadata doesn&apos;t match on-chain hash</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        <SocialIconsLarge metadata={drep.metadata} brokenLinks={brokenLinks} />
+        <CopyableAddress address={drep.drepId} className="text-xs" />
       </div>
 
-      {/* Claim / Owner banner + Share — compact strip */}
+      {/* Claim / Owner banner */}
       <Suspense fallback={null}>
         <DRepDashboardWrapper
           drepId={drep.drepId}
-          drepName={getDRepPrimaryName(drep)}
+          drepName={drepName}
           isClaimed={isClaimed}
         />
       </Suspense>
 
-      {/* DRep Score Card — Hero component with ring, range bar, share */}
+      {/* Score breakdown — detailed pillar analysis */}
       <ScoreCard
         drep={drep}
         adjustedRationale={adjustedRationale}

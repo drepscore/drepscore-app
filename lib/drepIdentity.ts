@@ -123,3 +123,135 @@ export function getDimensionOrder(): AlignmentDimension[] {
 export function getAllIdentityColors(): Record<AlignmentDimension, IdentityColor> {
   return { ...IDENTITY_COLORS };
 }
+
+/* ──────────────────────────────────────────────
+   Session 13 extensions — gradients, glow, hex,
+   personality labels for the visual identity system
+   ────────────────────────────────────────────── */
+
+/**
+ * CSS gradient string for profile heroes and card accents.
+ * Fades from the identity color at low opacity into the dark base.
+ */
+export function getIdentityGradient(dimension: AlignmentDimension): string {
+  const color = IDENTITY_COLORS[dimension];
+  return `linear-gradient(135deg, rgba(${color.rgb.join(',')}, 0.08) 0%, rgba(10, 11, 20, 0) 60%)`;
+}
+
+/**
+ * Box-shadow string for hover glow effects in the identity color.
+ */
+export function getIdentityGlow(dimension: AlignmentDimension): string {
+  const color = IDENTITY_COLORS[dimension];
+  return `0 0 0 1px rgba(${color.rgb.join(',')}, 0.12), 0 0 24px rgba(${color.rgb.join(',')}, 0.06)`;
+}
+
+/**
+ * CSS custom property values for the AccentProvider to set on a wrapping element.
+ */
+export function getIdentityCSSVars(dimension: AlignmentDimension): Record<string, string> {
+  const color = IDENTITY_COLORS[dimension];
+  return {
+    '--identity': color.hex,
+    '--identity-rgb': color.rgb.join(' '),
+  };
+}
+
+/**
+ * Compute the 6 hex vertices for an asymmetric hexagonal score shape.
+ * Each vertex radius is proportional to the alignment score (0-100).
+ * Returns an array of [x, y] pairs.
+ */
+export function getHexVertices(
+  alignments: AlignmentScores,
+  size: number,
+  minRadius = 0.25,
+): [number, number][] {
+  const center = size / 2;
+  const maxRadius = size / 2 - 2;
+  const scores = alignmentsToArray(alignments);
+
+  return scores.map((score, i) => {
+    const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+    const normalizedScore = score / 100;
+    const radius = maxRadius * (minRadius + normalizedScore * (1 - minRadius));
+    return [
+      center + radius * Math.cos(angle),
+      center + radius * Math.sin(angle),
+    ];
+  });
+}
+
+/**
+ * Convert hex vertices to an SVG polygon points string.
+ */
+export function hexVerticesToPath(vertices: [number, number][]): string {
+  return vertices.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+}
+
+/**
+ * Radar polygon points for the GovernanceRadar — same math as hex
+ * but with configurable number of axes (always 6 for alignment).
+ */
+export function getRadarPoints(
+  alignments: AlignmentScores,
+  size: number,
+  padding = 24,
+): [number, number][] {
+  const center = size / 2;
+  const maxRadius = (size - padding * 2) / 2;
+  const scores = alignmentsToArray(alignments);
+
+  return scores.map((score, i) => {
+    const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+    const radius = maxRadius * (score / 100);
+    return [
+      center + radius * Math.cos(angle),
+      center + radius * Math.sin(angle),
+    ];
+  });
+}
+
+/**
+ * Get the axis endpoint positions for the radar grid (at 100%).
+ */
+export function getRadarAxisEndpoints(
+  size: number,
+  padding = 24,
+): [number, number][] {
+  const center = size / 2;
+  const radius = (size - padding * 2) / 2;
+
+  return Array.from({ length: 6 }, (_, i) => {
+    const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+    return [
+      center + radius * Math.cos(angle),
+      center + radius * Math.sin(angle),
+    ] as [number, number];
+  });
+}
+
+/** Short, evocative archetypes derived from alignment scores. */
+const PERSONALITY_ARCHETYPES: Record<AlignmentDimension, string[]> = {
+  treasuryConservative: ['The Guardian', 'The Fiscal Hawk', 'The Prudent Steward'],
+  treasuryGrowth:       ['The Builder', 'The Growth Champion', 'The Catalyst'],
+  decentralization:     ['The Federalist', 'The Power Distributor', 'The Decentralizer'],
+  security:             ['The Sentinel', 'The Cautious Architect', 'The Shield'],
+  innovation:           ['The Pioneer', 'The Changemaker', 'The Innovator'],
+  transparency:         ['The Beacon', 'The Transparent Champion', 'The Open Book'],
+};
+
+/**
+ * Derive a single personality archetype from alignment scores.
+ * Uses the dominant dimension and score magnitude to select a label.
+ */
+export function getPersonalityLabel(alignments: AlignmentScores): string {
+  const dominant = getDominantDimension(alignments);
+  const score = alignments[dominant] ?? 50;
+  const distance = Math.abs(score - 50);
+  const labels = PERSONALITY_ARCHETYPES[dominant];
+
+  if (distance > 30) return labels[0];
+  if (distance > 15) return labels[1];
+  return labels[2];
+}

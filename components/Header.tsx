@@ -88,8 +88,10 @@ export function Header() {
     return pathname === href || pathname.startsWith(href + '/');
   };
   const navLinkClass = (href: string) =>
-    `hidden sm:flex items-center gap-1 text-sm transition-colors ${
-      isActive(href) ? 'font-medium text-primary' : 'text-muted-foreground hover:text-foreground'
+    `hidden sm:flex items-center gap-1 text-sm transition-colors relative ${
+      isActive(href)
+        ? 'font-medium text-primary after:absolute after:bottom-[-18px] after:left-0 after:right-0 after:h-[2px] after:bg-primary after:rounded-full dark:after:shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]'
+        : 'text-muted-foreground hover:text-foreground'
     }`;
 
   useEffect(() => {
@@ -136,10 +138,10 @@ export function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/50 dark:border-b-0 dark:shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.06)] border-b">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/" className="flex items-center space-x-2">
-          <span className="text-2xl font-bold text-primary">$drepscore</span>
+          <span className="text-2xl font-bold text-primary dark:drop-shadow-[0_0_12px_rgba(var(--primary-rgb),0.3)]">$drepscore</span>
         </Link>
 
         <nav className="flex items-center space-x-2 sm:space-x-4">

@@ -5,6 +5,7 @@ import { HeaderClient } from "@/components/HeaderClient";
 import { Footer } from "@/components/Footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Providers } from "@/components/Providers";
+import { BrandedLoader } from "@/components/BrandedLoader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,6 +53,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Providers>
+            <BrandedLoader />
             <a
               href="#main-content"
               className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none"

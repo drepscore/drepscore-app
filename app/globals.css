@@ -47,100 +47,124 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+/* ============================================================
+   GOVERNANCE OBSERVATORY — Design System Tokens
+   The constellation hero's aesthetic extended to every surface.
+   Deep space. Glowing data. Living governance.
+   ============================================================ */
+
 :root {
   --radius: 0.625rem;
-  /* Cypherpunk Light Mode (High Contrast, Tech) */
-  --background: oklch(0.98 0 0);
-  --foreground: oklch(0.10 0 0);
+
+  /* Light mode — functional, clean */
+  --background: oklch(0.98 0.005 260);
+  --foreground: oklch(0.10 0.02 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.10 0 0);
+  --card-foreground: oklch(0.10 0.02 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.10 0 0);
-  
-  /* Primary: Deep Tech Blue */
-  --primary: oklch(0.45 0.20 250);
+  --popover-foreground: oklch(0.10 0.02 260);
+
+  --primary: oklch(0.50 0.18 200);
   --primary-foreground: oklch(0.98 0 0);
-  
-  /* Secondary: Electric Purple */
-  --secondary: oklch(0.60 0.20 300);
+
+  --secondary: oklch(0.55 0.15 290);
   --secondary-foreground: oklch(0.98 0 0);
-  
-  --muted: oklch(0.94 0 0);
-  --muted-foreground: oklch(0.45 0 0);
-  
-  /* Accent: Neon Cyan */
-  --accent: oklch(0.75 0.18 220);
-  --accent-foreground: oklch(0.10 0 0);
-  
-  --destructive: oklch(0.60 0.25 25);
-  --border: oklch(0.85 0 0);
-  --input: oklch(0.85 0 0);
-  --ring: oklch(0.45 0.20 250);
-  
-  /* Chart colors */
-  --chart-1: oklch(0.45 0.20 250);
-  --chart-2: oklch(0.60 0.20 300);
-  --chart-3: oklch(0.75 0.18 220);
-  --chart-4: oklch(0.65 0.25 150);
-  --chart-5: oklch(0.55 0.20 30);
-  
-  --sidebar: oklch(0.98 0 0);
-  --sidebar-foreground: oklch(0.10 0 0);
-  --sidebar-primary: oklch(0.45 0.20 250);
+
+  --muted: oklch(0.94 0.005 260);
+  --muted-foreground: oklch(0.45 0.02 260);
+
+  --accent: oklch(0.95 0.01 260);
+  --accent-foreground: oklch(0.10 0.02 260);
+
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0.88 0.005 260);
+  --input: oklch(0.88 0.005 260);
+  --ring: oklch(0.50 0.18 200);
+
+  /* Identity accent system — overridden by AccentProvider per page/section */
+  --identity: oklch(0.72 0.14 200);
+  --identity-rgb: 6 182 212;
+
+  /* Primary RGB for glow effects */
+  --primary-rgb: 6 182 212;
+
+  /* Chart palette */
+  --chart-1: oklch(0.50 0.18 200);
+  --chart-2: oklch(0.50 0.16 160);
+  --chart-3: oklch(0.50 0.15 290);
+  --chart-4: oklch(0.55 0.16 80);
+  --chart-5: oklch(0.50 0.20 25);
+
+  --sidebar: oklch(0.97 0.005 260);
+  --sidebar-foreground: oklch(0.10 0.02 260);
+  --sidebar-primary: oklch(0.50 0.18 200);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0 0);
-  --sidebar-accent-foreground: oklch(0.10 0 0);
-  --sidebar-border: oklch(0.85 0 0);
-  --sidebar-ring: oklch(0.45 0.20 250);
+  --sidebar-accent: oklch(0.94 0.005 260);
+  --sidebar-accent-foreground: oklch(0.10 0.02 260);
+  --sidebar-border: oklch(0.88 0.005 260);
+  --sidebar-ring: oklch(0.50 0.18 200);
 }
 
 .dark {
-  /* Cypherpunk Dark Mode (Softened) */
-  --background: oklch(0.12 0.02 240); /* Deep charcoal/slate instead of pure black */
-  --foreground: oklch(0.92 0.01 240); /* Off-white for better readability */
-  
-  --card: oklch(0.16 0.02 240); /* Slightly lighter than background */
-  --card-foreground: oklch(0.92 0.01 240);
-  
-  --popover: oklch(0.16 0.02 240);
-  --popover-foreground: oklch(0.92 0.01 240);
-  
-  /* Primary: Soft Emerald/Mint */
-  --primary: oklch(0.75 0.15 160);
-  --primary-foreground: oklch(0.12 0.02 240);
-  
-  /* Secondary: Soft Purple */
-  --secondary: oklch(0.65 0.15 290);
-  --secondary-foreground: oklch(0.92 0.01 240);
-  
-  --muted: oklch(0.20 0.02 240);
-  --muted-foreground: oklch(0.65 0.05 240);
-  
-  /* Accent: Visible hover lift over dark background */
-  --accent: oklch(0.32 0.06 240);
-  --accent-foreground: oklch(0.96 0.01 240);
-  
-  --destructive: oklch(0.60 0.18 25);
-  --border: oklch(0.25 0.02 240);
-  --input: oklch(0.25 0.02 240);
-  --ring: oklch(0.75 0.15 160);
-  
-  /* Chart colors (Softer palette) */
-  --chart-1: oklch(0.75 0.15 160); /* Soft Emerald */
-  --chart-2: oklch(0.75 0.12 210); /* Soft Cyan */
-  --chart-3: oklch(0.65 0.15 290); /* Soft Purple */
-  --chart-4: oklch(0.70 0.12 260); /* Soft Blue */
-  --chart-5: oklch(0.85 0.12 90);  /* Soft Yellow */
-  
-  --sidebar: oklch(0.16 0.02 240);
-  --sidebar-foreground: oklch(0.92 0.01 240);
-  --sidebar-primary: oklch(0.75 0.15 160);
-  --sidebar-primary-foreground: oklch(0.12 0.02 240);
-  --sidebar-accent: oklch(0.20 0.02 240);
-  --sidebar-accent-foreground: oklch(0.92 0.01 240);
-  --sidebar-border: oklch(0.25 0.02 240);
-  --sidebar-ring: oklch(0.75 0.15 160);
+  /* ── Governance Observatory Dark Mode ──
+     Background matches the constellation hero (#0a0b14).
+     Surfaces are subtle elevations, not white cards.
+     Borders glow rather than divide. */
+
+  --background: oklch(0.07 0.015 260);
+  --foreground: oklch(0.96 0.005 260);
+
+  --card: oklch(0.10 0.015 260);
+  --card-foreground: oklch(0.96 0.005 260);
+
+  --popover: oklch(0.11 0.015 260);
+  --popover-foreground: oklch(0.96 0.005 260);
+
+  /* Primary: Electric Cyan — the DRepScore brand accent */
+  --primary: oklch(0.72 0.14 200);
+  --primary-foreground: oklch(0.07 0.015 260);
+
+  /* Secondary: Vivid Purple */
+  --secondary: oklch(0.55 0.18 290);
+  --secondary-foreground: oklch(0.96 0.005 260);
+
+  --muted: oklch(0.15 0.015 260);
+  --muted-foreground: oklch(0.55 0.03 260);
+
+  --accent: oklch(0.13 0.02 260);
+  --accent-foreground: oklch(0.96 0.005 260);
+
+  --destructive: oklch(0.55 0.20 25);
+
+  --border: oklch(0.17 0.015 260);
+  --input: oklch(0.13 0.015 260);
+  --ring: oklch(0.72 0.14 200);
+
+  /* Identity accent — contextual per DRep/page, default: Electric Cyan */
+  --identity: oklch(0.72 0.14 200);
+  --identity-rgb: 6 182 212;
+  --primary-rgb: 6 182 212;
+
+  /* Chart palette — vivid against deep dark */
+  --chart-1: oklch(0.72 0.14 200);
+  --chart-2: oklch(0.68 0.16 160);
+  --chart-3: oklch(0.60 0.18 290);
+  --chart-4: oklch(0.75 0.14 80);
+  --chart-5: oklch(0.60 0.20 25);
+
+  --sidebar: oklch(0.08 0.015 260);
+  --sidebar-foreground: oklch(0.96 0.005 260);
+  --sidebar-primary: oklch(0.72 0.14 200);
+  --sidebar-primary-foreground: oklch(0.07 0.015 260);
+  --sidebar-accent: oklch(0.13 0.02 260);
+  --sidebar-accent-foreground: oklch(0.96 0.005 260);
+  --sidebar-border: oklch(0.17 0.015 260);
+  --sidebar-ring: oklch(0.72 0.14 200);
 }
+
+/* ============================================================
+   Base layer
+   ============================================================ */
 
 @layer base {
   * {
@@ -150,6 +174,125 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Subtle noise texture overlay — adds organic depth to dark surfaces */
+.dark body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  mix-blend-mode: overlay;
+}
+
+/* ============================================================
+   Custom scrollbar — thin, accent-tinted, unobtrusive
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.30 0.02 260);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.40 0.03 260);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.22 0.015 260);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.30 0.02 260);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.30 0.02 260) transparent;
+}
+
+.dark * {
+  scrollbar-color: oklch(0.22 0.015 260) transparent;
+}
+
+/* ============================================================
+   Card system — glow borders, identity-tinted hover
+   ============================================================ */
+
+[data-slot="card"] {
+  transition: box-shadow 0.3s ease, transform 0.2s ease, border-color 0.3s ease;
+}
+
+[data-slot="card"]:hover {
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.06);
+  transform: translateY(-1px);
+}
+
+.dark [data-slot="card"] {
+  border-color: oklch(0.17 0.015 260);
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.dark [data-slot="card"]:hover {
+  border-color: rgb(var(--identity-rgb) / 0.15);
+  box-shadow:
+    0 0 0 1px rgb(var(--identity-rgb) / 0.08),
+    0 4px 24px rgb(var(--identity-rgb) / 0.04);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   Button micro-interaction — spring-scale press
+   ============================================================ */
+
+button:not(:disabled):active,
+[role="button"]:not(:disabled):active {
+  transform: scale(0.97);
+  transition: transform 0.1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Default button glow on hover in dark mode */
+.dark [data-slot="button"][data-variant="default"]:hover {
+  box-shadow: 0 0 20px rgb(var(--primary-rgb) / 0.2);
+}
+
+/* ============================================================
+   Skeleton — accent-tinted shimmer
+   ============================================================ */
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.dark [data-slot="skeleton"] {
+  animation: skeleton-shimmer 2s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    oklch(0.13 0.015 260) 0%,
+    rgb(var(--identity-rgb) / 0.06) 50%,
+    oklch(0.13 0.015 260) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* ============================================================
+   Existing animations (preserved + enhanced)
+   ============================================================ */
 
 @keyframes gradient-shift {
   0%, 100% { background-position: 0% 50%; }
@@ -176,31 +319,11 @@
   animation: fade-in-up 0.6s ease-out both;
 }
 
-.animation-delay-200 {
-  animation-delay: 0.2s;
-}
-
-.animation-delay-400 {
-  animation-delay: 0.4s;
-}
-
-/* Micro-interaction: button press */
-button:not(:disabled):active,
-[role="button"]:not(:disabled):active {
-  transform: scale(0.97);
-}
-
-/* Micro-interaction: card hover lift */
-[data-slot="card"] {
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-[data-slot="card"]:hover {
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
-  transform: translateY(-1px);
-}
-.dark [data-slot="card"]:hover {
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
-}
+.animation-delay-100 { animation-delay: 0.1s; }
+.animation-delay-200 { animation-delay: 0.2s; }
+.animation-delay-300 { animation-delay: 0.3s; }
+.animation-delay-400 { animation-delay: 0.4s; }
+.animation-delay-500 { animation-delay: 0.5s; }
 
 /* Pillar bar stagger animation */
 @keyframes grow {
@@ -211,9 +334,6 @@ button:not(:disabled):active,
   animation: grow 0.5s ease-out both;
   transform-origin: bottom;
 }
-.animation-delay-100 { animation-delay: 0.1s; }
-.animation-delay-300 { animation-delay: 0.3s; }
-.animation-delay-500 { animation-delay: 0.5s; }
 
 /* Copy button morph */
 @keyframes check-pop {
@@ -225,7 +345,7 @@ button:not(:disabled):active,
   animation: check-pop 0.3s ease-out;
 }
 
-/* Governance constellation: activity ticker scroll */
+/* Activity ticker scroll */
 @keyframes ticker-scroll {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -249,21 +369,47 @@ button:not(:disabled):active,
   animation: slide-up 0.5s ease-out both;
 }
 
-/* Respect reduced motion */
+/* CTA pulse — uses identity accent for contextual glow */
+@keyframes cta-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--identity-rgb) / 0.3); }
+  50% { box-shadow: 0 0 0 8px rgb(var(--identity-rgb) / 0); }
+}
+.animate-cta-pulse {
+  animation: cta-pulse 2.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   New: Breathing glow (used by HexScore, identity elements)
+   ============================================================ */
+
+@keyframes breathing-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.animate-breathing-glow {
+  animation: breathing-glow 3s ease-in-out infinite;
+}
+
+/* ============================================================
+   Reduced motion — respect user preferences
+   ============================================================ */
+
 @media (prefers-reduced-motion: reduce) {
   .animate-ticker,
   .animate-fade-in-up,
   .animate-slide-up,
-  .animate-cta-pulse {
+  .animate-cta-pulse,
+  .animate-breathing-glow,
+  .animate-gradient-shift {
     animation: none !important;
   }
-}
 
-/* Subtle CTA pulse */
-@keyframes cta-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 117 255 160), 0.3); }
-  50% { box-shadow: 0 0 0 8px rgba(var(--primary-rgb, 117 255 160), 0); }
-}
-.animate-cta-pulse {
-  animation: cta-pulse 2.5s ease-in-out infinite;
+  .dark [data-slot="skeleton"] {
+    animation: none !important;
+  }
+
+  [data-slot="card"] {
+    transition: none !important;
+  }
 }
