@@ -65,7 +65,7 @@ This section provides the baseline for any agent picking up a session. All of th
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Dual-mode homepage: unauth (GovernancePulseHero + HowItWorks + DashboardPreview + DRepDiscoveryPreview) / auth (SinceLastVisit + GovernanceBriefCard + DelegationHealth + RepScore + Calendar + ActiveProposals) |
+| `/` | Dual-mode homepage: `ConstellationHero` (R3F WebGL constellation + text overlay + `ActivityTicker`) + `PersonalGovernanceCard` (segment-aware: delegated/undelegated/drep, below hero) + `HowItWorksV2` (SVG micro-vignettes) + `DRepDiscoveryPreview` (with identity color accents). Auth via httpOnly cookie — no skeleton flash. Old components (`GovernancePulseHero`, `HomepageAuth`, `HomepageUnauth`, `DashboardPreview`) are no longer in the render path. |
 | `/discover` | DRep discovery — card/table toggle, Governance DNA Quiz, smart search, infinite scroll |
 | `/drep/[drepId]` | DRep profile — ScoreCard, milestones, score history, treasury stance, philosophy, heatmap, about, voting history (8 sections, linear stack) |
 | `/proposals` | Proposal list with status tabs, type/sort filters |
@@ -98,8 +98,11 @@ Mobile: Hamburger sheet with same items + wallet connect.
 
 - **Stack:** Tailwind v4, shadcn/ui, Recharts, Lucide icons
 - **Fonts:** Geist Sans + Geist Mono
-- **Theme:** oklch color system — light (Cypherpunk: deep tech blue, electric purple, neon cyan) / dark (soft emerald, soft purple)
-- **Animations:** CSS-only (`animate-fade-in-up`, `animate-gradient-shift`, card hover lift, button press scale)
+- **Theme:** oklch color system — light (Cypherpunk: deep tech blue, electric purple, neon cyan) / dark (soft emerald, soft purple). Dark mode is the default for all visitors (set in Session 12).
+- **Homepage hero:** React Three Fiber WebGL constellation with `@react-three/postprocessing` Bloom (mipmapBlur). Instanced nodes, batched lineSegments, ambient starfield, adaptive quality via GPU tier detection. `next/dynamic` with `ssr: false` — zero LCP impact (~200KB lazy-loaded).
+- **Activity ticker:** Bloomberg-style scrolling horizontal feed of recent governance actions (`ActivityTicker` component, `/api/governance/activity` API route).
+- **DRep identity colors:** `lib/drepIdentity.ts` maps 6 alignment dimensions to identity colors (Treasury Conservative = Deep Red, Treasury Growth = Emerald, Decentralization = Purple, Security = Amber, Innovation = Cyan, Transparency = Blue). Used by the constellation, and shared foundation for Session 13.
+- **Animations:** CSS (`animate-fade-in-up`, `animate-gradient-shift`, card hover lift, button press scale, `animate-cta-pulse`, `ticker-scroll`) + R3F `useFrame` for continuous 3D animation.
 - **Score visualization:** `ScoreRing` (standard donut chart)
 - **Charts:** Recharts with default styling, some custom tooltips
 
@@ -110,7 +113,7 @@ Mobile: Hamburger sheet with same items + wallet connect.
 | Governance Identity Radar (6-dim alignment radar chart) | **Not built** | Session 11 |
 | Cross-Proposal Intelligence (macro governance patterns) | **Not built** | Session 11 |
 | DelegationChangeCard (epoch-level delegator gain/loss) | **Not built** | Session 11 |
-| Signature visual element / governance constellation | **Not built** | Session 6 |
+| Signature visual element / governance constellation | **Built (Session 12)** — R3F WebGL constellation with bloom, Cardano starburst layout | Session 6 |
 | Page transitions (View Transitions API) | **Deferred** | Session 6 |
 | Custom iconography | **Deferred** | Session 6 |
 
@@ -120,42 +123,65 @@ Mobile: Hamburger sheet with same items + wallet connect.
 
 ### Thesis
 
-The homepage is the highest-leverage surface in the product. Currently, an unauthenticated visitor sees governance stats and a "Find Your DRep" CTA. That's informative but emotionally inert. A connected user sees skeleton loaders while data fetches client-side. The rewrite makes the first 10 seconds personal, urgent, and impossible to ignore.
+The homepage is the highest-leverage surface in the product. The rewrite makes the first 10 seconds personal, urgent, and impossible to ignore — anchored by a full-bleed WebGL governance constellation.
 
-### What Changes
+### What Was Built
 
-**1. New hero for unauthenticated visitors.** Kill the stat-card grid as the primary hero. Replace with a full-bleed gradient hero centered on a single provocative question: **"Do you know who's voting with your ADA?"** — with subtext connecting governance to financial stakes, a "Check Your Governance" CTA (connect wallet), and a "See what's happening" scroll trigger. Governance pulse stats move to a compact horizontal strip below — supporting evidence, not the headline.
+**1. Full-bleed ConstellationHero with R3F governance constellation.** Originally built with Canvas 2D, then upgraded to React Three Fiber (Three.js) with real WebGL bloom in a cleanup pass. The constellation visualizes 200-800 DRep nodes (adaptive by GPU tier) in a Cardano-logo-inspired 6-arm radial starburst layout. Each arm represents one alignment dimension, with DReps colored by their dominant identity color. Ambient starfield for depth. Bloom post-processing (`mipmapBlur`) for cinematic glow. `CameraControls` for smooth fly-to animations on wallet connect.
 
-**2. Live governance activity stream.** Below the hero, a scrolling feed of recent governance actions: DRep votes, rationale publications, delegation changes, proposal openings. Data assembled from existing tables (`drep_votes`, `drep_power_snapshots`, `vote_rationales`, `vote_explanations`), server-rendered with relative timestamps. New API: `GET /api/governance/activity`.
+**2. ActivityTicker — Bloomberg-style scrolling governance feed.** Horizontal continuously scrolling ticker showing recent votes, delegations, rationale publications, and proposals. Data from `/api/governance/activity`. Ticker speed is dynamic based on event count (~2s per event). Connects to constellation — ticker events pulse the corresponding DRep node.
 
-**3. Instant governance check.** When a user connects their wallet, the homepage transforms into a single personal governance summary card above the fold: Your DRep name + score + trend, representation match %, open proposals needing attention, epoch countdown. This is ONE card, not four. Eliminate the client-side fetch to `/api/governance/holder` — server-render via cookie-based session detection in `app/page.tsx`.
+**3. Segment-aware PersonalGovernanceCard.** Three variants:
+- **Delegated**: DRep name, score, trend, representation match, open proposals, epoch countdown
+- **Undelegated**: FOMO-driven "Your ADA is unrepresented" with governance stats
+- **DRep**: Score, rank, delegator count, pending proposals
+Rendered below the hero in normal document flow to prevent ticker overlap.
 
-**4. Dashboard preview overhaul.** Replace the 3 blurred mock cards with a single blurred screenshot of the real authenticated homepage. Creates FOMO: "I want to see MY version of that."
+**4. SSR auth via httpOnly cookie.** Dual-write session management: `localStorage` + `httpOnly secure sameSite:lax` cookie. Server component reads cookie via `cookies()` API for pre-rendered authenticated content — no skeleton flash for returning users.
 
-**5. Copywriting pass.** Rewrite all homepage text: HowItWorks becomes 3 animated icons with 6-word descriptions. "Find Your DRep" becomes "Check Your Governance." Footer adds: "The first governance intelligence platform in crypto. Live on Cardano."
+**5. HowItWorksV2 with SVG micro-vignettes.** Three-step visual explanation replacing the text-heavy v1.
+
+**6. `lib/drepIdentity.ts` — 6-dimension identity color system.** Maps `AlignmentDimension` types to `IdentityColor` (hex, RGB, label). Utilities: `getDominantDimension()`, `getIdentityColor()`, `extractAlignments()`, `alignmentsToArray()`. Shared foundation for Session 13.
+
+**7. `lib/constellation/layout.ts` — Cardano-logo starburst layout.** 6-arm radial layout with angular fanning (45-degree arc per arm). Force-directed positioning: specialists drift outward, generalists cluster near center. Z-axis depth variation for parallax. Outputs 3D `[x, y, z]` coordinates ready for `InstancedMesh`.
+
+**8. Dark mode as default theme.** Set in `app/layout.tsx` via `defaultTheme="dark"`.
+
+### What Changed in Cleanup (Session 12.5)
+
+- Canvas 2D replaced with React Three Fiber (real WebGL bloom, GPU instancing, cinematic camera)
+- Push notification modal deferred on homepage (no longer blocks constellation animation)
+- Wallet disconnect properly resets hero state and camera position
+- PersonalGovernanceCard moved below hero into normal flow (no more ticker overlap)
+- Ticker speed doubled (from `4s/event` to `2s/event`)
+- Dead Canvas 2D files deleted (`renderer.ts`, `engine.ts`)
 
 ### Current State (for agent context)
 
-- `components/GovernancePulseHero.tsx` — AnimatedCounter stat cards, spotlight proposal, gradient background
-- `components/HomepageUnauth.tsx` — GovernancePulseHero + HowItWorks + DashboardPreview + DRepDiscoveryPreview
-- `components/HomepageAuth.tsx` — Client component, fetches `/api/governance/holder` on mount, shows skeletons, then DelegationHealthCard + RepresentationScoreCard + GovernanceCalendar + ActiveProposals
-- `components/HowItWorks.tsx` — 3 text-heavy step cards
-- `components/DashboardPreview.tsx` — 3 blurred mock cards with connect wallet overlay
-- `app/page.tsx` — Server component, fetches `getGovernancePulse()` and `getTopDReps()`, renders `HomepageDualMode`
-- Auth detection: `useWallet()` hook in client components; no server-side session detection currently
+- `components/GovernanceConstellation.tsx` — R3F `<Canvas>` with `Instances` (nodes), `lineSegments` (edges), `AmbientStarfield`, `EffectComposer` + `Bloom`, `CameraControls`
+- `components/ConstellationHero.tsx` — Orchestrates constellation, headline overlay, ticker, and card data callback
+- `components/HomepageDualMode.tsx` — Entry point: `ConstellationHero` + `PersonalGovernanceCard` (below hero) + `HowItWorksV2` + `DRepDiscoveryPreview`
+- `components/ActivityTicker.tsx` — Horizontal scrolling governance feed
+- `components/PersonalGovernanceCard.tsx` — Three-variant governance summary card
+- `lib/constellation/layout.ts` — 3D starburst layout
+- `lib/constellation/types.ts` — R3F-oriented interfaces (`ConstellationNode3D`, `ConstellationEdge3D`, `FindMeTarget`, etc.)
+- `lib/drepIdentity.ts` — Identity color system (6 dimensions)
+- `app/page.tsx` — Server component with `force-dynamic`, reads auth cookie, fetches pulse data + top DReps + holder data
+- `app/api/governance/constellation/route.ts` — Returns node data for constellation
+- `app/api/governance/activity/route.ts` — Returns recent governance events for ticker
 
 ### Success Criteria
 
 - Time from landing to "I understand what this is and why I should care" < 5 seconds
 - Time from wallet connect to personal governance data visible < 3 seconds (SSR, no client fetch)
 - Activity feed creates the sensation of a live platform, not a static report
-- The hero question creates curiosity and urgency
+- Constellation creates visual awe — unmistakably "DRepScore"
 
 ### Risks
 
-- Server-side auth detection in RSC requires reading session cookie — verify Next.js 16 `cookies()` API works with current auth flow (`jose` JWT in `drepscore_session` cookie)
-- Activity feed assembly query performance — needs index on `drep_votes.block_time` (likely exists)
-- Animated gradient background must perform well on mobile (test GPU usage)
+- Three.js bundle size (~200KB gzipped) — fully lazy-loaded via `next/dynamic` with `ssr: false`, zero LCP impact
+- WebGL compatibility on older mobile devices — adaptive quality via GPU tier detection (bloom disabled on weak hardware)
+- Constellation API response time with 800+ nodes — monitor and optimize if needed
 
 ---
 
@@ -169,7 +195,7 @@ The single biggest gap between "good app" and "wow" is visual identity. DRepScor
 
 **1. Governance Identity Radar.** Recharts `RadarChart` showing the 6 alignment dimensions already stored on every DRep (treasury conservative, treasury growth, decentralization, security, innovation, transparency). Appears on: DRep profiles (hero), discovery cards (mini 48x48), quick view, compare page (overlaid), report cards, OG images, badge embeds. Styled with DRep's dominant identity color.
 
-**2. DRep identity color system.** Each DRep gets a signature color derived from their dominant alignment dimension: Treasury Conservative = Deep Red, Treasury Growth = Emerald, Decentralization = Purple, Security = Amber, Innovation = Cyan, Transparency = Blue. Color appears as accent ring on score, gradient on profile header, radar fill, OG tint. New utility: `lib/drepIdentity.ts`.
+**2. DRep identity color system extension.** Extend the existing `lib/drepIdentity.ts` (created in Session 12) with hex score mapping and radar configuration. The 6 identity colors are already defined: Treasury Conservative = Deep Red, Treasury Growth = Emerald, Decentralization = Purple, Security = Amber, Innovation = Cyan, Transparency = Blue. Session 13 adds: color as accent ring on score, gradient on profile header, radar fill, OG tint.
 
 **3. Hexagonal score visualization.** Replace the standard `ScoreRing` donut with a hexagonal shape where 6 sides map to 6 alignment dimensions. The shape morphs based on alignment balance — well-rounded DReps have regular hexagons, specialists have asymmetric ones. This becomes the "logo" of every DRep.
 
@@ -177,7 +203,7 @@ The single biggest gap between "good app" and "wow" is visual identity. DRepScor
 
 **5. Custom chart aesthetic.** All Recharts instances get branded styling: dotted grids, dark tooltips with brand accent, gradient area fills, consistent color palette. New shared config: `lib/chartTheme.ts`.
 
-**6. Dark-first design audit.** Polish dark mode: vivid hero gradients, verified chart contrast, subtle card glow borders, vivid score colors against dark backgrounds. Make dark mode the default for new visitors.
+**6. Dark-first design audit.** Polish dark mode: vivid hero gradients, verified chart contrast, subtle card glow borders, vivid score colors against dark backgrounds. Note: dark mode is already the default (set in Session 12 via `app/layout.tsx` `defaultTheme="dark"`).
 
 **7. OG images with radar.** New route `/api/og/governance-identity/[drepId]`. Update existing `/api/og/drep/[drepId]` and `/api/og/compare` to include mini radars.
 
@@ -185,10 +211,12 @@ The single biggest gap between "good app" and "wow" is visual identity. DRepScor
 
 - `EnrichedDRep` interface has all 6 `alignment*` fields (nullable numbers, 0-100)
 - `lib/alignment.ts` — `computeAllCategoryScores()` computes all 6, `getDRepTraitTags()` generates text labels
+- `lib/drepIdentity.ts` — **Already exists** (created in Session 12) with 6 identity colors, `getDominantDimension()`, `getIdentityColor()`, `extractAlignments()`, `alignmentsToArray()`, `getDimensionLabel()`, `getDimensionOrder()`, `getAllIdentityColors()`. Session 13 extends this with hex score mapping and radar configuration.
 - `components/ScoreRing.tsx` — Standard SVG donut chart, color by score tier
 - `components/CompareView.tsx` — Has a Recharts RadarChart for *pillars* (not alignment); alignment shown as horizontal bars
-- Current animations: CSS `animate-fade-in-up`, `animate-gradient-shift`, `animate-grow`, card hover via Tailwind transitions
+- Current animations: CSS (`animate-fade-in-up`, `animate-gradient-shift`, `animate-grow`, card hover via Tailwind transitions) + R3F `useFrame` on homepage constellation
 - Decentralization score is discrete (5 possible values based on size tier) — may need normalization for radar visual balance
+- Dark mode is already the default (Session 12)
 
 ### Success Criteria
 
@@ -306,13 +334,13 @@ DRepScore is a read-only analytical tool where all communication is one-directio
 
 ### What Changes
 
-**1. Unified governance activity feed.** A real-time-ish feed on the homepage, governance hub, and as a sidebar widget. Event types: DRep votes (with rationale snippet), score changes (significant), delegation shifts, new proposals, proposal outcomes, rationale publications, poll results. Assembled from existing tables. Smart polling: refresh every 60s on active pages, pause when tab hidden. This is the Session 12 homepage feed, deployed platform-wide.
+**1. Unified governance activity feed (platform-wide).** Extend the Session 12 `ActivityTicker` component and `/api/governance/activity` API route from homepage-only to platform-wide: governance hub, sidebar widget. Add event types beyond the current set: score changes (significant), delegation shifts, proposal outcomes, poll results. Smart polling: refresh every 60s on active pages, pause when tab hidden.
 
 **2. Social proof elements.** Subtle indicators: "Viewed by X people this week" on DRep profiles (from `views` table), "X delegators have polled on this" on proposals (from `poll_responses`), "You're one of Z active governance participants this epoch" on dashboards. Cached counts, not real-time.
 
 **3. DRep-delegator communication channel.** Extend `DRepCommunicationFeed` (currently one-way: explanations, positions, philosophy) with two-way Q&A: delegators submit questions (500 char, rate-limited), DReps reply via dashboard inbox, all communication is public. New tables: `drep_questions`, `drep_responses`.
 
-**4. Enhanced sharing infrastructure.** Make sharing organic, not mechanical: "Governance DNA card" auto-generated after significant actions (shows radar + level + stats), "State of Governance" shareable cards (GHI + key insight), DRep comparison cards (both radars), in-context share prompts after key moments (delegation, quiz, level-up) — subtle, not modal.
+**4. Enhanced sharing infrastructure.** Make sharing organic, not mechanical: "Governance DNA card" auto-generated after significant actions (shows radar + level + stats), "State of Governance" shareable cards (GHI + key insight), DRep comparison cards (both radars), in-context share prompts after key moments (delegation, quiz, level-up) — subtle, not modal. Note: `ConstellationHero` already has segment-aware wallet-connect animation moments that "in-context share prompts after key moments" builds on.
 
 **5. Developer experience for v1 API.** New `/developers` page: interactive API explorer, code examples (JS, Python, cURL), embed widget generator, use cases. API keys for Pro tier (manual approval initially). Rate limits: 100/min public, 1000/min Pro. Every Cardano dApp that integrates becomes a distribution channel.
 
@@ -321,7 +349,7 @@ DRepScore is a read-only analytical tool where all communication is one-directio
 ### Current State (for agent context)
 
 - `components/DRepCommunicationFeed.tsx` — Shows one-way feed (explanations, positions, philosophy) from `/api/governance/drep-feed`
-- `components/GovernanceActivityFeed.tsx` — Does not exist yet (built in Session 12, extended here)
+- `components/ActivityTicker.tsx` — Built in Session 12, horizontal scrolling governance feed on homepage. Session 16 extends platform-wide.
 - Profile views tracked in `views` table, `components/ProfileViewStats.tsx` exists
 - v1 API: 7 routes (`/api/v1/dreps`, `/api/v1/dreps/[drepId]`, `/api/v1/dreps/[drepId]/votes`, `/api/v1/dreps/[drepId]/history`, `/api/v1/proposals`, `/api/v1/embed/[drepId]`, `/api/v1/governance/health`)
 - Share infrastructure: 13 OG image routes, `ShareActions` component, `WrappedShareCard`, `DelegatorShareCard`, `DRepReportCard`, `BadgeEmbed`
@@ -339,7 +367,7 @@ DRepScore is a read-only analytical tool where all communication is one-directio
 
 - DRep-delegator Q&A requires moderation strategy — public communication can attract spam/abuse
 - NFT minting adds on-chain transaction complexity and potential wallet UX issues
-- API rate limiting needs middleware — consider existing solutions (Upstash, Vercel KV)
+- API rate limiting needs middleware — consider existing solutions (Upstash Redis)
 - Social proof numbers may be low initially — consider minimum thresholds before displaying
 
 ---

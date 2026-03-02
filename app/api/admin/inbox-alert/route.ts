@@ -6,7 +6,7 @@
  * - Proposals are expiring within 1 epoch with < 50% coverage
  * - Overall epoch response rate drops below 30%
  *
- * Designed to run every 6h via Vercel Cron.
+ * Designed to run every 6h via Inngest scheduled function.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

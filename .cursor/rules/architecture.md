@@ -80,7 +80,7 @@ The `lib/data.ts` `mapRow()` function unpacks `info` into flat `EnrichedDRep` pr
 Any API route that uses JSX (e.g., `ImageResponse` from `next/og`) **must** use the `.tsx` extension, not `.ts`. TypeScript will not parse JSX syntax in `.ts` files. This applies to all OG image routes under `app/api/og/` and the badge route under `app/api/badge/`.
 
 ## Background Jobs (Inngest Cloud)
-All scheduled work runs via Inngest durable functions (no vercel.json crons).
+All scheduled work runs via Inngest durable functions (no platform-specific crons).
 When adding or removing functions, update this list AND the count in the Tech Stack section above.
 - `sync-fast` — every 30 min (new proposals, active votes)
 - `sync-full` — daily 2am UTC (all DReps, votes, rationales, scores)

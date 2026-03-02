@@ -26,7 +26,7 @@ import {
 import { ShareActions } from '@/components/ShareActions';
 import { buildDRepUrl } from '@/lib/share';
 
-const ICON_MAP: Record<string, React.ElementType> = {
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Shield, Users, Star, Target, FileText, CheckCircle2,
 };
 

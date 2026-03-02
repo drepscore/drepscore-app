@@ -106,7 +106,7 @@ export function ActivityTicker({ initialEvents, onEventVisible }: ActivityTicker
         aria-live="polite"
         aria-label="Recent governance activity"
         style={{
-          animationDuration: `${Math.max(30, displayEvents.length * 4)}s`,
+          animationDuration: `${Math.max(15, displayEvents.length * 2)}s`,
         }}
       >
         {displayEvents.map((event, i) => {

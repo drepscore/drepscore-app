@@ -1,6 +1,8 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import { ConstellationHero } from '@/components/ConstellationHero';
+import { PersonalGovernanceCard } from '@/components/PersonalGovernanceCard';
 import { HowItWorksV2 } from '@/components/HowItWorksV2';
 import { DRepDiscoveryPreview } from '@/components/DRepDiscoveryPreview';
 
@@ -37,6 +39,12 @@ interface HomepageDualModeProps {
 }
 
 export function HomepageDualMode({ pulseData, topDReps, ssrHolderData, ssrWalletAddress }: HomepageDualModeProps) {
+  const [personalCard, setPersonalCard] = useState<any>(null);
+
+  const handlePersonalCard = useCallback((data: any) => {
+    setPersonalCard(data);
+  }, []);
+
   return (
     <div>
       <ConstellationHero
@@ -47,13 +55,19 @@ export function HomepageDualMode({ pulseData, topDReps, ssrHolderData, ssrWallet
         }}
         ssrHolderData={ssrHolderData || undefined}
         ssrWalletAddress={ssrWalletAddress || undefined}
+        onPersonalCard={handlePersonalCard}
       />
+
+      {personalCard && (
+        <div className="max-w-xl mx-auto px-4 py-6">
+          <PersonalGovernanceCard {...personalCard} />
+        </div>
+      )}
 
       <div className="container mx-auto px-4 space-y-12 py-8">
         <HowItWorksV2 />
         <DRepDiscoveryPreview dreps={topDReps} />
 
-        {/* Platform positioning footer */}
         <footer className="text-center py-8 space-y-2">
           <p className="text-sm font-medium text-muted-foreground">
             Governance intelligence for Cardano.

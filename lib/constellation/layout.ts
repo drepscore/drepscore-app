@@ -1,26 +1,26 @@
 /**
- * 6-arm radial force-directed layout inspired by the Cardano logo topology.
- * Each arm = one alignment dimension. DReps gravitate toward their dominant arm.
- * Well-rounded DReps sit near center; specialists drift outward.
+ * 6-arm radial layout inspired by the Cardano logo topology.
+ * Outputs 3D positions for React Three Fiber rendering.
+ * Each arm = one alignment dimension with angular fanning.
  */
 
-import type { ConstellationNode, ConstellationEdge } from './types';
+import type { ConstellationNode3D, ConstellationEdge3D, LayoutResult } from './types';
 import type { AlignmentDimension } from '@/lib/drepIdentity';
-import { getDimensionOrder, getIdentityColor } from '@/lib/drepIdentity';
+import { getDimensionOrder } from '@/lib/drepIdentity';
 
 const ARM_ANGLES: Record<AlignmentDimension, number> = (() => {
   const dims = getDimensionOrder();
   const map: Record<string, number> = {};
   dims.forEach((dim, i) => {
-    map[dim] = (i / dims.length) * Math.PI * 2 - Math.PI / 2; // start from top
+    map[dim] = (i / dims.length) * Math.PI * 2 - Math.PI / 2;
   });
   return map as Record<AlignmentDimension, number>;
 })();
 
-const VISIBLE_NODE_COUNT = 200;
-const MIN_VISIBLE_RADIUS = 4;
-const MAX_VISIBLE_RADIUS = 18;
-const AMBIENT_RADIUS = 1.2;
+const ARM_FAN_ARC = Math.PI / 4; // 45 degrees of spread within each arm
+const MAX_RADIUS = 12;
+const MIN_VISIBLE_SCALE = 0.06;
+const MAX_VISIBLE_SCALE = 0.25;
 
 interface LayoutInput {
   id: string;
@@ -31,129 +31,90 @@ interface LayoutInput {
   alignments: number[];
 }
 
-/**
- * Compute positions for all nodes in the constellation.
- * Returns positioned nodes and inferred edges.
- */
 export function computeLayout(
   inputs: LayoutInput[],
-  width: number,
-  height: number,
-  isMobile: boolean
-): { nodes: ConstellationNode[]; edges: ConstellationEdge[] } {
-  const cx = width / 2;
-  const cy = height / 2;
-  const maxRadius = Math.min(width, height) * 0.42;
-  const nodeCount = isMobile ? Math.min(100, inputs.length) : inputs.length;
-
+  nodeLimit: number
+): LayoutResult {
   const sorted = [...inputs].sort((a, b) => b.power - a.power);
-  const visible = sorted.slice(0, Math.min(VISIBLE_NODE_COUNT, nodeCount));
-  const ambient = sorted.slice(VISIBLE_NODE_COUNT, nodeCount);
+  const active = sorted.slice(0, nodeLimit);
 
-  const nodes: ConstellationNode[] = [];
+  const nodes: ConstellationNode3D[] = [];
+  const nodeMap = new Map<string, ConstellationNode3D>();
 
-  for (const input of visible) {
-    const pos = computeNodePosition(input, cx, cy, maxRadius);
-    const r = MIN_VISIBLE_RADIUS + input.power * (MAX_VISIBLE_RADIUS - MIN_VISIBLE_RADIUS);
-    nodes.push({
+  for (const input of active) {
+    const pos = computeNodePosition(input);
+    const scale = MIN_VISIBLE_SCALE + input.power * (MAX_VISIBLE_SCALE - MIN_VISIBLE_SCALE);
+    const node: ConstellationNode3D = {
       ...input,
-      x: pos.x,
-      y: pos.y,
-      radius: r,
-      layer: 'visible',
-      highlighted: false,
-      opacity: 0.7 + input.power * 0.3,
-    });
+      position: pos,
+      scale,
+    };
+    nodes.push(node);
+    nodeMap.set(node.id, node);
   }
 
-  for (const input of ambient) {
-    const pos = computeNodePosition(input, cx, cy, maxRadius);
-    nodes.push({
-      ...input,
-      x: pos.x,
-      y: pos.y,
-      radius: AMBIENT_RADIUS,
-      layer: 'ambient',
-      highlighted: false,
-      opacity: 0.2 + Math.random() * 0.15,
-    });
-  }
-
-  // Jitter to avoid overlap: simple hash-based deterministic scatter
-  for (const node of nodes) {
-    const hash = simpleHash(node.id);
-    const jitterRadius = node.layer === 'visible' ? 12 + hash % 20 : 6 + hash % 12;
-    const jitterAngle = (hash * 2.39996) % (Math.PI * 2); // golden angle
-    node.x += Math.cos(jitterAngle) * jitterRadius;
-    node.y += Math.sin(jitterAngle) * jitterRadius;
-  }
-
-  const edges = computeEdges(nodes.filter(n => n.layer === 'visible'));
-
-  return { nodes, edges };
+  const edges = computeEdges(nodes);
+  return { nodes, edges, nodeMap };
 }
 
-function computeNodePosition(
-  input: LayoutInput,
-  cx: number,
-  cy: number,
-  maxRadius: number
-): { x: number; y: number } {
+function computeNodePosition(input: LayoutInput): [number, number, number] {
   const dims = getDimensionOrder();
   const scores = input.alignments;
 
-  // Weighted centroid across all 6 arms
   let wx = 0, wy = 0, totalWeight = 0;
   for (let i = 0; i < dims.length; i++) {
     const score = scores[i] ?? 50;
-    const weight = Math.abs(score - 50); // distance from neutral = strength of pull
+    const weight = Math.abs(score - 50);
     const angle = ARM_ANGLES[dims[i]];
     wx += Math.cos(angle) * weight;
     wy += Math.sin(angle) * weight;
     totalWeight += weight;
   }
 
+  const hash = simpleHash(input.id);
+  const hashNorm = (hash % 10000) / 10000;
+
   if (totalWeight < 1) {
-    // Very neutral DRep — place near center with slight random offset
-    return { x: cx, y: cy };
+    const r = 0.5 + hashNorm * 1.5;
+    const a = hashNorm * Math.PI * 2;
+    return [Math.cos(a) * r, Math.sin(a) * r, (hashNorm - 0.5) * 2];
   }
 
-  // Direction from weighted centroid
   const dirAngle = Math.atan2(wy, wx);
-  // Distance: specialists go further out, generalists stay central
-  const specialization = totalWeight / (dims.length * 50); // 0-1 roughly
-  const dist = maxRadius * (0.15 + specialization * 0.75);
+  const specialization = Math.min(1, totalWeight / (dims.length * 30));
+  const dist = MAX_RADIUS * (0.1 + specialization * 0.85);
 
-  return {
-    x: cx + Math.cos(dirAngle) * dist,
-    y: cy + Math.sin(dirAngle) * dist,
-  };
+  // Fan within the arm: offset angle based on hash for spread
+  const fanOffset = (hashNorm - 0.5) * ARM_FAN_ARC;
+  const finalAngle = dirAngle + fanOffset;
+
+  // Radial jitter for natural feel
+  const radialJitter = (((hash >> 8) % 1000) / 1000 - 0.5) * MAX_RADIUS * 0.15;
+
+  const x = Math.cos(finalAngle) * (dist + radialJitter);
+  const y = Math.sin(finalAngle) * (dist + radialJitter);
+  const z = (input.score / 100 - 0.5) * 3 + (hashNorm - 0.5) * 1.5;
+
+  return [x, y, z];
 }
 
-/**
- * Create edges between nodes that share alignment traits.
- * Keep edge count low for performance — only connect nearby similar nodes.
- */
-function computeEdges(visibleNodes: ConstellationNode[]): ConstellationEdge[] {
-  const edges: ConstellationEdge[] = [];
-  const maxEdges = 150;
+function computeEdges(nodes: ConstellationNode3D[]): ConstellationEdge3D[] {
+  const edges: ConstellationEdge3D[] = [];
+  const maxEdges = 200;
 
-  for (let i = 0; i < visibleNodes.length && edges.length < maxEdges; i++) {
-    for (let j = i + 1; j < visibleNodes.length && edges.length < maxEdges; j++) {
-      const a = visibleNodes[i];
-      const b = visibleNodes[j];
+  for (let i = 0; i < nodes.length && edges.length < maxEdges; i++) {
+    for (let j = i + 1; j < nodes.length && edges.length < maxEdges; j++) {
+      const a = nodes[i];
+      const b = nodes[j];
       if (a.dominant !== b.dominant) continue;
 
-      const dx = a.x - b.x;
-      const dy = a.y - b.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 200) continue;
+      const dx = a.position[0] - b.position[0];
+      const dy = a.position[1] - b.position[1];
+      const dz = a.position[2] - b.position[2];
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist > 4) continue;
 
-      edges.push({
-        from: a.id,
-        to: b.id,
-        opacity: Math.max(0.03, 0.08 * (1 - dist / 200)),
-      });
+      edges.push({ from: a.position, to: b.position });
     }
   }
 
@@ -167,5 +128,3 @@ function simpleHash(str: string): number {
   }
   return Math.abs(hash);
 }
-
-export { ARM_ANGLES, getIdentityColor };
