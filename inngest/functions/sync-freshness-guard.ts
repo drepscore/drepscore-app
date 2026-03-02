@@ -7,7 +7,7 @@
 import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { callSyncRoute } from '@/inngest/helpers';
-import { alertDiscord, pingHeartbeat, errMsg, emitPostHog, type SyncType } from '@/lib/sync-utils';
+import { alertDiscord, errMsg, emitPostHog, type SyncType } from '@/lib/sync-utils';
 
 const FRESHNESS_THRESHOLDS: Record<string, { mins: number; route: string }> = {
   proposals: { mins: 90, route: '/api/sync/proposals' },
@@ -18,6 +18,7 @@ const FRESHNESS_THRESHOLDS: Record<string, { mins: number; route: string }> = {
 };
 
 const RECENT_FAILURE_WINDOW_MS = 15 * 60 * 1000;
+const GHOST_THRESHOLD_MS = 30 * 60 * 1000;
 
 export const syncFreshnessGuard = inngest.createFunction(
   {
@@ -28,6 +29,31 @@ export const syncFreshnessGuard = inngest.createFunction(
   { cron: '*/30 * * * *' },
   async ({ step }) => {
     const recoveries: string[] = [];
+
+    await step.run('cleanup-ghost-entries', async () => {
+      const supabase = getSupabaseAdmin();
+      const cutoff = new Date(Date.now() - GHOST_THRESHOLD_MS).toISOString();
+      const { data: ghosts } = await supabase
+        .from('sync_log')
+        .select('id, sync_type, started_at')
+        .eq('success', false)
+        .is('error_message', null)
+        .is('duration_ms', null)
+        .lt('started_at', cutoff);
+
+      if (!ghosts || ghosts.length === 0) return 0;
+
+      for (const ghost of ghosts) {
+        await supabase.from('sync_log')
+          .update({
+            error_message: 'Process terminated (likely deployment restart)',
+            duration_ms: 0,
+          })
+          .eq('id', ghost.id);
+      }
+      console.log(`[FreshnessGuard] Cleaned up ${ghosts.length} ghost sync_log entries`);
+      return ghosts.length;
+    });
 
     const staleTypes = await step.run('check-freshness', async () => {
       const supabase = getSupabaseAdmin();

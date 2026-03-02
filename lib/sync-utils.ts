@@ -7,7 +7,9 @@ const BATCH_SIZE = 100;
 const UPSERT_RETRY_DELAY_MS = 2_000;
 
 export function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'string') return e;
+  try { return JSON.stringify(e); } catch { return String(e); }
 }
 
 export function capMsg(msg: string, max = 2000): string {

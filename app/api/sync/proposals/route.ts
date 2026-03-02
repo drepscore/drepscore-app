@@ -100,9 +100,8 @@ export async function GET(request: NextRequest) {
 
       console.log(`${TAG} Proposals: ${proposalCount} upserted, ${openProposals.length} open`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      errors.push(`Proposals: ${msg}`);
-      console.error(`${TAG} Proposal fetch failed:`, msg);
+      errors.push(`Proposals: ${errMsg(err)}`);
+      console.error(`${TAG} Proposal fetch failed:`, errMsg(err));
     }
 
     if (openProposals.length > 0) {
@@ -143,9 +142,8 @@ export async function GET(request: NextRequest) {
         voteOk = voteUpsertErrors === 0;
         console.log(`${TAG} Votes: ${voteCount} upserted for ${openProposals.length} open proposals`);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        errors.push(`Votes: ${msg}`);
-        console.error(`${TAG} Vote fetch failed:`, msg);
+        errors.push(`Votes: ${errMsg(err)}`);
+        console.error(`${TAG} Vote fetch failed:`, errMsg(err));
       }
     } else {
       voteOk = true;
