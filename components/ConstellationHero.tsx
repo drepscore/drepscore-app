@@ -189,7 +189,7 @@ export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress, onPe
 
   return (
     <div
-      className={`relative w-full transition-all duration-700 ${contracted ? 'min-h-[40vh]' : 'min-h-[85vh]'}`}
+      className={`relative w-full transition-all duration-700 -mt-16 ${contracted ? 'min-h-[calc(40vh+4rem)]' : 'min-h-[calc(85vh+4rem)]'}`}
       onMouseEnter={handleConstellationHover}
       onClick={!isAuthenticated && !ssrWalletAddress ? handleConnectWallet : undefined}
       role={!isAuthenticated && !ssrWalletAddress ? 'button' : undefined}
@@ -209,7 +209,7 @@ export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress, onPe
 
       {/* First-hover educational tooltip */}
       {showTooltip && (
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 text-white/70 text-sm animate-fade-in-up pointer-events-none">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 text-white/70 text-sm animate-fade-in-up pointer-events-none">
           Each point is a real DRep representative
         </div>
       )}
