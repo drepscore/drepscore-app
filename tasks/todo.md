@@ -9,10 +9,10 @@
 - [x] GET /api/admin/integrity endpoint querying analytical views with admin wallet auth
 - [x] /admin/integrity dashboard: alerts banner, data coverage, power source breakdown, hash integrity, sync health, system stats
 - [x] /api/admin/integrity/alert cron with Slack/Discord webhook support and threshold checks
-- [x] Integrity alert cron added to vercel.json (every 6 hours)
+- [x] Integrity alert cron added to Inngest (every 6 hours)
 - [x] DRep anchor_url/anchor_hash stored as top-level columns during sync for metadata hash verification
 
 ## Before Deploy
 - [ ] Run 019_data_infra.sql migration in Supabase
-- [ ] Add NEXT_PUBLIC_POSTHOG_KEY and NEXT_PUBLIC_POSTHOG_HOST to Vercel env vars (after creating PostHog project)
-- [ ] Optionally add SLACK_WEBHOOK_URL or DISCORD_WEBHOOK_URL to Vercel env vars for alerting
+- [ ] Add NEXT_PUBLIC_POSTHOG_KEY and NEXT_PUBLIC_POSTHOG_HOST to Railway env vars (after creating PostHog project)
+- [ ] Optionally add SLACK_WEBHOOK_URL or DISCORD_WEBHOOK_URL to Railway env vars for alerting

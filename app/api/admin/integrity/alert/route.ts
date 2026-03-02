@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         metric: `${config.label} — No runs in ${staleHuman}`,
         value: `Last run: ${staleHuman} ago`,
         threshold: config.schedule,
-        action: `Trigger manually: curl -H "Authorization: Bearer $CRON_SECRET" https://drepscore.io${config.route}. Check Vercel cron dashboard if recurring.`,
+        action: `Trigger manually: curl -H "Authorization: Bearer $CRON_SECRET" https://drepscore.io${config.route}. Check Inngest dashboard if recurring.`,
       });
     }
 
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
       } else if (row.last_error?.includes('no data') || row.last_error?.includes('No data')) {
         action = 'Koios returned empty response. Check Koios API status at api.koios.rest. Retry in a few minutes.';
       } else {
-        action = `Check Vercel function logs: vercel logs drepscore-app --filter ${config.route}. Then retry manually.`;
+        action = `Check Railway logs for ${config.route} in the dashboard. Then retry manually.`;
       }
 
       alerts.push({

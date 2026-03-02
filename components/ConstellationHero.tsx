@@ -4,16 +4,20 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useWallet } from '@/utils/wallet';
 import { ActivityTicker } from '@/components/ActivityTicker';
-import { PersonalGovernanceCard, type UserSegment } from '@/components/PersonalGovernanceCard';
+import type { UserSegment } from '@/components/PersonalGovernanceCard';
 import { getStoredSession } from '@/lib/supabaseAuth';
 import type { ConstellationRef } from '@/components/GovernanceConstellation';
-import type { ConstellationApiData } from '@/lib/constellation/types';
 import type { AlignmentDimension } from '@/lib/drepIdentity';
 
 const GovernanceConstellation = dynamic(
   () => import('@/components/GovernanceConstellation').then(m => ({ default: m.GovernanceConstellation })),
   { ssr: false }
 );
+
+interface PersonalCardData {
+  segment: UserSegment;
+  [key: string]: any;
+}
 
 interface ConstellationHeroProps {
   stats: {
@@ -23,9 +27,10 @@ interface ConstellationHeroProps {
   };
   ssrHolderData?: any;
   ssrWalletAddress?: string;
+  onPersonalCard?: (data: PersonalCardData | null) => void;
 }
 
-export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress }: ConstellationHeroProps) {
+export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress, onPersonalCard }: ConstellationHeroProps) {
   const constellationRef = useRef<ConstellationRef>(null);
   const { isAuthenticated, delegatedDrepId, ownDRepId } = useWallet();
   const [constellationReady, setConstellationReady] = useState(false);
@@ -41,6 +46,19 @@ export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress }: Co
     if (delegatedDrepId) return 'delegated';
     return 'undelegated';
   })();
+
+  // Reset state when wallet disconnects
+  const prevAuth = useRef(isAuthenticated);
+  useEffect(() => {
+    if (prevAuth.current && !isAuthenticated) {
+      setShowPersonalCard(false);
+      setContracted(false);
+      setHolderData(null);
+      setHasTriggeredFindMe(false);
+      constellationRef.current?.resetCamera();
+    }
+    prevAuth.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   // When wallet connects (client-side), fetch holder data and trigger find-me
   useEffect(() => {
@@ -96,7 +114,7 @@ export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress }: Co
   }, []);
 
   const handleConnectWallet = useCallback(() => {
-    window.dispatchEvent(new Event('openWalletConnect'));
+    window.dispatchEvent(new CustomEvent('openWalletConnect', { detail: { skipPushPrompt: true } }));
   }, []);
 
   // Build personal card data from holder API response
@@ -147,9 +165,13 @@ export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress }: Co
     return null;
   })();
 
+  // Notify parent of personal card data changes
+  useEffect(() => {
+    onPersonalCard?.(showPersonalCard ? personalCardProps : null);
+  }, [showPersonalCard, personalCardProps, onPersonalCard]);
+
   return (
     <div className={`relative w-full transition-all duration-700 ${contracted ? 'min-h-[40vh]' : 'min-h-[100vh]'}`}>
-      {/* Constellation Canvas */}
       <GovernanceConstellation
         ref={constellationRef}
         onReady={handleConstellationReady}
@@ -157,12 +179,9 @@ export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress }: Co
         className={contracted ? 'h-[40vh]' : 'h-[100vh]'}
       />
 
-      {/* SSR gradient fallback (visible before canvas loads) */}
+      {/* SSR gradient fallback */}
       <div
-        className={`absolute inset-0 bg-gradient-to-b from-[#0a0b14] via-[#0f1225] to-[#0a0b14] dark:block hidden transition-opacity duration-700 pointer-events-none ${constellationReady ? 'opacity-0' : 'opacity-100'}`}
-      />
-      <div
-        className={`absolute inset-0 bg-gradient-to-b from-[#f0f2f8] via-[#e8ebf4] to-[#f0f2f8] dark:hidden block transition-opacity duration-700 pointer-events-none ${constellationReady ? 'opacity-0' : 'opacity-100'}`}
+        className={`absolute inset-0 bg-gradient-to-b from-[#0a0b14] via-[#0f1225] to-[#0a0b14] transition-opacity duration-700 pointer-events-none ${constellationReady ? 'opacity-0' : 'opacity-100'}`}
       />
 
       {/* Text Overlay */}
@@ -170,14 +189,13 @@ export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress }: Co
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none px-4">
           <h1
             className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-center max-w-4xl leading-tight animate-fade-in-up"
-            style={{ mixBlendMode: 'screen' }}
           >
-            <span className="text-white dark:text-white text-foreground">
+            <span className="text-white">
               This is what decentralized governance looks like.
             </span>
           </h1>
 
-          <p className="mt-4 text-sm sm:text-base md:text-lg text-white/60 dark:text-white/60 text-muted-foreground text-center max-w-2xl animate-fade-in-up animation-delay-200">
+          <p className="mt-4 text-sm sm:text-base md:text-lg text-white/60 text-center max-w-2xl animate-fade-in-up animation-delay-200">
             {stats.activeDReps.toLocaleString()} representatives. {stats.totalAdaGoverned} ADA. Every vote shapes Cardano&apos;s future.
           </p>
 
@@ -192,15 +210,7 @@ export function ConstellationHero({ stats, ssrHolderData, ssrWalletAddress }: Co
         </div>
       )}
 
-      {/* Activity Ticker */}
       <ActivityTicker onEventVisible={handleTickerEvent} />
-
-      {/* Personal Governance Card (slides up after auth) */}
-      {showPersonalCard && personalCardProps && (
-        <div className="relative z-20 max-w-xl mx-auto px-4 -mt-8">
-          <PersonalGovernanceCard {...personalCardProps} />
-        </div>
-      )}
     </div>
   );
 }
