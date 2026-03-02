@@ -176,7 +176,7 @@ export function ProposalDrawer({ open, onOpenChange, proposal, drepId }: Proposa
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                No DReps have voted yet. Be among the first!
+                No DReps have voted on this proposal yet. Check back soon — voting has just begun.
               </p>
             )}
           </Section>

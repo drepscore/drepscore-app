@@ -552,7 +552,7 @@ export function IntegrityDashboard({ adminAddress }: { adminAddress: string }) {
                 <Card key={type}>
                   <CardContent className="pt-4 pb-3 px-4">
                     <p className="text-xs text-muted-foreground capitalize">{type} sync</p>
-                    <p className="text-sm text-muted-foreground mt-1">No data yet — waiting for first run</p>
+                    <p className="text-sm text-muted-foreground mt-1">Waiting for first sync run. Data will appear after the next scheduled check.</p>
                   </CardContent>
                 </Card>
               );

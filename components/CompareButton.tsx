@@ -187,7 +187,9 @@ export function CompareButton({ currentDrepId, currentDrepName }: CompareButtonP
                 </button>
               ))}
               {!loading && sortedDreps.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4">No DReps found</p>
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Search for DReps by name or ID to add them to comparison.
+                </p>
               )}
             </div>
             <Button

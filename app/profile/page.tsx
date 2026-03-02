@@ -32,7 +32,9 @@ import {
   Check,
   Bell,
   BellOff,
+  Compass,
 } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import { CopyableAddress } from '@/components/CopyableAddress';
 import { subscribeToPush, unsubscribeFromPush, isPushSubscribed } from '@/lib/pushSubscription';
 import { NotificationPreferences } from '@/components/NotificationPreferences';
@@ -398,9 +400,14 @@ export default function ProfilePage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                No DReps in your watchlist yet. Add some from the homepage!
-              </p>
+              <EmptyState
+                icon={Compass}
+                title="Your Watchlist Is Empty"
+                message="Explore DReps to find representatives worth watching."
+                action={{ label: 'Discover DReps', href: '/discover' }}
+                compact
+                component="ProfileWatchlist"
+              />
             )}
           </CardContent>
         </Card>

@@ -44,6 +44,7 @@ import {
   Inbox,
   Landmark,
 } from 'lucide-react';
+import { MobileNav } from './MobileNav';
 
 const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
   'representation-shift': TrendingDown,
@@ -318,6 +319,15 @@ export function Header() {
           )}
 
           <ModeToggle />
+          <MobileNav
+            isAuthenticated={isAuthenticated}
+            ownDRepId={ownDRepId}
+            isAdmin={isAdmin}
+            onConnectWallet={() => setWalletModalOpen(true)}
+            onLogout={logout}
+            sessionAddress={sessionAddress}
+            displayName={displayName}
+          />
         </nav>
       </div>
 
