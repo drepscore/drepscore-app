@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { BrowserWallet, resolveRewardAddress } from '@meshsdk/core';
-import { getStoredSession, saveSession, clearSession, parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
+import { getStoredSession, saveSession, clearSession, clearSessionCookie, parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
 import { deriveDRepIdFromStakeAddress, checkDRepExists } from '@/utils/drepId';
 
 interface CIP30Api {
@@ -397,6 +397,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearSession();
+    clearSessionCookie();
     setSessionAddress(null);
     localStorage.removeItem(WALLET_NAME_KEY);
   }, []);
