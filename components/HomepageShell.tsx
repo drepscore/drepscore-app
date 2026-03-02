@@ -1,12 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { DRepTableClient } from '@/components/DRepTableClient';
-import { GovernanceWidget } from '@/components/GovernanceWidget';
-import { GovernanceDNAQuiz } from '@/components/GovernanceDNAQuiz';
 import { useWallet } from '@/utils/wallet';
 import { getStoredSession } from '@/lib/supabaseAuth';
 import { EnrichedDRep } from '@/lib/koios';
+
+const GovernanceWidget = dynamic(
+  () => import('@/components/GovernanceWidget').then(m => m.GovernanceWidget),
+  { ssr: false }
+);
+const GovernanceDNAQuiz = dynamic(
+  () => import('@/components/GovernanceDNAQuiz').then(m => m.GovernanceDNAQuiz),
+  { ssr: false }
+);
 
 const WATCHLIST_KEY = 'drepscore_watchlist';
 
@@ -38,11 +46,9 @@ export function HomepageShell({
   const { isAuthenticated, sessionAddress } = useWallet();
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [matchData, setMatchData] = useState<Record<string, number>>({});
-  const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
     setWatchlist(getLocalWatchlist());
-    setHasLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -103,10 +109,6 @@ export function HomepageShell({
       }
     }
   }, [watchlist, isAuthenticated]);
-
-  if (!hasLoaded) {
-    return <div className="min-h-screen" />;
-  }
 
   return (
     <div className="space-y-6">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useWallet } from '@/utils/wallet';
 import { useAlignmentAlerts, AlertType } from '@/hooks/useAlignmentAlerts';
@@ -78,6 +78,7 @@ export function Header() {
   const { isAuthenticated, sessionAddress, address, connected, ownDRepId, logout } = useWallet();
   const { alerts, unreadCount, dismissAlert } = useAlignmentAlerts();
   const pathname = usePathname();
+  const router = useRouter();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -207,17 +208,15 @@ export function Header() {
                         >
                           <DropdownMenuItem
                             className="flex items-start gap-3 p-3 cursor-pointer hover:bg-muted pr-8"
-                            asChild
+                            onSelect={() => { if (alert.link) router.push(alert.link); }}
                           >
-                            <Link href={alert.link || '#'}>
-                              <IconComponent className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
-                              <div className="space-y-1 flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{alert.title}</p>
-                                <p className="text-xs text-muted-foreground line-clamp-2">
-                                  {alert.description}
-                                </p>
-                              </div>
-                            </Link>
+                            <IconComponent className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
+                            <div className="space-y-1 flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{alert.title}</p>
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {alert.description}
+                              </p>
+                            </div>
                           </DropdownMenuItem>
                           <button
                             onClick={(e) => {
@@ -261,42 +260,32 @@ export function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/governance" className="cursor-pointer">
-                      <Vote className="h-4 w-4 mr-2" />
-                      My Delegation
-                    </Link>
+                  <DropdownMenuItem onSelect={() => router.push('/governance')} className="cursor-pointer">
+                    <Vote className="h-4 w-4 mr-2" />
+                    My Delegation
                   </DropdownMenuItem>
                   {(ownDRepId || isAdmin) && (
                     <>
-                      <DropdownMenuItem asChild>
-                        <Link href="/dashboard" className="cursor-pointer">
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          DRep Dashboard
-                        </Link>
+                      <DropdownMenuItem onSelect={() => router.push('/dashboard')} className="cursor-pointer">
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        DRep Dashboard
                       </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href={ownDRepId ? `/dashboard/inbox?drepId=${encodeURIComponent(ownDRepId)}` : '/dashboard/inbox'} className="cursor-pointer">
-                          <Inbox className="h-4 w-4 mr-2" />
-                          Governance Inbox
-                        </Link>
+                      <DropdownMenuItem onSelect={() => router.push(ownDRepId ? `/dashboard/inbox?drepId=${encodeURIComponent(ownDRepId)}` : '/dashboard/inbox')} className="cursor-pointer">
+                        <Inbox className="h-4 w-4 mr-2" />
+                        Governance Inbox
                       </DropdownMenuItem>
                     </>
                   )}
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile" className="cursor-pointer">
-                      <User className="h-4 w-4 mr-2" />
-                      Profile
-                    </Link>
+                  <DropdownMenuItem onSelect={() => router.push('/profile')} className="cursor-pointer">
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
                   </DropdownMenuItem>
                   {isAdmin && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link href="/admin/integrity" className="cursor-pointer">
-                          <Activity className="h-4 w-4 mr-2" />
-                          Data Integrity
-                        </Link>
+                      <DropdownMenuItem onSelect={() => router.push('/admin/integrity')} className="cursor-pointer">
+                        <Activity className="h-4 w-4 mr-2" />
+                        Data Integrity
                       </DropdownMenuItem>
                     </>
                   )}

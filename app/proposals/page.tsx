@@ -9,8 +9,14 @@ import { generateProposalsNarrative } from '@/lib/narratives';
 export const revalidate = 900; // 15 min cache
 
 export default async function ProposalsPage() {
-  const proposals = await getAllProposalsWithVoteSummary();
-  const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
+  let proposals = await getAllProposalsWithVoteSummary();
+  let currentEpoch: number;
+
+  try {
+    currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
+  } catch {
+    currentEpoch = 0;
+  }
 
   const openProposals = proposals.filter(
     p => !p.ratifiedEpoch && !p.enactedEpoch && !p.droppedEpoch && !p.expiredEpoch
@@ -23,13 +29,18 @@ export default async function ProposalsPage() {
   );
   const totalVotesCast = openProposals.reduce((sum, p) => sum + p.totalVotes, 0);
 
-  const narrativeText = generateProposalsNarrative({
-    openCount: openProposals.length,
-    expiringCount: expiringProposals.length,
-    totalAdaAtStake,
-    totalVotesCast,
-    currentEpoch,
-  });
+  let narrativeText: string | null = null;
+  try {
+    narrativeText = generateProposalsNarrative({
+      openCount: openProposals.length,
+      expiringCount: expiringProposals.length,
+      totalAdaAtStake,
+      totalVotesCast,
+      currentEpoch,
+    });
+  } catch {
+    narrativeText = null;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

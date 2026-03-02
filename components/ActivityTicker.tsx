@@ -99,7 +99,7 @@ export function ActivityTicker({ initialEvents, onEventVisible }: ActivityTicker
   const displayEvents = [...events, ...events];
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-md border-t border-white/5">
+    <div className="absolute bottom-0 left-0 right-0 z-10 overflow-hidden bg-black/50 backdrop-blur-md border-t border-white/5">
       <ul
         ref={tickerRef}
         className="flex items-center gap-8 px-4 py-2.5 animate-ticker whitespace-nowrap"
