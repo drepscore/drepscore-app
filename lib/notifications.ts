@@ -106,9 +106,11 @@ async function sendDiscordWebhook(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(content),
+      signal: AbortSignal.timeout(10_000),
     });
     return res.ok;
-  } catch {
+  } catch (e) {
+    console.error('[Notifications] Discord webhook failed:', e instanceof Error ? e.message : e);
     return false;
   }
 }
@@ -131,9 +133,11 @@ async function sendTelegramMessage(
         parse_mode: content.parseMode,
         disable_web_page_preview: true,
       }),
+      signal: AbortSignal.timeout(10_000),
     });
     return res.ok;
-  } catch {
+  } catch (e) {
+    console.error('[Notifications] Telegram send failed:', e instanceof Error ? e.message : e);
     return false;
   }
 }

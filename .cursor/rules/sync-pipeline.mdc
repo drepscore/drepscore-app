@@ -1,0 +1,79 @@
+# Sync Pipeline Architecture
+
+## Overview
+
+All Koios-to-Supabase data synchronization runs through Inngest durable functions. Each sync type has its own function with independent retries, concurrency controls, and scheduling.
+
+## Sync Types and Schedules
+
+| Sync Type | Inngest Function | Schedule | Concurrency Key | Heartbeat |
+|-----------|-----------------|----------|----------------|-----------|
+| proposals | `sync-proposals` | `*/30 * * * *` | `koios-frequent` (limit 2) | `HEARTBEAT_URL_PROPOSALS` |
+| dreps | `sync-dreps` | `0 */6 * * *` | `koios-batch` (limit 2) | `HEARTBEAT_URL_BATCH` |
+| votes | `sync-votes` | `15 */6 * * *` | `koios-batch` (limit 2) | `HEARTBEAT_URL_BATCH` |
+| secondary | `sync-secondary` | `30 */6 * * *` | `koios-batch` (limit 2) | `HEARTBEAT_URL_BATCH` |
+| slow | `sync-slow` | `0 4 * * *` | `slow-sync` (limit 1) | `HEARTBEAT_URL_DAILY` |
+| treasury | `sync-treasury-snapshot` | `30 22 * * *` | `treasury-sync` (limit 1) | `HEARTBEAT_URL_DAILY` |
+
+## Dependency Order
+
+Proposals sync runs first (most frequent). Other syncs have cron offsets to stagger:
+- `:00` proposals, dreps
+- `:15` votes
+- `:30` proposals, secondary
+
+If dreps runs long and overlaps with votes, the `koios-batch` key (limit 2) allows them to run simultaneously.
+
+## Self-Healing
+
+Two layers of self-healing:
+
+1. **sync-freshness-guard** (every 30 min): Checks `v_sync_health` against tight thresholds. Retriggers stale syncs via `callSyncRoute`. Skips if a recent failure exists within 15 min (lets Inngest retry handle it first).
+
+2. **integrity alert** (every 6h): Broader health checks including data quality (vote power coverage, hash verification, AI summaries). Acts as a backstop.
+
+## Monitoring
+
+- **sync_log table**: All syncs write start/finish/metrics via `SyncLogger`
+- **v_sync_health view**: Aggregated sync freshness per type
+- **Health route** (`/api/health`): Public JSON endpoint with staleness thresholds
+- **PostHog events**: `sync_completed`, `sync_failed`, `sync_degraded`, `sync_anomaly_detected`, `sync_duration_warning`
+- **Discord alerts**: Degraded syncs, self-healing events, record count anomalies
+- **External heartbeats**: BetterStack monitors per sync group (proposals, batch, daily)
+
+## Adding a New Sync
+
+1. Create Inngest function in `inngest/functions/sync-<name>.ts`
+2. Register in `app/api/inngest/route.ts`
+3. Add sync type to `SyncType` union in `lib/sync-utils.ts`
+4. Add to `sync_log` CHECK constraint via migration
+5. Add threshold to health route `THRESHOLDS`
+6. Add to `sync-freshness-guard` `FRESHNESS_THRESHOLDS` if it has an HTTP route
+7. Add heartbeat ping at end of function
+8. Create Zod schema in `utils/koios-schemas.ts` if fetching new Koios endpoints
+
+## Runtime Validation
+
+All Koios responses are validated via Zod schemas (`utils/koios-schemas.ts`) before DB writes. Invalid records are skipped (not the entire batch). Validation errors are logged in sync metrics.
+
+## Known Gotchas
+
+- `notification_log` uses `sent_at` not `created_at`
+- `drep_votes` PK is `vote_tx_hash` (no `id` column), epoch column is `epoch_no`
+- `batchUpsert` retries once on transient Supabase errors (ECONNRESET, 503, etc.)
+- The monolith route `/api/sync/route.ts` returns 410 Gone — do not use
+- Treasury sync has no HTTP route; it runs directly in Inngest
+- `callSyncRoute` treats 207 as degraded (alerts Discord + PostHog) but does not throw
+
+## Manual Testing
+
+```bash
+# Run smoke test against a running instance
+npx tsx scripts/sync-smoke-test.ts
+
+# Trigger a specific sync manually
+curl -H "Authorization: Bearer $CRON_SECRET" https://drepscore.io/api/sync/proposals
+
+# Check sync health
+curl https://drepscore.io/api/health
+```

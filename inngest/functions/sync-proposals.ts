@@ -8,8 +8,9 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { fetchProposals, fetchVotesForProposals, fetchProposalVotingSummary } from '@/utils/koios';
 import { classifyProposals } from '@/lib/alignment';
-import { pingHeartbeat } from '@/lib/sync-utils';
-import { errMsg, emitPostHog } from '@/lib/sync-utils';
+import { errMsg, emitPostHog, pingHeartbeat, alertDiscord } from '@/lib/sync-utils';
+import { KoiosProposalSchema, validateArray } from '@/utils/koios-schemas';
+import type { ProposalListResponse } from '@/types/koios';
 
 const BATCH_SIZE = 100;
 const SUMMARY_CONCURRENCY = 5;
@@ -21,7 +22,7 @@ export const syncProposals = inngest.createFunction(
     concurrency: {
       limit: 2,
       scope: 'env',
-      key: '"koios"',
+      key: '"koios-frequent"',
     },
   },
   { cron: '*/30 * * * *' },
@@ -44,7 +45,13 @@ export const syncProposals = inngest.createFunction(
       }
 
       const rawProposals = await fetchProposals();
-      const classified = classifyProposals(rawProposals);
+      const { valid: validProposals, invalidCount, errors: validationErrors } = validateArray(rawProposals, KoiosProposalSchema, 'proposals');
+      if (invalidCount > 0) {
+        errors.push(...validationErrors);
+        emitPostHog(true, 'proposals', 0, { event_override: 'sync_validation_error', record_type: 'proposal', invalid_count: invalidCount });
+        alertDiscord('Validation Errors: proposals', `${invalidCount} proposal records failed Zod validation`);
+      }
+      const classified = classifyProposals(validProposals as unknown as ProposalListResponse);
 
       const proposalRows = [...new Map(
         classified.map(p => [`${p.txHash}-${p.index}`, {
@@ -201,7 +208,7 @@ export const syncProposals = inngest.createFunction(
           url: `${baseUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
           metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
         };
-        await broadcastDiscord(event).catch(() => {});
+        await broadcastDiscord(event).catch((e) => console.error('[proposals] broadcastDiscord failed:', e));
         const sent = await broadcastEvent(event);
         return sent;
       } catch (err) {
@@ -243,7 +250,9 @@ export const syncProposals = inngest.createFunction(
         `${allErrors.length > 0 ? ` (${allErrors.length} errors)` : ''}`
       );
 
-      if (success) await pingHeartbeat(process.env.HEARTBEAT_URL_PROPOSALS);
+      if (success) await pingHeartbeat('HEARTBEAT_URL_PROPOSALS');
     });
+
+    await step.run('heartbeat', () => pingHeartbeat('HEARTBEAT_URL_PROPOSALS'));
   }
 );

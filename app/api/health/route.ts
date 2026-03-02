@@ -5,11 +5,11 @@ export const dynamic = 'force-dynamic';
 
 const THRESHOLDS: Record<string, number> = {
   proposals: 90,
-  fast: 90,
   dreps: 720,
   votes: 720,
   secondary: 2880,
   slow: 2880,
+  treasury: 2880,
   full: 1560,
 };
 

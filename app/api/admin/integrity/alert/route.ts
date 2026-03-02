@@ -18,8 +18,8 @@ const SYNC_CONFIG: Record<string, { mins: number; schedule: string; route: strin
   proposals: { mins: 90, schedule: 'every 30m', route: '/api/sync/proposals', label: 'Proposals Sync' },
   dreps:     { mins: 720, schedule: 'every 6h', route: '/api/sync/dreps', label: 'DReps Sync' },
   votes:     { mins: 720, schedule: 'every 6h', route: '/api/sync/votes', label: 'Votes Sync' },
-  secondary: { mins: 480, schedule: 'every 6h', route: '/api/sync/secondary', label: 'Secondary Sync' },
-  slow:      { mins: 2880, schedule: 'daily', route: '/api/sync/slow', label: 'Slow Sync' },
+  secondary: { mins: 720, schedule: 'every 6h', route: '/api/sync/secondary', label: 'Secondary Sync' },
+  slow:      { mins: 2160, schedule: 'daily', route: '/api/sync/slow', label: 'Slow Sync' },
 };
 
 export async function GET(request: NextRequest) {
@@ -260,6 +260,7 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
     });
 
     try {

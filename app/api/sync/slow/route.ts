@@ -301,13 +301,14 @@ async function runSocialLinkChecks(supabase: SupabaseClient) {
       status = res.ok ? 'valid' : 'broken';
     } catch { /* stays broken */ }
 
-    await supabase.from('social_link_checks').upsert({
+    const { error: linkErr } = await supabase.from('social_link_checks').upsert({
       drep_id: link.drep_id,
       uri: link.uri,
       status,
       http_status: httpStatus,
       last_checked_at: new Date().toISOString(),
     }, { onConflict: 'drep_id,uri' });
+    if (linkErr) console.error('[SlowSync] social_link_checks upsert error:', linkErr.message);
     checked++;
   }
 
@@ -352,8 +353,9 @@ async function runVotePowerBackfill(supabase: SupabaseClient) {
         epoch_no: h.epoch_no,
         amount_lovelace: parseInt(h.amount, 10) || 0,
       }));
-      await supabase.from('drep_power_snapshots')
+      const { error: snapErr } = await supabase.from('drep_power_snapshots')
         .upsert(snapRows, { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
+      if (snapErr) console.error(`[SlowSync] power_snapshots upsert error for ${drepId}:`, snapErr.message);
 
       for (const snap of snapRows) {
         const { count } = await supabase
@@ -520,7 +522,7 @@ async function runCriticalProposalNotifications(supabase: SupabaseClient) {
     url: `${baseUrl}/proposals/${newest.tx_hash}/${newest.proposal_index}`,
     metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
   };
-  await broadcastDiscord(event).catch(() => {});
+  await broadcastDiscord(event).catch((e) => console.error('[SlowSync] broadcastDiscord failed:', e));
   const sent = await broadcastEvent(event);
 
   console.log(`[SlowSync] Critical proposal notifications: ${sent} sent`);

@@ -79,9 +79,10 @@ export async function GET(request: NextRequest) {
 
         for (let i = 0; i < rows.length; i += BATCH_SIZE) {
           const batch = rows.slice(i, i + BATCH_SIZE);
-          await supabase
+          const { error: batchErr } = await supabase
             .from('drep_power_snapshots')
             .upsert(batch, { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
+          if (batchErr) console.error('[Secondary] power_snapshots batch upsert error:', batchErr.message);
         }
         return rows.length;
       })(),

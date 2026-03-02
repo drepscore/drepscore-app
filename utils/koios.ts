@@ -482,6 +482,7 @@ export async function fetchDelegatedDRep(stakeAddress: string): Promise<string |
       headers,
       body: JSON.stringify({ _stake_addresses: [stakeAddress] }),
       cache: 'no-store',
+      signal: AbortSignal.timeout(KOIOS_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) return null;
@@ -715,6 +716,7 @@ export async function checkKoiosHealth(): Promise<boolean> {
     const response = await fetch(`${KOIOS_BASE_URL}/tip`, {
       method: 'GET',
       cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
     });
     return response.ok;
   } catch {
