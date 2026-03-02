@@ -224,3 +224,46 @@ button:not(:disabled):active,
 .animate-check-pop {
   animation: check-pop 0.3s ease-out;
 }
+
+/* Governance constellation: activity ticker scroll */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker {
+  animation: ticker-scroll 60s linear infinite;
+}
+
+/* Constellation card slide-up */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out both;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-ticker,
+  .animate-fade-in-up,
+  .animate-slide-up,
+  .animate-cta-pulse {
+    animation: none !important;
+  }
+}
+
+/* Subtle CTA pulse */
+@keyframes cta-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 117 255 160), 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(var(--primary-rgb, 117 255 160), 0); }
+}
+.animate-cta-pulse {
+  animation: cta-pulse 2.5s ease-in-out infinite;
+}
