@@ -6,6 +6,7 @@ import { PersonalGovernanceCard } from '@/components/PersonalGovernanceCard';
 import { HowItWorksV2 } from '@/components/HowItWorksV2';
 import { DRepDiscoveryPreview } from '@/components/DRepDiscoveryPreview';
 import { CardanoGovernanceExplainer } from '@/components/CardanoGovernanceExplainer';
+import { GovernanceHealthIndex } from '@/components/GovernanceHealthIndex';
 
 interface PreviewDRep {
   drepId: string;
@@ -66,6 +67,10 @@ export function HomepageDualMode({ pulseData, topDReps, ssrHolderData, ssrWallet
       )}
 
       <div className="container mx-auto px-4 space-y-12 py-8">
+        <div className="flex justify-center">
+          <GovernanceHealthIndex size="compact" className="opacity-80 hover:opacity-100 transition-opacity" />
+        </div>
+
         <HowItWorksV2 />
 
         {!personalCard && (

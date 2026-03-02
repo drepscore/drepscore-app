@@ -1,14 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { GHI_BAND_COLORS, GHI_BAND_LABELS, type GHIBand, type GHIComponent } from '@/lib/ghi';
 import { spring } from '@/lib/animations';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface GHIData {
   score: number;
   band: GHIBand;
   components: GHIComponent[];
+}
+
+interface GHIHistoryPoint {
+  epoch: number;
+  score: number;
+  band: string;
+}
+
+interface GHITrend {
+  direction: 'up' | 'down' | 'flat';
+  delta: number;
+  streakEpochs: number;
 }
 
 interface GovernanceHealthIndexProps {
@@ -18,19 +31,32 @@ interface GovernanceHealthIndexProps {
 
 export function GovernanceHealthIndex({ size = 'hero', className = '' }: GovernanceHealthIndexProps) {
   const [data, setData] = useState<GHIData | null>(null);
+  const [history, setHistory] = useState<GHIHistoryPoint[]>([]);
+  const [trend, setTrend] = useState<GHITrend | null>(null);
 
   useEffect(() => {
-    fetch('/api/governance/health-index')
+    fetch('/api/governance/health-index/history?epochs=20')
       .then(r => r.ok ? r.json() : null)
-      .then(setData)
-      .catch(() => {});
+      .then(res => {
+        if (res) {
+          setData(res.current);
+          setHistory(res.history ?? []);
+          setTrend(res.trend ?? null);
+        }
+      })
+      .catch(() => {
+        fetch('/api/governance/health-index')
+          .then(r => r.ok ? r.json() : null)
+          .then(setData)
+          .catch(() => {});
+      });
   }, []);
 
   if (!data) return <GHISkeleton size={size} />;
 
   return size === 'hero'
-    ? <GHIHero data={data} className={className} />
-    : <GHICompact data={data} className={className} />;
+    ? <GHIHero data={data} history={history} trend={trend} className={className} />
+    : <GHICompact data={data} trend={trend} className={className} />;
 }
 
 function GHISkeleton({ size }: { size: 'hero' | 'compact' }) {
@@ -40,16 +66,14 @@ function GHISkeleton({ size }: { size: 'hero' | 'compact' }) {
   );
 }
 
-function GHIHero({ data, className }: { data: GHIData; className: string }) {
+function GHIHero({ data, history, trend, className }: { data: GHIData; history: GHIHistoryPoint[]; trend: GHITrend | null; className: string }) {
   const color = GHI_BAND_COLORS[data.band];
   const label = GHI_BAND_LABELS[data.band];
 
   const svgSize = 192;
   const strokeWidth = 8;
   const radius = (svgSize - strokeWidth) / 2 - 4;
-  const circumference = Math.PI * radius; // half-circle arc
-  const arcStart = Math.PI;
-  const scoreRatio = data.score / 100;
+  const circumference = Math.PI * radius;
 
   const springVal = useSpring(0, { stiffness: 80, damping: 20 });
   const displayScore = useTransform(springVal, v => Math.round(v));
@@ -61,9 +85,7 @@ function GHIHero({ data, className }: { data: GHIData; className: string }) {
 
   const cx = svgSize / 2;
   const cy = svgSize / 2 + 16;
-
-  const arcPath = describeArc(cx, cy, radius, 180, 360);
-  const trackPath = arcPath;
+  const trackPath = describeArc(cx, cy, radius, 180, 360);
 
   return (
     <motion.div
@@ -86,7 +108,6 @@ function GHIHero({ data, className }: { data: GHIData; className: string }) {
             </filter>
           </defs>
 
-          {/* Track */}
           <path
             d={trackPath}
             fill="none"
@@ -96,7 +117,6 @@ function GHIHero({ data, className }: { data: GHIData; className: string }) {
             className="text-muted/20"
           />
 
-          {/* Active arc */}
           <motion.path
             d={trackPath}
             fill="none"
@@ -107,20 +127,10 @@ function GHIHero({ data, className }: { data: GHIData; className: string }) {
             style={{ strokeDashoffset: dashOffset }}
             filter="url(#ghi-glow)"
           />
-
-          {/* Component segment markers */}
-          {data.components.map((comp, i) => {
-            const angle = 180 + (comp.contribution / data.score) * 180 * (i / data.components.length);
-            return null; // segment markers intentionally omitted for cleanliness
-          })}
         </svg>
 
-        {/* Score number */}
         <div className="absolute inset-0 flex flex-col items-center justify-end pb-3">
-          <motion.span
-            className="text-5xl font-bold tabular-nums"
-            style={{ color }}
-          >
+          <motion.span className="text-5xl font-bold tabular-nums" style={{ color }}>
             {displayScore}
           </motion.span>
           <span className="text-xs font-medium uppercase tracking-wider mt-0.5" style={{ color }}>
@@ -129,7 +139,10 @@ function GHIHero({ data, className }: { data: GHIData; className: string }) {
         </div>
       </div>
 
-      {/* Component breakdown */}
+      {trend && trend.delta !== 0 && <TrendBadge trend={trend} color={color} />}
+
+      {history.length >= 3 && <GHISparkline history={history} currentScore={data.score} color={color} />}
+
       <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-center">
         {data.components.map(comp => (
           <div key={comp.name} className="flex flex-col items-center">
@@ -142,7 +155,76 @@ function GHIHero({ data, className }: { data: GHIData; className: string }) {
   );
 }
 
-function GHICompact({ data, className }: { data: GHIData; className: string }) {
+function TrendBadge({ trend, color }: { trend: GHITrend; color: string }) {
+  const TrendIcon = trend.direction === 'up' ? TrendingUp : trend.direction === 'down' ? TrendingDown : Minus;
+  const sign = trend.delta > 0 ? '+' : '';
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+      style={{
+        backgroundColor: `${color}15`,
+        color,
+      }}
+    >
+      <TrendIcon className="h-3 w-3" />
+      <span className="tabular-nums">{sign}{Math.round(trend.delta * 10) / 10} vs last epoch</span>
+    </motion.div>
+  );
+}
+
+function GHISparkline({ history, currentScore, color }: { history: GHIHistoryPoint[]; currentScore: number; color: string }) {
+  const W = 200;
+  const H = 40;
+  const PAD = 4;
+
+  const points = useMemo(() => {
+    const sorted = [...history].sort((a, b) => a.epoch - b.epoch);
+    sorted.push({ epoch: (sorted.at(-1)?.epoch ?? 0) + 1, score: currentScore, band: '' });
+
+    const scores = sorted.map(p => p.score);
+    const minS = Math.min(...scores) - 5;
+    const maxS = Math.max(...scores) + 5;
+    const range = maxS - minS || 1;
+
+    return sorted.map((p, i) => ({
+      x: PAD + (i / (sorted.length - 1)) * (W - PAD * 2),
+      y: PAD + (1 - (p.score - minS) / range) * (H - PAD * 2),
+      epoch: p.epoch,
+      score: p.score,
+    }));
+  }, [history, currentScore]);
+
+  if (points.length < 2) return null;
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const areaPath = `${linePath} L ${points.at(-1)!.x} ${H} L ${points[0].x} ${H} Z`;
+  const lastPt = points.at(-1)!;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.3 }}
+      className="w-[200px]"
+    >
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+        <defs>
+          <linearGradient id="ghi-spark-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.2} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#ghi-spark-fill)" />
+        <path d={linePath} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={lastPt.x} cy={lastPt.y} r={3} fill={color} />
+      </svg>
+    </motion.div>
+  );
+}
+
+function GHICompact({ data, trend, className }: { data: GHIData; trend: GHITrend | null; className: string }) {
   const color = GHI_BAND_COLORS[data.band];
   const label = GHI_BAND_LABELS[data.band];
 
@@ -161,6 +243,8 @@ function GHICompact({ data, className }: { data: GHIData; className: string }) {
   const cy = svgSize / 2 + 8;
   const trackPath = describeArc(cx, cy, radius, 180, 360);
   const dashOffset = useTransform(springVal, v => circumference * (1 - v / 100));
+
+  const TrendIcon = trend?.direction === 'up' ? TrendingUp : trend?.direction === 'down' ? TrendingDown : null;
 
   return (
     <motion.div
@@ -183,7 +267,12 @@ function GHICompact({ data, className }: { data: GHIData; className: string }) {
         </div>
       </div>
       <div className="flex flex-col">
-        <span className="text-xs font-medium" style={{ color }}>{label}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium" style={{ color }}>{label}</span>
+          {TrendIcon && trend && trend.delta !== 0 && (
+            <TrendIcon className="h-3 w-3" style={{ color }} />
+          )}
+        </div>
         <span className="text-[10px] text-muted-foreground">Health Index</span>
       </div>
     </motion.div>

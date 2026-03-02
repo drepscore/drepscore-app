@@ -333,5 +333,21 @@ Server-side API routes also need `captureServerEvent` for success + error tracki
 **Issue**: User asked to "hotfix to production" but the agent stopped after committing, requiring a separate prompt to push. The Ship It Checklist always assumes a PR path (step 1: create feature branch). There was no fast-path for hotfixes that skips branch/PR and goes direct to main with full deploy validation.
 **Takeaway**: When user says "hotfix", the full pipeline (fix → commit to main → push → monitor CI → validate production) is autonomous. Added explicit Hotfix Protocol to workflow.md with the trigger words and full step sequence. Also updated deploy.md release gating to cross-reference.
 
+### 2026-03-02: Centralize AI client — don't duplicate SDK instantiation
+**Pattern**: Four files independently imported `@anthropic-ai/sdk`, each with their own client instantiation and error handling. When Session 16 needed AI across 5+ new features, duplicating this pattern would have been unmaintainable.
+**Takeaway**: Create a shared `lib/ai.ts` with `generateText()` and `generateJSON()` that return `null` on failure. Callers always have a template fallback. One place for model constants, one place for error handling.
+
+### 2026-03-02: AI must narrate, never generate statistics
+**Pattern**: The State of Governance report and AI-enhanced briefs use a strict "compute first, narrate second" pattern. All numbers come from Supabase queries; Claude only receives pre-computed facts to weave into prose. This prevents hallucinated statistics.
+**Takeaway**: Every AI feature should follow this: `assembleData()` → `generateNarrative(data)`. Never let the model compute or estimate numbers.
+
+### 2026-03-02: Strategy doc projections must reflect reality
+**Pattern**: The wow score projections after S15 said ~83-86 but honest assessment showed ~69-72. Several planned features (page transitions, social proof, GHI trend) were not built. Over-optimistic projections mislead future session planning.
+**Takeaway**: After each session, honestly reassess the baseline. Document what was NOT built alongside what was. Future sessions depend on accurate baselines.
+
+### 2026-03-02: Intelligence features need visual punch, not just data
+**Pattern**: Cross-proposal insights had 3 hardcoded types with no trends, no share buttons, no methodology. Functional but not "wow." Session 16 expanded to 9 insights with trend indicators, per-insight share text, transparent methodology, and "Insight of the Week" highlight treatment.
+**Takeaway**: Data intelligence features need the same visual polish budget as hero components. Trends, share buttons, methodology transparency, and editorial hierarchy (highlight vs. regular) are not optional.
+
 *Last updated: 2026-03-02*
 *Review this file at the start of every session.*

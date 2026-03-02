@@ -197,6 +197,24 @@ export default async function PulsePage() {
         </div>
       </div>
 
+      {/* Latest Report Link */}
+      <Link href="/pulse/report/latest" className="block">
+        <Card className="border-primary/20 hover:border-primary/40 transition-colors">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                <BarChart3 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">State of Governance Report</p>
+                <p className="text-xs text-muted-foreground">Weekly intelligence report with AI analysis</p>
+              </div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </Link>
+
       <TreasuryHealthWidget />
 
       {pulse && (

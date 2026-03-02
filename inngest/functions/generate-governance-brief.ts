@@ -12,6 +12,8 @@ import {
   assembleHolderBriefContext,
   generateDRepBrief,
   generateHolderBrief,
+  generateAIDRepBrief,
+  generateAIHolderBrief,
   storeBrief,
 } from '@/lib/governanceBrief';
 import { notifyUser } from '@/lib/notifications';
@@ -69,11 +71,11 @@ export const generateGovernanceBrief = inngest.createFunction(
             if (isDRep && user.claimedDrepId) {
               const ctx = await assembleDRepBriefContext(user.claimedDrepId, user.wallet);
               if (!ctx) continue;
-              brief = generateDRepBrief(ctx);
+              brief = await generateAIDRepBrief(ctx);
               await storeBrief(user.wallet, 'drep', brief, ctx.epoch);
             } else {
               const ctx = await assembleHolderBriefContext(user.wallet, user.currentDrepId);
-              brief = generateHolderBrief(ctx);
+              brief = await generateAIHolderBrief(ctx);
               await storeBrief(user.wallet, 'holder', brief, ctx.epoch);
             }
 

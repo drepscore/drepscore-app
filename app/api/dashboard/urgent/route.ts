@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOpenProposalsForDRep } from '@/lib/data';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { getProposalDisplayTitle } from '@/utils/display';
+import { createClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,56 @@ export async function GET(request: NextRequest) {
       })
       .sort((a: any, b: any) => a.epochsRemaining - b.epochsRemaining);
 
-    return NextResponse.json({ proposals: urgent });
+    // Recent votes without explanations (for post-vote rationale prompt)
+    let unexplainedVotes: { txHash: string; index: number; title: string }[] = [];
+    try {
+      const supabase = createClient();
+      const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
+
+      const { data: recentVotes } = await supabase
+        .from('drep_votes')
+        .select('proposal_tx_hash, proposal_index')
+        .eq('drep_id', drepId)
+        .gte('created_at', twoDaysAgo)
+        .limit(10);
+
+      if (recentVotes && recentVotes.length > 0) {
+        const { data: explanations } = await supabase
+          .from('vote_explanations')
+          .select('proposal_tx_hash, proposal_index')
+          .eq('drep_id', drepId);
+
+        const explainedSet = new Set(
+          (explanations ?? []).map(e => `${e.proposal_tx_hash}-${e.proposal_index}`),
+        );
+
+        const unexplained = recentVotes.filter(
+          v => !explainedSet.has(`${v.proposal_tx_hash}-${v.proposal_index}`),
+        );
+
+        if (unexplained.length > 0) {
+          const proposalKeys = unexplained.map(v => v.proposal_tx_hash);
+          const { data: proposals } = await supabase
+            .from('proposals')
+            .select('tx_hash, proposal_index, title')
+            .in('tx_hash', proposalKeys);
+
+          const proposalTitleMap = new Map(
+            (proposals ?? []).map(p => [`${p.tx_hash}-${p.proposal_index}`, p.title]),
+          );
+
+          unexplainedVotes = unexplained.map(v => ({
+            txHash: v.proposal_tx_hash,
+            index: v.proposal_index,
+            title: proposalTitleMap.get(`${v.proposal_tx_hash}-${v.proposal_index}`) || 'Untitled Proposal',
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('[Dashboard/Urgent] Unexplained votes check failed:', err);
+    }
+
+    return NextResponse.json({ proposals: urgent, unexplainedVotes });
   } catch (error) {
     console.error('[Dashboard/Urgent] Error:', error);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

@@ -169,7 +169,70 @@ export async function assembleHolderBriefContext(
 
 // ── Brief Generation ──────────────────────────────────────────────────────────
 
+export async function generateAIDRepBrief(ctx: DRepBriefContext): Promise<GeneratedBrief> {
+  const template = generateDRepBriefTemplate(ctx);
+  try {
+    const { generateText } = await import('./ai');
+    const contextSummary = template.sections.map(s => `${s.heading}: ${s.content}`).join('\n');
+    const prompt = `You are a governance analyst writing a personalized weekly brief for a Cardano DRep named ${ctx.drepName}. Rewrite the following data points into a warm, concise 150-word narrative. Tone: knowledgeable friend, not corporate. Keep all numbers accurate. Output only the narrative text, no headings.
+
+DATA:
+${contextSummary}
+Score: ${ctx.currentScore} (${ctx.scoreChange > 0 ? 'up' : ctx.scoreChange < 0 ? 'down' : 'unchanged'} ${Math.abs(ctx.scoreChange)} from last week)
+Rank: #${ctx.rank} of ${ctx.totalDReps}
+Open proposals: ${ctx.proposalsOpen}${ctx.proposalsCritical > 0 ? ` (${ctx.proposalsCritical} critical)` : ''}`;
+
+    const narrative = await generateText(prompt, { maxTokens: 400 });
+    if (narrative) {
+      return {
+        greeting: template.greeting,
+        sections: [
+          { heading: 'Your Weekly Update', content: narrative },
+          ...template.sections.slice(1),
+        ],
+        ctaText: template.ctaText,
+        ctaUrl: template.ctaUrl,
+      };
+    }
+  } catch (err) {
+    console.error('[GovernanceBrief] AI narration failed, using template:', err);
+  }
+  return template;
+}
+
+export async function generateAIHolderBrief(ctx: HolderBriefContext): Promise<GeneratedBrief> {
+  const template = generateHolderBriefTemplate(ctx);
+  try {
+    const { generateText } = await import('./ai');
+    const contextSummary = template.sections.map(s => `${s.heading}: ${s.content}`).join('\n');
+    const prompt = `You are a governance analyst writing a weekly brief for a Cardano ADA holder. Rewrite these data points into a warm, concise 100-word narrative. Tone: knowledgeable friend encouraging governance participation. Keep all numbers accurate. Output only the narrative text, no headings.
+
+DATA:
+${contextSummary}`;
+
+    const narrative = await generateText(prompt, { maxTokens: 300 });
+    if (narrative) {
+      return {
+        greeting: template.greeting,
+        sections: [
+          { heading: 'Your Weekly Update', content: narrative },
+          ...template.sections.slice(1),
+        ],
+        ctaText: template.ctaText,
+        ctaUrl: template.ctaUrl,
+      };
+    }
+  } catch (err) {
+    console.error('[GovernanceBrief] AI narration failed, using template:', err);
+  }
+  return template;
+}
+
 export function generateDRepBrief(ctx: DRepBriefContext): GeneratedBrief {
+  return generateDRepBriefTemplate(ctx);
+}
+
+function generateDRepBriefTemplate(ctx: DRepBriefContext): GeneratedBrief {
   const scoreSentence = ctx.scoreChange !== 0
     ? `Your score ${ctx.scoreChange > 0 ? 'improved' : 'dropped'} by ${Math.abs(ctx.scoreChange)} points to ${ctx.currentScore}.`
     : `Your score holds steady at ${ctx.currentScore}.`;
@@ -202,6 +265,10 @@ export function generateDRepBrief(ctx: DRepBriefContext): GeneratedBrief {
 }
 
 export function generateHolderBrief(ctx: HolderBriefContext): GeneratedBrief {
+  return generateHolderBriefTemplate(ctx);
+}
+
+function generateHolderBriefTemplate(ctx: HolderBriefContext): GeneratedBrief {
   const sections: BriefSection[] = [];
 
   if (ctx.drepId && ctx.drepName) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { computeInsights } from '@/lib/proposalInsights';
+import { computeInsights } from '@/lib/proposalIntelligence';
 
 let cachedResult: { data: Awaited<ReturnType<typeof computeInsights>>; ts: number } | null = null;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours

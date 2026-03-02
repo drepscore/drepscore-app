@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProposalDescription } from '@/components/ProposalDescription';
 import { ProposalAiSummary } from '@/components/ProposalAiSummary';
+import { ProposalExplainer } from '@/components/ProposalExplainer';
+import { ProposalContextInsight } from '@/components/ProposalContextInsight';
 import { ThresholdMeter } from '@/components/ThresholdMeter';
 import { VoteTimeline } from '@/components/VoteTimeline';
 import { ArrowLeft, ExternalLink, Shield, Zap, Landmark, Eye, Scale } from 'lucide-react';
@@ -138,6 +140,16 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
 
       {/* AI Summary - immediately after header for at-a-glance understanding */}
       <ProposalAiSummary summary={proposal.aiSummary} />
+
+      {/* AI Deep Explainer */}
+      <ProposalExplainer
+        txHash={txHash}
+        index={proposalIndex}
+        cachedExplanation={(proposal as any).metaJson?.ai_explanation ?? null}
+      />
+
+      {/* Contextual intelligence */}
+      <ProposalContextInsight proposalType={proposal.proposalType} />
 
       {/* DRep Vote Callout */}
       <DRepVoteCallout txHash={txHash} proposalIndex={proposalIndex} />

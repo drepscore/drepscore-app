@@ -71,6 +71,41 @@ export interface DRepNarrativeData {
   sizeTier: string;
 }
 
+/**
+ * AI-enhanced DRep narrative. Falls back to template if AI is unavailable.
+ * Call from cron jobs or server-side; results should be cached.
+ */
+export async function generateAIDRepNarrative(data: DRepNarrativeData): Promise<string | null> {
+  const template = generateDRepNarrative(data);
+  if (!template || !data.isActive || data.totalVotes < 3) return template;
+
+  try {
+    const { generateText } = await import('./ai');
+    const dominant = getDominantDimension(data.alignments);
+    const dominantLabel = getDimensionLabel(dominant).toLowerCase();
+
+    const prompt = `Write a 2-sentence governance personality profile for a Cardano DRep. Tone: editorial, warm, like a journalist profiling a public figure. Use the data below — keep all numbers accurate. Do NOT use the DRep's name in the first word.
+
+Name: ${data.name}
+Score: ${data.drepScore}/100 (rank #${data.rank ?? '?'})
+Focus: ${dominantLabel}
+Participation: votes on ${Math.round(data.participationRate)}% of proposals
+Rationale: provides reasoning ${Math.round(data.rationaleRate)}% of the time
+Delegators: ${data.delegatorCount.toLocaleString()}
+Voting power: ${formatAdaCompact(data.votingPower)} ADA
+Size tier: ${data.sizeTier}
+Total votes cast: ${data.totalVotes}
+
+Output only the 2-sentence profile. No quotation marks, no preamble.`;
+
+    const aiNarrative = await generateText(prompt, { maxTokens: 200 });
+    if (aiNarrative && aiNarrative.length > 20) return aiNarrative.trim();
+  } catch (err) {
+    console.error('[Narrative] AI generation failed:', err);
+  }
+  return template;
+}
+
 export function generateDRepNarrative(data: DRepNarrativeData): string | null {
   if (!data.isActive && data.totalVotes === 0) {
     return `${data.name} is registered but hasn't participated in governance yet — their story is just beginning.`;
