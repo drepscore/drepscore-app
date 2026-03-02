@@ -33,7 +33,7 @@ import {
   CircleDashed,
 } from 'lucide-react';
 import { stripMarkdown } from '@/utils/text';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Clock } from 'lucide-react';
 import {
   ProposalStatusBadge,
   PriorityBadge,
@@ -400,7 +400,7 @@ export function ProposalsListClient({ proposals, watchlist = [], currentEpoch }:
 
       {filtered.length === 0 && proposals.length === 0 && (
         <EmptyState
-          icon="clock"
+          icon={Clock}
           title="Proposals syncing"
           message="Proposal data hasn't been synced yet. This usually resolves within a few minutes — check back shortly."
           compact
