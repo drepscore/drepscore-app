@@ -8,6 +8,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { fetchProposals, fetchVotesForProposals, fetchProposalVotingSummary } from '@/utils/koios';
 import { classifyProposals } from '@/lib/alignment';
+import { pingHeartbeat } from '@/lib/sync-utils';
 import { errMsg, emitPostHog } from '@/lib/sync-utils';
 
 const BATCH_SIZE = 100;
@@ -249,6 +250,8 @@ export const syncProposals = inngest.createFunction(
         `${pushSent > 0 ? `, ${pushSent} push` : ''}` +
         `${allErrors.length > 0 ? ` (${allErrors.length} errors)` : ''}`
       );
+
+      if (success) await pingHeartbeat(process.env.HEARTBEAT_URL_PROPOSALS);
     });
   }
 );

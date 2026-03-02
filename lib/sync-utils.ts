@@ -109,6 +109,19 @@ export async function emitPostHog(success: boolean, syncType: SyncType, duration
  * Fire-and-forget — never throws, only logs warnings on failure.
  * Waits 5s before firing to let sync_log writes settle in the DB.
  */
+/**
+ * Pings a BetterStack heartbeat URL. Fire-and-forget — never throws.
+ * Skips gracefully when the URL is not configured (dev/preview).
+ */
+export async function pingHeartbeat(url: string | undefined): Promise<void> {
+  if (!url) return;
+  try {
+    await fetch(url, { method: 'GET', signal: AbortSignal.timeout(5_000) });
+  } catch (_e) {
+    console.warn('[heartbeat] ping failed:', errMsg(_e));
+  }
+}
+
 export async function triggerAnalyticsDeploy(syncType: SyncType): Promise<void> {
   const hook = process.env.ANALYTICS_DEPLOY_HOOK;
   if (!hook) return;

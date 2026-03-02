@@ -1,5 +1,6 @@
 import { inngest } from '@/lib/inngest';
 import { callSyncRoute } from '@/inngest/helpers';
+import { pingHeartbeat } from '@/lib/sync-utils';
 
 export const syncSecondary = inngest.createFunction(
   {
@@ -9,8 +10,12 @@ export const syncSecondary = inngest.createFunction(
   },
   { cron: '30 */6 * * *' },
   async ({ step }) => {
-    return step.run('execute-secondary-sync', () =>
+    const result = await step.run('execute-secondary-sync', () =>
       callSyncRoute('/api/sync/secondary', 300_000)
     );
+    await step.run('heartbeat-batch', () =>
+      pingHeartbeat(process.env.HEARTBEAT_URL_BATCH)
+    );
+    return result;
   },
 );

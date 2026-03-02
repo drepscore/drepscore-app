@@ -8,6 +8,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { fetchTreasuryBalance, fetchTreasuryHistory } from '@/utils/koios';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { pingHeartbeat } from '@/lib/sync-utils';
 
 export const syncTreasurySnapshot = inngest.createFunction(
   {
@@ -76,6 +77,10 @@ export const syncTreasurySnapshot = inngest.createFunction(
       withdrawals_lovelace: withdrawals,
       reserves_income_lovelace: reservesIncome,
     });
+
+    await step.run('heartbeat-daily', () =>
+      pingHeartbeat(process.env.HEARTBEAT_URL_DAILY)
+    );
 
     return { epoch: snapshot.epoch, balance: snapshot.balanceLovelace };
   }
