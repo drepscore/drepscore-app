@@ -2,6 +2,8 @@
 
 Patterns, mistakes, and architectural decisions captured during development. Reviewed at session start. Patterns appearing 2+ times get promoted to cursor rules.
 
+> **Platform migration (2026-03-02):** Hosting moved from Vercel to Railway (Docker). Background jobs moved from Vercel Cron to Inngest Cloud. Historical lessons below reference Vercel where that was the platform at the time; actionable guidance has been updated to reference Railway/Inngest.
+
 ---
 
 ## Architecture
@@ -107,9 +109,9 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Pattern**: The `analytics/` Observable Framework directory imports `postgres` (not in the main `package.json`). Next.js TypeScript checking picks up `**/*.ts` including `analytics/src/data/*.ts`, causing a build failure on Vercel.
 **Takeaway**: Any standalone sub-project with its own dependency tree must be excluded in `tsconfig.json`. Added `"analytics"` to `exclude` array. Always verify `npx next build --webpack` before pushing.
 
-### 2026-02-26: Vercel CLI is essential for autonomous deployment monitoring
-**Pattern**: Browser-based Vercel dashboard requires auth the agent can't provide. `npx vercel inspect <url> --logs` gives full build output including the exact error line. `npx vercel ls` shows deployment status.
-**Takeaway**: Always use `vercel inspect --logs` to diagnose failed deploys. Don't guess — pull the logs.
+### 2026-02-26: CLI tools are essential for autonomous deployment monitoring
+**Pattern**: Browser-based dashboards require auth the agent can't provide. On Vercel, `npx vercel inspect <url> --logs` gave build output. On Railway, use `railway logs` or the Railway dashboard API.
+**Takeaway**: Always pull deployment logs to diagnose failed deploys. Don't guess — check Railway logs or Inngest dashboard.
 
 ### 2026-02-26: NEVER overwrite .cursor/mcp.json — it contains secrets and cached auth
 **Pattern**: Agent recreated `.cursor/mcp.json` from git history, which wiped the working config containing the Supabase access token and the `mcp-remote`-based Vercel setup. This forced a full re-auth cycle and hit the `cursor://` protocol handler issue again.
@@ -149,7 +151,7 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 **Takeaway**: ALWAYS destructure `{ error }` from every Supabase write. Treat any non-null error as a failure that propagates to the error array and blocks the success flag.
 
 ### 2026-02-27: No per-request timeout on external API calls
-**Pattern**: `koiosFetch` had no `AbortController` timeout. A single hung Koios connection could consume the entire Vercel function budget (60s fast, 300s full) with no recourse or retry.
+**Pattern**: `koiosFetch` had no `AbortController` timeout. A single hung Koios connection could consume the entire function budget (60s fast, 300s full) with no recourse or retry.
 **Takeaway**: Every outbound HTTP call in a time-budgeted function must have an `AbortController` timeout. Set it to a fraction of the total budget (20s per request for a 60s function). Add retry logic for `AbortError` just like for rate limits.
 
 ### 2026-02-27: Sequential external API loops kill time budgets
@@ -162,7 +164,7 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 
 ### 2026-02-28: maxDuration 60s is too tight for Koios-dependent syncs
 **Pattern**: Proposals sync hit `FUNCTION_INVOCATION_TIMEOUT` at 60s. With 20s per-request Koios timeout + 3 retry attempts with exponential backoff, a single failing fetch can burn 63s+ before the function even gets to votes/summaries. Successful runs take ~88s.
-**Takeaway**: Set `maxDuration = 300` (Vercel Pro max) for all sync routes. The external API latency is unpredictable — tight timeouts cause more failures than they prevent. Rely on per-request `AbortController` timeouts for individual call discipline.
+**Takeaway**: Set generous timeouts for all sync routes (Railway has no 300s cap like Vercel Pro, but keep per-request discipline). The external API latency is unpredictable — tight timeouts cause more failures than they prevent. Rely on per-request `AbortController` timeouts for individual call discipline.
 
 ### 2026-02-28: Don't add per-entity API calls to already-heavy sync functions
 **Pattern**: Added paginated `fetchDRepDelegatorCount` (multiple API calls per DRep) to the DRep sync that already fetches info+metadata+votes for ~1000 DReps. Function timed out at 300s. The correct fix was to separate concerns: DRep sync preserves existing counts from DB, secondary sync handles the counting via `Prefer: count=exact` (1 request per DRep).
@@ -186,15 +188,15 @@ Patterns, mistakes, and architectural decisions captured during development. Rev
 
 ### 2026-02-28: Don't trigger syncs locally against production
 **Issue**: `.env.local` has production Supabase credentials. Running a sync locally writes to production DB — risky duplication.
-**Fix**: Use Inngest dev server for function registration/discovery testing only. Validate actual sync execution via Vercel preview deploys where Inngest cloud handles scheduling.
+**Fix**: Use Inngest dev server for function registration/discovery testing only. Validate actual sync execution via Railway deploys where Inngest cloud handles scheduling.
 
 ### 2026-02-28: Verify all imports are committed, not just the file you wrote
-**Issue**: Created `lib/api/handler.ts` and committed it, but its sibling imports (`response.ts`, `rateLimit.ts`, `keys.ts`, `logging.ts`, `errors.ts`) were untracked and not staged. Local build passed (files exist on disk); Vercel preview deploy failed (files missing from git).
+**Issue**: Created `lib/api/handler.ts` and committed it, but its sibling imports (`response.ts`, `rateLimit.ts`, `keys.ts`, `logging.ts`, `errors.ts`) were untracked and not staged. Local build passed (files exist on disk); deploy failed (files missing from git).
 **Fix**: When committing a new file, check `git status` for its directory — if the directory itself is untracked (`??`), all siblings need staging too. After pushing, verify the deploy succeeds before marking the task complete.
 
 ### 2026-02-28: Always verify deploy after push — don't mark complete prematurely
-**Issue**: Marked deploy todo as complete after `git push` succeeded, without waiting for or checking the Vercel build result.
-**Fix**: After pushing, run `vercel inspect` on the latest deployment and confirm status is "Ready" before considering deploy complete. If it fails, fix and re-push in the same session.
+**Issue**: Marked deploy todo as complete after `git push` succeeded, without waiting for or checking the build result.
+**Fix**: After pushing, monitor the Railway deployment and confirm it's healthy before considering deploy complete. If it fails, fix and re-push in the same session.
 
 ### 2026-03-01: Always monitor CI after push — never report completion until green
 **Issue**: After pushing the `feature/pre-launch-hardening` branch and creating PR #2, treated the task as "done" and reported success to the user. CI failed (`lib/koios.ts` coverage threshold raised to 40% but actual coverage was 14.22%). The deploy rule explicitly documents the monitor-and-fix loop, but it was skipped.
@@ -290,5 +292,10 @@ Server-side API routes also need `captureServerEvent` for success + error tracki
 **Issue**: Rules referenced "9 Inngest functions" but we added 3 more. The stale count would mislead future sessions into thinking a function was missing or extra.
 **Takeaway**: When rules reference specific counts (functions, tables, API routes), add a note to update the count when the list changes. Better yet, reference the list rather than a number where possible.
 
-*Last updated: 2026-03-01*
+### 2026-03-02: Canvas 2D has a hard ceiling for premium visuals
+**Issue**: Session 12's constellation was originally built with Canvas 2D for lower bundle cost. The result was blurry, clumped nodes with no real glow or depth — the opposite of the intended "10-second hook." `shadowBlur` for glow is CPU-bound and looks painted rather than luminous. No additive blending. No real bloom.
+**Fix**: Replaced with React Three Fiber + `@react-three/postprocessing` Bloom. GPU-accelerated instanced rendering, real bloom via mipmapBlur, cinematic camera transitions. ~200KB lazy-loaded (zero LCP impact). When visual quality is the goal, Canvas 2D is a false economy.
+**Takeaway**: For any visualization requiring glow, depth, or cinematic feel, start with WebGL (Three.js/R3F). Canvas 2D is appropriate for charts, diagrams, and simple particle effects — not for hero-level visual experiences.
+
+*Last updated: 2026-03-02*
 *Review this file at the start of every session.*

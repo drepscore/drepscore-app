@@ -1,5 +1,5 @@
 /**
- * Proposals Sync — Inngest durable function replacing Vercel cron.
+ * Proposals Sync — Inngest durable function.
  * Runs every 30 min. Each step retries independently.
  */
 

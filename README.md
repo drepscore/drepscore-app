@@ -20,7 +20,7 @@ DRepScore is an educational tool that helps casual Cardano ADA holders discover 
 - **Charts**: Recharts
 - **Wallet Integration**: MeshJS
 - **Data Source**: Koios API (Cardano mainnet)
-- **Deployment**: Vercel-ready
+- **Deployment**: Railway (Docker)
 
 ## Getting Started
 
@@ -122,19 +122,17 @@ Choose from preset value tags to find DReps aligned with your preferences:
 
 ## Deployment
 
-### Deploy to Vercel
+### Deploy to Railway
 
-1. Push your code to GitHub/GitLab/Bitbucket
-
-2. Import your repository in Vercel
-
-3. Configure environment variables in Vercel dashboard:
+1. Push your code to GitHub
+2. Connect the repository in Railway dashboard
+3. Configure environment variables in Railway:
    - `KOIOS_API_KEY` (optional)
    - `NEXT_PUBLIC_KOIOS_BASE_URL` (default: https://api.koios.rest/api/v1)
+   - See `.env.example` for the full list
+4. Railway auto-deploys from `main` via Docker
 
-4. Deploy
-
-The project is pre-configured for Vercel with optimal settings in `next.config.ts` and `vercel.json`.
+DNS/CDN is managed via Cloudflare. Background jobs run on Inngest Cloud.
 
 ## Scripts
 

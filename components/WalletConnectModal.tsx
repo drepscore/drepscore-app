@@ -20,6 +20,7 @@ interface WalletConnectModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  skipPushPrompt?: boolean;
 }
 
 type Step = 'connect' | 'sign' | 'push' | 'success';
@@ -37,7 +38,7 @@ function sortWallets(wallets: string[]): string[] {
   });
 }
 
-export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConnectModalProps) {
+export function WalletConnectModal({ open, onOpenChange, onSuccess, skipPushPrompt }: WalletConnectModalProps) {
   const {
     connected,
     connecting,
@@ -99,7 +100,7 @@ export function WalletConnectModal({ open, onOpenChange, onSuccess }: WalletConn
     
     if (success) {
       posthog.capture('wallet_authenticated', { wallet_name: selectedWallet });
-      setStep('push');
+      setStep(skipPushPrompt ? 'success' : 'push');
     }
   };
 

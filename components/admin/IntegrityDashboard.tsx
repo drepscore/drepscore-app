@@ -97,8 +97,8 @@ const ALERT_HINTS: Record<string, string> = {
   'Vote power coverage': 'Auto-heals on nightly full sync.',
   'Hash mismatch rate': 'Review mismatches — DReps may have changed rationale content post-vote.',
   'Proposal AI summary coverage': 'Auto-heals slowly (10/run). Run bootstrap-ai-summaries.ts for bulk.',
-  'Fast sync stale': 'Check Vercel cron logs for failures.',
-  'Full sync stale': 'Check Vercel function logs — may be timing out.',
+  'Fast sync stale': 'Check Inngest dashboard for failures.',
+  'Full sync stale': 'Check Railway logs — may be timing out.',
 };
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ function InfoTip({ text }: { text: string }) {
 }
 
 function SectionHeader({ icon: Icon, title, description }: {
-  icon: React.ElementType; title: string; description: string;
+  icon: React.ComponentType<{ className?: string }>; title: string; description: string;
 }) {
   return (
     <div className="mb-2">
@@ -199,7 +199,7 @@ function DeltaBadge({ delta, invertColor, unit = '' }: {
 
 function MetricCard({ title, value, subtitle, icon: Icon, status, tooltip, delta }: {
   title: string; value: string | number; subtitle?: string;
-  icon: React.ElementType; status?: 'good' | 'warning' | 'critical'; tooltip?: string;
+  icon: React.ComponentType<{ className?: string }>; status?: 'good' | 'warning' | 'critical'; tooltip?: string;
   delta?: { value: number; invertColor?: boolean; unit?: string; label?: string };
 }) {
   const statusColors = {
@@ -595,13 +595,13 @@ export function IntegrityDashboard({ adminAddress }: { adminAddress: string }) {
 
           <GuidancePanel>
             <GuidanceNote type="action-needed">
-              <strong>Fast sync stale &gt; 90min</strong> — Check Vercel cron logs. Likely a deployment issue or cron misconfiguration in vercel.json.
+              <strong>Fast sync stale &gt; 90min</strong> — Check Inngest dashboard for the sync-fast function. Likely a deployment issue or Inngest misconfiguration.
             </GuidanceNote>
             <GuidanceNote type="action-needed">
-              <strong>Full sync stale &gt; 26hr</strong> — Check Vercel function logs. The full sync may be timing out (known issue with Phase 5 complexity).
+              <strong>Full sync stale &gt; 26hr</strong> — Check Railway logs. The full sync may be timing out (known issue with Phase 5 complexity).
             </GuidanceNote>
             <GuidanceNote type="action-needed">
-              <strong>Last sync failed</strong> — Check the error message above. Common causes: Koios rate limits, Supabase connection issues, Vercel function timeout.
+              <strong>Last sync failed</strong> — Check the error message above. Common causes: Koios rate limits, Supabase connection issues, Railway function timeout.
             </GuidanceNote>
           </GuidancePanel>
 

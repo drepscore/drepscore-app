@@ -124,8 +124,13 @@ export function Header() {
       .catch(() => {});
   }, [ownDRepId]);
 
+  const [skipPushPrompt, setSkipPushPrompt] = useState(false);
+
   useEffect(() => {
-    const handler = () => setWalletModalOpen(true);
+    const handler = (e: Event) => {
+      setSkipPushPrompt(!!(e as CustomEvent).detail?.skipPushPrompt);
+      setWalletModalOpen(true);
+    };
     window.addEventListener('openWalletConnect', handler);
     return () => window.removeEventListener('openWalletConnect', handler);
   }, []);
@@ -334,6 +339,7 @@ export function Header() {
       <WalletConnectModal
         open={walletModalOpen}
         onOpenChange={setWalletModalOpen}
+        skipPushPrompt={skipPushPrompt}
       />
     </header>
   );
