@@ -1,5 +1,5 @@
 import { inngest } from '@/lib/inngest';
-import { executeDrepsSync } from '@/app/api/sync/dreps/route';
+import { executeDrepsSync } from '@/lib/sync/dreps';
 import { pingHeartbeat } from '@/lib/sync-utils';
 
 export const syncDreps = inngest.createFunction(

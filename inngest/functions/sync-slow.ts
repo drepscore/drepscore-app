@@ -1,5 +1,5 @@
 import { inngest } from '@/lib/inngest';
-import { executeSlowSync } from '@/app/api/sync/slow/route';
+import { executeSlowSync } from '@/lib/sync/slow';
 import { pingHeartbeat } from '@/lib/sync-utils';
 
 export const syncSlow = inngest.createFunction(

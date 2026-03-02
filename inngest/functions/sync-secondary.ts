@@ -1,5 +1,5 @@
 import { inngest } from '@/lib/inngest';
-import { executeSecondarySync } from '@/app/api/sync/secondary/route';
+import { executeSecondarySync } from '@/lib/sync/secondary';
 import { pingHeartbeat } from '@/lib/sync-utils';
 
 export const syncSecondary = inngest.createFunction(

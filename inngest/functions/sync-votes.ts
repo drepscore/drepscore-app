@@ -1,5 +1,5 @@
 import { inngest } from '@/lib/inngest';
-import { executeVotesSync } from '@/app/api/sync/votes/route';
+import { executeVotesSync } from '@/lib/sync/votes';
 import { pingHeartbeat } from '@/lib/sync-utils';
 
 export const syncVotes = inngest.createFunction(
