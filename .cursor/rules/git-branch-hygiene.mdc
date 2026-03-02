@@ -63,8 +63,9 @@ When the user says "merge" from the **main worktree** (`drepscore-app`):
    gh pr merge <pr-number> --squash --delete-branch
    git pull origin main
    ```
-2. Clean up the worktree:
+2. Clean up the worktree (delete `node_modules` first to avoid Windows file-lock hangs):
    ```
+   Remove-Item -Recurse -Force ..\drepscore-<name>\node_modules -ErrorAction SilentlyContinue
    git worktree remove ..\drepscore-<name>
    git branch -d feature/<name>
    ```
@@ -82,6 +83,7 @@ Then pull into the main worktree and clean up:
 ```
 # From drepscore-app (main worktree):
 git pull origin main
+Remove-Item -Recurse -Force ..\drepscore-<name>\node_modules -ErrorAction SilentlyContinue
 git worktree remove ..\drepscore-<name>
 git branch -d feature/<name>
 ```

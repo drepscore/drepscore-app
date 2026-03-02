@@ -76,51 +76,60 @@ Before committing, classify the change to determine the release path.
 - Wait for deployment to show "Active"
 - If deploy fails: check build logs and deploy logs in Railway dashboard, fix, push again
 
-### Build Environment Parity Warning
+### Build Environment Parity — ENFORCED CHECK
+
 Railway's Docker build separates build-time and runtime env vars. During `next build` inside Docker, **no runtime env vars are available** (no `NEXT_PUBLIC_SUPABASE_URL`, no `SUPABASE_SECRET_KEY`, etc.). This means:
 - Local `next build` (which has `.env.local`) is **NOT equivalent** to Railway's Docker build
 - CI builds may also pass if they have env vars configured as secrets
-- Any page that calls Supabase server-side without `export const dynamic = 'force-dynamic'` will crash during Docker build prerendering
 - Always verify Railway deploy succeeds — don't assume local build = production build
 
-## Post-deploy Validation (~15s)
+**Before every push, run this check on any new or modified files in `app/`:**
 
-Run ALL checks. If ANY fails, rollback and investigate.
+Any file in `app/` that imports from `@/lib/supabase` (directly or transitively via `@/lib/data`) **and** is NOT an API route (`route.ts`) MUST have `export const dynamic = 'force-dynamic'` at the top level. Without it, Next.js will attempt static prerendering during the Docker build and crash because Supabase env vars are not available.
 
-### Health Check
-```
-GET https://drepscore.io/api/health → expect 200, status != "error"
-```
+Known affected patterns: `app/sitemap.ts`, `app/page.tsx`, `app/discover/page.tsx`, `app/drep/[drepId]/page.tsx`, any new server component that fetches data.
 
-### Inngest Sync
-```
-PUT https://drepscore.io/api/inngest → expect 200
-```
-This registers all 12 Inngest functions with Inngest Cloud.
+If the `next build` output shows the route as `○ (Static)` and it queries Supabase, it **will** fail on Railway. Check the build output and convert to `ƒ (Dynamic)` with `force-dynamic`.
 
-### Smoke Tests
+## Post-deploy Validation (MANDATORY — do NOT skip)
+
+**This section is not optional.** Every deploy to production MUST complete all three checks below before reporting success to the user. A deploy without validation is an incomplete deploy.
+
+### 1. Health Check
+```
+Invoke-WebRequest -Uri "https://drepscore.io/api/health" -UseBasicParsing | Select-Object StatusCode
+```
+Expect 200, status != "error".
+
+### 2. Inngest Sync
+```
+Invoke-WebRequest -Uri "https://drepscore.io/api/inngest" -Method PUT -UseBasicParsing
+```
+Registers all Inngest functions with Inngest Cloud. Expect 200.
+
+### 3. Smoke Tests
 ```
 npm run smoke-test
 ```
-This runs `scripts/smoke-test.ts` which checks:
-- `/api/health` — 200, no error status
-- `/api/dreps` — 200, non-empty dreps array
-- `/api/v1/dreps` — 200, data array + meta.api_version
-- `/api/v1/governance/health` — 200, score_distribution present
-- `/api/auth/nonce` — 200, nonce + signature
+Checks `/api/health`, `/api/dreps`, `/api/v1/dreps`, `/api/v1/governance/health`, `/api/auth/nonce`.
 
-### On Failure
-- In Railway dashboard, click "Rollback" on the previous healthy deployment
-- Investigate root cause, fix, restart from Pre-flight Checks
+### 4. Feature-specific verification
+Verify at least one new endpoint or changed behavior is live. Examples:
+- New route: `Invoke-WebRequest -Uri "https://drepscore.io/<new-route>" -UseBasicParsing`
+- New header: check response headers
+- Changed behavior: confirm the change is observable
 
-## Report
+**If ANY check fails:** Roll back in Railway dashboard, investigate, fix, re-deploy.
+
+## Report (MANDATORY — do NOT skip)
 
 After successful deploy, provide a concise summary:
 - What changed (1-2 sentences)
-- CI result (pass/fail, duration)
 - Deploy time
-- Validation results (health, Inngest sync, smoke tests)
+- Validation results (health, Inngest sync, smoke tests, feature verification)
 - Update `.cursor/tasks/lessons.md` if anything unexpected occurred
+
+**The full sequence is: code → commit → push → PR → merge → pull main → push main → monitor Railway → post-deploy validation → report. Every step is mandatory. Never stop at "PR created" — finish the pipeline.**
 
 ---
 

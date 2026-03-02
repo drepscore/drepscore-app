@@ -57,10 +57,15 @@ Before any plan is finalized, answer:
 - **Rule promotion**: During planning, if a lesson has appeared 2+ times or represents a permanent architectural decision, propose creating/updating a cursor rule
 
 ## Deployment Protocol
-- **Branching**: Follow the worktree workflow in `git-branch-hygiene.mdc`. Never build features on `main` — use worktrees. Merges to main happen via squash-merge PRs from the `drepscore-app` window only.
-- **Pre-push**: Run `npx next build --webpack` and confirm exit code 0 before every `git push`. No exceptions.
-- **Post-push**: After pushing, check deployment status. Use Vercel CLI (`vercel inspect` or `vercel logs`) if available, or monitor the build output. If the deploy fails, fix and re-push immediately without waiting for the user to report it.
-- **Self-resolve**: Build errors caused by your changes are your responsibility. Do not push known-broken code hoping it works in CI.
+
+**Every feature that reaches main MUST complete the full deploy pipeline.** Stopping at "PR created" or "merged" is not acceptable — the feature is not done until it's validated in production.
+
+- **Branching**: Follow the worktree workflow in `git-branch-hygiene.mdc`. Never build features on `main` — use worktrees. Merges to main happen via squash-merge PRs.
+- **Pre-push**: The husky pre-push hook runs `type-check` + `test` (~25s). Railway handles the production build — don't run it locally unless debugging a build failure.
+- **Railway parity check**: Before pushing, verify any new `app/` files that import Supabase have `export const dynamic = 'force-dynamic'`. Check the build output — if a Supabase-dependent route shows as `○ (Static)`, it will crash on Railway. See `deploy.md` for details.
+- **Post-merge**: After merging a PR, you MUST: pull main → push main → monitor Railway deploy → run post-deploy validation (health check, Inngest sync, smoke tests, feature verification). See `deploy.md` for the full mandatory sequence.
+- **Self-resolve**: Deploy failures caused by your changes are your responsibility. Fix and re-push immediately — do not wait for the user to report it.
+- **Dependency safety**: Never `npm uninstall` a package without checking if it exists in production deps. Use `npx` for one-time scripts to avoid touching `package.json` at all.
 
 ## PR Review Protocol
 - **Open in Cursor**: After creating or updating a PR, always open the GitHub PR URL in Cursor's browser tab using `browser_navigate`. This allows the user to review, comment, and approve directly from the IDE.
