@@ -65,10 +65,20 @@ export async function POST(request: NextRequest) {
 
     const sessionToken = await createSessionToken(address);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       sessionToken,
       address,
     });
+
+    response.cookies.set('drepscore_session', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+    });
+
+    return response;
   } catch (error) {
     console.error('Auth error:', error);
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });

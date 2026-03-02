@@ -67,6 +67,12 @@ export function clearSession(): void {
   localStorage.removeItem(SESSION_KEY);
 }
 
+export async function clearSessionCookie(): Promise<void> {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } catch {}
+}
+
 export function parseSessionToken(token: string): SessionPayload | null {
   try {
     const parts = token.split('.');

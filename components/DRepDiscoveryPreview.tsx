@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { extractAlignments, getDominantDimension, getIdentityColor } from '@/lib/drepIdentity';
 
 interface PreviewDRep {
   drepId: string;
@@ -10,6 +11,12 @@ interface PreviewDRep {
   drepScore: number;
   sizeTier: string;
   effectiveParticipation: number;
+  alignmentTreasuryConservative?: number | null;
+  alignmentTreasuryGrowth?: number | null;
+  alignmentDecentralization?: number | null;
+  alignmentSecurity?: number | null;
+  alignmentInnovation?: number | null;
+  alignmentTransparency?: number | null;
 }
 
 function ScoreRing({ score, size = 48 }: { score: number; size?: number }) {
@@ -47,11 +54,19 @@ function DRepCard({ drep }: { drep: PreviewDRep }) {
     micro: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
   };
 
+  const alignments = extractAlignments(drep);
+  const dominant = getDominantDimension(alignments);
+  const identityColor = getIdentityColor(dominant);
+
   return (
     <Link
       href={`/drep/${drep.drepId}`}
-      className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/60 hover:border-primary/30 hover:shadow-md transition-all group"
+      className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/60 hover:border-primary/30 hover:shadow-md transition-all group relative overflow-hidden"
     >
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+        style={{ backgroundColor: identityColor.hex }}
+      />
       <ScoreRing score={drep.drepScore} />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{displayName}</p>
