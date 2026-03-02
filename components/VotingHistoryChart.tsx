@@ -50,6 +50,7 @@ import {
   AlertCircle,
   Search,
 } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import Link from 'next/link';
 
 interface VotingHistoryChartProps {
@@ -483,9 +484,13 @@ export function VotingHistoryChart({ votes, userPrefs = [] }: VotingHistoryChart
           </div>
           
           {filteredVotes.length === 0 && (
-            <p className="text-center py-8 text-muted-foreground">
-              No votes match the current filters.
-            </p>
+            <EmptyState
+              icon="search"
+              title="No Votes Found"
+              message="No votes in this time period. Adjust the filter to see more history."
+              compact
+              component="VotingHistoryChart"
+            />
           )}
 
           {/* Show All button */}

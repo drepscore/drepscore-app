@@ -25,6 +25,13 @@ export const metadata: Metadata = {
     description: "Discover and delegate to Cardano DReps aligned with your values",
     type: "website",
   },
+  manifest: "/manifest.json",
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "DRepScore",
+  },
 };
 
 export default function RootLayout({

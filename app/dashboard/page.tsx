@@ -562,8 +562,9 @@ function NotADRepCTA() {
           <Shield className="h-12 w-12 mx-auto text-muted-foreground" />
           <h2 className="text-xl font-bold">No DRep Profile Found</h2>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            The wallet you connected doesn&apos;t have a registered DRep profile in our system.
-            If you&apos;re a DRep, make sure you&apos;re using the wallet associated with your DRep registration.
+            We couldn&apos;t find a DRep profile for your wallet. If you&apos;ve registered as a DRep,
+            it may take up to 30 minutes to sync. Make sure you&apos;re using the wallet associated
+            with your DRep registration.
           </p>
           <Link href="/">
             <Button variant="outline" className="gap-2 mt-2">
@@ -665,7 +666,7 @@ function AdminDRepSwitcher({
             </div>
             <div className="max-h-60 overflow-y-auto p-1">
               {filtered.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">No DReps found</p>
+                <p className="text-xs text-muted-foreground text-center py-4">No DReps match your search. Try a different name or ID.</p>
               ) : (
                 filtered.map(d => (
                   <button
