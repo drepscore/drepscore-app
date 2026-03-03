@@ -40,7 +40,7 @@ Any `app/` file importing `@/lib/supabase` (directly or via `@/lib/data`) that i
 - **Production URL**: `https://drepscore.io`
 - **GitHub CLI**: Always `gh auth switch --user drepscore` before `gh` API calls. `tim-dd` account lacks collaborator perms.
 - **MCP config** (`.cursor/mcp.json`): gitignored, contains secrets — NEVER overwrite
-- **Inngest**: PUT `https://drepscore.io/api/inngest` after every deploy to sync functions. 19 durable functions total (see `architecture.md`)
+- **Inngest**: PUT `https://drepscore.io/api/inngest` after every deploy to sync functions. 20 durable functions total (see `architecture.md`)
 - **Post-deploy autonomous**: After any deploy, autonomously: (1) apply pending migrations via MCP, (2) PUT Inngest, (3) trigger new compute functions if they need initial data, (4) verify results. Do not ask the user for permission on these steps
 - **INNGEST_SERVE_HOST**: `https://drepscore.io`
 

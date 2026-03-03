@@ -52,10 +52,11 @@ When a feature is complete:
    ```
 2. Create a PR (write body to file — inline `--body` breaks in PowerShell):
    ```
-   # Use Write tool to create .git/PR_BODY.md, then:
-   gh pr create --title "feat: <description>" --body-file .git/PR_BODY.md --base main
+   # Use Write tool to create PR_BODY.md (worktree root, NOT .git/), then:
+   gh pr create --title "feat: <description>" --body-file PR_BODY.md --base main
+   Remove-Item PR_BODY.md
    ```
-3. Tell the user: "PR created. Switch to the `drepscore-app` window to merge when ready."
+3. **Do NOT stop here.** Continue to merge, deploy, and validate autonomously per critical.md rule #2.
 
 When the user says "merge" from the **main worktree** (`drepscore-app`):
 

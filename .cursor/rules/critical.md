@@ -10,7 +10,16 @@ These override all other guidance when in conflict.
 
 1. **Feature branches for code changes.** `git branch --show-current` before any edit. If on `main` and it's not a single-commit hotfix the user explicitly requested, create a branch first.
 
-2. **Ship It = the task.** Implementation is NOT complete until deployed and validated. Include deploy todos in the FIRST `TodoWrite` call. If CI or deploy fails, fix in the same session. Never say "done" with a red pipeline. Run `/ship` when code compiles clean.
+2. **Ship It = the task. Autonomous end-to-end deployment is mandatory.** Implementation is NOT complete until deployed and validated in production. After code compiles clean, execute this sequence WITHOUT STOPPING OR ASKING:
+   1. Push branch → create PR
+   2. Wait for CI — fix failures if they're yours, verify pre-existing if they're not
+   3. Merge PR (use `gh api .../merge` from worktrees)
+   4. Apply pending migrations via Supabase MCP `apply_migration`
+   5. Monitor Railway deployment (poll commit status every 60-90s until `success`)
+   6. PUT `/api/inngest` if Inngest functions were added/modified
+   7. Hit new/changed endpoints on `drepscore.io` to verify 200 responses
+   8. Clean up worktree
+   Never say "PR created — merge when ready." Never present a deployment checklist. Just do it. Corrected 3 times.
 
 3. **Railway, not Vercel.** Never reference `VERCEL_*` env vars, `vercel.json`, or `@vercel/*` packages. Use `BASE_URL` from `lib/constants.ts` for server-side URLs.
 
@@ -24,7 +33,7 @@ These override all other guidance when in conflict.
 
 8. **Database-first reads.** Frontend reads → Supabase via `lib/data.ts`. No direct external API calls from pages/components. Koios/Tally/SubSquare only in sync functions.
 
-9. **No `git add -A` without review.** Targeted `git add`. Run `git diff --cached --name-only` after staging. `-A` picks up `.cursor/`, `commit-msg.txt`, workspace artifacts.
+9. **No `git add -A` without review.** Targeted `git add`. Run `git diff --cached --name-only` after staging. `-A` picks up `.cursor/`, `COMMIT_MSG.txt`, `PR_BODY.md`, workspace artifacts. Always delete temp files (COMMIT_MSG.txt, PR_BODY.md) BEFORE staging, not after.
 
 10. **Read `tasks/lessons.md` at session start.** Before doing anything, check for patterns that prevent repeat mistakes.
 

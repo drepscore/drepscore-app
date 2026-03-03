@@ -51,8 +51,8 @@ When the user says "hotfix": deploy autonomously end-to-end. Create todos for AL
 | Task | Correct | Wrong |
 |------|---------|-------|
 | Chain commands | `cmd1 ; cmd2` | `cmd1 && cmd2` |
-| Multi-line commit | Write to `.git/COMMIT_MSG`, `git commit -F .git/COMMIT_MSG` | Heredocs |
-| Multi-line PR body | Write to `.git/PR_BODY.md`, `--body-file` | Inline `--body` |
+| Multi-line commit | Write to `COMMIT_MSG.txt`, `git commit -F COMMIT_MSG.txt`, then `Remove-Item COMMIT_MSG.txt` | Heredocs, `.git/COMMIT_MSG` |
+| Multi-line PR body | Write to `PR_BODY.md`, `--body-file PR_BODY.md`, then `Remove-Item PR_BODY.md` | Inline `--body`, `.git/PR_BODY.md` |
 | Search/Read files | Grep/Read tools | `grep`/`cat`/`head`/`tail` |
 
 ## Anti-Patterns

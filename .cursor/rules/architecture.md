@@ -18,7 +18,7 @@ Cardano governance tool for casual ADA holders to discover DReps aligned with th
 - **Data**: Koios API (mainnet) → Supabase (cache) → Next.js (reads)
 - **Hosting**: Railway (Docker, health checks, auto-deploy from `main`). **NOT Vercel** — see Platform Constraints below
 - **CDN/DNS**: Cloudflare
-- **Background Jobs**: Inngest Cloud (19 durable functions — syncs, scoring, alignment, integrity, notifications, treasury, cross-chain benchmarks, all feature-flagged)
+- **Background Jobs**: Inngest Cloud (20 durable functions — syncs, scoring, alignment, integrity, notifications, treasury, cross-chain benchmarks, all feature-flagged)
 - **Error Tracking**: Sentry (Next.js SDK)
 - **Analytics**: PostHog (JS + Node SDKs)
 
@@ -64,11 +64,13 @@ Next.js App (server components + API routes + client components)
 | Scoring & enrichment (legacy helpers)| `lib/koios.ts`, `utils/scoring.ts`                                                                                      |
 | Supabase client                      | `lib/supabase.ts`                                                                                                       |
 | **Sync logic (durable, callable)**   | `lib/sync/dreps.ts`, `lib/sync/votes.ts`, `lib/sync/secondary.ts`, `lib/sync/slow.ts`                                   |
-| Sync HTTP routes (thin wrappers)     | `app/api/sync/dreps/`, `app/api/sync/votes/`, `app/api/sync/secondary/`, `app/api/sync/slow/`                           |
+| Sync HTTP routes (thin wrappers)     | `app/api/sync/dreps/`, `app/api/sync/votes/`, `app/api/sync/proposals/`, `app/api/sync/secondary/`, `app/api/sync/slow/`, `app/api/sync/treasury/` |
 | Proposals sync (inline in Inngest)   | `inngest/functions/sync-proposals.ts`                                                                                   |
 | DRep types                           | `types/drep.ts`, `types/koios.ts`                                                                                       |
 | Alignment scoring (PCA)              | `lib/alignment/` (pca, voteMatrix, classifyProposals, normalize, dimensions, rationaleQuality, validate), `lib/alignment.ts` |
 | Matching engine (quiz + confidence)  | `lib/matching/confidence.ts`, `lib/matching/dimensionAgreement.ts`, `lib/matching/userProfile.ts`, `lib/representationMatch.ts` |
+| GHI v2 (6 components + EDI)          | `lib/ghi/` (index, components, ediMetrics, calibration, types), `lib/ghi.ts` (re-export shim)                           |
+| Decentralization dashboard           | `app/decentralization/`, `app/api/governance/decentralization/route.ts`                                                 |
 | Admin integrity                      | `app/api/admin/integrity/route.ts`, `app/admin/integrity/page.tsx`                                                      |
 | Feature flags                        | `lib/featureFlags.ts`, `components/FeatureGate.tsx`, `app/api/admin/feature-flags/route.ts`, `app/admin/flags/page.tsx` |
 | Cross-chain governance               | `lib/crossChain.ts`, `inngest/functions/sync-governance-benchmarks.ts`                                                  |
@@ -122,14 +124,20 @@ Each pillar is computed as a raw score, then percentile-normalized across the fu
 
 ## Sync Architecture
 
-- **Full sync** (`/api/sync`): Daily at 2am UTC. All DReps, votes, rationales, proposals, scores
-- **Fast sync** (`/api/sync/fast`): Every 30 min. New proposals, active votes only
-- **Bootstrap**: One-time scripts for initial data population (`scripts/bootstrap-sync.ts`)
-- **Integrity alerts** (`/api/admin/integrity/alert`): Every 6 hours, Slack/Discord webhooks
+All syncs are per-type Inngest durable functions (no monolithic `/api/sync` route):
+
+- **sync-proposals**: Every 30 min (new/updated proposals)
+- **sync-dreps**: Every 6h (all DReps, scores, alignment, history)
+- **sync-votes**: Every 6h (bulk vote upsert + reconciliation)
+- **sync-secondary**: Every 6h (delegator counts, power snapshots, integrity)
+- **sync-slow**: Daily 04:00 UTC (rationales, AI summaries, hash verification, push notifications)
+- **sync-freshness-guard**: Every 30 min (detects stale sync_log entries, re-triggers)
+- **sync-treasury-snapshot**: Daily 22:30 UTC (Koios /totals → treasury_snapshots)
+- **Integrity alerts** (`alert-integrity`): Every 6h, Discord webhooks
 
 ## Database (Supabase)
 
-32 migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`, `drep_milestones`, `position_statements`, `vote_explanations`, `governance_philosophy`, `governance_benchmarks`, `feature_flags` (with `category` column, 41 rows), `proposal_classifications`, `pca_results`, `drep_pca_coordinates`, `alignment_snapshots`, `user_governance_profiles`
+33 migrations (032 = GHI v2). Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`, `drep_milestones`, `position_statements`, `vote_explanations`, `governance_philosophy`, `governance_benchmarks`, `feature_flags` (with `category` column, 42 rows), `proposal_classifications`, `pca_results`, `drep_pca_coordinates`, `alignment_snapshots`, `user_governance_profiles`, `ghi_snapshots`, `decentralization_snapshots`, `governance_stats`
 
 ### `dreps` Table Schema Convention
 

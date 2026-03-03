@@ -121,3 +121,22 @@
 
 - **Context**: Tried to write `PR_BODY.md` to `.git/PR_BODY.md` in a worktree. Failed with EEXIST because `.git` in a worktree is a file (pointing to the main repo's git dir), not a directory.
 - **Pattern**: In worktrees, write PR body files to the worktree root (e.g., `PR_BODY.md`), not inside `.git/`.
+
+## 2026-03-03 — Session 22 (GHI v2)
+
+### Autonomous deployment — THIRD correction
+
+- **Context**: Built entire GHI v2 feature, created PR #55, then stopped with "PR created — next steps after merge." User had to explicitly tell me to complete the deployment. This is the THIRD time this pattern has occurred (Sessions DRep Score V3, DNA Quiz, now GHI v2).
+- **Pattern**: After code compiles clean, the session is NOT done. Execute the FULL pipeline autonomously: push → PR → CI check → merge → migration → monitor deploy → Inngest sync → endpoint verification → worktree cleanup. Never present a "next steps" list. Just do it.
+- **Promoted to rule**: Rewrote critical.md #2 as an 8-step autonomous deployment sequence. Also updated git-branch-hygiene.mdc to say "Do NOT stop here" after PR creation.
+
+### `git add -A` commits temp files (COMMIT_MSG.txt, PR_BODY.md)
+
+- **Context**: Used `git add -A` which committed `COMMIT_MSG.txt` and `PR_BODY.md` artifacts into the repo. Had to make a cleanup commit to remove them.
+- **Pattern**: Always `Remove-Item` temp files BEFORE `git add`, not after. Or use targeted `git add <files>` instead of `-A`.
+- **Promoted to rule**: Updated critical.md #9 to explicitly mention COMMIT_MSG.txt and PR_BODY.md. Updated workflow.md Shell Compatibility table to include cleanup step.
+
+### Pre-existing CI failures — verify before debugging
+
+- **Context**: CI failed on lint (prettier) and test (koios coverage 12.86% < 13%). Both were pre-existing on main. Verified by checking main's CI status. Merged without fixing since they weren't introduced by the feature.
+- **Pattern**: Always check `gh run list --branch main --limit 1` before debugging CI failures on a feature branch. If the same failure exists on main, it's pre-existing. Already documented in lessons but worth reinforcing — this session used the pattern correctly.
