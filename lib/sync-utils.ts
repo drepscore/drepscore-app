@@ -9,6 +9,7 @@ export type SyncType =
   | 'slow'
   | 'full'
   | 'treasury'
+  | 'scoring'
   | 'integrity_check'
   | 'api_health_check';
 

@@ -71,6 +71,16 @@ export interface EnrichedDRep extends DRep {
   metadataHashVerified: boolean | null;
   /** ISO timestamp of when this DRep's data was last synced from Koios into the cache */
   updatedAt: string | null;
+  // V3 pillar scores
+  engagementQuality: number | null;
+  engagementQualityRaw: number | null;
+  effectiveParticipationV3: number | null;
+  effectiveParticipationV3Raw: number | null;
+  reliabilityV3: number | null;
+  reliabilityV3Raw: number | null;
+  governanceIdentity: number | null;
+  governanceIdentityRaw: number | null;
+  scoreMomentum: number | null;
 }
 
 /**
@@ -400,6 +410,15 @@ export async function getEnrichedDReps(
         lastVoteTime: null,
         metadataHashVerified: null,
         updatedAt: null,
+        engagementQuality: null,
+        engagementQualityRaw: null,
+        effectiveParticipationV3: null,
+        effectiveParticipationV3Raw: null,
+        reliabilityV3: null,
+        reliabilityV3Raw: null,
+        governanceIdentity: null,
+        governanceIdentityRaw: null,
+        scoreMomentum: null,
       };
     });
 

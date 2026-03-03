@@ -688,3 +688,11 @@ export function getEasiestWin(
 
   return best?.label ?? null;
 }
+
+/** V3 pillar labels for UI rendering */
+export const V3_PILLAR_LABELS = {
+  engagementQuality: 'Engagement Quality',
+  effectiveParticipation: 'Effective Participation',
+  reliability: 'Reliability',
+  governanceIdentity: 'Governance Identity',
+} as const;

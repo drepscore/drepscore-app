@@ -43,6 +43,16 @@ export interface DRep {
   metadata: Record<string, unknown> | null;
   epochVoteCounts?: number[];
   profileCompleteness: number;
+  // V3 pillar scores (percentile-normalized 0-100)
+  engagementQuality?: number | null;
+  engagementQualityRaw?: number | null;
+  effectiveParticipationV3?: number | null;
+  effectiveParticipationV3Raw?: number | null;
+  reliabilityV3?: number | null;
+  reliabilityV3Raw?: number | null;
+  governanceIdentity?: number | null;
+  governanceIdentityRaw?: number | null;
+  scoreMomentum?: number | null;
 }
 
 export interface VoteRecord {

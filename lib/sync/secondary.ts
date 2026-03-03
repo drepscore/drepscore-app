@@ -52,23 +52,30 @@ export async function executeSecondarySync(): Promise<Record<string, unknown>> {
         return updated;
       })(),
 
-      // Step 2: Power snapshots
+      // Step 2: Power snapshots (includes delegator_count for Governance Identity pillar)
       (async () => {
         const { data: dreps } = await supabase
           .from('dreps')
-          .select('id, info->>votingPowerLovelace')
+          .select('id, info')
           .filter('info->>isActive', 'eq', 'true');
 
         if (!dreps?.length) return 0;
 
         const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
         const rows = dreps
-          .filter((d: Record<string, unknown>) => d.votingPowerLovelace != null)
-          .map((d: Record<string, unknown>) => ({
-            drep_id: d.id as string,
-            epoch_no: currentEpoch,
-            amount_lovelace: parseInt(d.votingPowerLovelace as string, 10),
-          }));
+          .filter((d: any) => {
+            const info = d.info as Record<string, unknown> | null;
+            return info?.votingPowerLovelace != null;
+          })
+          .map((d: any) => {
+            const info = (d.info || {}) as Record<string, unknown>;
+            return {
+              drep_id: d.id as string,
+              epoch_no: currentEpoch,
+              amount_lovelace: parseInt(String(info.votingPowerLovelace || '0'), 10),
+              delegator_count: (info.delegatorCount as number) || 0,
+            };
+          });
 
         if (!rows.length) return 0;
 

@@ -56,6 +56,16 @@ function transformSupabaseRowToDRep(row: any): EnrichedDRep {
     lastVoteTime: row.last_vote_time ?? null,
     metadataHashVerified: row.metadata_hash_verified ?? null,
     updatedAt: row.updated_at ?? null,
+    // V3 pillar scores
+    engagementQuality: row.engagement_quality ?? null,
+    engagementQualityRaw: row.engagement_quality_raw ?? null,
+    effectiveParticipationV3: row.effective_participation_v3 ?? null,
+    effectiveParticipationV3Raw: row.effective_participation_v3_raw ?? null,
+    reliabilityV3: row.reliability_v3 ?? null,
+    reliabilityV3Raw: row.reliability_v3_raw ?? null,
+    governanceIdentity: row.governance_identity ?? null,
+    governanceIdentityRaw: row.governance_identity_raw ?? null,
+    scoreMomentum: row.score_momentum ?? null,
   };
 }
 

@@ -18,6 +18,7 @@ import { generateEpochSummary } from '@/inngest/functions/generate-epoch-summary
 import { generateGovernanceBrief } from '@/inngest/functions/generate-governance-brief';
 import { generateStateOfGovernance } from '@/inngest/functions/generate-state-of-governance';
 import { syncAlignment } from '@/inngest/functions/sync-alignment';
+import { syncDrepScores } from '@/inngest/functions/sync-drep-scores';
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -40,5 +41,6 @@ export const { GET, POST, PUT } = serve({
     generateGovernanceBrief,
     generateStateOfGovernance,
     syncAlignment,
+    syncDrepScores,
   ],
 });

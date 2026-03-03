@@ -108,6 +108,15 @@ function makeEnrichedDRep(overrides: Partial<EnrichedDRep> = {}): EnrichedDRep {
     alignmentSecurity: null,
     alignmentInnovation: null,
     alignmentTransparency: null,
+    engagementQuality: null,
+    engagementQualityRaw: null,
+    effectiveParticipationV3: null,
+    effectiveParticipationV3Raw: null,
+    reliabilityV3: null,
+    reliabilityV3Raw: null,
+    governanceIdentity: null,
+    governanceIdentityRaw: null,
+    scoreMomentum: null,
     ...overrides,
   };
 }
