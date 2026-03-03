@@ -1,87 +1,26 @@
 ---
-description: Analytics-first development — ensure every feature/change considers instrumentation, dashboards, and alerts
+description: Analytics-first development — every feature must consider instrumentation
 alwaysApply: true
 ---
 
-# Analytics & Observability Protocol
+# Analytics Protocol
 
-Every feature or meaningful change must include analytics considerations in the plan. Skip only for purely cosmetic or trivial changes.
+Every feature must include analytics. Skip only for purely cosmetic changes.
 
-## Planning Checklist (Answer Before Building)
+## Before Building, Answer:
 
-1. **Events**: What user/system actions should be tracked?
-   - Client-side: `posthog.capture()` via `lib/posthog.ts` for user interactions
-   - Server-side: `captureServerEvent()` via `lib/posthog-server.ts` for API/sync events
-   - Naming: `noun_verb` (e.g., `drep_claimed`, `rationale_submitted`, `wallet_connected`)
+1. **Events**: What user/system actions need tracking? Client: `posthog.capture()` via `lib/posthog.ts`. Server: `captureServerEvent()` via `lib/posthog-server.ts`. Naming: `noun_verb`.
+2. **Properties**: Entity IDs, outcome (success/failure), timing. DRep actions: `drep_id`, `score`, `tier`.
+3. **Dashboards**: New data dimension → new loader in `analytics/src/data/`. New feature category → consider new Observable page.
+4. **Alerts**: Should this update integrity monitoring or sync alerting?
 
-2. **Properties**: What context should each event carry?
-   - Always include: relevant entity IDs, action outcome (success/failure), timing
-   - For DRep actions: `drep_id`, `score`, `tier`
-   - For user actions: wallet stake address (if connected), session context
+## Standards
 
-3. **Dashboard Impact**: Does this change affect existing Observable pages?
-   - Pages: Executive Overview, DRep Performance, Governance Activity, Voting Intelligence, Score Trends, DRep Engagement, Data Quality
-   - New data dimension → new or updated data loader in `analytics/src/data/`
-   - New feature category → consider new dashboard page in `analytics/src/`
+- If a user can interact with it, it emits at least one PostHog event
+- Server business logic (syncs, claims, alerts) → `captureServerEvent()`
+- If you'd chart it, create the data loader alongside the feature — not as a follow-up
+- New cron/sync/webhook must capture failure events with error context
 
-4. **Alerts**: Should this trigger or update alerting?
-   - Integrity alerts (`/api/admin/integrity/alert`) — data quality thresholds
-   - Sync monitoring (`sync_log` table, `/api/admin/inbox-alert`)
-   - Consider: failure rates, anomaly detection, SLA breaches
+## Reference
 
-5. **Supabase Data**: If new tables/columns are added, do Observable data loaders need updating?
-   - Data loaders: `analytics/src/data/*.json.ts` — query Supabase directly
-   - New tables that surface metrics should get a corresponding loader
-
-## Existing Instrumentation Map
-
-| Layer | Tool | Location |
-|-------|------|----------|
-| Client events | PostHog JS SDK | `lib/posthog.ts`, components |
-| Server events | PostHog Node SDK | `lib/posthog-server.ts`, API routes |
-| Dashboards | Observable Framework | `analytics/src/*.md` (12 pages incl. growth) |
-| Data loaders | Observable + Supabase | `analytics/src/data/*.json.ts` (17 loaders) |
-| Alerts | Cron + webhooks | `/api/admin/integrity/alert`, `/api/admin/inbox-alert` |
-| In-app alerts | `useAlignmentAlerts` hook | `hooks/useAlignmentAlerts.ts` |
-| Sync health | Supabase `sync_log` | `/api/sync/*` routes |
-
-### Governance DNA / Discovery Events (Session 2)
-
-| Event | Type | Location | Properties |
-|-------|------|----------|------------|
-| `governance_dna_quiz_started` | Client | `GovernanceDNAQuiz` | `proposal_count` |
-| `governance_dna_quiz_vote` | Client | `GovernanceDNAQuiz` | `vote`, `proposal_type`, `question_number` |
-| `governance_dna_quiz_completed` | Client | `GovernanceDNAQuiz` | `votes_count`, `top_match_score`, `matches_found` |
-| `governance_dna_quiz_retake` | Client | `GovernanceDNAQuiz` | `previous_votes_count` |
-| `governance_matches_calculated` | Server | `/api/governance/matches` | `matches_count`, `top_match_score`, `has_current_drep_match` |
-| `drep_view_mode_changed` | Client | `DRepTableClient` | `mode` |
-| `drep_quick_view_opened` | Client | `DRepTableClient` | `drep_id`, `drep_score`, `has_match`, `view_mode` |
-
-### Page View Tracking (Session 8)
-
-Use `<PageViewTracker event="..." />` in server-rendered pages to capture client-side page views without converting to a client component:
-
-| Event | Page |
-|-------|------|
-| `homepage_viewed` | `app/page.tsx` |
-| `discover_page_viewed` | `app/discover/page.tsx` |
-| `proposals_page_viewed` | `app/proposals/page.tsx` |
-| `compare_page_viewed` | `app/compare/page.tsx` |
-| `governance_page_viewed` | `app/governance/page.tsx` |
-| `governance_calendar_fetched` | Server: `/api/governance/calendar` |
-| `calendar_proposal_clicked` | Client: `GovernanceCalendar` |
-
-### Observable Data Loaders Added (Session 8)
-
-| Loader | Data |
-|--------|------|
-| `notification-log.json.ts` | Notification delivery and read rates |
-| `user-activity.json.ts` | User signups, claims, daily activity |
-| `governance-events.json.ts` | Poll activity, watchlist activity |
-
-## Implementation Standards
-
-- **Don't ship dark features**: If a user can interact with it, it should emit at least one PostHog event
-- **Server events for business logic**: Sync completions, claims, alert triggers — use `captureServerEvent()`
-- **Dashboard-worthy = data loader**: If you'd want to chart it, create the data loader alongside the feature — not as a follow-up
-- **Alert on failure paths**: Any new cron, sync, or webhook must capture failure events with error context
+Full instrumentation map and event catalog: `.cursor/rules/analytics-reference.md`

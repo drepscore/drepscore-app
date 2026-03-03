@@ -1,57 +1,37 @@
 ---
-description: Non-negotiable rules. Every rule here has been violated at least once and caused real damage. Read these FIRST, honor them ALWAYS.
+description: Non-negotiable rules. Every rule has been violated and caused real damage.
 globs: ['**/*']
 alwaysApply: true
 ---
 
-# Critical Rules (Non-Negotiable)
+# Critical Rules
 
-These override all other guidance when in conflict. Violations of these rules have caused production failures, wasted sessions, or security issues.
+These override all other guidance when in conflict.
 
-## 1. NEVER commit to `main` directly
+1. **Feature branches for code changes.** `git branch --show-current` before any edit. If on `main` and it's not a single-commit hotfix the user explicitly requested, create a branch first.
 
-Always create a feature branch (`feat/<name>`). The only exception is hotfixes when the user explicitly says "hotfix." Check `git branch --show-current` before any `git add`.
+2. **Ship It = the task.** Implementation is NOT complete until deployed and validated. Include deploy todos in the FIRST `TodoWrite` call. If CI or deploy fails, fix in the same session. Never say "done" with a red pipeline. Run `/ship` when code compiles clean.
 
-## 2. Ship It is part of the task, not a follow-up
+3. **Railway, not Vercel.** Never reference `VERCEL_*` env vars, `vercel.json`, or `@vercel/*` packages. Use `BASE_URL` from `lib/constants.ts` for server-side URLs.
 
-Implementation is NOT complete until: branch created → committed → pushed → PR opened → merged → deploy verified healthy. Never report "all todos done" without shipping. Include Ship It steps in the FIRST `TodoWrite` call alongside implementation tasks. **If CI or deploy fails, diagnose and fix in the same session** — create a follow-up PR and keep iterating until the pipeline is fully green and the deploy shows `state: "success"`. A red pipeline is never "done."
+4. **`force-dynamic` on all runtime routes.** Any `app/**/page.tsx` or `route.ts` touching Supabase/env vars MUST export `const dynamic = 'force-dynamic'`. Railway Docker build has no env vars. NEVER use `export const revalidate` on these routes.
 
-## 3. Railway, NOT Vercel
+5. **PowerShell only.** `;` not `&&`. Multi-line strings → write to file. `git commit -F <file>`, `gh pr create --body-file <file>`. No heredocs, no `grep`/`cat`/`head`/`tail`.
 
-This project deploys on Railway via Docker. Never reference `VERCEL_URL`, `VERCEL_ENV`, any `VERCEL_*` env var, `vercel.json`, or `@vercel/*` packages. Use `BASE_URL` from `lib/constants.ts` for all server-side URL construction.
+6. **Feature-flag risky features.** Controversial/untested/costly → `getFeatureFlag()` (server) or `<FeatureGate>` (client). Add flag to `feature_flags` table via migration.
 
-## 4. `force-dynamic` on all server routes
+7. **Register every Inngest function in `serve()`.** Same commit as the function file. An unregistered function never runs.
 
-Any `app/**/page.tsx` or `app/**/route.ts` that touches Supabase, env vars, or any runtime service MUST export `const dynamic = 'force-dynamic'`. Railway's Docker build has no env vars — static prerendering crashes the build. NEVER use `export const revalidate` on these routes.
+8. **Database-first reads.** Frontend reads → Supabase via `lib/data.ts`. No direct external API calls from pages/components. Koios/Tally/SubSquare only in sync functions.
 
-## 5. PowerShell syntax only
+9. **No `git add -A` without review.** Targeted `git add`. Run `git diff --cached --name-only` after staging. `-A` picks up `.cursor/`, `commit-msg.txt`, workspace artifacts.
 
-This is Windows/PowerShell. Use `;` not `&&` to chain commands. Write multi-line strings to files (e.g., `commit-msg.txt`) instead of heredocs. Use `git commit -F <file>` and `gh pr create --body-file <file>`. No `grep`/`cat`/`head`/`tail` — use the Read/Grep tools.
+10. **Read `tasks/lessons.md` at session start.** Before doing anything, check for patterns that prevent repeat mistakes.
 
-## 6. Feature-flag risky features
+11. **Verify deploy — don't assume.** After merge: poll CI until green, poll Railway until deployed, hit `drepscore.io` to smoke-test. Never report completion while CI is red or deploy is pending.
 
-Controversial, untested, or costly features ship behind a flag. Use `getFeatureFlag()` (server) or `<FeatureGate>` (client). Every flag needs a category and a row in the `feature_flags` table via migration.
+12. **`.env.local` is PRODUCTION.** Any local operation hitting Supabase/Koios/external services is a production operation. Never run sync, backfills, or write-path tests from localhost without explicit user approval.
 
-## 7. Register every Inngest function in `serve()`
+13. **Supabase MCP for migrations — never the CLI.** `npx supabase db push` has no access token locally. Use MCP `apply_migration`.
 
-Creating an Inngest function file without adding it to `app/api/inngest/route.ts` `serve()` array means it will never run. Do both in the same commit.
-
-## 8. Database-first, Supabase-only reads
-
-All frontend reads go through Supabase via `lib/data.ts`. No direct external API calls from pages or components. Koios/Tally/SubSquare calls only happen inside sync functions.
-
-## 9. No `git add -A` without review
-
-Use targeted `git add <files>`. `git add -A` picks up `.cursor/`, `commit-msg.txt`, and workspace artifacts. Always run `git diff --cached --name-only` after staging.
-
-## 10. Admin pages follow the standard pattern
-
-All admin pages: `app/admin/*` route, client-side auth via `POST /api/admin/check`, write endpoints validate `address` against `ADMIN_WALLETS`, linked in Header + MobileNav Admin section.
-
-## 11. Read `tasks/lessons.md` at session start
-
-Before doing anything, read lessons for patterns that prevent repeat mistakes.
-
-## 12. Verify deploy, don't assume it
-
-After merge, poll CI jobs until ALL pass (lint → test → type-check → build → sentry-release). Then poll Railway deployment status until `state: "success"`. If ANY step fails: read the logs, diagnose, fix, and push a follow-up PR in the same session. Hit the affected page on `drepscore.io` to smoke-test. **Never report completion while CI is red or deploy is pending.** A failure previously masked by an earlier failure (e.g., lint hid a build error) is still your responsibility.
+14. **Echo-back on complex tasks.** Before creating the first `TodoWrite` for any 3+ step task, state which of these rules apply. Active recall beats passive loading.
