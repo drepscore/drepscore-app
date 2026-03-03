@@ -20,7 +20,9 @@ export async function GET() {
 
     const { data: history } = await supabase
       .from('decentralization_snapshots')
-      .select('epoch_no, composite_score, nakamoto_coefficient, gini, shannon_entropy, hhi, theil_index, concentration_ratio, tau_decentralization')
+      .select(
+        'epoch_no, composite_score, nakamoto_coefficient, gini, shannon_entropy, hhi, theil_index, concentration_ratio, tau_decentralization',
+      )
       .order('epoch_no', { ascending: false })
       .limit(20);
 
@@ -34,6 +36,9 @@ export async function GET() {
     );
   } catch (error) {
     console.error('[Decentralization API] Failed:', error);
-    return NextResponse.json({ error: 'Failed to compute decentralization metrics' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to compute decentralization metrics' },
+      { status: 500 },
+    );
   }
 }

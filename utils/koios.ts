@@ -812,14 +812,6 @@ export async function fetchTreasuryBalance(): Promise<{
 }
 
 /**
- * Convenience: fetch just the circulating supply in lovelace.
- */
-export async function fetchCirculatingSupply(): Promise<number> {
-  const { circulation } = await fetchTreasuryBalance();
-  return Number(circulation);
-}
-
-/**
  * Fetch treasury history (multiple epochs) from /totals.
  * Returns rows ordered by epoch ascending.
  */

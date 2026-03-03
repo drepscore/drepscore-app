@@ -77,7 +77,10 @@ export async function computeCitizenEngagement({
   // --- Sub-signal 1: Delegation rate (50%) ---
   let delegationRateScore = 50; // neutral fallback
   if (circulatingSupply && circulatingSupply > 0) {
-    const { data: dreps } = await supabase.from('dreps').select('info').not('info->isActive', 'is', null);
+    const { data: dreps } = await supabase
+      .from('dreps')
+      .select('info')
+      .not('info->isActive', 'is', null);
     const activeDreps = (dreps ?? []).filter((d: any) => d.info?.isActive);
     const totalDelegatedLovelace = activeDreps.reduce(
       (sum: number, d: any) => sum + parseInt(d.info?.votingPowerLovelace || '0', 10),
@@ -127,8 +130,7 @@ export async function computeCitizenEngagement({
     platformScore = Math.min(100, (pollResponseCount / 50) * 100);
   }
 
-  const raw =
-    delegationRateScore * 0.5 + dynamismScore * 0.3 + platformScore * 0.2;
+  const raw = delegationRateScore * 0.5 + dynamismScore * 0.3 + platformScore * 0.2;
 
   return {
     raw: Math.min(100, Math.max(0, Math.round(raw))),

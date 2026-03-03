@@ -20,7 +20,14 @@ import {
 import type { EDIResult } from './ediMetrics';
 
 // Re-export band types/constants from the original module for backward compatibility
-export { type GHIBand, type GHIComponent, type GHIResult, GHI_BAND_COLORS, GHI_BAND_LABELS, getBand } from './types';
+export {
+  type GHIBand,
+  type GHIComponent,
+  type GHIResult,
+  GHI_BAND_COLORS,
+  GHI_BAND_LABELS,
+  getBand,
+} from './types';
 import type { GHIComponent, GHIResult } from './types';
 import { getBand } from './types';
 
@@ -29,12 +36,12 @@ import { getBand } from './types';
 // ---------------------------------------------------------------------------
 
 const BASE_WEIGHTS = {
-  'DRep Participation': 0.20,
+  'DRep Participation': 0.2,
   'Citizen Engagement': 0.15,
-  'Deliberation Quality': 0.20,
-  'Governance Effectiveness': 0.20,
+  'Deliberation Quality': 0.2,
+  'Governance Effectiveness': 0.2,
   'Power Distribution': 0.15,
-  'System Stability': 0.10,
+  'System Stability': 0.1,
 } as const;
 
 type ComponentName = keyof typeof BASE_WEIGHTS;

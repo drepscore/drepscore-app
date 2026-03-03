@@ -42,7 +42,8 @@ const METRIC_INFO: Record<
   },
   shannonEntropy: {
     label: 'Shannon Entropy',
-    description: 'Information diversity of power distribution (normalized 0-1). Higher = more diverse.',
+    description:
+      'Information diversity of power distribution (normalized 0-1). Higher = more diverse.',
     higherIsBetter: true,
     format: (v) => v.toFixed(3),
   },
@@ -60,7 +61,7 @@ const METRIC_INFO: Record<
   },
   concentrationRatio: {
     label: '1 - Concentration',
-    description: '1 minus the largest DRep\'s share. Higher = less concentrated.',
+    description: "1 minus the largest DRep's share. Higher = less concentrated.",
     higherIsBetter: true,
     format: (v) => v.toFixed(3),
   },
@@ -140,10 +141,7 @@ export function DecentralizationDashboard() {
               <div className="text-center sm:text-left space-y-2">
                 <div className="flex items-center gap-2 justify-center sm:justify-start">
                   <h2 className="text-xl font-semibold">Governance Decentralization Score</h2>
-                  <Badge
-                    variant="outline"
-                    style={{ borderColor: band.color, color: band.color }}
-                  >
+                  <Badge variant="outline" style={{ borderColor: band.color, color: band.color }}>
                     {band.label}
                   </Badge>
                 </div>
@@ -247,9 +245,7 @@ function MetricCard({
       <CardContent className="space-y-2">
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-bold tabular-nums">{value}</span>
-          <span className="text-xs text-muted-foreground">
-            ({normalizedScore}/100 normalized)
-          </span>
+          <span className="text-xs text-muted-foreground">({normalizedScore}/100 normalized)</span>
         </div>
 
         {/* Mini bar */}
@@ -294,7 +290,14 @@ function MiniSparkline({ values, color }: { values: number[]; color: string }) {
 
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="w-full">
-      <path d={path} fill="none" stroke={color} strokeWidth={1} strokeLinecap="round" opacity={0.6} />
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth={1}
+        strokeLinecap="round"
+        opacity={0.6}
+      />
     </svg>
   );
 }
