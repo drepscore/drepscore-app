@@ -15,6 +15,10 @@ const FRESHNESS_THRESHOLDS: Record<string, { mins: number; event: string }> = {
   secondary: { mins: 480, event: 'drepscore/sync.secondary' },
   slow: { mins: 1800, event: 'drepscore/sync.slow' },
   treasury: { mins: 1500, event: 'drepscore/sync.treasury' },
+  scoring: { mins: 480, event: 'drepscore/sync.scores' },
+  alignment: { mins: 480, event: 'drepscore/sync.alignment' },
+  ghi: { mins: 1500, event: 'drepscore/sync.ghi' },
+  benchmarks: { mins: 11520, event: 'drepscore/sync.benchmarks' },
 };
 
 const RECENT_FAILURE_WINDOW_MS = 15 * 60 * 1000;

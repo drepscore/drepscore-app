@@ -26,14 +26,14 @@ import type { ProposalInfo, DRepVote } from '@/types/koios';
 export const syncAlignment = inngest.createFunction(
   {
     id: 'sync-alignment',
-    retries: 1,
+    retries: 3,
     concurrency: { limit: 1, scope: 'env', key: '"alignment-compute"' },
   },
-  [{ event: 'drepscore/sync.alignment' }],
+  [{ event: 'drepscore/sync.alignment' }, { cron: '0 3 * * *' }],
   async ({ step }) => {
     const result = await step.run('compute-alignment', async () => {
       const supabase = getSupabaseAdmin();
-      const logger = new SyncLogger(supabase, 'alignment' as any);
+      const logger = new SyncLogger(supabase, 'alignment');
       await logger.start();
       const phaseTiming: Record<string, number> = {};
 
@@ -259,6 +259,21 @@ export const syncAlignment = inngest.createFunction(
             snapshots as unknown as Record<string, unknown>[],
             'drep_id,epoch',
             'Alignment snapshots',
+          );
+
+          const activeDreps = drepRows?.length ?? 0;
+          const snapshotted = snapshots.length;
+          const coveragePct = activeDreps > 0 ? Math.round((snapshotted / activeDreps) * 10000) / 100 : 100;
+          await supabase.from('snapshot_completeness_log').upsert(
+            {
+              snapshot_type: 'alignment',
+              epoch_no: currentEpoch,
+              snapshot_date: new Date().toISOString().slice(0, 10),
+              record_count: snapshotted,
+              expected_count: activeDreps,
+              coverage_pct: coveragePct,
+            },
+            { onConflict: 'snapshot_type,epoch_no,snapshot_date' },
           );
         }
 

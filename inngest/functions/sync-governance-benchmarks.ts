@@ -10,6 +10,7 @@ import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getFeatureFlag } from '@/lib/featureFlags';
 import { generateText } from '@/lib/ai';
+import { SyncLogger, errMsg } from '@/lib/sync-utils';
 import {
   fetchEthereumBenchmark,
   fetchPolkadotBenchmark,
@@ -21,9 +22,9 @@ export const syncGovernanceBenchmarks = inngest.createFunction(
   {
     id: 'sync-governance-benchmarks',
     name: 'Sync Governance Benchmarks',
-    retries: 2,
+    retries: 3,
   },
-  { cron: '0 6 * * 0' },
+  [{ cron: '0 6 * * 0' }, { event: 'drepscore/sync.benchmarks' }],
   async ({ step }) => {
     const enabled = await step.run('check-feature-flag', async () => {
       return getFeatureFlag('cross_chain_sync');
@@ -46,36 +47,58 @@ export const syncGovernanceBenchmarks = inngest.createFunction(
 
     const results = await step.run('store-benchmarks', async () => {
       const supabase = getSupabaseAdmin();
+      const logger = new SyncLogger(supabase, 'benchmarks');
+      await logger.start();
       const stored: string[] = [];
 
-      const benchmarks = [cardano, ethereum, polkadot].filter(Boolean) as ChainBenchmark[];
+      try {
+        const benchmarks = [cardano, ethereum, polkadot].filter(Boolean) as ChainBenchmark[];
 
-      for (const b of benchmarks) {
-        const { error } = await supabase.from('governance_benchmarks').upsert(
+        for (const b of benchmarks) {
+          const { error } = await supabase.from('governance_benchmarks').upsert(
+            {
+              chain: b.chain,
+              period_label: b.periodLabel,
+              participation_rate: b.participationRate,
+              delegate_count: b.delegateCount,
+              proposal_count: b.proposalCount,
+              proposal_throughput: b.proposalThroughput,
+              avg_rationale_rate: b.avgRationaleRate,
+              governance_score: null,
+              grade: null,
+              raw_data: b.rawData,
+              fetched_at: b.fetchedAt,
+            },
+            { onConflict: 'chain,period_label' },
+          );
+
+          if (error) {
+            console.error(`[sync-benchmarks] Failed to store ${b.chain}:`, error.message);
+          } else {
+            stored.push(b.chain);
+          }
+        }
+
+        await supabase.from('snapshot_completeness_log').upsert(
           {
-            chain: b.chain,
-            period_label: b.periodLabel,
-            participation_rate: b.participationRate,
-            delegate_count: b.delegateCount,
-            proposal_count: b.proposalCount,
-            proposal_throughput: b.proposalThroughput,
-            avg_rationale_rate: b.avgRationaleRate,
-            governance_score: null,
-            grade: null,
-            raw_data: b.rawData,
-            fetched_at: b.fetchedAt,
+            snapshot_type: 'benchmarks',
+            epoch_no: 0,
+            snapshot_date: new Date().toISOString().slice(0, 10),
+            record_count: stored.length,
+            expected_count: 3,
+            coverage_pct: Math.round((stored.length / 3) * 10000) / 100,
+            metadata: { chains: stored },
           },
-          { onConflict: 'chain,period_label' },
+          { onConflict: 'snapshot_type,epoch_no,snapshot_date' },
         );
 
-        if (error) {
-          console.error(`[sync-benchmarks] Failed to store ${b.chain}:`, error.message);
-        } else {
-          stored.push(b.chain);
-        }
+        const summary = { stored, total: benchmarks.length };
+        await logger.finalize(true, null, summary as unknown as Record<string, unknown>);
+        return summary;
+      } catch (err) {
+        await logger.finalize(false, errMsg(err), { stored });
+        throw err;
       }
-
-      return { stored, total: benchmarks.length };
     });
 
     console.log(

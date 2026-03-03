@@ -11,6 +11,10 @@ const THRESHOLDS: Record<string, number> = {
   slow: 2880,
   treasury: 2880,
   full: 1560,
+  scoring: 720,
+  alignment: 720,
+  ghi: 2880,
+  benchmarks: 11520,
 };
 
 export async function GET() {

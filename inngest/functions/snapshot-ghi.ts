@@ -9,14 +9,15 @@
 import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { computeGHI } from '@/lib/ghi';
+import { SyncLogger, errMsg } from '@/lib/sync-utils';
 
 export const snapshotGhi = inngest.createFunction(
   {
     id: 'snapshot-ghi',
     name: 'Snapshot GHI',
-    retries: 2,
+    retries: 3,
   },
-  { cron: '30 4 * * *' },
+  [{ cron: '30 4 * * *' }, { event: 'drepscore/sync.ghi' }],
   async ({ step }) => {
     const result = await step.run('compute-ghi', async () => {
       return computeGHI();
@@ -39,18 +40,40 @@ export const snapshotGhi = inngest.createFunction(
 
     await step.run('store-ghi-snapshot', async () => {
       const supabase = getSupabaseAdmin();
-      await supabase.from('ghi_snapshots').upsert(
-        {
-          epoch_no: epoch,
-          score: result.score,
-          band: result.band,
-          components: result.components,
-        },
-        { onConflict: 'epoch_no' },
-      );
+      const logger = new SyncLogger(supabase, 'ghi');
+      await logger.start();
+
+      try {
+        await supabase.from('ghi_snapshots').upsert(
+          {
+            epoch_no: epoch,
+            score: result.score,
+            band: result.band,
+            components: result.components,
+          },
+          { onConflict: 'epoch_no' },
+        );
+
+        await supabase.from('snapshot_completeness_log').upsert(
+          {
+            snapshot_type: 'ghi',
+            epoch_no: epoch,
+            snapshot_date: new Date().toISOString().slice(0, 10),
+            record_count: 1,
+            expected_count: 1,
+            coverage_pct: 100,
+            metadata: { score: result.score, band: result.band },
+          },
+          { onConflict: 'snapshot_type,epoch_no,snapshot_date' },
+        );
+
+        await logger.finalize(true, null, { epoch, score: result.score, band: result.band });
+      } catch (err) {
+        await logger.finalize(false, errMsg(err), { epoch });
+        throw err;
+      }
     });
 
-    // Store decentralization snapshot if EDI was computed
     if (result.edi) {
       await step.run('store-decentralization-snapshot', async () => {
         const supabase = getSupabaseAdmin();
@@ -70,6 +93,19 @@ export const snapshotGhi = inngest.createFunction(
             active_drep_count: result.meta?.activeDrepCount ?? null,
           },
           { onConflict: 'epoch_no' },
+        );
+
+        await supabase.from('snapshot_completeness_log').upsert(
+          {
+            snapshot_type: 'edi',
+            epoch_no: epoch,
+            snapshot_date: new Date().toISOString().slice(0, 10),
+            record_count: 1,
+            expected_count: 1,
+            coverage_pct: 100,
+            metadata: { composite_score: result.edi!.compositeScore },
+          },
+          { onConflict: 'snapshot_type,epoch_no,snapshot_date' },
         );
       });
     }

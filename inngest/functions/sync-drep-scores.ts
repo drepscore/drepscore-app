@@ -24,14 +24,14 @@ import { batchUpsert, SyncLogger, errMsg, emitPostHog } from '@/lib/sync-utils';
 export const syncDrepScores = inngest.createFunction(
   {
     id: 'sync-drep-scores',
-    retries: 1,
+    retries: 3,
     concurrency: { limit: 1, scope: 'env', key: '"scoring-compute"' },
   },
-  [{ event: 'drepscore/sync.scores' }],
+  [{ event: 'drepscore/sync.scores' }, { cron: '0 2 * * *' }],
   async ({ step }) => {
     const result = await step.run('compute-drep-scores', async () => {
       const supabase = getSupabaseAdmin();
-      const logger = new SyncLogger(supabase, 'scoring' as any);
+      const logger = new SyncLogger(supabase, 'scoring');
       await logger.start();
       const timing: Record<string, number> = {};
 
@@ -282,17 +282,22 @@ export const syncDrepScores = inngest.createFunction(
           'DRep Score V3',
         );
 
-        // Snapshot to score history
+        // Snapshot to score history (includes epoch, momentum, and raw pillar scores)
         const today = new Date().toISOString().slice(0, 10);
         const historyInserts = [...finalScores.entries()].map(([drepId, s]) => ({
           drep_id: drepId,
           snapshot_date: today,
           score: s.composite,
+          epoch_no: currentEpoch,
+          score_momentum: s.momentum,
           engagement_quality: s.engagementQualityPercentile,
+          engagement_quality_raw: s.engagementQualityRaw,
           effective_participation_v3: s.effectiveParticipationPercentile,
+          effective_participation_v3_raw: s.effectiveParticipationRaw,
           reliability_v3: s.reliabilityPercentile,
+          reliability_v3_raw: s.reliabilityRaw,
           governance_identity: s.governanceIdentityPercentile,
-          // Keep legacy columns populated for backward compat
+          governance_identity_raw: s.governanceIdentityRaw,
           effective_participation: s.effectiveParticipationPercentile,
           rationale_rate: s.engagementQualityPercentile,
           reliability_score: s.reliabilityPercentile,
@@ -307,6 +312,23 @@ export const syncDrepScores = inngest.createFunction(
           'Score history V3',
         );
 
+        // Log snapshot completeness
+        const activeDreps = drepRows?.filter((d: any) => d.info?.isActive !== false).length ?? 0;
+        const scored = finalScores.size;
+        const coveragePct = activeDreps > 0 ? Math.round((scored / activeDreps) * 10000) / 100 : 100;
+        await supabase.from('snapshot_completeness_log').upsert(
+          {
+            snapshot_type: 'scores',
+            epoch_no: currentEpoch,
+            snapshot_date: today,
+            record_count: scored,
+            expected_count: activeDreps,
+            coverage_pct: coveragePct,
+            metadata: { composite_avg: Math.round([...finalScores.values()].reduce((a, s) => a + s.composite, 0) / scored) },
+          },
+          { onConflict: 'snapshot_type,epoch_no,snapshot_date' },
+        );
+
         timing.step6_persist_ms = Date.now() - s6;
 
         const summary = {
@@ -319,7 +341,7 @@ export const syncDrepScores = inngest.createFunction(
 
         console.log('[scoring] DRep Score V3 sync complete:', JSON.stringify(summary));
         await logger.finalize(true, null, summary as Record<string, unknown>);
-        await emitPostHog(true, 'scoring' as any, logger.elapsed, summary as Record<string, unknown>);
+        await emitPostHog(true, 'scoring', logger.elapsed, summary as Record<string, unknown>);
         return summary;
       } catch (err) {
         const msg = errMsg(err);
