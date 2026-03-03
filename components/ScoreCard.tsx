@@ -43,11 +43,11 @@ export function ScoreCard({
   percentile, participationHint, rationaleHint, reliabilityHint, profileHint,
 }: ScoreCardProps) {
   const { isAuthenticated, ownDRepId } = useWallet();
-  
+
   const isOwnProfile = isAuthenticated && ownDRepId === drep.drepId;
   const shareUrl = buildDRepUrl(drep.drepId);
   const ogImageUrl = `/api/og/drep/${encodeURIComponent(drep.drepId)}`;
-  
+
   const shareText = isOwnProfile
     ? `My DRepScore is ${drep.drepScore}/100!\n\nParticipation: ${drep.effectiveParticipation}% | Rationale: ${adjustedRationale}% | Reliability: ${drep.reliabilityScore}%\n\nSee my full report on @drepscore:`
     : `${drep.name || 'This DRep'} scored ${drep.drepScore}/100 on @drepscore!\n\nCheck out their governance track record:`;
@@ -82,57 +82,53 @@ export function ScoreCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* Score hex + percentile */}
-        <div className="flex flex-col items-center gap-3">
-          <HexScore score={drep.drepScore} alignments={extractAlignments(drep as Record<string, unknown>)} size="hero" />
-          {percentile > 0 && (
-            <span className="text-xs text-muted-foreground">
-              Higher than {percentile}% of DReps
-            </span>
-          )}
-        </div>
-
-        {/* Score range bar */}
-        <div className="space-y-1">
-          <div className="relative flex h-2 rounded-full overflow-hidden">
-            <div className="flex-[60] bg-red-200 dark:bg-red-900/40" />
-            <div className="flex-[20] bg-amber-200 dark:bg-amber-900/40" />
-            <div className="flex-[20] bg-green-200 dark:bg-green-900/40" />
-            {/* Position marker */}
-            <div
-              className="absolute top-[-3px] h-[14px] w-[3px] rounded-full bg-foreground"
-              style={{ left: `${Math.min(99, Math.max(1, drep.drepScore))}%` }}
+        {/* Score hero — side-by-side on desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6 items-center">
+          <div className="flex justify-center lg:justify-start">
+            <HexScore
+              score={drep.drepScore}
+              alignments={extractAlignments(drep as Record<string, unknown>)}
+              size="hero-lg"
+              className="hidden lg:inline-flex"
+            />
+            <HexScore
+              score={drep.drepScore}
+              alignments={extractAlignments(drep as Record<string, unknown>)}
+              size="hero"
+              className="lg:hidden"
             />
           </div>
-          <div className="flex text-[10px] text-muted-foreground">
-            <span className="flex-[60]">Low</span>
-            <span className="flex-[20] text-center">Good</span>
-            <span className="flex-[20] text-right">Strong</span>
+          <div className="flex flex-col items-center lg:items-start gap-3">
+            {percentile > 0 && (
+              <span className="text-sm font-medium text-foreground/80">
+                Higher than {percentile}% of DReps
+              </span>
+            )}
+            {quickWin && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-center gap-2 w-full">
+                <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                <p className="text-xs font-medium text-blue-800 dark:text-blue-300">
+                  Biggest opportunity: {quickWin}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Biggest opportunity callout */}
-        {quickWin && (
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-            <p className="text-xs font-medium text-blue-800 dark:text-blue-300">
-              Biggest opportunity: {quickWin}
-            </p>
-          </div>
-        )}
-
-        {/* Pillar cards */}
-        {pillars.map((p, i) => (
-          <PillarCard
-            key={p.label}
-            label={p.label}
-            value={p.value}
-            weight={p.weight}
-            maxPoints={p.maxPoints}
-            status={pillarStatuses[i]}
-            hint={hints[i]}
-          />
-        ))}
+        {/* Pillar cards — 2-column on desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {pillars.map((p, i) => (
+            <PillarCard
+              key={p.label}
+              label={p.label}
+              value={p.value}
+              weight={p.weight}
+              maxPoints={p.maxPoints}
+              status={pillarStatuses[i]}
+              hint={hints[i]}
+            />
+          ))}
+        </div>
 
         <div className="border-t pt-4">
           <MethodologyAccordion />

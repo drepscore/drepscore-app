@@ -1,11 +1,11 @@
 {
-  "name": "DRepScore",
+  "name": "DRepScore — Cardano Governance Intelligence",
   "short_name": "DRepScore",
-  "description": "Discover and delegate to Cardano DReps aligned with your values",
+  "description": "Discover and delegate to Cardano DReps aligned with your values. Governance scores, voting records, and real-time intelligence.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1a56db",
+  "background_color": "#0a0b14",
+  "theme_color": "#0a0b14",
   "orientation": "any",
   "categories": ["governance", "finance"],
   "icons": [

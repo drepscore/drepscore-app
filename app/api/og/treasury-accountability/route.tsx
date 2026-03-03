@@ -54,12 +54,12 @@ export async function GET() {
           <OGFooter />
         </div>
       </OGBackground>,
-      { width: 1200, height: 630 }
+      { width: 1200, height: 630, headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' } }
     );
   } catch {
     return new ImageResponse(
       <OGBackground><div style={{ display: 'flex', padding: '60px', fontSize: '24px', color: OG.textMuted }}>Accountability OG Error</div></OGBackground>,
-      { width: 1200, height: 630 }
+      { width: 1200, height: 630, headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' } }
     );
   }
 }

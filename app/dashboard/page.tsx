@@ -29,7 +29,12 @@ import {
 import { ScoreHistoryChart } from '@/components/ScoreHistoryChart';
 import { DRepDashboard } from '@/components/DRepDashboard';
 import { GovernanceInboxWidget } from '@/components/GovernanceInboxWidget';
-import { DelegatorTrendChart } from '@/components/DelegatorTrendChart';
+import dynamic from 'next/dynamic';
+
+const DelegatorTrendChart = dynamic(
+  () => import('@/components/DelegatorTrendChart').then((m) => m.DelegatorTrendChart),
+  { ssr: false },
+);
 import { CompetitiveContext } from '@/components/CompetitiveContext';
 import { OnboardingChecklist } from '@/components/OnboardingChecklist';
 import { RepresentationScorecard } from '@/components/RepresentationScorecard';
@@ -41,7 +46,10 @@ import { BadgeEmbed } from '@/components/BadgeEmbed';
 import { WrappedShareCard } from '@/components/WrappedShareCard';
 import { ScoreChangeMoment } from '@/components/ScoreChangeMoment';
 import { DashboardUrgentBar } from '@/components/DashboardUrgentBar';
-import { MilestoneCelebrationManager } from '@/components/MilestoneCelebration';
+const MilestoneCelebrationManager = dynamic(
+  () => import('@/components/MilestoneCelebration').then((m) => m.MilestoneCelebrationManager),
+  { ssr: false },
+);
 import { DRepQuestionsInbox } from '@/components/DRepQuestionsInbox';
 import { AnimatedTabs, type TabDefinition } from '@/components/AnimatedTabs';
 import { applyRationaleCurve, getMissingProfileFields } from '@/utils/scoring';
@@ -277,7 +285,7 @@ export default function MyDRepPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <Shield className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-2xl font-bold tracking-tight">
             {isViewingOther ? 'DRep Dashboard' : 'My Dashboard'}
           </h1>
           {isViewingOther && (

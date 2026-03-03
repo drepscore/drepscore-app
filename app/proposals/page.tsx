@@ -48,7 +48,7 @@ export default async function ProposalsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="space-y-2 mb-6">
-        <h1 className="text-3xl font-bold">Governance Proposals</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Governance Proposals</h1>
         <p className="text-muted-foreground">
           Track Cardano governance proposals, DRep votes, and treasury decisions in real time.
         </p>

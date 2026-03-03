@@ -9,6 +9,12 @@ import { BrandedLoader } from "@/components/BrandedLoader";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { NavDirectionProvider } from "@/components/NavDirectionProvider";
 import { SyncFreshnessBanner } from "@/components/SyncFreshnessBanner";
+import { CommandPalette } from "@/components/CommandPalette";
+import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
+import { ShortcutsHelpOverlay } from "@/components/ShortcutsHelpOverlay";
+import { InstallPrompt } from "@/components/InstallPrompt";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { EasterEggs } from "@/components/EasterEggs";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,6 +77,12 @@ export default function RootLayout({
               </main>
               <Footer />
               <MobileBottomNav />
+              <CommandPalette />
+              <KeyboardShortcuts />
+              <ShortcutsHelpOverlay />
+              <InstallPrompt />
+              <OfflineBanner />
+              <EasterEggs />
             </NavDirectionProvider>
           </Providers>
         </ThemeProvider>

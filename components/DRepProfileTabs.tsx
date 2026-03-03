@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { AnimatedTabs, type TabDefinition } from '@/components/AnimatedTabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, Vote, Landmark, User } from 'lucide-react';

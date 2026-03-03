@@ -234,12 +234,14 @@
    ============================================================ */
 
 [data-slot="card"] {
-  transition: box-shadow 0.3s ease, transform 0.2s ease, border-color 0.3s ease;
+  transition: box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.25s ease;
 }
 
 [data-slot="card"]:hover {
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.06);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.003);
 }
 
 .dark [data-slot="card"] {
@@ -252,7 +254,7 @@
   box-shadow:
     0 0 0 1px rgb(var(--identity-rgb) / 0.08),
     0 4px 24px rgb(var(--identity-rgb) / 0.04);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.003);
 }
 
 /* ============================================================
@@ -391,8 +393,13 @@ button:not(:disabled):active,
    ============================================================ */
 
 @keyframes breathing-glow {
-  0%, 100% { opacity: 0.6; }
+  0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
+}
+
+@keyframes hex-shimmer {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -1000; }
 }
 
 .animate-breathing-glow {
@@ -413,6 +420,56 @@ button:not(:disabled):active,
 
 .scroll-snap-align-start {
   scroll-snap-align: start;
+}
+
+/* ============================================================
+   Button ripple — identity-tinted, CSS-only
+   ============================================================ */
+
+[data-slot="button"][data-variant="default"] {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-slot="button"][data-variant="default"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgb(255 255 255 / 0.2) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+[data-slot="button"][data-variant="default"]:active::after {
+  opacity: 1;
+}
+
+/* ============================================================
+   Focus states — identity-colored, keyboard only
+   ============================================================ */
+
+:focus-visible {
+  outline: 2px solid rgb(var(--identity-rgb) / 0.5);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ============================================================
+   Skeleton → content crossfade
+   ============================================================ */
+
+.skeleton-transition-enter {
+  animation: skeleton-crossfade 0.2s ease-out both;
+}
+
+@keyframes skeleton-crossfade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ============================================================

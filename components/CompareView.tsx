@@ -288,7 +288,7 @@ export function CompareView({ initialDrepIds }: CompareViewProps) {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold">Compare DReps</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Compare DReps</h1>
               <p className="text-xs text-muted-foreground">
                 Side-by-side comparison of scores, voting records, and alignment
               </p>
@@ -344,7 +344,7 @@ export function CompareView({ initialDrepIds }: CompareViewProps) {
                     </div>
                     <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
                       <span>{formatAda(drep.votingPower)} ADA</span>
-                      <span>{drep.delegatorCount} delegator{drep.delegatorCount !== 1 ? 's' : ''}</span>
+                      <span>{drep.delegatorCount.toLocaleString()} delegator{drep.delegatorCount !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
                 </div>

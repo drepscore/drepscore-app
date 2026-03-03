@@ -126,7 +126,7 @@ export function DRepQuickView({
               {formatAda(drep.votingPower)} ADA
             </span>
             <span className="text-xs text-muted-foreground">
-              {drep.delegatorCount} delegator{drep.delegatorCount !== 1 ? 's' : ''}
+              {drep.delegatorCount.toLocaleString()} delegator{drep.delegatorCount !== 1 ? 's' : ''}
             </span>
           </div>
 

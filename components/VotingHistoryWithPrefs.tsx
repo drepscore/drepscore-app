@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react';
 import { VoteRecord, UserPrefKey } from '@/types/drep';
 import { getUserPrefs } from '@/utils/userPrefs';
-import { VotingHistoryChart } from '@/components/VotingHistoryChart';
+import dynamic from 'next/dynamic';
+
+const VotingHistoryChart = dynamic(
+  () => import('@/components/VotingHistoryChart').then((m) => m.VotingHistoryChart),
+  { ssr: false },
+);
 
 interface VotingHistoryWithPrefsProps {
   votes: VoteRecord[];

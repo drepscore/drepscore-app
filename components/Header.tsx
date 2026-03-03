@@ -43,6 +43,7 @@ import {
   Activity,
   Inbox,
   Code2,
+  Search,
 } from 'lucide-react';
 import { MobileNav } from './MobileNav';
 import { GovernanceHeartbeat } from './GovernanceHeartbeat';
@@ -193,6 +194,19 @@ export function Header() {
             </Link>
           </FeatureGate>
           
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
+            className="hidden sm:inline-flex items-center gap-2 text-muted-foreground hover:text-foreground h-8 px-2"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="text-xs">Search</span>
+            <kbd className="hidden md:inline-flex h-5 items-center rounded border border-border/50 bg-muted/50 px-1.5 font-mono text-[10px] text-muted-foreground">
+              ⌘K
+            </kbd>
+          </Button>
+
           {isAuthenticated && sessionAddress ? (
             <>
               <DropdownMenu>

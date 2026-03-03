@@ -20,9 +20,17 @@ import {
 import Link from 'next/link';
 import { posthog } from '@/lib/posthog';
 import { formatAda } from '@/lib/treasury';
-import { TreasuryCharts } from '@/components/TreasuryCharts';
+import dynamic from 'next/dynamic';
 import { TreasuryPendingProposals } from '@/components/TreasuryPendingProposals';
-import { TreasurySimulator } from '@/components/TreasurySimulator';
+
+const TreasuryCharts = dynamic(
+  () => import('@/components/TreasuryCharts').then((m) => m.TreasuryCharts),
+  { ssr: false },
+);
+const TreasurySimulator = dynamic(
+  () => import('@/components/TreasurySimulator').then((m) => m.TreasurySimulator),
+  { ssr: false },
+);
 import { TreasuryAccountabilitySection } from '@/components/TreasuryAccountabilitySection';
 import { TreasuryHistoryTimeline } from '@/components/TreasuryHistoryTimeline';
 import { useFeatureFlag } from '@/components/FeatureGate';
@@ -83,7 +91,7 @@ export function TreasuryDashboard() {
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <Landmark className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Treasury Intelligence</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Treasury Intelligence</h1>
         </div>
         <p className="text-muted-foreground text-sm">
           Real-time Cardano treasury health, spending analysis, and accountability tracking.

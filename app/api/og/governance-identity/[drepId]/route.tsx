@@ -107,7 +107,7 @@ export async function GET(
     const drep = await getDRepById(decodeURIComponent(drepId));
 
     if (!drep) {
-      return new ImageResponse(<OGFallback message="DRep not found" />, { width: 1200, height: 630 });
+      return new ImageResponse(<OGFallback message="DRep not found" />, { width: 1200, height: 630, headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' } });
     }
 
     const name = getDRepPrimaryName(drep);
@@ -239,9 +239,9 @@ export async function GET(
           />
         </OGBackground>
       ),
-      { width: 1200, height: 630 },
+      { width: 1200, height: 630, headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' } },
     );
   } catch {
-    return new ImageResponse(<OGFallback message="Error generating image" />, { width: 1200, height: 630 });
+    return new ImageResponse(<OGFallback message="Error generating image" />, { width: 1200, height: 630, headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' } });
   }
 }

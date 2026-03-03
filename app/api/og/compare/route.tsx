@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       {
         width: 1200,
         height: 630,
-        headers: { 'Cache-Control': 'public, max-age=900, s-maxage=900' },
+        headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
       }
     );
   } catch (error) {
