@@ -163,7 +163,7 @@
 - **Fix**: Split heavy steps into smaller sub-steps. Each step should target <60s wall time.
 - **Pattern**: When an Inngest step does data load + compute + multiple batchUpserts, split into: (1) compute step, (2) persist step(s). Pass serializable data between steps. Never put >1 batchUpsert of 1000+ rows in a single step.
 
-### DB columns != API type columns — never cast select('*') to external types
+### DB columns != API type columns — never cast select('\*') to external types
 
 - **Context**: `select('*')` from `proposals` table was cast to `ProposalInfo` (Koios API type). The DB uses `tx_hash`, the API uses `proposal_tx_hash`. All downstream code got `undefined` for the tx hash, silently failing every DB write.
 - **Fix**: Explicit select columns + `mapDBProposal()` helper that translates DB names to API names.
