@@ -28,8 +28,6 @@ export function CompareButton({ currentDrepId, currentDrepName }: CompareButtonP
   const router = useRouter();
   const { delegatedDrepId, connected } = useWallet();
   const compareEnabled = useFeatureFlag('compare_page');
-
-  if (compareEnabled === false || compareEnabled === null) return null;
   const [open, setOpen] = useState(false);
   const [allDreps, setAllDreps] = useState<EnrichedDRep[]>([]);
   const [loading, setLoading] = useState(false);
@@ -131,6 +129,8 @@ export function CompareButton({ currentDrepId, currentDrepName }: CompareButtonP
   }, [delegatedDrepId, currentDrepId, router]);
 
   const showCompareWithYours = connected && delegatedDrepId && delegatedDrepId !== currentDrepId;
+
+  if (compareEnabled === false || compareEnabled === null) return null;
 
   return (
     <div className="flex items-center gap-2">

@@ -40,10 +40,18 @@ export function ScrollStoryReveal({
   const rangeStart = config.range[0] + offset * 0.05;
   const rangeEnd = config.range[1] + offset * 0.05;
 
+  const hasY = 'y' in config;
+  const hasX = 'x' in config;
+  const hasScale = 'scale' in config;
+
   const opacity = useTransform(progress, [rangeStart, rangeEnd], config.opacity);
-  const y = 'y' in config ? useTransform(progress, [rangeStart, rangeEnd], config.y) : undefined;
-  const x = 'x' in config ? useTransform(progress, [rangeStart, rangeEnd], config.x) : undefined;
-  const scale = 'scale' in config ? useTransform(progress, [rangeStart, rangeEnd], config.scale) : undefined;
+  const yVal = useTransform(progress, [rangeStart, rangeEnd], hasY ? (config as any).y : [0, 0]);
+  const xVal = useTransform(progress, [rangeStart, rangeEnd], hasX ? (config as any).x : [0, 0]);
+  const scaleVal = useTransform(progress, [rangeStart, rangeEnd], hasScale ? (config as any).scale : [1, 1]);
+
+  const y = hasY ? yVal : undefined;
+  const x = hasX ? xVal : undefined;
+  const scale = hasScale ? scaleVal : undefined;
 
   return (
     <motion.div
