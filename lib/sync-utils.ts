@@ -360,9 +360,9 @@ export async function triggerAnalyticsDeploy(syncType: SyncType): Promise<void> 
  */
 const PAGE_SIZE = 1000;
 
-export async function fetchAll<T = Record<string, unknown>>(
-  query: { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }> },
-): Promise<T[]> {
+export async function fetchAll<T = Record<string, unknown>>(query: {
+  range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>;
+}): Promise<T[]> {
   const all: T[] = [];
   let page = 0;
   while (true) {
