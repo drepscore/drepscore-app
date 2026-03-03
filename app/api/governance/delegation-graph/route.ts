@@ -61,7 +61,9 @@ export async function GET() {
       .select(
         'drep_id, delegator_count, total_power_lovelace, top_10_delegator_pct, new_delegators, lost_delegators',
       )
-      .eq('epoch', epoch);
+      .eq('epoch', epoch)
+      .order('total_power_lovelace', { ascending: false, nullsFirst: false })
+      .limit(200);
 
     if (snapError) {
       console.error('Delegation graph snapshots error:', snapError);
@@ -86,16 +88,28 @@ export async function GET() {
     }
 
     const drepIds = [...new Set(snapshots.map((s) => s.drep_id))];
-    const { data: dreps, error: drepsError } = await supabase
-      .from('dreps')
-      .select(
-        'id, score, info, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency',
-      )
-      .in('id', drepIds);
+    const BATCH = 50;
+    const dreps: NonNullable<
+      Awaited<ReturnType<typeof supabase.from<'dreps'>>>['data']
+    > = [];
+    let drepsError: unknown = null;
+    for (let i = 0; i < drepIds.length; i += BATCH) {
+      const batch = drepIds.slice(i, i + BATCH);
+      const { data, error } = await supabase
+        .from('dreps')
+        .select(
+          'id, score, info, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency',
+        )
+        .in('id', batch);
+      if (error) {
+        drepsError = error;
+        break;
+      }
+      if (data) dreps.push(...data);
+    }
 
     if (drepsError) {
       console.error('Delegation graph dreps error:', drepsError);
-      return NextResponse.json({ error: 'Failed to fetch DRep metadata' }, { status: 500 });
     }
 
     const drepsMap = new Map((dreps ?? []).map((d) => [d.id, d]));
