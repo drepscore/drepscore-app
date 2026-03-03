@@ -1,5 +1,7 @@
 # Product "Wow" Plan v2 — DRepScore
 
+> **SUPERSEDED:** This document is historical. The definitive product vision is now **[ultimate-vision.md](ultimate-vision.md)** which defines the complete build sequence, monetization phases, and data flywheel. This file documents what was built in Sessions 12-19 and remains useful as a record of completed work.
+
 > From comprehensive governance tool to the app that makes the entire crypto space say "wow." Sessions 12-22 transform the product through emotional design, visual identity, architecture, narrative, intelligence, social mechanics, cross-chain positioning, developer distribution, community flywheel, on-chain actions, sensory polish, and personalization.
 
 **Created:** March 2, 2026

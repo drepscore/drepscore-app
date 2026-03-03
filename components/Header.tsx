@@ -42,12 +42,11 @@ import {
   Clock,
   Activity,
   Inbox,
-  Code2,
+
   Search,
 } from 'lucide-react';
 import { MobileNav } from './MobileNav';
 import { GovernanceHeartbeat } from './GovernanceHeartbeat';
-import { FeatureGate } from '@/components/FeatureGate';
 
 const ALERT_ICONS: Record<AlertType, typeof TrendingDown> = {
   'representation-shift': TrendingDown,
@@ -194,10 +193,14 @@ export function Header() {
             <ScrollText className="h-4 w-4" />
             <span>Proposals</span>
           </Link>
+          <Link href="/pulse" className={navLinkClass('/pulse')}>
+            <Activity className="h-4 w-4" />
+            <span>Pulse</span>
+          </Link>
           {isAuthenticated && (
             <Link href="/governance" className={navLinkClass('/governance')}>
               <Vote className="h-4 w-4" />
-              <span>My Delegation</span>
+              <span>My Governance</span>
             </Link>
           )}
           {(ownDRepId || isAdmin) && (
@@ -206,12 +209,6 @@ export function Header() {
               <span>Dashboard</span>
             </Link>
           )}
-          <FeatureGate flag="developer_platform">
-            <Link href="/developers" className={`${navLinkClass('/developers')} hidden lg:flex`}>
-              <Code2 className="h-4 w-4" />
-              <span>Developers</span>
-            </Link>
-          </FeatureGate>
 
           <Button
             variant="ghost"
@@ -337,7 +334,7 @@ export function Header() {
                     className="cursor-pointer"
                   >
                     <Vote className="h-4 w-4 mr-2" />
-                    My Delegation
+                    My Governance
                   </DropdownMenuItem>
                   {(ownDRepId || isAdmin) && (
                     <>

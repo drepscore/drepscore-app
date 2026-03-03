@@ -140,3 +140,9 @@
 
 - **Context**: CI failed on lint (prettier) and test (koios coverage 12.86% < 13%). Both were pre-existing on main. Verified by checking main's CI status. Merged without fixing since they weren't introduced by the feature.
 - **Pattern**: Always check `gh run list --branch main --limit 1` before debugging CI failures on a feature branch. If the same failure exists on main, it's pre-existing. Already documented in lessons but worth reinforcing — this session used the pattern correctly.
+
+### 2026-03-03 — Always complete the full deploy loop autonomously
+
+- **Context**: Implemented snapshot reliability moat, created PR, then stopped. User had to remind me to merge/deploy/monitor.
+- **Pattern**: Per `git-branch-hygiene.mdc`, after opening a PR: merge it, pull main, clean up worktree, apply migrations, monitor Railway until `state: success`, verify endpoint. Never stop at "PR created."
+- **Takeaway**: The rule is explicit — "Do NOT stop here. Continue to merge, deploy, and validate autonomously." Treat this as the default completion checklist for every feature.

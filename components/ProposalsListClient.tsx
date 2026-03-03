@@ -42,6 +42,8 @@ import {
   TypeExplainerTooltip,
 } from '@/components/ProposalStatusBadge';
 import { ThresholdMeter } from '@/components/ThresholdMeter';
+import { TriBodyVoteBar } from '@/components/TriBodyVoteBar';
+import { FeatureGate } from '@/components/FeatureGate';
 import { getProposalStatus } from '@/utils/proposalPriority';
 
 interface ProposalsListClientProps {
@@ -476,6 +478,35 @@ export function ProposalsListClient({
                         isOpen={isOpen}
                         variant="compact"
                       />
+
+                      {p.triBody && (
+                        <FeatureGate flag="tri_body_votes">
+                          <TriBodyVoteBar
+                            size="sm"
+                            drep={p.triBody.drep}
+                            spo={
+                              p.triBody.spo.yes + p.triBody.spo.no + p.triBody.spo.abstain > 0
+                                ? p.triBody.spo
+                                : undefined
+                            }
+                            cc={
+                              p.triBody.cc.yes + p.triBody.cc.no + p.triBody.cc.abstain > 0
+                                ? p.triBody.cc
+                                : undefined
+                            }
+                          />
+                        </FeatureGate>
+                      )}
+
+                      {p.withdrawalAmount != null && p.withdrawalAmount > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] gap-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 w-fit"
+                        >
+                          <Landmark className="h-2.5 w-2.5" />
+                          Requests {(p.withdrawalAmount / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 0 })} ADA
+                        </Badge>
+                      )}
                     </div>
 
                     <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-2" />

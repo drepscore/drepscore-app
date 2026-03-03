@@ -78,6 +78,7 @@ export const GovernanceConstellation = forwardRef<ConstellationRef, Constellatio
                 alignments: [50, 50, 50, 50, 50, 50],
                 position: edgePos,
                 scale: 0.08,
+                nodeType: 'drep',
               },
             ],
           }));
@@ -241,12 +242,15 @@ function ConstellationNodes({
 
   if (nodes.length === 0 || !frameReady) return null;
 
-  const regularNodes = nodes.filter((n) => !n.isAnchor);
+  const drepNodes = nodes.filter((n) => !n.isAnchor && n.nodeType !== 'spo' && n.nodeType !== 'cc');
+  const spoNodes = nodes.filter((n) => n.nodeType === 'spo');
+  const ccNodes = nodes.filter((n) => n.nodeType === 'cc');
   const anchorNodes = nodes.filter((n) => n.isAnchor);
 
   return (
     <>
-      <Instances limit={regularNodes.length + 10} frustumCulled={false}>
+      {/* DRep nodes */}
+      <Instances limit={drepNodes.length + 10} frustumCulled={false}>
         <sphereGeometry args={[1, 10, 10]} />
         <meshStandardMaterial
           emissive="white"
@@ -254,7 +258,7 @@ function ConstellationNodes({
           toneMapped={false}
           transparent
         />
-        {regularNodes.map((node) => {
+        {drepNodes.map((node) => {
           const color = getIdentityColor(node.dominant);
           const isHighlighted = highlightId === node.id;
           const isPulsing = pulseId === node.id;
@@ -264,6 +268,41 @@ function ConstellationNodes({
         })}
       </Instances>
 
+      {/* SPO nodes — cyan outer halo */}
+      {spoNodes.length > 0 && (
+        <Instances limit={spoNodes.length + 2} frustumCulled={false}>
+          <sphereGeometry args={[1, 8, 8]} />
+          <meshStandardMaterial
+            emissive="#06b6d4"
+            emissiveIntensity={1.5}
+            color="#06b6d4"
+            toneMapped={false}
+            transparent
+          />
+          {spoNodes.map((node) => (
+            <Instance key={node.id} position={node.position} scale={node.scale} color="#06b6d4" />
+          ))}
+        </Instances>
+      )}
+
+      {/* CC nodes — gold/amber cluster */}
+      {ccNodes.length > 0 && (
+        <Instances limit={ccNodes.length + 2} frustumCulled={false}>
+          <sphereGeometry args={[1, 12, 12]} />
+          <meshStandardMaterial
+            emissive="#f59e0b"
+            emissiveIntensity={3.0}
+            color="#f59e0b"
+            toneMapped={false}
+            transparent
+          />
+          {ccNodes.map((node) => (
+            <Instance key={node.id} position={node.position} scale={node.scale} color="#f59e0b" />
+          ))}
+        </Instances>
+      )}
+
+      {/* Anchor nodes */}
       <Instances limit={anchorNodes.length + 2} frustumCulled={false}>
         <sphereGeometry args={[1, 12, 12]} />
         <meshStandardMaterial

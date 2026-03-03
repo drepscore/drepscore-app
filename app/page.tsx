@@ -12,7 +12,7 @@ async function getGovernancePulse() {
   const supabase = createClient();
   const oneWeekAgoBlockTime = Math.floor(Date.now() / 1000) - 604800;
 
-  const [drepsResult, proposalsResult, votesResult, claimedResult] = await Promise.all([
+  const [drepsResult, proposalsResult, votesResult, claimedResult, spoResult, ccResult] = await Promise.all([
     supabase
       .from('dreps')
       .select(
@@ -31,6 +31,8 @@ async function getGovernancePulse() {
       .from('users')
       .select('wallet_address', { count: 'exact', head: true })
       .not('claimed_drep_id', 'is', null),
+    supabase.from('spo_votes').select('pool_id').limit(1000),
+    supabase.from('cc_votes').select('cc_hot_id').limit(100),
   ]);
 
   const dreps = drepsResult.data || [];
@@ -59,6 +61,9 @@ async function getGovernancePulse() {
     (p: any) => !p.ratified_epoch && !p.enacted_epoch && !p.dropped_epoch && !p.expired_epoch,
   );
 
+  const spoPoolIds = new Set((spoResult.data || []).map((v: any) => v.pool_id));
+  const ccIds = new Set((ccResult.data || []).map((v: any) => v.cc_hot_id));
+
   return {
     totalAdaGoverned: formattedAda,
     activeProposals: openProposals.length,
@@ -66,6 +71,8 @@ async function getGovernancePulse() {
     totalDReps: dreps.length,
     votesThisWeek: votesResult.count || 0,
     claimedDReps: claimedResult.count || 0,
+    activeSpOs: spoPoolIds.size,
+    ccMembers: ccIds.size,
   };
 }
 

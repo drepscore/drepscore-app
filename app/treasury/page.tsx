@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { TreasuryDashboard } from '@/components/TreasuryDashboard';
-import { GovernanceSubNav } from '@/components/GovernanceSubNav';
+
 
 export const metadata: Metadata = {
   title: 'Treasury Intelligence — DRepScore',
@@ -16,7 +16,6 @@ export const metadata: Metadata = {
 export default function TreasuryPage() {
   return (
     <div className="container mx-auto px-4 py-8">
-      <GovernanceSubNav />
       <TreasuryDashboard />
     </div>
   );

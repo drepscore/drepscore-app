@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useWallet } from '@/utils/wallet';
-import { Compass, ScrollText, Vote, Sparkles } from 'lucide-react';
+import { Compass, ScrollText, Vote, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -15,27 +15,21 @@ interface NavItem {
 const BASE_ITEMS: NavItem[] = [
   { href: '/discover', label: 'Discover', icon: Compass },
   { href: '/proposals', label: 'Proposals', icon: ScrollText },
+  { href: '/pulse', label: 'Pulse', icon: Activity },
 ];
 
 const AUTH_ITEM: NavItem = {
   href: '/governance',
-  label: 'My Delegation',
+  label: 'My Gov',
   icon: Vote,
-};
-
-const DREP_ITEM: NavItem = {
-  href: '/dashboard',
-  label: 'Dashboard',
-  icon: Sparkles,
 };
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const { isAuthenticated, ownDRepId } = useWallet();
+  const { isAuthenticated } = useWallet();
 
   const items: NavItem[] = [...BASE_ITEMS];
   if (isAuthenticated) items.push(AUTH_ITEM);
-  if (ownDRepId) items.push(DREP_ITEM);
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';

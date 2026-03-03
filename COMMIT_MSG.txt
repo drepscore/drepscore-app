@@ -1,0 +1,34 @@
+feat: V4 frontend reimagining — tri-body governance UX
+
+Complete frontend overhaul implementing the V4 reimagining plan across
+4 phases, delivering tri-body governance visualization (DRep + SPO + CC)
+as the product's visual signature.
+
+Phase 1 — Foundation:
+- Tri-body constellation (3 WebGL instance groups: DReps purple, SPOs cyan, CC amber)
+- Navigation restructured: Discover / Proposals / Pulse / My Governance + Dashboard
+- Homepage stripped to constellation-only with "Find your governance match" CTA
+- Pulse v2 intelligence hub with GHI hero, epoch recaps, inter-body pulse
+- 9 dead components removed, GovernanceSubNav killed
+
+Phase 2 — Tri-body everywhere:
+- TriBodyVoteBar component (3 color-coded vote segments with tooltips)
+- Proposal cards show DRep/SPO/CC vote distribution
+- Proposal detail: tri-body vote panel, voter tabs, similar proposals
+- DRep profile: two-viewport model, key facts strip, alignment trajectory tab
+
+Phase 3 — Multi-entity discovery:
+- Discover page: 3 tabs (DReps, Pools, Committee)
+- /pool/[poolId] SPO governance profile
+- /committee CC transparency page
+- /learn governance education hub
+
+Phase 4 — Personal governance:
+- My Governance: health check + governance story
+- Dashboard: 4 tabs (Inbox, Performance, Delegators, Profile)
+- /dashboard/spo: full SPO governance dashboard
+- /pulse/history: browsable epoch recap timeline
+
+New API routes: spo-votes, cc-votes, pools, committee, dashboard/spo
+Feature flags: 6 new v4 flags, 9 mature flags ungated, 2 unused flags cleaned
+Migrations 035 + 036 for flag management

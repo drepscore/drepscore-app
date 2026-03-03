@@ -51,6 +51,7 @@ interface PendingProposal {
   proposalType: string;
   withdrawalAmount: number | null;
   treasuryTier: string | null;
+  treasuryPctOfBalance?: number | null;
   relevantPrefs: string[];
   proposedEpoch: number | null;
   blockTime: number | null;

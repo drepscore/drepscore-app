@@ -1,8 +1,8 @@
 # DRepScore Monetization, Growth & Ecosystem Strategy
 
-> **Status:** Foundational document — all strategy sub-documents branch from this.
+> **Status:** Foundational business model document. For the overarching product vision and build sequence, see **[ultimate-vision.md](ultimate-vision.md)** which is the definitive north star.
 > **Created:** February 2026
-> **Last updated:** February 2026
+> **Last updated:** March 2026
 
 ## 1. Your Biggest Moat (Defend These Relentlessly)
 

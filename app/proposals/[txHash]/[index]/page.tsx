@@ -3,7 +3,6 @@ import { getFeatureFlag } from '@/lib/featureFlags';
 import Link from 'next/link';
 import { getProposalByKey, getVotesByProposal } from '@/lib/data';
 import { blockTimeToEpoch } from '@/lib/koios';
-import { ProposalVotersWithContext } from '@/components/ProposalVotersWithContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +22,11 @@ import { getProposalStatus } from '@/utils/proposalPriority';
 import { DRepVoteCallout } from '@/components/DRepVoteCallout';
 import { SentimentPoll } from '@/components/SentimentPoll';
 import { ProposalOutcomeSection } from '@/components/ProposalOutcomeSection';
+import { ProposalVotersWithContext } from '@/components/ProposalVotersWithContext';
+import { TriBodyVotePanel } from '@/components/TriBodyVotePanel';
+import { ProposalVoterTabs } from '@/components/ProposalVoterTabs';
+import { SimilarProposals } from '@/components/SimilarProposals';
+import { FeatureGate } from '@/components/FeatureGate';
 
 interface ProposalDetailPageProps {
   params: Promise<{ txHash: string; index: string }>;
@@ -206,10 +210,21 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
       {/* Full Description (abstract) */}
       <ProposalDescription aiSummary={null} abstract={proposal.abstract} />
 
-      {/* Vote Results with Threshold Meter */}
+      {/* Tri-Body Vote Panel */}
+      {proposal.triBody && (
+        <FeatureGate flag="tri_body_votes">
+          <TriBodyVotePanel
+            triBody={proposal.triBody}
+            txHash={txHash}
+            proposalIndex={proposalIndex}
+          />
+        </FeatureGate>
+      )}
+
+      {/* Vote Results with Threshold Meter (DRep stake power) */}
       <Card>
         <CardHeader>
-          <CardTitle>Vote Results</CardTitle>
+          <CardTitle>DRep Voting Power</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <ThresholdMeter
@@ -238,8 +253,16 @@ export default async function ProposalDetailPage({ params }: ProposalDetailPageP
         currentEpoch={currentEpoch}
       />
 
-      {/* DRep Voters */}
-      <ProposalVotersWithContext votes={votes} />
+      {/* Voter Tabs: DReps | SPOs | CC */}
+      <FeatureGate
+        flag="tri_body_votes"
+        fallback={<ProposalVotersWithContext votes={votes} />}
+      >
+        <ProposalVoterTabs votes={votes} txHash={txHash} proposalIndex={proposalIndex} />
+      </FeatureGate>
+
+      {/* Similar Proposals */}
+      <SimilarProposals txHash={txHash} proposalIndex={proposalIndex} />
     </div>
   );
 }

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getFeatureFlag } from '@/lib/featureFlags';
-import { GovernanceSubNav } from '@/components/GovernanceSubNav';
+
 import { ShareActions } from '@/components/ShareActions';
 import { GHI_BAND_COLORS, GHI_BAND_LABELS, type GHIBand } from '@/lib/ghi';
 import { StateOfGovernanceContent } from './report-content';
@@ -71,7 +71,6 @@ export default async function StateOfGovernancePage({ params }: Props) {
   if (!reportsEnabled) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
-        <GovernanceSubNav />
         <Link
           href="/pulse"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -106,8 +105,6 @@ export default async function StateOfGovernancePage({ params }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
-      <GovernanceSubNav />
-
       <Link
         href="/pulse"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"

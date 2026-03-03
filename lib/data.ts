@@ -483,6 +483,12 @@ export async function getDRepById(drepId: string): Promise<EnrichedDRep | null> 
 // PROPOSALS SECTION DATA
 // ============================================================================
 
+export interface TriBodyVotes {
+  drep: { yes: number; no: number; abstain: number };
+  spo: { yes: number; no: number; abstain: number };
+  cc: { yes: number; no: number; abstain: number };
+}
+
 export interface ProposalWithVoteSummary {
   txHash: string;
   proposalIndex: number;
@@ -505,6 +511,7 @@ export interface ProposalWithVoteSummary {
   droppedEpoch: number | null;
   expiredEpoch: number | null;
   expirationEpoch: number | null;
+  triBody?: TriBodyVotes;
 }
 
 /**
@@ -533,12 +540,31 @@ export async function getAllProposalsWithVoteSummary(): Promise<ProposalWithVote
     }
 
     // Fetch vote counts + voter DRep IDs grouped by proposal
-    const { data: voteCounts, error: vError } = await supabase
-      .from('drep_votes')
-      .select('proposal_tx_hash, proposal_index, vote, drep_id');
+    const [voteCountsResult, votingSummaryResult] = await Promise.all([
+      supabase
+        .from('drep_votes')
+        .select('proposal_tx_hash, proposal_index, vote, drep_id'),
+      supabase
+        .from('proposal_voting_summary')
+        .select('proposal_tx_hash, proposal_index, drep_yes_votes_cast, drep_no_votes_cast, drep_abstain_votes_cast, pool_yes_votes_cast, pool_no_votes_cast, pool_abstain_votes_cast, committee_yes_votes_cast, committee_no_votes_cast, committee_abstain_votes_cast'),
+    ]);
 
+    const { data: voteCounts, error: vError } = voteCountsResult;
     if (vError) {
       console.warn('[Data] vote counts query failed:', vError.message);
+    }
+
+    // Build tri-body map from proposal_voting_summary
+    const triBodyMap = new Map<string, TriBodyVotes>();
+    if (votingSummaryResult.data) {
+      for (const s of votingSummaryResult.data) {
+        const key = `${s.proposal_tx_hash}-${s.proposal_index}`;
+        triBodyMap.set(key, {
+          drep: { yes: s.drep_yes_votes_cast || 0, no: s.drep_no_votes_cast || 0, abstain: s.drep_abstain_votes_cast || 0 },
+          spo: { yes: s.pool_yes_votes_cast || 0, no: s.pool_no_votes_cast || 0, abstain: s.pool_abstain_votes_cast || 0 },
+          cc: { yes: s.committee_yes_votes_cast || 0, no: s.committee_no_votes_cast || 0, abstain: s.committee_abstain_votes_cast || 0 },
+        });
+      }
     }
 
     // Aggregate vote counts + voter DRep IDs per proposal
@@ -588,6 +614,7 @@ export async function getAllProposalsWithVoteSummary(): Promise<ProposalWithVote
         droppedEpoch: p.dropped_epoch ?? null,
         expiredEpoch: p.expired_epoch ?? null,
         expirationEpoch: p.expiration_epoch ?? null,
+        triBody: triBodyMap.get(key),
       };
     });
   } catch (err) {
@@ -626,22 +653,30 @@ export async function getProposalByKey(
   try {
     const supabase = createClient();
 
-    const { data: row, error } = await supabase
-      .from('proposals')
-      .select('*')
-      .eq('tx_hash', txHash)
-      .eq('proposal_index', proposalIndex)
-      .single();
+    const [proposalResult, votesResult, summaryResult] = await Promise.all([
+      supabase
+        .from('proposals')
+        .select('*')
+        .eq('tx_hash', txHash)
+        .eq('proposal_index', proposalIndex)
+        .single(),
+      supabase
+        .from('drep_votes')
+        .select('vote, drep_id')
+        .eq('proposal_tx_hash', txHash)
+        .eq('proposal_index', proposalIndex),
+      supabase
+        .from('proposal_voting_summary')
+        .select('drep_yes_votes_cast, drep_no_votes_cast, drep_abstain_votes_cast, pool_yes_votes_cast, pool_no_votes_cast, pool_abstain_votes_cast, committee_yes_votes_cast, committee_no_votes_cast, committee_abstain_votes_cast')
+        .eq('proposal_tx_hash', txHash)
+        .eq('proposal_index', proposalIndex)
+        .single(),
+    ]);
 
+    const { data: row, error } = proposalResult;
     if (error || !row) return null;
 
-    // Get vote counts + voter IDs
-    const { data: votes } = await supabase
-      .from('drep_votes')
-      .select('vote, drep_id')
-      .eq('proposal_tx_hash', txHash)
-      .eq('proposal_index', proposalIndex);
-
+    const votes = votesResult.data;
     let yes = 0,
       no = 0,
       abstain = 0;
@@ -654,6 +689,15 @@ export async function getProposalByKey(
         if (v.drep_id) drepIds.add(v.drep_id);
       }
     }
+
+    const s = summaryResult.data;
+    const triBody: TriBodyVotes | undefined = s
+      ? {
+          drep: { yes: s.drep_yes_votes_cast || 0, no: s.drep_no_votes_cast || 0, abstain: s.drep_abstain_votes_cast || 0 },
+          spo: { yes: s.pool_yes_votes_cast || 0, no: s.pool_no_votes_cast || 0, abstain: s.pool_abstain_votes_cast || 0 },
+          cc: { yes: s.committee_yes_votes_cast || 0, no: s.committee_no_votes_cast || 0, abstain: s.committee_abstain_votes_cast || 0 },
+        }
+      : undefined;
 
     return {
       txHash: row.tx_hash,
@@ -677,6 +721,7 @@ export async function getProposalByKey(
       droppedEpoch: row.dropped_epoch ?? null,
       expiredEpoch: row.expired_epoch ?? null,
       expirationEpoch: row.expiration_epoch ?? null,
+      triBody,
     };
   } catch (err) {
     console.error('[Data] getProposalByKey error:', err);
@@ -766,6 +811,70 @@ export async function getVotesByProposal(
     });
   } catch (err) {
     console.error('[Data] getVotesByProposal error:', err);
+    return [];
+  }
+}
+
+// ============================================================================
+// SPO & CC VOTES
+// ============================================================================
+
+export interface SpoVoteDetail {
+  poolId: string;
+  vote: 'Yes' | 'No' | 'Abstain';
+  blockTime: number;
+}
+
+export interface CcVoteDetail {
+  ccHotId: string;
+  vote: 'Yes' | 'No' | 'Abstain';
+  blockTime: number;
+}
+
+export async function getSpoVotesByProposal(
+  txHash: string,
+  proposalIndex: number,
+): Promise<SpoVoteDetail[]> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('spo_votes')
+      .select('pool_id, vote, block_time')
+      .eq('proposal_tx_hash', txHash)
+      .eq('proposal_index', proposalIndex)
+      .order('block_time', { ascending: false });
+
+    if (error || !data) return [];
+    return data.map((v) => ({
+      poolId: v.pool_id,
+      vote: v.vote as 'Yes' | 'No' | 'Abstain',
+      blockTime: v.block_time,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getCcVotesByProposal(
+  txHash: string,
+  proposalIndex: number,
+): Promise<CcVoteDetail[]> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('cc_votes')
+      .select('cc_hot_id, vote, block_time')
+      .eq('proposal_tx_hash', txHash)
+      .eq('proposal_index', proposalIndex)
+      .order('block_time', { ascending: false });
+
+    if (error || !data) return [];
+    return data.map((v) => ({
+      ccHotId: v.cc_hot_id,
+      vote: v.vote as 'Yes' | 'No' | 'Abstain',
+      blockTime: v.block_time,
+    }));
+  } catch {
     return [];
   }
 }

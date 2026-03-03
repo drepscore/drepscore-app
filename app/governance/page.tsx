@@ -1,14 +1,11 @@
 import type { Metadata } from 'next';
-import { GovernanceDashboard } from '@/components/GovernanceDashboard';
-import { GovernanceImpactHero } from '@/components/GovernanceImpactHero';
-import { GovernanceCitizenPanels } from '@/components/GovernanceCitizenPanels';
-import { GovernanceCalendar } from '@/components/GovernanceCalendar';
+import { GovernanceHealthStory } from '@/components/GovernanceHealthStory';
 import { getFeatureFlag } from '@/lib/featureFlags';
 
 export const metadata: Metadata = {
   title: 'My Governance — DRepScore',
   description:
-    'Track your delegation health, representation score, and active governance proposals.',
+    'Check your governance health, track your DRep, and follow your governance story.',
 };
 
 export default async function GovernancePage() {
@@ -19,10 +16,10 @@ export default async function GovernancePage() {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
-      <GovernanceImpactHero />
-      <GovernanceDashboard />
-      {showCitizenPanels && <GovernanceCitizenPanels />}
-      {showCalendar && <GovernanceCalendar />}
+      <GovernanceHealthStory
+        showCalendar={showCalendar}
+        showCitizenPanels={showCitizenPanels}
+      />
     </div>
   );
 }

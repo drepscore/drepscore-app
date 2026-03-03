@@ -1,5 +1,7 @@
 import type { AlignmentDimension } from '@/lib/drepIdentity';
 
+export type GovernanceNodeType = 'drep' | 'spo' | 'cc';
+
 export interface ConstellationNode3D {
   id: string;
   name: string | null;
@@ -10,6 +12,7 @@ export interface ConstellationNode3D {
   position: [number, number, number];
   scale: number;
   isAnchor?: boolean;
+  nodeType: GovernanceNodeType;
 }
 
 export interface ConstellationEdge3D {
@@ -18,8 +21,9 @@ export interface ConstellationEdge3D {
 }
 
 export interface FindMeTarget {
-  type: 'delegated' | 'undelegated' | 'drep';
+  type: 'delegated' | 'undelegated' | 'drep' | 'spo';
   drepId?: string;
+  poolId?: string;
 }
 
 export interface ConstellationEvent {
@@ -38,6 +42,7 @@ export interface ConstellationApiData {
     score: number;
     dominant: AlignmentDimension;
     alignments: number[];
+    nodeType: GovernanceNodeType;
   }>;
   recentEvents: ConstellationEvent[];
   stats: {
@@ -45,6 +50,8 @@ export interface ConstellationApiData {
     activeProposals: number;
     votesThisWeek: number;
     activeDReps: number;
+    activeSpOs: number;
+    ccMembers: number;
   };
 }
 

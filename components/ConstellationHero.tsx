@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { useWallet } from '@/utils/wallet';
 import { ActivityTicker } from '@/components/ActivityTicker';
@@ -29,6 +30,8 @@ interface ConstellationHeroProps {
     totalAdaGoverned: string;
     activeProposals: number;
     activeDReps: number;
+    activeSpOs: number;
+    ccMembers: number;
   };
   ssrHolderData?: any;
   ssrWalletAddress?: string;
@@ -209,9 +212,6 @@ export function ConstellationHero({
     <div
       className={`relative w-full transition-all duration-700 -mt-16 ${contracted ? 'min-h-[calc(40vh+4rem)]' : 'min-h-[calc(85vh+4rem)]'}`}
       onMouseEnter={handleConstellationHover}
-      onClick={!isAuthenticated && !ssrWalletAddress ? handleConnectWallet : undefined}
-      role={!isAuthenticated && !ssrWalletAddress ? 'button' : undefined}
-      style={!isAuthenticated && !ssrWalletAddress ? { cursor: 'pointer' } : undefined}
     >
       <FeatureGate
         flag="constellation_3d"
@@ -237,7 +237,7 @@ export function ConstellationHero({
       {/* First-hover educational tooltip */}
       {showTooltip && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 text-white/70 text-sm animate-fade-in-up pointer-events-none">
-          Each point is a real DRep representative
+          Each point represents a governance participant — DReps, Stake Pools, and Committee Members
         </div>
       )}
 
@@ -247,34 +247,53 @@ export function ConstellationHero({
           className={`absolute inset-0 flex flex-col items-center justify-start pt-[14vh] md:justify-center md:pt-0 z-10 pointer-events-none px-4 transition-opacity duration-700 ${constellationReady ? 'opacity-100' : 'opacity-0'}`}
         >
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-center max-w-4xl leading-tight animate-fade-in-up hero-text-shadow">
-            <span className="text-white">This is what decentralized governance looks like.</span>
+            <span className="text-white">This is Cardano governance. All of it.</span>
           </h1>
 
           <p className="mt-4 text-sm sm:text-base md:text-lg text-white/60 text-center max-w-2xl animate-fade-in-up animation-delay-200 hero-text-shadow">
-            {stats.activeDReps.toLocaleString()} representatives. {stats.totalAdaGoverned} ADA.
-            Every vote shapes Cardano&apos;s future.
+            {stats.activeDReps.toLocaleString()} DReps. {stats.activeSpOs} Pools. {stats.ccMembers} Committee Members. {stats.totalAdaGoverned} ADA.
           </p>
 
           {/* Live stats strip */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs sm:text-sm text-white/40 animate-fade-in-up animation-delay-200 hero-text-shadow">
-            <span>{stats.activeDReps.toLocaleString()} Active DReps</span>
+            <span>{stats.activeDReps.toLocaleString()} DReps</span>
             <span className="hidden sm:inline text-white/20">|</span>
-            <span>{stats.totalAdaGoverned} ADA Governed</span>
+            <span>{stats.activeSpOs} Pools</span>
             <span className="hidden sm:inline text-white/20">|</span>
-            <span>{stats.activeProposals} Open Proposals</span>
+            <span>{stats.ccMembers} CC Members</span>
           </div>
 
-          {!isAuthenticated && !ssrWalletAddress && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleConnectWallet();
-              }}
-              className="mt-8 px-8 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-base hover:bg-primary/90 transition-all pointer-events-auto animate-fade-in-up animation-delay-400 animate-cta-pulse"
+          {/* Tri-body legend */}
+          <div className="mt-3 flex items-center justify-center gap-4 text-xs text-white/40 animate-fade-in-up animation-delay-200">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-primary" />
+              DReps
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-cyan-500" />
+              Pools
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              Committee
+            </span>
+          </div>
+
+          {!isAuthenticated && !ssrWalletAddress ? (
+            <Link
+              href="/match"
+              className="mt-8 px-8 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-base hover:bg-primary/90 transition-all pointer-events-auto animate-fade-in-up animation-delay-400 animate-cta-pulse inline-block"
             >
-              Enter Governance
-            </button>
-          )}
+              Find your governance match
+            </Link>
+          ) : isAuthenticated && !showPersonalCard ? (
+            <Link
+              href="/governance"
+              className="mt-8 px-8 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-base hover:bg-primary/90 transition-all pointer-events-auto animate-fade-in-up animation-delay-400 inline-block"
+            >
+              See what changed
+            </Link>
+          ) : null}
 
           {/* Scroll-down indicator */}
           <div

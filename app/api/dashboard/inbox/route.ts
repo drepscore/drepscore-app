@@ -14,6 +14,7 @@ import { blockTimeToEpoch } from '@/lib/koios';
 import { calculateParticipationRate, applyRationaleCurve } from '@/utils/scoring';
 import { getProposalPriority } from '@/utils/proposalPriority';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { getTreasuryBalance } from '@/lib/treasury';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,12 +82,19 @@ export async function GET(request: NextRequest) {
     const perProposalImpact =
       pendingCount > 0 ? Math.max(0, +(scoreImpact / pendingCount).toFixed(1)) : 0;
 
+    const treasury = await getTreasuryBalance();
+    const treasuryBalanceAda = treasury?.balanceAda ?? 0;
+
     // Enrich proposals with priority and deadline from Koios expiration_epoch.
     // Falls back to proposed_epoch + 6 (current govActionLifetime) only if
     // expiration_epoch is not yet populated (before next sync).
     const enriched = pendingProposals.map((p) => {
       const expirationEpoch =
         p.expirationEpoch ?? (p.proposedEpoch != null ? p.proposedEpoch + 6 : null);
+      const treasuryPctOfBalance =
+        p.withdrawalAmount != null && treasuryBalanceAda > 0
+          ? (p.withdrawalAmount / treasuryBalanceAda) * 100
+          : null;
       return {
         ...p,
         priority: getProposalPriority(p.proposalType),
@@ -94,6 +102,7 @@ export async function GET(request: NextRequest) {
         epochsRemaining:
           expirationEpoch != null ? Math.max(0, expirationEpoch - currentEpoch) : null,
         perProposalScoreImpact: perProposalImpact,
+        treasuryPctOfBalance,
       };
     });
 

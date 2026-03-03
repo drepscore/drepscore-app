@@ -36,6 +36,29 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Listing mode: ?before=N&limit=M returns multiple recaps for pagination
+    const beforeParam = request.nextUrl.searchParams.get('before');
+    const limitParam = request.nextUrl.searchParams.get('limit');
+
+    if (beforeParam) {
+      const before = parseInt(beforeParam);
+      const limit = Math.min(parseInt(limitParam || '20'), 50);
+      if (isNaN(before)) {
+        return NextResponse.json({ error: 'Invalid before parameter' }, { status: 400 });
+      }
+
+      const { data, error } = await supabase
+        .from('epoch_recaps')
+        .select('*')
+        .lt('epoch', before)
+        .order('epoch', { ascending: false })
+        .limit(limit);
+
+      return NextResponse.json(data ?? [], {
+        headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' },
+      });
+    }
+
     // Return latest epoch recap
     const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
     const { data, error } = await supabase

@@ -4,13 +4,16 @@ import { motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect } from 'react';
 import { spring } from '@/lib/animations';
 import { NarrativeSummary } from './NarrativeSummary';
-import { AlertTriangle, Clock, Landmark } from 'lucide-react';
+import { AlertTriangle, Clock, Landmark, BarChart3 } from 'lucide-react';
 
 interface ProposalsHeroProps {
   openCount: number;
   expiringCount: number;
   totalAdaAtStake: number;
   narrativeText: string | null;
+  epochProgress?: number;
+  currentEpoch?: number;
+  crossBodyInsight?: string | null;
 }
 
 function AnimatedCounter({ value, className }: { value: number; className?: string }) {
@@ -29,6 +32,9 @@ export function ProposalsHero({
   expiringCount,
   totalAdaAtStake,
   narrativeText,
+  epochProgress,
+  currentEpoch,
+  crossBodyInsight,
 }: ProposalsHeroProps) {
   const hasUrgent = expiringCount > 0;
   const adaFormatted =
@@ -90,9 +96,39 @@ export function ProposalsHero({
             </div>
           </div>
         )}
+
+        {currentEpoch != null && epochProgress != null && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/10">
+              <BarChart3 className="h-4 w-4 text-purple-500" />
+            </div>
+            <div>
+              <span className="text-2xl font-bold tabular-nums">{currentEpoch}</span>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs text-muted-foreground">Epoch</p>
+                <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-purple-500 rounded-full transition-all"
+                    style={{ width: `${Math.round(epochProgress * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground tabular-nums">
+                  {Math.round(epochProgress * 100)}%
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <NarrativeSummary text={narrativeText} />
+
+      {crossBodyInsight && (
+        <div className="mt-3 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Tri-body insight:</span>{' '}
+          {crossBodyInsight}
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -1,7 +1,7 @@
 /**
- * DRep Detail Page
- * Shows comprehensive information about a specific DRep.
- * All data is read from Supabase (populated by the sync cron).
+ * DRep Detail Page — Two-viewport progressive reveal.
+ * VP1 ("The Story"): Hero, narrative, key facts, radar, CTA, treasury stance.
+ * VP2 ("The Record"): Tabbed voting record, score analysis, trajectory, community.
  */
 
 import { notFound } from 'next/navigation';
@@ -41,7 +41,8 @@ import { GovernancePhilosophyEditor } from '@/components/GovernancePhilosophyEdi
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { DRepTreasuryStance } from '@/components/DRepTreasuryStance';
 import { DRepProfileHero } from '@/components/DRepProfileHero';
-import { extractAlignments, getIdentityColor, getDominantDimension } from '@/lib/drepIdentity';
+import { AlignmentTrajectory } from '@/components/AlignmentTrajectory';
+import { extractAlignments, getIdentityColor, getDominantDimension, getPersonalityLabel } from '@/lib/drepIdentity';
 import { getDRepTraitTags } from '@/lib/alignment';
 import { generateDRepNarrative } from '@/lib/narratives';
 import { NarrativeSummary } from '@/components/NarrativeSummary';
@@ -57,6 +58,7 @@ import {
   getSocialLinkChecks,
   isDRepClaimed,
 } from '@/lib/data';
+import { createClient } from '@/lib/supabase';
 import { BASE_URL } from '@/lib/constants';
 import { getFeatureFlag } from '@/lib/featureFlags';
 import { Suspense } from 'react';
@@ -110,7 +112,6 @@ async function getDRepData(drepId: string) {
       console.log(`[DRepProfile] Loading DRep: ${decodedId}`);
     }
 
-    // All data from Supabase -- no Koios calls at page load
     const [cachedDRep, votes] = await Promise.all([
       getDRepById(decodedId),
       getVotesByDRepId(decodedId),
@@ -127,7 +128,6 @@ async function getDRepData(drepId: string) {
       console.log(`[DRepProfile] Found ${votes.length} votes for DRep ${decodedId}`);
     }
 
-    // Enrich votes with proposal metadata and rationale text from Supabase
     const [cachedProposals, cachedRationales] = await Promise.all([
       getProposalsByIds(
         votes.map((v) => ({ txHash: v.proposal_tx_hash, index: v.proposal_index })),
@@ -212,6 +212,79 @@ async function getDRepData(drepId: string) {
   }
 }
 
+/**
+ * Compute how often this DRep's vote matched the SPO majority.
+ * Uses the inter_body_alignment cache for proposals this DRep voted on.
+ */
+async function getSpoAlignment(
+  votes: VoteRecord[],
+): Promise<number | null> {
+  if (votes.length === 0) return null;
+
+  try {
+    const supabase = createClient();
+    const proposalKeys = votes.map((v) => `${v.proposalTxHash}-${v.proposalIndex}`);
+    const txHashes = [...new Set(votes.map((v) => v.proposalTxHash))];
+
+    const { data: alignmentRows } = await supabase
+      .from('inter_body_alignment')
+      .select('proposal_tx_hash, proposal_index, spo_yes_pct, spo_no_pct')
+      .in('proposal_tx_hash', txHashes);
+
+    if (!alignmentRows || alignmentRows.length === 0) return null;
+
+    const spoMap = new Map<string, 'Yes' | 'No' | 'Abstain'>();
+    for (const row of alignmentRows) {
+      const key = `${row.proposal_tx_hash}-${row.proposal_index}`;
+      if (row.spo_yes_pct > row.spo_no_pct && row.spo_yes_pct > 0) {
+        spoMap.set(key, 'Yes');
+      } else if (row.spo_no_pct > row.spo_yes_pct && row.spo_no_pct > 0) {
+        spoMap.set(key, 'No');
+      } else if (row.spo_yes_pct === 0 && row.spo_no_pct === 0) {
+        continue; // no SPO votes
+      } else {
+        spoMap.set(key, 'Abstain');
+      }
+    }
+
+    if (spoMap.size === 0) return null;
+
+    let matches = 0;
+    let compared = 0;
+    for (const v of votes) {
+      const key = `${v.proposalTxHash}-${v.proposalIndex}`;
+      const spoMajority = spoMap.get(key);
+      if (!spoMajority) continue;
+      compared++;
+      if (v.vote === spoMajority) matches++;
+    }
+
+    if (compared === 0) return null;
+    return Math.round((matches / compared) * 100);
+  } catch {
+    return null;
+  }
+}
+
+/* ─── Key Facts Strip ─── */
+function KeyFact({
+  label,
+  value,
+  subtext,
+}: {
+  label: string;
+  value: string;
+  subtext?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center text-center min-w-[80px]">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm font-semibold font-mono tabular-nums">{value}</span>
+      {subtext && <span className="text-[10px] text-muted-foreground">{subtext}</span>}
+    </div>
+  );
+}
+
 export default async function DRepDetailPage({ params, searchParams }: DRepDetailPageProps) {
   const { drepId } = await params;
   const { match } = await searchParams;
@@ -228,6 +301,7 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
     percentile,
     linkChecks,
     isClaimed,
+    spoAlignPct,
     showSocialProof,
     showActivityFeeds,
     showScoreHistory,
@@ -236,11 +310,13 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
     showAuthoring,
     showComparePage,
     showNarratives,
+    showSpoVotes,
   ] = await Promise.all([
     getScoreHistory(drep.drepId),
     getDRepPercentile(drep.drepScore),
     getSocialLinkChecks(drep.drepId),
     isDRepClaimed(drep.drepId),
+    getSpoAlignment(drep.votes),
     getFeatureFlag('social_proof'),
     getFeatureFlag('activity_feeds'),
     getFeatureFlag('score_history'),
@@ -249,6 +325,7 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
     getFeatureFlag('drep_authoring'),
     getFeatureFlag('compare_page'),
     getFeatureFlag('narrative_summaries'),
+    getFeatureFlag('spo_cc_votes', false),
   ]);
 
   const brokenLinks = new Set(linkChecks.filter((c) => c.status === 'broken').map((c) => c.uri));
@@ -298,6 +375,7 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
   const alignments = extractAlignments(drep);
   const drepName = getDRepPrimaryName(drep);
   const traitTags = getDRepTraitTags(drep as any);
+  const identityLabel = getPersonalityLabel(alignments);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
@@ -310,7 +388,11 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
         </Button>
       </Link>
 
-      {/* Immersive Identity Hero */}
+      {/* ════════════════════════════════════════════
+          VP1 — "The Story" (above fold)
+          ════════════════════════════════════════════ */}
+
+      {/* 1. Hero */}
       <DRepProfileHero
         name={drepName}
         score={drep.drepScore}
@@ -328,7 +410,7 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
         )}
       </DRepProfileHero>
 
-      {/* Narrative summary */}
+      {/* 2. Narrative summary */}
       {showNarratives && (
         <NarrativeSummary
           text={generateDRepNarrative({
@@ -348,7 +430,22 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
         />
       )}
 
-      {/* Identity metadata row */}
+      {/* 3. Key Facts Strip */}
+      <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-4 border-y border-border">
+        <KeyFact
+          label="Score"
+          value={`${drep.drepScore}/100`}
+          subtext={percentile > 0 ? `Top ${100 - percentile}%` : undefined}
+        />
+        <KeyFact label="Participation" value={`${drep.effectiveParticipation}%`} />
+        <KeyFact label="Rationale" value={`${drep.rationaleRate}%`} />
+        <KeyFact label="Alignment" value={identityLabel} />
+        {showSpoVotes && spoAlignPct !== null && (
+          <KeyFact label="SPO Alignment" value={`${spoAlignPct}%`} subtext="of the time" />
+        )}
+      </div>
+
+      {/* 4. Identity metadata row */}
       <div className="flex items-center gap-3 flex-wrap text-sm text-muted-foreground">
         {drep.ticker && (
           <Badge variant="outline" className="text-sm px-2 py-0.5">
@@ -405,11 +502,24 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
         {showSocialProof && <SocialProofBadge drepId={drep.drepId} variant="views" />}
       </div>
 
-      {/* DRep-specific activity feed */}
+      {/* 5. Treasury Stance (compact in VP1) */}
+      {showFinancialImpact && <DRepTreasuryStance drepId={drep.drepId} compact />}
+
+      {/* 6. Activity feed */}
       {showActivityFeeds && <ActivitySideWidget drepId={drep.drepId} limit={5} />}
 
-      {/* Tabbed content — 4 tabs replacing 8 stacked sections */}
+      {/* ════════════════════════════════════════════
+          VP2 — "The Record" (below fold, tabbed)
+          ════════════════════════════════════════════ */}
+
       <DRepProfileTabs
+        votingRecordContent={
+          <div className="space-y-6">
+            <Suspense fallback={<DetailPageSkeleton />}>
+              <VotingHistoryWithPrefs votes={drep.votes} />
+            </Suspense>
+          </div>
+        }
         scoreAnalysisContent={
           <div className="space-y-6">
             <ScoreCard
@@ -426,24 +536,18 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
             />
             <MilestoneBadges drepId={drep.drepId} compact />
             {showScoreHistory && <ScoreHistoryChart history={scoreHistory} />}
-          </div>
-        }
-        votingRecordContent={
-          <div className="space-y-6">
-            <Suspense fallback={<DetailPageSkeleton />}>
-              <VotingHistoryWithPrefs votes={drep.votes} />
-            </Suspense>
             {showHeatmap && <ActivityHeatmap drepId={drep.drepId} />}
           </div>
         }
-        treasuryPhilosophyContent={
+        trajectoryContent={
+          <div className="space-y-6">
+            <AlignmentTrajectory drepId={drep.drepId} />
+          </div>
+        }
+        communityContent={
           <div className="space-y-6">
             {showFinancialImpact && <DRepTreasuryStance drepId={drep.drepId} />}
             {showAuthoring && <GovernancePhilosophyEditor drepId={drep.drepId} readOnly />}
-          </div>
-        }
-        aboutContent={
-          <div className="space-y-6">
             <AboutSection
               description={drep.description}
               bio={drep.metadata?.bio}
@@ -462,6 +566,14 @@ export default async function DRepDetailPage({ params, searchParams }: DRepDetai
           </div>
         }
       />
+
+      {/* Similar DReps — placeholder for future PCA-based nearest neighbor query */}
+      <section className="border-t pt-8 mt-8">
+        <h3 className="text-lg font-semibold mb-4">Similar DReps</h3>
+        <p className="text-sm text-muted-foreground">
+          Coming soon — DReps with similar governance alignment profiles.
+        </p>
+      </section>
     </div>
   );
 }

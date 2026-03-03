@@ -8,7 +8,9 @@ alwaysApply: false
 
 ## What This Is
 
-Cardano governance tool for casual ADA holders to discover DReps aligned with their values via scorecards and easy delegation. Brand: `$drepscore`. Tone: neutral, educational.
+The governance intelligence layer for Cardano -- ingests every governance action on-chain, layers opinionated analysis, and delivers personalized, actionable insight to every ecosystem participant. Brand: `$drepscore`. Tone: neutral, educational.
+
+**Product vision and build sequence:** See `docs/strategy/ultimate-vision.md` for the definitive north star -- build order, monetization phases, data flywheel, and how every system connects.
 
 ## Tech Stack
 

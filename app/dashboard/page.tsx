@@ -21,20 +21,18 @@ import {
   AlertTriangle,
   XCircle,
   Users,
+  UserRound,
   BarChart3,
   Search,
   ChevronsUpDown,
   Inbox,
+  Server,
 } from 'lucide-react';
 import { ScoreHistoryChart } from '@/components/ScoreHistoryChart';
 import { DRepDashboard } from '@/components/DRepDashboard';
 import { GovernanceInboxWidget } from '@/components/GovernanceInboxWidget';
 import dynamic from 'next/dynamic';
 
-const DelegatorTrendChart = dynamic(
-  () => import('@/components/DelegatorTrendChart').then((m) => m.DelegatorTrendChart),
-  { ssr: false },
-);
 import { CompetitiveContext } from '@/components/CompetitiveContext';
 import { OnboardingChecklist } from '@/components/OnboardingChecklist';
 import { RepresentationScorecard } from '@/components/RepresentationScorecard';
@@ -51,6 +49,7 @@ const MilestoneCelebrationManager = dynamic(
   { ssr: false },
 );
 import { DRepQuestionsInbox } from '@/components/DRepQuestionsInbox';
+import { DelegatorAnalytics } from '@/components/DelegatorAnalytics';
 import { AnimatedTabs, type TabDefinition } from '@/components/AnimatedTabs';
 import { applyRationaleCurve, getMissingProfileFields } from '@/utils/scoring';
 import { generateDashboardNarrative } from '@/lib/narratives';
@@ -384,12 +383,20 @@ export default function MyDRepPage() {
               Active
             </Badge>
           )}
-          <Link
-            href={`/drep/${encodeURIComponent(drep.drepId)}`}
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-          >
-            Public Profile <ExternalLink className="h-3 w-3" />
-          </Link>
+          <div className="ml-auto flex items-center gap-3">
+            <Link
+              href="/dashboard/spo"
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              <Server className="h-3 w-3" /> SPO Dashboard
+            </Link>
+            <Link
+              href={`/drep/${encodeURIComponent(drep.drepId)}`}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              Public Profile <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -461,7 +468,7 @@ function DashboardTabs({
   const tabs: TabDefinition[] = [
     {
       id: 'inbox',
-      label: 'Inbox & Actions',
+      label: 'Inbox',
       icon: Inbox,
       content: (
         <div className="space-y-6">
@@ -493,8 +500,16 @@ function DashboardTabs({
       ),
     },
     {
-      id: 'sharing',
-      label: 'Sharing & Profile',
+      id: 'delegators',
+      label: 'Delegators',
+      icon: UserRound,
+      content: (
+        <DelegatorAnalytics drepId={drep.drepId} />
+      ),
+    },
+    {
+      id: 'profile',
+      label: 'Profile',
       icon: Users,
       content: (
         <div className="space-y-6">
@@ -520,7 +535,6 @@ function DashboardTabs({
             missingFields={missingFields}
             brokenLinks={drep.brokenLinks}
           />
-          <DelegatorTrendChart drepId={drep.drepId} />
         </div>
       ),
     },

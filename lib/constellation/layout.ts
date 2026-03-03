@@ -7,7 +7,7 @@
  * Arm pitch alternates ±15° so auto-rotation reveals real 3D depth.
  */
 
-import type { ConstellationNode3D, ConstellationEdge3D, LayoutResult } from './types';
+import type { ConstellationNode3D, ConstellationEdge3D, LayoutResult, GovernanceNodeType } from './types';
 import type { AlignmentDimension } from '@/lib/drepIdentity';
 import { getDimensionOrder } from '@/lib/drepIdentity';
 
@@ -35,16 +35,24 @@ interface LayoutInput {
   score: number;
   dominant: AlignmentDimension;
   alignments: number[];
+  nodeType: GovernanceNodeType;
 }
 
+const SPO_LIMIT = 400;
+const SPO_SCALE_FACTOR = 0.6;
+const CC_SCALE_FACTOR = 0.8;
+
 export function computeLayout(inputs: LayoutInput[], nodeLimit: number): LayoutResult {
-  const sorted = [...inputs].sort((a, b) => b.power - a.power);
+  const drepInputs = inputs.filter(n => n.nodeType === 'drep');
+  const spoInputs = inputs.filter(n => n.nodeType === 'spo').slice(0, SPO_LIMIT);
+  const ccInputs = inputs.filter(n => n.nodeType === 'cc');
+
+  const sorted = [...drepInputs].sort((a, b) => b.power - a.power);
   const active = sorted.slice(0, nodeLimit);
 
   const nodes: ConstellationNode3D[] = [];
   const nodeMap = new Map<string, ConstellationNode3D>();
 
-  // H2: Generate 6 anchor nodes forming inner hexagonal ring
   const anchorNodes: ConstellationNode3D[] = [];
   for (let i = 0; i < DIMS.length; i++) {
     const dim = DIMS[i];
@@ -64,6 +72,7 @@ export function computeLayout(inputs: LayoutInput[], nodeLimit: number): LayoutR
       position: [x, y, z],
       scale: MAX_VISIBLE_SCALE * 1.2,
       isAnchor: true,
+      nodeType: 'drep',
     };
     anchorNodes.push(anchor);
     nodes.push(anchor);
@@ -84,6 +93,39 @@ export function computeLayout(inputs: LayoutInput[], nodeLimit: number): LayoutR
 
   rebalanceAngular(nodes);
   repulse(nodes);
+
+  // SPO nodes — outer ring halo
+  for (let i = 0; i < spoInputs.length; i++) {
+    const input = spoInputs[i];
+    const hash = simpleHash(input.id);
+    const spoAngle = (i / spoInputs.length) * Math.PI * 2;
+    const spoRadius = MAX_RADIUS * 1.3 + (hash % 100) / 100 * 2;
+    const z = (hash % 200 - 100) / 100 * 4;
+    const scale = (MIN_VISIBLE_SCALE + input.power * (MAX_VISIBLE_SCALE - MIN_VISIBLE_SCALE)) * SPO_SCALE_FACTOR;
+    const node: ConstellationNode3D = {
+      ...input,
+      position: [Math.cos(spoAngle) * spoRadius, Math.sin(spoAngle) * spoRadius, z],
+      scale,
+    };
+    nodes.push(node);
+    nodeMap.set(node.id, node);
+  }
+
+  // CC nodes — tight cluster near origin, elevated
+  for (let i = 0; i < ccInputs.length; i++) {
+    const input = ccInputs[i];
+    const ccAngle = (i / Math.max(ccInputs.length, 1)) * Math.PI * 2;
+    const ccRadius = 2.5;
+    const z = 1.5;
+    const scale = MAX_VISIBLE_SCALE * CC_SCALE_FACTOR;
+    const node: ConstellationNode3D = {
+      ...input,
+      position: [Math.cos(ccAngle) * ccRadius, Math.sin(ccAngle) * ccRadius, z],
+      scale,
+    };
+    nodes.push(node);
+    nodeMap.set(node.id, node);
+  }
 
   const edges = computeEdges(nodes, anchorNodes);
   return { nodes, edges, nodeMap };
@@ -149,8 +191,8 @@ function computeEdges(
     edges.push({ from: anchorNodes[i].position, to: next.position });
   }
 
-  // H2: Connect each anchor to its 3 nearest real (non-anchor) nodes in its arm
-  const realNodes = nodes.filter((n) => !n.isAnchor);
+  // Connect each anchor to its 3 nearest DRep (non-anchor) nodes in its arm
+  const realNodes = nodes.filter((n) => !n.isAnchor && n.nodeType === 'drep');
   for (const anchor of anchorNodes) {
     const sameArm = realNodes
       .filter((n) => n.dominant === anchor.dominant)
@@ -185,7 +227,7 @@ function dist3D(a: [number, number, number], b: [number, number, number]): numbe
 }
 
 function rebalanceAngular(nodes: ConstellationNode3D[]): void {
-  const realNodes = nodes.filter((n) => !n.isAnchor);
+  const realNodes = nodes.filter((n) => !n.isAnchor && n.nodeType === 'drep');
   if (realNodes.length < 2) return;
 
   const NUM_SECTORS = 12;
@@ -239,7 +281,7 @@ function rebalanceAngular(nodes: ConstellationNode3D[]): void {
 }
 
 function repulse(nodes: ConstellationNode3D[]): void {
-  const realNodes = nodes.filter((n) => !n.isAnchor);
+  const realNodes = nodes.filter((n) => !n.isAnchor && n.nodeType === 'drep');
   const MIN_DIST = 0.8;
   const STRENGTH = 0.4;
 

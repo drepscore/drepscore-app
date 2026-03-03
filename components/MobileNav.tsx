@@ -7,8 +7,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import {
   Menu,
+  Compass,
+  ScrollText,
   Activity,
-  Landmark,
+  Vote,
+  Sparkles,
   Wallet,
   LogOut,
   User,
@@ -29,12 +32,18 @@ interface MobileNavProps {
   displayName: string | null;
 }
 
-const SECONDARY_NAV_ITEMS = [
+const PRIMARY_NAV_ITEMS = [
+  { href: '/discover', label: 'Discover', icon: Compass },
+  { href: '/proposals', label: 'Proposals', icon: ScrollText },
   { href: '/pulse', label: 'Pulse', icon: Activity },
-  { href: '/treasury', label: 'Treasury', icon: Landmark },
 ];
 
-const DREP_NAV_ITEMS = [{ href: '/dashboard/inbox', label: 'Governance Inbox', icon: Inbox }];
+const AUTH_NAV_ITEM = { href: '/governance', label: 'My Governance', icon: Vote };
+
+const DREP_NAV_ITEMS = [
+  { href: '/dashboard', label: 'Dashboard', icon: Sparkles },
+  { href: '/dashboard/inbox', label: 'Governance Inbox', icon: Inbox },
+];
 
 export function MobileNav({
   isAuthenticated,
@@ -86,10 +95,7 @@ export function MobileNav({
           </SheetHeader>
 
           <nav className="flex flex-col gap-1 px-2">
-            <p className="px-3 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Governance
-            </p>
-            {SECONDARY_NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+            {PRIMARY_NAV_ITEMS.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
@@ -104,6 +110,24 @@ export function MobileNav({
                 {label}
               </Link>
             ))}
+
+            {isAuthenticated && (
+              <>
+                <div className="my-2 border-t" />
+                <Link
+                  href={AUTH_NAV_ITEM.href}
+                  className={cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors',
+                    isActive(AUTH_NAV_ITEM.href)
+                      ? 'bg-primary/10 font-medium text-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <AUTH_NAV_ITEM.icon className="h-4 w-4" />
+                  {AUTH_NAV_ITEM.label}
+                </Link>
+              </>
+            )}
 
             {(ownDRepId || isAdmin) && (
               <>
