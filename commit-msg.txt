@@ -1,8 +1,25 @@
-fix: add missing PostHog events and Discord alerts from plan review
+feat: Session 19 — Sensory Polish & Performance
 
-- Emit sync_validation_error PostHog event + Discord alert on Zod failures
-  in proposals (Inngest + route), votes, and dreps sync routes
-- Emit sync_self_healed PostHog event from freshness guard
-- Add proposals integration tests (happy path, Koios error, empty, malformed)
+Phase 1 — Performance Foundation & Power User Layer:
+- Lazy-load 5 heavy chart/celebration components
+- Cmd+K command palette with DRep/proposal/page/action search (cmdk)
+- Global keyboard shortcuts (H/D/P/G navigation, ? help, / search)
+- PWA: manifest, service worker, install prompt, offline fallback
 
-Closes gaps G1-G4 from pre-PR plan review.
+Phase 2 — Signature Visuals & Interaction Craft:
+- GovernanceRadar overhaul: triple-layer glow, per-axis spring animation, vertex breathing, gradient axis lines, identity-colored labels
+- HexScore overhaul: noise texture removed, triple-layer glow, edge shimmer, breathing, /100 treatment
+- ScoreCard redesign: side-by-side desktop hero, responsive HexScore (hero-lg 172px), 2-column pillar grid, gradient progress bars
+- ScrollStoryReveal component, profile hero parallax
+- Card hover scale, button ripple, skeleton crossfade
+- Haptics utility, Konami code constellation burst
+
+Phase 3 — Quality Sweep:
+- ConnectionError component, OfflineBanner with network detection
+- Typography audit: tracking-tight on display headings, toLocaleString on numbers
+- Custom focus-visible rings using identity colors
+- useOptimistic + useOptimisticToggle hooks
+- Cache-Control headers on 8 OG routes with stale-while-revalidate
+- Web Audio API delegation chime + milestone chime (off by default)
+
+Strategy doc: moved community showcase to S20, added S22 (Personalization), revised score projections

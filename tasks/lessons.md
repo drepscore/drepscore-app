@@ -425,6 +425,11 @@ Server-side API routes also need `captureServerEvent` for success + error tracki
 **Fix**: All 17 Inngest functions now registered in serve(). Added treasury to freshness guard thresholds. Added event trigger to treasury snapshot. Created `/api/sync/treasury` manual route. Added proposals self-heal (trigger sync on empty data, same pattern as DReps). Improved empty states (GHI shows "syncing" instead of infinite skeleton; proposals distinguishes "not synced" from "filters hiding results").
 **Takeaway**: Every new Inngest function must be registered in `app/api/inngest/route.ts` in the same commit that creates it. The orphan audit at session start should explicitly compare `ls inngest/functions/` against the `serve()` functions array. If counts don't match, something is missing.
 
+### 2026-03-02: Always ship after completing all todos
+**Promoted to rule**: Reinforces existing workflow.md "Ship It" step.
+**Issue**: After completing all 14 implementation todos, I reported completion but did not automatically create a branch, commit, open a PR, merge, or verify the deploy. The user had to explicitly ask.
+**Takeaway**: Completing implementation is NOT done until the code is committed, PR'd, merged, and the deploy is verified healthy. This is the "Ship It" step in workflow.md and must be automatic — never stop after the last code edit.
+
 ### 2026-03-02: Feature flags need categories at scale (41 flags)
 **Issue**: With 41 feature flags, the flat list admin UI became unnavigable. The original 3-flag implementation had no grouping mechanism.
 **Fix**: Added `category TEXT` column to `feature_flags` table. Upgraded `FeatureFlagAdmin` to group flags by category with collapsible sections, showing enabled/total counts per category. Added admin auth guard (page + PATCH endpoint) matching the integrity dashboard pattern.

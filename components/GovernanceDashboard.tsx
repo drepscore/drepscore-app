@@ -90,7 +90,7 @@ export function GovernanceDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">My Governance</h1>
+        <h1 className="text-2xl font-bold tracking-tight">My Governance</h1>
         <p className="text-sm text-muted-foreground">
           Track your delegation, voice your opinion, and see how well you&apos;re represented.
         </p>

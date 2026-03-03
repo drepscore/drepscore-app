@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         </div>
       </OGBackground>
     ),
-    { width: 1200, height: 630 }
+    { width: 1200, height: 630, headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' } }
   );
 }
 

@@ -11,9 +11,14 @@ import {
   ExternalLink,
   AlertTriangle,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { DelegationRisksModal } from './InfoModal';
-import { DelegationCeremony } from './DelegationCeremony';
 import { useState } from 'react';
+
+const DelegationCeremony = dynamic(
+  () => import('./DelegationCeremony').then((m) => m.DelegationCeremony),
+  { ssr: false },
+);
 import { useFeatureFlag } from '@/components/FeatureGate';
 import { type AlignmentScores } from '@/lib/drepIdentity';
 

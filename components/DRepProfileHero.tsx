@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { useRef } from 'react';
 import { GovernanceRadar } from '@/components/GovernanceRadar';
 import { HexScore } from '@/components/HexScore';
 import { AccentProvider } from '@/components/AccentProvider';
@@ -46,13 +47,17 @@ export function DRepProfileHero({
   const identityColor = getIdentityColor(dominant);
   const gradient = getIdentityGradient(dominant);
   const personality = getPersonalityLabel(alignments);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const bgY = useTransform(scrollYProgress, [0, 1], [0, 40]);
 
   return (
     <AccentProvider dimension={dominant} className="relative">
-      {/* Identity gradient background */}
-      <div
+      <div ref={heroRef}>
+      {/* Identity gradient background with parallax */}
+      <motion.div
         className="absolute inset-0 -mx-4 sm:-mx-6 lg:-mx-8 pointer-events-none"
-        style={{ background: gradient }}
+        style={{ background: gradient, y: bgY, willChange: 'transform' }}
         aria-hidden
       />
 
@@ -148,6 +153,7 @@ export function DRepProfileHero({
           </div>
         </motion.div>
       </motion.div>
+      </div>
     </AccentProvider>
   );
 }

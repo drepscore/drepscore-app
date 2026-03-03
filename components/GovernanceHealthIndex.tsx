@@ -146,7 +146,7 @@ function GHIHero({ data, history, trend, className }: { data: GHIData; history: 
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-end pb-3">
-          <motion.span className="text-5xl font-bold tabular-nums" style={{ color }}>
+          <motion.span className="text-5xl font-bold tracking-tight tabular-nums" style={{ color }}>
             {displayScore}
           </motion.span>
           <span className="text-xs font-medium uppercase tracking-wider mt-0.5" style={{ color }}>

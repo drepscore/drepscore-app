@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useMemo } from 'react';
-import { motion, useInView } from 'framer-motion';
+import { useRef, useMemo, useEffect, useState, useCallback } from 'react';
+import { motion, useInView, useSpring, useMotionValue } from 'framer-motion';
 import {
   type AlignmentScores,
   type AlignmentDimension,
@@ -11,15 +11,7 @@ import {
   getDimensionOrder,
   alignmentsToArray,
 } from '@/lib/drepIdentity';
-import { spring } from '@/lib/animations';
 import { cn } from '@/lib/utils';
-
-/* ──────────────────────────────────────────────
-   GovernanceRadar — THE signature visual.
-   Custom SVG radar showing 6 alignment dimensions.
-   Three sizes: full (200px), medium (80px), mini (32px).
-   Compare mode overlays two DRep polygons.
-   ────────────────────────────────────────────── */
 
 type RadarSize = 'full' | 'medium' | 'mini';
 
@@ -31,145 +23,114 @@ interface GovernanceRadarProps {
   animate?: boolean;
 }
 
-const SIZE_MAP: Record<RadarSize, number> = {
-  full: 200,
-  medium: 80,
-  mini: 32,
-};
-
-const PADDING_MAP: Record<RadarSize, number> = {
-  full: 40,
-  medium: 8,
-  mini: 2,
-};
+const SIZE_MAP: Record<RadarSize, number> = { full: 220, medium: 80, mini: 32 };
+const PADDING_MAP: Record<RadarSize, number> = { full: 44, medium: 8, mini: 2 };
 
 function getPolygonPoints(
   scores: number[],
-  centerX: number,
-  centerY: number,
-  maxRadius: number,
-): [number, number][] {
-  return scores.map((score, i) => {
-    const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
-    const r = maxRadius * (score / 100);
-    return [centerX + r * Math.cos(angle), centerY + r * Math.sin(angle)];
-  });
+  cx: number,
+  cy: number,
+  maxR: number,
+): string {
+  return scores
+    .map((score, i) => {
+      const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+      const r = maxR * (score / 100);
+      return `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`;
+    })
+    .join(' ');
 }
 
-function pointsToSvgPath(pts: [number, number][]): string {
-  return pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+function useAnimatedScores(targets: number[], shouldAnimate: boolean): number[] {
+  const springs = [
+    useSpring(shouldAnimate ? 0 : targets[0], { stiffness: 180, damping: 22 }),
+    useSpring(shouldAnimate ? 0 : targets[1], { stiffness: 180, damping: 22 }),
+    useSpring(shouldAnimate ? 0 : targets[2], { stiffness: 180, damping: 22 }),
+    useSpring(shouldAnimate ? 0 : targets[3], { stiffness: 180, damping: 22 }),
+    useSpring(shouldAnimate ? 0 : targets[4], { stiffness: 180, damping: 22 }),
+    useSpring(shouldAnimate ? 0 : targets[5], { stiffness: 180, damping: 22 }),
+  ];
+
+  const [values, setValues] = useState(shouldAnimate ? [0, 0, 0, 0, 0, 0] : targets);
+
+  useEffect(() => {
+    if (!shouldAnimate) {
+      setValues(targets);
+      return;
+    }
+    springs.forEach((s, i) => {
+      setTimeout(() => s.set(targets[i]), i * 60);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAnimate, ...targets]);
+
+  useEffect(() => {
+    const unsubs = springs.map((s, i) =>
+      s.on('change', (v) =>
+        setValues((prev) => {
+          const next = [...prev];
+          next[i] = v;
+          return next;
+        }),
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return values;
 }
 
-function getAxisEndpoints(
-  centerX: number,
-  centerY: number,
-  radius: number,
-): [number, number][] {
-  return Array.from({ length: 6 }, (_, i) => {
-    const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
-    return [
-      centerX + radius * Math.cos(angle),
-      centerY + radius * Math.sin(angle),
-    ] as [number, number];
-  });
-}
-
-/** Rings for the grid background (25%, 50%, 75%, 100%) */
-function GridRings({
+function BreathingVertices({
+  scores,
   cx,
   cy,
   maxR,
+  color,
 }: {
+  scores: number[];
   cx: number;
   cy: number;
   maxR: number;
+  color: string;
 }) {
+  const [offsets, setOffsets] = useState(() => scores.map(() => 0));
+  const rafRef = useRef(0);
+
+  const animate = useCallback(() => {
+    const now = Date.now();
+    setOffsets(
+      scores.map((_, i) => Math.sin(now / 1200 + i * 1.05) * 1.8),
+    );
+    rafRef.current = requestAnimationFrame(animate);
+  }, [scores]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (mq.matches) return;
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [animate]);
+
   return (
     <>
-      {[0.25, 0.5, 0.75, 1].map((pct) => (
-        <polygon
-          key={pct}
-          points={pointsToSvgPath(
-            Array.from({ length: 6 }, (_, i) => {
-              const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
-              const r = maxR * pct;
-              return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)] as [number, number];
-            })
-          )}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={pct === 1 ? 0.8 : 0.4}
-          className="text-border"
-          strokeDasharray={pct === 1 ? 'none' : '2 3'}
-        />
-      ))}
-    </>
-  );
-}
-
-/** The main data polygon with identity-colored glow */
-function DataPolygon({
-  points,
-  color,
-  filterId,
-  opacity = 0.2,
-  shouldAnimate,
-}: {
-  points: string;
-  color: { hex: string; rgb: [number, number, number] };
-  filterId: string;
-  opacity?: number;
-  shouldAnimate: boolean;
-}) {
-  const polygonVariants = {
-    hidden: {
-      scale: 0,
-      opacity: 0,
-    },
-    visible: {
-      scale: 1,
-      opacity: 1,
-      transition: spring.smooth,
-    },
-  };
-
-  return (
-    <motion.g
-      variants={shouldAnimate ? polygonVariants : undefined}
-      initial={shouldAnimate ? 'hidden' : undefined}
-      animate={shouldAnimate ? 'visible' : undefined}
-      style={{ transformOrigin: 'center' }}
-    >
-      {/* Glow layer */}
-      <polygon
-        points={points}
-        fill={`rgba(${color.rgb.join(',')}, ${opacity * 0.6})`}
-        stroke={color.hex}
-        strokeWidth={1.5}
-        filter={`url(#${filterId})`}
-      />
-      {/* Crisp layer on top */}
-      <polygon
-        points={points}
-        fill={`rgba(${color.rgb.join(',')}, ${opacity})`}
-        stroke={color.hex}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-      />
-      {/* Vertex dots */}
-      {points.split(' ').map((pt, i) => {
-        const [x, y] = pt.split(',').map(Number);
+      {scores.map((score, i) => {
+        const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+        const r = maxR * (score / 100) + offsets[i];
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
         return (
           <circle
             key={i}
             cx={x}
             cy={y}
-            r={2.5}
-            fill={color.hex}
+            r={3}
+            fill={color}
+            opacity={0.9}
           />
         );
       })}
-    </motion.g>
+    </>
   );
 }
 
@@ -181,7 +142,7 @@ export function GovernanceRadar({
   animate = true,
 }: GovernanceRadarProps) {
   const ref = useRef<SVGSVGElement>(null);
-  const isInView = useInView(ref, { once: true, margin: '-50px' });
+  const isInView = useInView(ref, { once: true, margin: '-40px' });
   const shouldAnimate = animate && isInView;
 
   const svgSize = SIZE_MAP[size];
@@ -191,31 +152,60 @@ export function GovernanceRadar({
   const maxR = (svgSize - padding * 2) / 2;
 
   const dimensions = getDimensionOrder();
-  const scores = alignmentsToArray(alignments);
+  const rawScores = alignmentsToArray(alignments);
   const dominant = getDominantDimension(alignments);
   const identityColor = getIdentityColor(dominant);
 
+  const animatedScores = useAnimatedScores(rawScores, shouldAnimate && size === 'full');
+  const displayScores = size === 'full' ? animatedScores : rawScores;
+
   const mainPoints = useMemo(
-    () => pointsToSvgPath(getPolygonPoints(scores, cx, cy, maxR)),
-    [scores, cx, cy, maxR],
+    () => getPolygonPoints(displayScores, cx, cy, maxR),
+    [displayScores, cx, cy, maxR],
   );
 
   const axisEndpoints = useMemo(
-    () => getAxisEndpoints(cx, cy, maxR),
+    () =>
+      Array.from({ length: 6 }, (_, i) => {
+        const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+        return [cx + maxR * Math.cos(angle), cy + maxR * Math.sin(angle)] as [number, number];
+      }),
     [cx, cy, maxR],
   );
 
-  const compareData = useMemo(() => {
+  const comparePoints = useMemo(() => {
     if (!compareAlignments) return null;
     const cScores = alignmentsToArray(compareAlignments);
-    const cDominant = getDominantDimension(compareAlignments);
-    const cColor = getIdentityColor(cDominant);
-    const cPoints = pointsToSvgPath(getPolygonPoints(cScores, cx, cy, maxR));
-    return { points: cPoints, color: cColor };
+    return getPolygonPoints(cScores, cx, cy, maxR);
   }, [compareAlignments, cx, cy, maxR]);
 
-  const filterId = `radar-glow-${size}`;
-  const compareFilterId = `radar-glow-compare-${size}`;
+  const compareColor = useMemo(() => {
+    if (!compareAlignments) return null;
+    return getIdentityColor(getDominantDimension(compareAlignments));
+  }, [compareAlignments]);
+
+  const uid = useMemo(() => `radar-${size}-${Math.random().toString(36).slice(2, 6)}`, [size]);
+
+  if (size === 'mini') {
+    return (
+      <svg
+        viewBox={`0 0 ${svgSize} ${svgSize}`}
+        width={svgSize}
+        height={svgSize}
+        className={cn('shrink-0', className)}
+        role="img"
+        aria-label="Governance radar"
+      >
+        <polygon
+          points={getPolygonPoints(rawScores, cx, cy, maxR)}
+          fill={`rgba(${identityColor.rgb.join(',')}, 0.25)`}
+          stroke={identityColor.hex}
+          strokeWidth={1}
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
 
   return (
     <svg
@@ -226,72 +216,156 @@ export function GovernanceRadar({
       className={cn('shrink-0', className)}
       role="img"
       aria-label={`Governance radar: ${dimensions
-        .map((d, i) => `${getDimensionLabel(d)} ${scores[i]}`)
+        .map((d, i) => `${getDimensionLabel(d)} ${rawScores[i]}`)
         .join(', ')}`}
     >
       <defs>
-        {/* Identity-colored glow filter */}
-        <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation={size === 'full' ? 6 : size === 'medium' ? 3 : 1} />
-          <feComposite in2="SourceGraphic" operator="over" />
+        <filter id={`${uid}-bloom`} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation={size === 'full' ? 12 : 4} />
         </filter>
-        {compareData && (
-          <filter id={compareFilterId} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation={size === 'full' ? 6 : 3} />
-            <feComposite in2="SourceGraphic" operator="over" />
-          </filter>
-        )}
-        {/* Radial gradient for the fill */}
-        <radialGradient id={`radar-fill-${size}`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={identityColor.hex} stopOpacity={0.3} />
-          <stop offset="100%" stopColor={identityColor.hex} stopOpacity={0.05} />
+        <filter id={`${uid}-glow`} x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation={size === 'full' ? 4 : 2} />
+        </filter>
+        <radialGradient id={`${uid}-fill`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={identityColor.hex} stopOpacity={0.4} />
+          <stop offset="100%" stopColor={identityColor.hex} stopOpacity={0.08} />
         </radialGradient>
+        {compareColor && (
+          <radialGradient id={`${uid}-cfill`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={compareColor.hex} stopOpacity={0.25} />
+            <stop offset="100%" stopColor={compareColor.hex} stopOpacity={0.04} />
+          </radialGradient>
+        )}
+        {/* Axis gradient */}
+        {axisEndpoints.map((_, i) => {
+          const dimColor = getIdentityColor(dimensions[i]);
+          return (
+            <linearGradient key={i} id={`${uid}-axis-${i}`} x1="50%" y1="50%" x2={`${(axisEndpoints[i][0] / svgSize) * 100}%`} y2={`${(axisEndpoints[i][1] / svgSize) * 100}%`}>
+              <stop offset="0%" stopColor={dimColor.hex} stopOpacity={0} />
+              <stop offset="50%" stopColor={dimColor.hex} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={dimColor.hex} stopOpacity={0.1} />
+            </linearGradient>
+          );
+        })}
       </defs>
 
-      {/* Grid rings + axis lines */}
-      <GridRings cx={cx} cy={cy} maxR={maxR} />
-
-      {axisEndpoints.map(([ex, ey], i) => (
-        <line
-          key={i}
-          x1={cx}
-          y1={cy}
-          x2={ex}
-          y2={ey}
-          stroke="currentColor"
-          strokeWidth={0.5}
-          className="text-border"
+      {/* Grid rings — solid, subtle */}
+      {[0.25, 0.5, 0.75, 1].map((pct) => (
+        <polygon
+          key={pct}
+          points={Array.from({ length: 6 }, (_, i) => {
+            const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+            const r = maxR * pct;
+            return `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`;
+          }).join(' ')}
+          fill="none"
+          stroke={pct === 1 ? `rgba(${identityColor.rgb.join(',')}, 0.12)` : 'currentColor'}
+          strokeWidth={pct === 1 ? 0.8 : 0.4}
+          className={pct === 1 ? undefined : 'text-border'}
+          opacity={pct === 1 ? 1 : 0.5}
         />
       ))}
 
+      {/* Axis lines with gradient */}
+      {axisEndpoints.map(([ex, ey], i) => (
+        <g key={`axis-${i}`}>
+          <line
+            x1={cx}
+            y1={cy}
+            x2={ex}
+            y2={ey}
+            stroke={`url(#${uid}-axis-${i})`}
+            strokeWidth={0.8}
+          />
+          {/* Glowing dot at axis tip */}
+          <circle
+            cx={ex}
+            cy={ey}
+            r={size === 'full' ? 2.5 : 1.5}
+            fill={getIdentityColor(dimensions[i]).hex}
+            opacity={0.6}
+          />
+        </g>
+      ))}
+
       {/* Compare polygon (behind main) */}
-      {compareData && (
-        <DataPolygon
-          points={compareData.points}
-          color={compareData.color}
-          filterId={compareFilterId}
-          opacity={0.12}
-          shouldAnimate={shouldAnimate}
+      {comparePoints && compareColor && (
+        <>
+          <polygon
+            points={comparePoints}
+            fill={`url(#${uid}-cfill)`}
+            stroke={compareColor.hex}
+            strokeWidth={1}
+            strokeLinejoin="round"
+            opacity={0.5}
+          />
+        </>
+      )}
+
+      {/* Layer 1: Wide bloom */}
+      <polygon
+        points={mainPoints}
+        fill={`rgba(${identityColor.rgb.join(',')}, 0.08)`}
+        stroke={identityColor.hex}
+        strokeWidth={1.5}
+        filter={`url(#${uid}-bloom)`}
+      />
+
+      {/* Layer 2: Tight glow */}
+      <polygon
+        points={mainPoints}
+        fill={`rgba(${identityColor.rgb.join(',')}, 0.15)`}
+        stroke={identityColor.hex}
+        strokeWidth={1.5}
+        filter={`url(#${uid}-glow)`}
+      />
+
+      {/* Layer 3: Crisp shape */}
+      <polygon
+        points={mainPoints}
+        fill={`url(#${uid}-fill)`}
+        stroke={identityColor.hex}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+      />
+
+      {/* Breathing vertex dots — full size only */}
+      {size === 'full' && shouldAnimate && (
+        <BreathingVertices
+          scores={rawScores}
+          cx={cx}
+          cy={cy}
+          maxR={maxR}
+          color={identityColor.hex}
         />
       )}
 
-      {/* Main data polygon */}
-      <DataPolygon
-        points={mainPoints}
-        color={identityColor}
-        filterId={filterId}
-        shouldAnimate={shouldAnimate}
-      />
+      {/* Static vertex dots for medium or pre-animation */}
+      {(size === 'medium' || !shouldAnimate) &&
+        displayScores.map((score, i) => {
+          const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+          const r = maxR * (score / 100);
+          return (
+            <circle
+              key={i}
+              cx={cx + r * Math.cos(angle)}
+              cy={cy + r * Math.sin(angle)}
+              r={size === 'full' ? 3 : 2}
+              fill={identityColor.hex}
+              opacity={0.9}
+            />
+          );
+        })}
 
       {/* Dimension labels — full size only */}
       {size === 'full' &&
         axisEndpoints.map(([ex, ey], i) => {
           const dim = dimensions[i];
           const label = getDimensionLabel(dim);
-          const score = scores[i];
+          const score = rawScores[i];
           const dimColor = getIdentityColor(dim);
 
-          const labelOffset = 16;
+          const labelOffset = 20;
           const dx = ex - cx;
           const dy = ey - cy;
           const len = Math.sqrt(dx * dx + dy * dy);
@@ -308,24 +382,27 @@ export function GovernanceRadar({
             <g key={dim}>
               <text
                 x={lx}
-                y={ly - 6}
+                y={ly - 7}
                 textAnchor={textAnchor}
                 dominantBaseline="auto"
-                className="fill-muted-foreground"
-                fontSize={9}
+                fill={dimColor.hex}
+                fontSize={10}
+                fontWeight={600}
                 fontFamily="var(--font-geist-sans)"
+                opacity={0.85}
               >
                 {label}
               </text>
               <text
                 x={lx}
-                y={ly + 6}
+                y={ly + 7}
                 textAnchor={textAnchor}
                 dominantBaseline="hanging"
-                fill={dimColor.hex}
-                fontSize={10}
-                fontWeight={600}
+                fill="white"
+                fontSize={12}
+                fontWeight={700}
                 fontFamily="var(--font-geist-mono)"
+                style={{ textShadow: `0 0 8px ${dimColor.hex}60` }}
               >
                 {score}
               </text>

@@ -1,6 +1,6 @@
 # Product "Wow" Plan v2 — DRepScore
 
-> From comprehensive governance tool to the app that makes the entire crypto space say "wow." Sessions 12-21 transform the product through emotional design, visual identity, architecture, narrative, intelligence, social mechanics, cross-chain positioning, developer distribution, community flywheel, on-chain actions, and sensory polish.
+> From comprehensive governance tool to the app that makes the entire crypto space say "wow." Sessions 12-22 transform the product through emotional design, visual identity, architecture, narrative, intelligence, social mechanics, cross-chain positioning, developer distribution, community flywheel, on-chain actions, sensory polish, and personalization.
 
 **Created:** March 2, 2026
 **Predecessors:** `product-wow-plan.md` (Sessions 1-7), `product-wow-plan-v1.5.md` (Sessions 8-11)
@@ -24,9 +24,10 @@
 12. [Session 19 — Sensory Polish & Performance](#session-19--sensory-polish--performance)
 13. [Session 20 — Governance Wrapped & Community Flywheel](#session-20--governance-wrapped--community-flywheel)
 14. [Session 21 — On-Chain Actions & Real-Time](#session-21--on-chain-actions--real-time)
-15. [Execution Order](#execution-order-and-dependencies)
-16. [Anti-Patterns](#anti-patterns)
-17. [Deferred Items](#deferred-items)
+15. [Session 22 — Personalization & Governance Feed Intelligence](#session-22--personalization--governance-feed-intelligence)
+16. [Execution Order](#execution-order-and-dependencies)
+17. [Anti-Patterns](#anti-patterns)
+18. [Deferred Items](#deferred-items)
 
 ---
 
@@ -641,7 +642,7 @@ After Sessions 15-18 deliver narrative, intelligence, social, cross-chain, and d
 
 **4. Haptic feedback on mobile.** `navigator.vibrate()` for key actions (delegation, vote submission, milestone achievement) on supported devices. Subtle 10-20ms pulses, never distracting.
 
-**5. Community showcase.** Curated "DRep of the Epoch" spotlight, community-submitted governance stories. This is the content flywheel that makes the platform self-sustaining. New section on Pulse page with editorial curation.
+**5. ~~Community showcase.~~** *Moved to Session 20 — community/editorial items belong in the Community Flywheel session, not a sensory polish pass.*
 
 **6. Advanced OG image system.** Dynamic OG images that update in real-time (e.g., DRep OG image shows current score, not cached score). Makes shared links always current. Upgrade existing OG routes to use ISR with shorter revalidation.
 
@@ -688,6 +689,10 @@ Session 19 polishes the product to near-perfection. Session 20 adds the communit
 **4. Governance leaderboards with seasonal resets.** Epoch-based leaderboard seasons with historical archives. Seasonal badges for top performers. Gamification that resets ensures ongoing engagement rather than permanent dominance by early adopters.
 
 **5. User-generated insights and commentary.** Moderated proposal commentary system — lightweight annotations on proposals from community members. Not full discussion threads (deferred), but curated perspectives that add context.
+
+**6. Community showcase / "DRep of the Epoch" (moved from S19).** Curated spotlight with community nomination and voting. Drives repeat visits and DRep engagement. This is a content/editorial item better suited to the Community Flywheel session.
+
+**7. Sound design expansion.** If the 2 proof-of-concept sounds from S19 (delegation chime, milestone chime) resonate with users, expand to 3-4 additional sounds: score reveal, poll vote confirmation, etc. Still off by default.
 
 ### Success Criteria
 
@@ -738,6 +743,39 @@ DRepScore has been a read-only intelligence layer. Session 21 closes the loop by
 
 ---
 
+## Session 22 — Personalization & Governance Feed Intelligence
+
+### Thesis
+
+DRepScore treats every user the same. A delegator who cares about treasury should see different content than one passionate about decentralization. This session adds a personalized intelligence layer that makes every visit uniquely relevant — the final step from "great tool" to "indispensable governance companion."
+
+### What Changes
+
+**1. "For You" governance feed on homepage.** Proposals and DRep actions ranked by the user's alignment dimensions (from DNA quiz). Users who care about treasury see treasury proposals first. Users passionate about decentralization see related DRep activity. Falls back to popularity-based ranking for users without quiz data.
+
+**2. Personalized proposal recommendations.** "Based on your governance personality, you might care about..." prompts on the proposals page. Uses alignment similarity scoring against proposal type/domain tags.
+
+**3. DRep recommendation refinement.** Collaborative filtering: users with similar quiz results also delegated to X. Surfaces complementary DReps beyond simple alignment matching — "Delegators like you also explored..."
+
+**4. Governance learning path for new users.** Progressive complexity based on engagement signals. New users see simplified governance concepts; returning users see advanced analytics. Not a tutorial — intelligent content depth adjustment.
+
+**5. Personalized GHI perspective.** "How does governance health look from YOUR perspective?" — GHI components weighted by user's priority dimensions. A treasury-focused user sees treasury health weighted more heavily. Creates personal ownership of the governance health narrative.
+
+### Success Criteria
+
+- Homepage "For You" feed increases average session duration by 25%+
+- Personalized DRep recommendations drive 15%+ more delegation explorations
+- New user retention improves measurably with progressive learning path
+- Users share their personalized GHI as a governance identity artifact
+
+### Risks
+
+- Cold start problem: new users without quiz data get generic experience. Mitigate with early DNA quiz prompt.
+- Collaborative filtering requires sufficient delegation data volume. May need minimum threshold before activating.
+- Personalization bubbles: ensure users can always access the full unfiltered view alongside personalized recommendations.
+
+---
+
 ## Execution Order and Dependencies
 
 ```mermaid
@@ -752,14 +790,16 @@ graph LR
     S18 --> S19[Session 19: Sensory Polish]
     S19 --> S20[Session 20: Governance Wrapped]
     S19 --> S21[Session 21: On-Chain Actions]
+    S20 --> S22[Session 22: Personalization]
+    S21 --> S22
 ```
 
-- **Sessions 12-17** are shipped and deployed.
-- **Session 18** expands DRepScore beyond Cardano — cross-chain observatory, developer platform, embeddable widgets, delegator identity, feature flags. **Shipped.**
-- **Session 19** is pure polish: sound, scroll storytelling, Cmd+K, PWA, performance, community showcase — pushing from ~93 to ~96.
-- **Session 20** adds the community flywheel: Governance Wrapped, editorial content, seasonal leaderboards — pushing to ~97.
-- **Session 21** closes the loop with on-chain actions, real-time WebSocket, and offline-first PWA — pushing to ~98+.
-- **S20 and S21** are independent of each other and could be parallelized or reordered based on demand signals (on-chain actions require monitoring GovTool adoption; community flywheel requires editorial capacity).
+- **Sessions 12-18** are shipped and deployed.
+- **Session 19** is pure polish: radar/hex visual overhaul, Cmd+K, scroll storytelling, PWA, performance, quality sweep — pushing from ~92-93 to ~95-96.
+- **Session 20** adds the community flywheel: Governance Wrapped, community showcase (moved from S19), sound expansion, editorial content, seasonal leaderboards — pushing to ~96-97.
+- **Session 21** closes the loop with on-chain actions, real-time WebSocket, and offline-first PWA — pushing to ~97-98.
+- **Session 22** adds personalized governance feeds, recommendations, and learning paths — pushing to ~98-99.
+- **S20 and S21** are independent of each other and could be parallelized or reordered. S22 depends on both S20 (community content to personalize) and S21 (real-time infrastructure for personalized feeds).
 
 ### Target Score Projections (Revised March 2026)
 
@@ -772,9 +812,10 @@ graph LR
 | Post S16 | ~78-82/100 | +9-10 | Intelligence engine, AI narratives, State of Governance, GHI trend |
 | Post S17 | ~87/100 | +5-9 | Page transitions, social layer, sharing culture |
 | Post S18 | ~92-93/100 | +5-6 | Cross-chain intelligence, developer platform, widget distribution, delegator identity, feature flags |
-| Post S19 | ~96/100 | +3-4 | Sound design, scroll storytelling, Cmd+K, PWA, performance, community showcase |
-| Post S20 | ~97/100 | +1 | Governance Wrapped, community flywheel, editorial content |
-| Post S21 | ~98+/100 | +1 | On-chain actions, real-time WebSocket, offline-first |
+| Post S19 | ~95-96/100 | +3-4 | Radar/Hex overhaul, Cmd+K, scroll storytelling, performance, PWA, quality sweep |
+| Post S20 | ~96-97/100 | +2 | Governance Wrapped, community showcase, sound expansion |
+| Post S21 | ~97-98/100 | +1 | On-chain actions, real-time WebSocket, offline-first |
+| Post S22 | ~98-99/100 | +1 | Personalization, governance feed intelligence |
 
 Each session gets its own worktree (`drepscore-<session-name>`) and detailed implementation plan (`.cursor/plans/<session>.plan.md`) before building begins.
 
