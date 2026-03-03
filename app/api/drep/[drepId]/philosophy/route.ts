@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
+import { validateSessionToken } from '@/lib/supabaseAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,8 +31,8 @@ export async function POST(
     if (!sessionToken || !philosophyText)
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
-    const parsed = parseSessionToken(sessionToken);
-    if (!parsed || isSessionExpired(parsed))
+    const parsed = await validateSessionToken(sessionToken);
+    if (!parsed)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const supabase = getSupabaseAdmin();
@@ -51,7 +52,7 @@ export async function POST(
       .single();
 
     if (error) {
-      console.error('[Philosophy POST] Error:', error);
+      logger.error('Error', { context: 'philosophy-post', error: error?.message });
       return NextResponse.json({ error: 'Failed to save' }, { status: 500 });
     }
 
@@ -59,7 +60,7 @@ export async function POST(
 
     return NextResponse.json(data);
   } catch (err) {
-    console.error('[Philosophy POST] Error:', err);
+    logger.error('Error', { context: 'philosophy-post', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

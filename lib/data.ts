@@ -6,6 +6,7 @@
 import { createClient } from './supabase';
 import { getEnrichedDReps, EnrichedDRep } from './koios';
 import { isWellDocumented } from '@/utils/documentation';
+import { logger } from '@/lib/logger';
 
 const CACHE_FRESHNESS_MINUTES = 15;
 
@@ -85,9 +86,9 @@ async function triggerBackgroundSync() {
   try {
     const { inngest } = await import('@/lib/inngest');
     await inngest.send({ name: 'drepscore/sync.dreps' });
-    console.log('[Data] Stale data detected — triggered background DReps sync via Inngest');
+    logger.info('[Data] Stale data detected — triggered background DReps sync via Inngest');
   } catch (e) {
-    console.warn('[Data] Failed to trigger background sync:', e);
+    logger.warn('[Data] Failed to trigger background sync', { error: e });
   }
 }
 
@@ -98,9 +99,9 @@ async function triggerProposalsSync() {
   try {
     const { inngest } = await import('@/lib/inngest');
     await inngest.send({ name: 'drepscore/sync.proposals' });
-    console.log('[Data] Empty proposals — triggered background proposals sync via Inngest');
+    logger.info('[Data] Empty proposals — triggered background proposals sync via Inngest');
   } catch (e) {
-    console.warn('[Data] Failed to trigger proposals sync:', e);
+    logger.warn('[Data] Failed to trigger proposals sync', { error: e });
   }
 }
 
@@ -118,7 +119,7 @@ export async function getAllDReps(): Promise<{
 
   try {
     if (isDev) {
-      console.log('[Data] Querying Supabase cache...');
+      logger.info('[Data] Querying Supabase cache...');
     }
 
     const supabase = createClient();
@@ -130,19 +131,19 @@ export async function getAllDReps(): Promise<{
       .order('score', { ascending: false });
 
     if (supabaseError) {
-      console.error('[Data] Supabase query failed:', supabaseError.message);
+      logger.error('[Data] Supabase query failed', { error: supabaseError.message });
       throw new Error('Supabase unavailable');
     }
 
     // Check if we have data
     if (!rows || rows.length === 0) {
-      console.warn('[Data] No data in Supabase, falling back to Koios');
-      console.warn('[Data] Run: npm run sync');
+      logger.warn('[Data] No data in Supabase, falling back to Koios');
+      logger.warn('[Data] Run: npm run sync');
       return await getEnrichedDReps(false);
     }
 
     if (isDev) {
-      console.log(`[Data] ✓ Retrieved ${rows.length} DReps from Supabase`);
+      logger.info('[Data] Retrieved DReps from Supabase', { count: rows.length });
     }
 
     // Check freshness
@@ -159,13 +160,13 @@ export async function getAllDReps(): Promise<{
       if (isStale) {
         const ageMinutes = Math.round((Date.now() - maxTimestamp) / 1000 / 60);
         if (isDev) {
-          console.log(`[Data] ⚠ Cache is stale (${ageMinutes} min old)`);
+          logger.info('[Data] Cache is stale', { ageMinutes });
         }
         // Trigger sync in background (non-blocking)
         triggerBackgroundSync();
       } else if (isDev) {
         const ageMinutes = Math.round((Date.now() - maxTimestamp) / 1000 / 60);
-        console.log(`[Data] ✓ Cache is fresh (${ageMinutes} min old)`);
+        logger.info('[Data] Cache is fresh', { ageMinutes });
       }
     }
 
@@ -176,7 +177,7 @@ export async function getAllDReps(): Promise<{
     const wellDocumentedDReps = allDReps.filter((d) => isWellDocumented(d));
 
     if (isDev) {
-      console.log(`[Data] Well documented: ${wellDocumentedDReps.length}/${allDReps.length}`);
+      logger.info('[Data] Well documented filter', { wellDocumented: wellDocumentedDReps.length, total: allDReps.length });
     }
 
     return {
@@ -186,11 +187,11 @@ export async function getAllDReps(): Promise<{
       totalAvailable: allDReps.length,
     };
   } catch (error: any) {
-    console.error('[Data] Cache read failed, falling back to Koios:', error.message);
+    logger.error('[Data] Cache read failed, falling back to Koios', { error: error.message });
 
     // Fallback to direct Koios fetch
     if (isDev) {
-      console.log('[Data] Fetching directly from Koios (slow)...');
+      logger.info('[Data] Fetching directly from Koios (slow)...');
     }
 
     return await getEnrichedDReps(false);
@@ -255,13 +256,13 @@ export async function getActualProposalCount(): Promise<number> {
       .select('*', { count: 'exact', head: true });
 
     if (error) {
-      console.warn('[Data] getActualProposalCount query failed:', error.message);
+      logger.warn('[Data] getActualProposalCount query failed', { error: error.message });
       return 88; // fallback based on known count
     }
 
     return count && count > 0 ? count : 88;
   } catch (err) {
-    console.error('[Data] getActualProposalCount error:', err);
+    logger.error('[Data] getActualProposalCount error', { error: err });
     return 88;
   }
 }
@@ -308,16 +309,12 @@ export async function getProposalsByIds(
       .in('tx_hash', txHashes);
 
     if (error) {
-      console.warn('[Data] getProposalsByIds query failed:', error.message);
+      logger.warn('[Data] getProposalsByIds query failed', { error: error.message });
       return result;
     }
 
     if (!rows || rows.length === 0) {
-      console.warn(
-        '[Data] getProposalsByIds: no proposals found for',
-        txHashes.length,
-        'tx hashes',
-      );
+      logger.warn('[Data] getProposalsByIds: no proposals found', { txHashCount: txHashes.length });
       return result;
     }
 
@@ -343,7 +340,7 @@ export async function getProposalsByIds(
 
     return result;
   } catch (err) {
-    console.error('[Data] getProposalsByIds error:', err);
+    logger.error('[Data] getProposalsByIds error', { error: err });
     return result;
   }
 }
@@ -373,7 +370,7 @@ export async function getRationalesByVoteTxHashes(
       .in('vote_tx_hash', voteTxHashes);
 
     if (error) {
-      console.warn('[Data] getRationalesByVoteTxHashes query failed:', error.message);
+      logger.warn('[Data] getRationalesByVoteTxHashes query failed', { error: error.message });
       return result;
     }
 
@@ -389,7 +386,7 @@ export async function getRationalesByVoteTxHashes(
 
     return result;
   } catch (err) {
-    console.error('[Data] getRationalesByVoteTxHashes error:', err);
+    logger.error('[Data] getRationalesByVoteTxHashes error', { error: err });
     return result;
   }
 }
@@ -424,13 +421,13 @@ export async function getVotesByDRepId(drepId: string): Promise<DRepVoteRow[]> {
       .order('block_time', { ascending: false });
 
     if (error) {
-      console.warn('[Data] getVotesByDRepId query failed:', error.message);
+      logger.warn('[Data] getVotesByDRepId query failed', { error: error.message });
       return [];
     }
 
     return (rows as DRepVoteRow[]) || [];
   } catch (err) {
-    console.error('[Data] getVotesByDRepId error:', err);
+    logger.error('[Data] getVotesByDRepId error', { error: err });
     return [];
   }
 }
@@ -444,7 +441,7 @@ export async function getDRepById(drepId: string): Promise<EnrichedDRep | null> 
 
   try {
     if (isDev) {
-      console.log(`[Data] Querying Supabase for DRep: ${drepId}`);
+      logger.info('[Data] Querying Supabase for DRep', { drepId });
     }
 
     const supabase = createClient();
@@ -456,24 +453,24 @@ export async function getDRepById(drepId: string): Promise<EnrichedDRep | null> 
       .single();
 
     if (supabaseError) {
-      console.error('[Data] Supabase query failed:', supabaseError.message);
+      logger.error('[Data] Supabase query failed', { error: supabaseError.message });
       throw new Error('Supabase unavailable');
     }
 
     if (!row) {
       if (isDev) {
-        console.warn(`[Data] DRep ${drepId} not found in cache`);
+        logger.warn('[Data] DRep not found in cache', { drepId });
       }
       return null;
     }
 
     if (isDev) {
-      console.log(`[Data] ✓ Found DRep ${drepId} in cache`);
+      logger.info('[Data] Found DRep in cache', { drepId });
     }
 
     return transformSupabaseRowToDRep(row);
   } catch (error: any) {
-    console.error('[Data] Cache read failed for DRep:', drepId, error.message);
+    logger.error('[Data] Cache read failed for DRep', { drepId, error: error.message });
 
     return null;
   }
@@ -529,7 +526,7 @@ export async function getAllProposalsWithVoteSummary(): Promise<ProposalWithVote
       .order('block_time', { ascending: false });
 
     if (pError || !proposals) {
-      console.warn('[Data] getAllProposals query failed:', pError?.message);
+      logger.warn('[Data] getAllProposals query failed', { error: pError?.message });
       triggerProposalsSync();
       return [];
     }
@@ -551,7 +548,7 @@ export async function getAllProposalsWithVoteSummary(): Promise<ProposalWithVote
 
     const { data: voteCounts, error: vError } = voteCountsResult;
     if (vError) {
-      console.warn('[Data] vote counts query failed:', vError.message);
+      logger.warn('[Data] vote counts query failed', { error: vError.message });
     }
 
     // Build tri-body map from proposal_voting_summary
@@ -630,7 +627,7 @@ export async function getAllProposalsWithVoteSummary(): Promise<ProposalWithVote
       };
     });
   } catch (err) {
-    console.error('[Data] getAllProposalsWithVoteSummary error:', err);
+    logger.error('[Data] getAllProposalsWithVoteSummary error', { error: err });
     return [];
   }
 }
@@ -750,7 +747,7 @@ export async function getProposalByKey(
       triBody,
     };
   } catch (err) {
-    console.error('[Data] getProposalByKey error:', err);
+    logger.error('[Data] getProposalByKey error', { error: err });
     return null;
   }
 }
@@ -836,7 +833,7 @@ export async function getVotesByProposal(
       };
     });
   } catch (err) {
-    console.error('[Data] getVotesByProposal error:', err);
+    logger.error('[Data] getVotesByProposal error', { error: err });
     return [];
   }
 }
@@ -1006,7 +1003,7 @@ export async function getOpenProposalsForDRep(drepId: string): Promise<OpenPropo
         };
       });
   } catch (err) {
-    console.error('[Data] getOpenProposalsForDRep error:', err);
+    logger.error('[Data] getOpenProposalsForDRep error', { error: err });
     return [];
   }
 }
@@ -1069,7 +1066,7 @@ export async function getScoreHistory(drepId: string): Promise<ScoreSnapshot[]> 
       profileCompleteness: r.profile_completeness ?? 0,
     }));
   } catch (err) {
-    console.error('[Data] getScoreHistory error:', err);
+    logger.error('[Data] getScoreHistory error', { error: err });
     return [];
   }
 }
@@ -1090,7 +1087,7 @@ export async function getDRepPercentile(score: number): Promise<number> {
     if (!totalCount || totalCount === 0) return 0;
     return Math.round(((belowCount ?? 0) / totalCount) * 100);
   } catch (err) {
-    console.error('[Data] getDRepPercentile error:', err);
+    logger.error('[Data] getDRepPercentile error', { error: err });
     return 0;
   }
 }
@@ -1126,7 +1123,7 @@ export async function getSocialLinkChecks(drepId: string): Promise<SocialLinkChe
       lastCheckedAt: r.last_checked_at,
     }));
   } catch (err) {
-    console.error('[Data] getSocialLinkChecks error:', err);
+    logger.error('[Data] getSocialLinkChecks error', { error: err });
     return [];
   }
 }

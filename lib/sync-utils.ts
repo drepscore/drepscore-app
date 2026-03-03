@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export type SyncType =
   | 'dreps'
@@ -91,10 +92,7 @@ export async function batchUpsert<T extends Record<string, unknown>>(
       lastError = error.message;
       if (attempt < MAX_UPSERT_RETRIES - 1 && isTransientError(error.message)) {
         const delay = upsertRetryDelay(attempt);
-        console.warn(
-          `[Sync] ${label} batch transient error, retrying in ${Math.round(delay)}ms (${attempt + 1}/${MAX_UPSERT_RETRIES}):`,
-          error.message,
-        );
+        logger.warn(`[Sync] ${label} batch transient error, retrying`, { delayMs: Math.round(delay), attempt: attempt + 1, maxRetries: MAX_UPSERT_RETRIES, error: error.message });
         await new Promise((r) => setTimeout(r, delay));
       } else {
         break;
@@ -102,11 +100,11 @@ export async function batchUpsert<T extends Record<string, unknown>>(
     }
 
     if (lastError) {
-      console.error(`[Sync] ${label} batch error:`, lastError);
+      logger.error(`[Sync] ${label} batch error`, { error: lastError });
       errors += batch.length;
     }
   }
-  if (total > 1) console.log(`[Sync] ${label}: ${success} ok, ${errors} errors (${total} batches)`);
+  if (total > 1) logger.info(`[Sync] ${label} batch complete`, { success, errors, batches: total });
   return { success, errors };
 }
 
@@ -162,7 +160,7 @@ export class SyncLogger {
         .single();
       this.id = logRow?.id ?? null;
     } catch (_e) {
-      console.warn(`[${this.syncType}] sync_log insert failed:`, errMsg(_e));
+      logger.warn(`[${this.syncType}] sync_log insert failed`, { error: errMsg(_e) });
     }
   }
 
@@ -181,7 +179,7 @@ export class SyncLogger {
         })
         .eq('id', this.id);
     } catch (_e) {
-      console.warn(`[${this.syncType}] sync_log finalize failed:`, errMsg(_e));
+      logger.warn(`[${this.syncType}] sync_log finalize failed`, { error: errMsg(_e) });
     }
 
     if (success) {
@@ -232,9 +230,7 @@ export class SyncLogger {
         const severity =
           totalDrops >= CONSECUTIVE_DROP_RUNS ? 'persistent degradation' : 'single-run drop';
 
-        console.warn(
-          `[${this.syncType}] Record count anomaly (${severity}): ${currentCount} vs previous ${prevCount} (ratio: ${ratio.toFixed(2)}, streak: ${totalDrops})`,
-        );
+        logger.warn(`[${this.syncType}] Record count anomaly`, { severity, currentCount, prevCount, ratio: parseFloat(ratio.toFixed(2)), streak: totalDrops });
         await alertDiscord(
           `Record Count Anomaly — ${this.syncType}`,
           `Current: ${currentCount}, Previous: ${prevCount} (${Math.round(ratio * 100)}% of expected). ${severity} (streak: ${totalDrops}). Possible truncated API response.`,
@@ -255,9 +251,7 @@ export class SyncLogger {
 
   private async checkDurationAnomaly(durationMs: number) {
     if (durationMs > 600_000) {
-      console.warn(
-        `[${this.syncType}] Sync duration exceeded 10 min: ${Math.round(durationMs / 1000)}s`,
-      );
+      logger.warn(`[${this.syncType}] Sync duration exceeded 10 min`, { durationSeconds: Math.round(durationMs / 1000) });
       await emitPostHog(true, this.syncType, durationMs, {
         event_override: 'sync_duration_warning',
       });
@@ -315,7 +309,7 @@ export async function alertDiscord(title: string, details: string): Promise<void
       signal: AbortSignal.timeout(5_000),
     });
   } catch (e) {
-    console.error('[alertDiscord] Failed:', errMsg(e));
+    logger.error('[alertDiscord] Failed', { error: errMsg(e) });
   }
 }
 
@@ -329,7 +323,7 @@ export async function pingHeartbeat(envKey: string): Promise<void> {
   try {
     await fetch(url, { method: 'GET', signal: AbortSignal.timeout(5_000) });
   } catch (e) {
-    console.warn(`[Heartbeat] ${envKey} ping failed:`, errMsg(e));
+    logger.warn(`[Heartbeat] ${envKey} ping failed`, { error: errMsg(e) });
   }
 }
 
@@ -345,12 +339,12 @@ export async function triggerAnalyticsDeploy(syncType: SyncType): Promise<void> 
     await new Promise((r) => setTimeout(r, 5000));
     const res = await fetch(hook, { method: 'POST', signal: AbortSignal.timeout(10_000) });
     if (res.ok) {
-      console.log(`[${syncType}] Analytics deploy hook triggered (${res.status})`);
+      logger.info(`[${syncType}] Analytics deploy hook triggered`, { status: res.status });
     } else {
-      console.warn(`[${syncType}] Analytics deploy hook returned ${res.status}`);
+      logger.warn(`[${syncType}] Analytics deploy hook returned non-OK`, { status: res.status });
     }
   } catch (e) {
-    console.warn(`[${syncType}] Analytics deploy hook failed:`, errMsg(e));
+    logger.warn(`[${syncType}] Analytics deploy hook failed`, { error: errMsg(e) });
   }
 }
 

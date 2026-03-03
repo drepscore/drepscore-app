@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { generateText } from '@/lib/ai';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -98,7 +99,7 @@ Keep it under 250 words total. Be factual and balanced. Do not take a position. 
 
     return NextResponse.json({ explanation, cached: false });
   } catch (error) {
-    console.error('[Proposal Explainer] Error:', error);
+    logger.error('Error', { context: 'proposal-explainer', error: error });
     return NextResponse.json({ error: 'Failed to generate explanation' }, { status: 500 });
   }
 }

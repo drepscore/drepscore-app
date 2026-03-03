@@ -6,6 +6,7 @@ import {
   projectRunway,
   getCounterfactualAnalysis,
 } from '@/lib/treasury';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
       counterfactual,
     });
   } catch (error) {
-    console.error('[treasury/simulate] Error:', error);
+    logger.error('Error', { context: 'treasury/simulate', error: error });
     return NextResponse.json({ error: 'Failed to simulate' }, { status: 500 });
   }
 }

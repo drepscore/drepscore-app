@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MILESTONES, getAchievedMilestones, checkAndAwardMilestones } from '@/lib/milestones';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
       totalCount: MILESTONES.length,
     });
   } catch (err) {
-    console.error('[Milestones API] Error:', err);
+    logger.error('Error', { context: 'milestones-api', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ newMilestones });
   } catch (err) {
-    console.error('[Milestones POST] Error:', err);
+    logger.error('Error', { context: 'milestones-post', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

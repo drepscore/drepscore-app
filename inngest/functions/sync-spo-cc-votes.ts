@@ -7,6 +7,7 @@ import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { fetchAllSPOVotesBulk, fetchAllCCVotesBulk } from '@/utils/koios';
 import { SyncLogger, batchUpsert, errMsg, emitPostHog } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 import { computeAndCacheAlignment } from '@/lib/interBodyAlignment';
 
 export const syncSpoAndCcVotes = inngest.createFunction(
@@ -98,7 +99,7 @@ export const syncSpoAndCcVotes = inngest.createFunction(
         const upserted = await computeAndCacheAlignment();
         return { alignmentCached: upserted };
       } catch (err) {
-        console.error('[sync-spo-cc-votes] Alignment computation failed:', errMsg(err));
+        logger.error('[sync-spo-cc-votes] Alignment computation failed', { error: err });
         return { alignmentCached: 0, error: errMsg(err) };
       }
     });
@@ -178,12 +179,14 @@ export const syncSpoAndCcVotes = inngest.createFunction(
           { onConflict: 'snapshot_type,epoch_no,snapshot_date' },
         );
 
-        console.log(
-          `[sync-spo-cc-votes] Alignment snapshots: ${inserted}/${cached.length} for epoch ${epoch}`,
-        );
+        logger.info('[sync-spo-cc-votes] Alignment snapshots stored', {
+          inserted,
+          total: cached.length,
+          epoch,
+        });
         return { snapshotted: inserted, epoch };
       } catch (err) {
-        console.error('[sync-spo-cc-votes] Alignment snapshot failed:', errMsg(err));
+        logger.error('[sync-spo-cc-votes] Alignment snapshot failed', { error: err });
         return { snapshotted: 0, error: errMsg(err) };
       }
     });

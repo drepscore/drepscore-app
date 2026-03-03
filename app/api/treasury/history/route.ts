@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTreasuryTrend, getIncomeVsOutflow } from '@/lib/treasury';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
       incomeVsOutflow,
     });
   } catch (error) {
-    console.error('[treasury/history] Error:', error);
+    logger.error('Error', { context: 'treasury/history', error: error });
     return NextResponse.json({ error: 'Failed to fetch treasury history' }, { status: 500 });
   }
 }

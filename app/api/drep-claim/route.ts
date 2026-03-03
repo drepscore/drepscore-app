@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
+import { validateSessionToken } from '@/lib/supabaseAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 /**
  * GET: Check if a DRep is claimed by any user.
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       .limit(1);
 
     if (error) {
-      console.error('[DRepClaim] Check error:', error);
+      logger.error('Check error', { context: 'drepclaim', error: error?.message });
       return NextResponse.json({ claimed: false });
     }
 
@@ -43,8 +44,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
-    const parsed = parseSessionToken(sessionToken);
-    if (!parsed || isSessionExpired(parsed)) {
+    const parsed = await validateSessionToken(sessionToken);
+    if (!parsed) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -58,14 +59,14 @@ export async function POST(request: NextRequest) {
       .eq('wallet_address', walletAddress);
 
     if (error) {
-      console.error('[DRepClaim] Error:', error);
+      logger.error('Error', { context: 'drepclaim', error: error?.message });
       return NextResponse.json({ error: 'Failed to claim' }, { status: 500 });
     }
 
     captureServerEvent('drep_claimed', { drep_id: drepId }, walletAddress);
     return NextResponse.json({ claimed: true, drepId });
   } catch (err) {
-    console.error('[DRepClaim] Error:', err);
+    logger.error('Error', { context: 'drepclaim', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

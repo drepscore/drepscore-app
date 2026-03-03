@@ -4,6 +4,7 @@
  */
 
 import { getSupabaseAdmin, createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export interface ProposalAlignment {
   proposalTxHash: string;
@@ -247,7 +248,7 @@ export async function computeAndCacheAlignment(): Promise<number> {
 
       if (!error) upserted++;
     } catch (err) {
-      console.error(`[interBodyAlignment] Error computing ${key}:`, err);
+      logger.error('[interBodyAlignment] Error computing alignment', { proposalKey: key, error: err });
     }
   }
 

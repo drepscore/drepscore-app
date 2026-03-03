@@ -7,6 +7,7 @@ import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { errMsg } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 
 const USER_BATCH = 50;
 
@@ -105,7 +106,7 @@ export const generateEpochSummary = inngest.createFunction(
         .gte('last_visit_at', thirtyDaysAgo);
 
       if (userErr || !activeUsers) {
-        console.error('[epoch-summary] Failed to fetch users:', userErr?.message);
+        logger.error('[epoch-summary] Failed to fetch users', { error: userErr });
         return 0;
       }
 
@@ -176,7 +177,7 @@ export const generateEpochSummary = inngest.createFunction(
         const { error: insertErr } = await supabase.from('governance_events').insert(events);
 
         if (insertErr) {
-          console.error('[epoch-summary] Insert error:', insertErr.message);
+          logger.error('[epoch-summary] Insert error', { error: insertErr });
         } else {
           processed += events.length;
         }
@@ -354,7 +355,7 @@ export const generateEpochSummary = inngest.createFunction(
       );
 
       if (upsertErr) {
-        console.error('[epoch-summary] Epoch recap upsert error:', upsertErr.message);
+        logger.error('[epoch-summary] Epoch recap upsert error', { error: upsertErr });
         return { success: false, error: upsertErr.message };
       }
 
@@ -427,17 +428,20 @@ export const generateEpochSummary = inngest.createFunction(
           { onConflict: 'snapshot_type,epoch_no,snapshot_date' },
         );
 
-        console.log(
-          `[epoch-summary] Participation snapshot: ${activeDreps}/${totalDreps} (${participationRate}%) epoch ${epoch}`,
-        );
+        logger.info('[epoch-summary] Participation snapshot stored', {
+          activeDreps,
+          totalDreps,
+          participationRate,
+          epoch,
+        });
         return { inserted: true, activeDreps, totalDreps, participationRate };
       } catch (err) {
-        console.error('[epoch-summary] Participation snapshot failed:', errMsg(err));
+        logger.error('[epoch-summary] Participation snapshot failed', { error: err });
         return { error: errMsg(err) };
       }
     });
 
-    console.log(`[epoch-summary] Epoch ${epoch} summary generated for ${usersProcessed} users`);
+    logger.info('[epoch-summary] Epoch summary generated', { epoch, usersProcessed });
     return {
       epoch,
       usersProcessed,

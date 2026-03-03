@@ -3,6 +3,7 @@ import { getOpenProposalsForDRep } from '@/lib/data';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { getProposalDisplayTitle } from '@/utils/display';
 import { createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,12 +82,12 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (err) {
-      console.error('[Dashboard/Urgent] Unexplained votes check failed:', err);
+      logger.error('Unexplained votes check failed', { context: 'dashboard/urgent', error: err });
     }
 
     return NextResponse.json({ proposals: urgent, unexplainedVotes });
   } catch (error) {
-    console.error('[Dashboard/Urgent] Error:', error);
+    logger.error('Error', { context: 'dashboard/urgent', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

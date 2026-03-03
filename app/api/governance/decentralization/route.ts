@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 import { computeEDI, type EDIResult } from '@/lib/ghi/ediMetrics';
+import { logger } from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -35,7 +36,7 @@ export async function GET() {
       { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=600' } },
     );
   } catch (error) {
-    console.error('[Decentralization API] Failed:', error);
+    logger.error('Failed', { context: 'decentralization-api', error: error });
     return NextResponse.json(
       { error: 'Failed to compute decentralization metrics' },
       { status: 500 },

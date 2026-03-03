@@ -13,6 +13,7 @@
  *   - notifySegment(): send to a computed user segment
  */
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 import { type NotificationPayload, renderDiscord, renderTelegram } from './channelRenderers';
 import { type Channel } from './notificationRegistry';
@@ -106,7 +107,7 @@ async function sendDiscordWebhook(
     });
     return res.ok;
   } catch (e) {
-    console.error('[Notifications] Discord webhook failed:', e instanceof Error ? e.message : e);
+    logger.error('[Notifications] Discord webhook failed', { error: e instanceof Error ? e.message : e });
     return false;
   }
 }
@@ -130,7 +131,7 @@ async function sendTelegramMessage(chatId: string, payload: NotificationPayload)
     });
     return res.ok;
   } catch (e) {
-    console.error('[Notifications] Telegram send failed:', e instanceof Error ? e.message : e);
+    logger.error('[Notifications] Telegram send failed', { error: e instanceof Error ? e.message : e });
     return false;
   }
 }

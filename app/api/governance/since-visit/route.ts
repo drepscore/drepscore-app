@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSessionToken } from '@/lib/supabaseAuth';
 import { createClient } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
       drepActivity,
     });
   } catch (err) {
-    console.error('[Since Visit API] Error:', err);
+    logger.error('Error', { context: 'since-visit-api', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

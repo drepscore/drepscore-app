@@ -15,6 +15,7 @@ import {
   getDRepPercentile,
 } from '@/lib/data';
 import { getProposalDisplayTitle } from '@/utils/display';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
       percentile,
     });
   } catch (error) {
-    console.error('[MyDRep API] Error:', error);
+    logger.error('Error', { context: 'mydrep-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

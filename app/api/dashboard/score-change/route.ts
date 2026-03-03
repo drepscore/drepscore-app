@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
       date: weekAgo.recorded_at,
     });
   } catch (err) {
-    console.error('[Score Change API] Error:', err);
+    logger.error('Error', { context: 'score-change-api', error: err });
     captureServerEvent('score_change_api_error', { drep_id: drepId, error: String(err) });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }

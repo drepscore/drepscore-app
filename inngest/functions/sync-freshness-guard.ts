@@ -7,6 +7,7 @@
 import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { alertDiscord, errMsg, emitPostHog, type SyncType } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 
 const FRESHNESS_THRESHOLDS: Record<string, { mins: number; event: string }> = {
   proposals: { mins: 90, event: 'drepscore/sync.proposals' },
@@ -63,7 +64,7 @@ export const syncFreshnessGuard = inngest.createFunction(
           })
           .eq('id', ghost.id);
       }
-      console.log(`[FreshnessGuard] Cleaned up ${ghosts.length} ghost sync_log entries`);
+      logger.info('[FreshnessGuard] Cleaned up ghost sync_log entries', { count: ghosts.length });
       return ghosts.length;
     });
 
@@ -110,9 +111,7 @@ export const syncFreshnessGuard = inngest.createFunction(
           .single();
 
         if (recentFail) {
-          console.log(
-            `[FreshnessGuard] Skipping ${syncType} — recent failure within 15m, letting Inngest retry handle it`,
-          );
+          logger.info('[FreshnessGuard] Skipping — recent failure within 15m', { syncType });
           return null;
         }
 
@@ -123,9 +122,11 @@ export const syncFreshnessGuard = inngest.createFunction(
           .gte('started_at', new Date(Date.now() - SELF_HEAL_WINDOW_MS).toISOString());
 
         if ((recentTriggerCount ?? 0) >= SELF_HEAL_MAX_TRIGGERS) {
-          console.log(
-            `[FreshnessGuard] Throttling ${syncType} — ${recentTriggerCount} runs in last 2h, max ${SELF_HEAL_MAX_TRIGGERS}`,
-          );
+          logger.info('[FreshnessGuard] Throttling — too many recent runs', {
+            syncType,
+            recentTriggerCount,
+            max: SELF_HEAL_MAX_TRIGGERS,
+          });
           await alertDiscord(
             `Self-Heal Throttled: ${syncType}`,
             `${recentTriggerCount} runs in last 2h but still stale (${staleMins}m). Possible persistent failure — needs manual investigation.`,
@@ -133,9 +134,10 @@ export const syncFreshnessGuard = inngest.createFunction(
           return null;
         }
 
-        console.log(
-          `[FreshnessGuard] Retriggering ${syncType} (${staleMins}m stale) via Inngest event`,
-        );
+        logger.info('[FreshnessGuard] Retriggering stale sync via Inngest event', {
+          syncType,
+          staleMins,
+        });
         await inngest.send({ name: event });
 
         emitPostHog(true, syncType as SyncType, 0, {

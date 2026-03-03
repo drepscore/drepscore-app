@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ snapshots, currentDelegators });
   } catch (error) {
-    console.error('[Delegator Trends API] Error:', error);
+    logger.error('Error', { context: 'delegator-trends-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

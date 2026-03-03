@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { computeInsights } from '@/lib/proposalIntelligence';
+import { logger } from '@/lib/logger';
 
 let cachedResult: { data: Awaited<ReturnType<typeof computeInsights>>; ts: number } | null = null;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -19,7 +20,7 @@ export async function GET() {
       headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=600' },
     });
   } catch (error) {
-    console.error('[Insights] API error:', error);
+    logger.error('API error', { context: 'insights', error: error });
     return NextResponse.json([], { status: 500 });
   }
 }

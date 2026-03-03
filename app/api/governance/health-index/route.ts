@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { computeGHI } from '@/lib/ghi';
+import { logger } from '@/lib/logger';
 
 let cachedResult: { data: Awaited<ReturnType<typeof computeGHI>>; ts: number } | null = null;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -19,7 +20,7 @@ export async function GET() {
       headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=600' },
     });
   } catch (error) {
-    console.error('[GHI] Failed to compute:', error);
+    logger.error('Failed to compute', { context: 'ghi', error: error });
     return NextResponse.json({ error: 'Failed to compute GHI' }, { status: 500 });
   }
 }

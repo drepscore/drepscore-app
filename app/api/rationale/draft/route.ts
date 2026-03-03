@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDRepById } from '@/lib/data';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -86,7 +87,7 @@ Output only the rationale text, no preamble.`,
 
     return NextResponse.json({ draft });
   } catch (error) {
-    console.error('[Rationale Draft API] Error:', error);
+    logger.error('Error', { context: 'rationale-draft-api', error: error });
     return NextResponse.json({ error: 'Failed to generate draft' }, { status: 500 });
   }
 }

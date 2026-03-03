@@ -18,6 +18,7 @@ import {
 } from '@/lib/governanceBrief';
 import { notifyUser } from '@/lib/notifications';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 const BATCH_SIZE = 50;
 
@@ -117,7 +118,7 @@ export const generateGovernanceBrief = inngest.createFunction(
               user.wallet,
             );
           } catch (err) {
-            console.error(`[GovernanceBrief] Failed for ${user.wallet}:`, err);
+            logger.error(`[GovernanceBrief] Failed for ${user.wallet}`, { error: err });
           }
         }
 
@@ -128,9 +129,11 @@ export const generateGovernanceBrief = inngest.createFunction(
       delivered += result.delivered;
     }
 
-    console.log(
-      `[GovernanceBrief] Complete: ${generated} generated, ${delivered} delivered for ${activeUsers.length} users`,
-    );
+    logger.info('[GovernanceBrief] Complete', {
+      generated,
+      delivered,
+      totalUsers: activeUsers.length,
+    });
     return { generated, delivered, totalUsers: activeUsers.length };
   },
 );

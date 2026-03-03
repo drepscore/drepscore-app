@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
       drepName,
     });
   } catch (error) {
-    console.error('[DRep Feed API] Error:', error);
+    logger.error('Error', { context: 'drep-feed-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

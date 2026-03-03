@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, getSupabaseAdmin } from '@/lib/supabase';
 import { getSpendingEffectiveness } from '@/lib/treasury';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     const effectiveness = await getSpendingEffectiveness();
     return NextResponse.json(effectiveness);
   } catch (error) {
-    console.error('[treasury/accountability] Error:', error);
+    logger.error('Error', { context: 'treasury/accountability', error: error });
     return NextResponse.json({ error: 'Failed to fetch accountability data' }, { status: 500 });
   }
 }
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[treasury/accountability] POST error:', error);
+    logger.error('POST error', { context: 'treasury/accountability', error: error });
     return NextResponse.json({ error: 'Failed to submit vote' }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSessionToken } from '@/lib/supabaseAuth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ events: allEvents.slice(0, 50) });
   } catch (error) {
-    console.error('[Governance Timeline API] Error:', error);
+    logger.error('Error', { context: 'governance-timeline-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

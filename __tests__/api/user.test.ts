@@ -4,9 +4,10 @@ import { createRequest, parseJson } from '../helpers';
 const mockSelect = vi.fn();
 const mockUpsert = vi.fn();
 
+const mockRequireAuth = vi.fn();
+
 vi.mock('@/lib/supabaseAuth', () => ({
-  parseSessionToken: vi.fn(),
-  isSessionExpired: vi.fn(),
+  requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -30,8 +31,8 @@ vi.mock('@/lib/posthog-server', () => ({
   captureServerEvent: vi.fn(),
 }));
 
+import { NextResponse } from 'next/server';
 import { GET, POST } from '@/app/api/user/notification-prefs/route';
-import { parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
 
 describe('GET /api/user/notification-prefs', () => {
   beforeEach(() => {
@@ -39,19 +40,16 @@ describe('GET /api/user/notification-prefs', () => {
   });
 
   it('returns 401 without auth', async () => {
-    vi.mocked(parseSessionToken).mockReturnValue(null);
+    mockRequireAuth.mockResolvedValue(
+      NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    );
     const req = createRequest('/api/user/notification-prefs');
     const res = await GET(req);
     expect(res.status).toBe(401);
   });
 
   it('returns prefs for authenticated user', async () => {
-    vi.mocked(parseSessionToken).mockReturnValue({
-      walletAddress: 'addr1test',
-      exp: Date.now() + 100000,
-      iat: Date.now(),
-    } as any);
-    vi.mocked(isSessionExpired).mockReturnValue(false);
+    mockRequireAuth.mockResolvedValue({ wallet: 'addr1test' });
     mockSelect.mockResolvedValue({
       data: [{ channel: 'push', event_type: 'new_proposal', enabled: true }],
       error: null,
@@ -75,7 +73,9 @@ describe('POST /api/user/notification-prefs', () => {
   });
 
   it('returns 401 without auth', async () => {
-    vi.mocked(parseSessionToken).mockReturnValue(null);
+    mockRequireAuth.mockResolvedValue(
+      NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    );
     const req = createRequest('/api/user/notification-prefs', {
       method: 'POST',
       body: { channel: 'push', eventType: 'new_proposal', enabled: true },
@@ -85,12 +85,7 @@ describe('POST /api/user/notification-prefs', () => {
   });
 
   it('returns 400 when fields are missing', async () => {
-    vi.mocked(parseSessionToken).mockReturnValue({
-      walletAddress: 'addr1test',
-      exp: Date.now() + 100000,
-      iat: Date.now(),
-    } as any);
-    vi.mocked(isSessionExpired).mockReturnValue(false);
+    mockRequireAuth.mockResolvedValue({ wallet: 'addr1test' });
 
     const req = createRequest('/api/user/notification-prefs', {
       method: 'POST',
@@ -102,12 +97,7 @@ describe('POST /api/user/notification-prefs', () => {
   });
 
   it('upserts a notification preference', async () => {
-    vi.mocked(parseSessionToken).mockReturnValue({
-      walletAddress: 'addr1test',
-      exp: Date.now() + 100000,
-      iat: Date.now(),
-    } as any);
-    vi.mocked(isSessionExpired).mockReturnValue(false);
+    mockRequireAuth.mockResolvedValue({ wallet: 'addr1test' });
     mockUpsert.mockResolvedValue({ error: null });
 
     const req = createRequest('/api/user/notification-prefs', {

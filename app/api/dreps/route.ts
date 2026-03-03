@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllDReps, getDRepById } from '@/lib/data';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       },
     );
   } catch (error) {
-    console.error('[API] Error fetching DReps:', error);
+    logger.error('Error fetching DReps', { context: 'api', error: error });
     return NextResponse.json({ error: 'Failed to fetch DReps' }, { status: 500 });
   }
 }

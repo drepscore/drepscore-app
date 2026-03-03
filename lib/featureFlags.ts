@@ -12,6 +12,7 @@
  */
 
 import { createClient } from './supabase';
+import { logger } from '@/lib/logger';
 
 export interface FeatureFlag {
   key: string;
@@ -41,7 +42,7 @@ async function loadFlags(): Promise<Map<string, boolean>> {
     const { data, error } = await supabase.from('feature_flags').select('key, enabled');
 
     if (error || !data) {
-      console.warn('[featureFlags] Failed to load flags, using cache/defaults:', error?.message);
+      logger.warn('[featureFlags] Failed to load flags, using cache/defaults', { error: error?.message });
       return flagCache;
     }
 
@@ -53,7 +54,7 @@ async function loadFlags(): Promise<Map<string, boolean>> {
     cacheTimestamp = now;
     return flagCache;
   } catch (err) {
-    console.warn('[featureFlags] Unexpected error loading flags:', err);
+    logger.warn('[featureFlags] Unexpected error loading flags', { error: err });
     return flagCache;
   }
 }
@@ -106,14 +107,14 @@ export async function setFeatureFlag(key: string, enabled: boolean): Promise<boo
       .eq('key', key);
 
     if (error) {
-      console.error('[featureFlags] Failed to update flag:', error.message);
+      logger.error('[featureFlags] Failed to update flag', { error: error.message });
       return false;
     }
 
     flagCache.set(key, enabled);
     return true;
   } catch (err) {
-    console.error('[featureFlags] Unexpected error updating flag:', err);
+    logger.error('[featureFlags] Unexpected error updating flag', { error: err });
     return false;
   }
 }

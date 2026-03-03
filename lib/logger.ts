@@ -9,12 +9,21 @@ interface LogEntry {
   [key: string]: unknown;
 }
 
+function serializeMeta(meta?: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (!meta) return meta;
+  const result = { ...meta };
+  if (result.error instanceof Error) {
+    result.error = { message: result.error.message, stack: result.error.stack };
+  }
+  return result;
+}
+
 function emit(level: LogLevel, message: string, meta?: Record<string, unknown>) {
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     level,
     message,
-    ...meta,
+    ...serializeMeta(meta),
   };
 
   const line = JSON.stringify(entry);

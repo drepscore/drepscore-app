@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
+import { validateSessionToken } from '@/lib/supabaseAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export async function GET(
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('[Explanations GET] Error:', error);
+    logger.error('Error', { context: 'explanations-get', error: error?.message });
     return NextResponse.json({ error: 'Failed to fetch explanations' }, { status: 500 });
   }
 
@@ -40,8 +41,8 @@ export async function POST(
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const parsed = parseSessionToken(sessionToken);
-    if (!parsed || isSessionExpired(parsed)) {
+    const parsed = await validateSessionToken(sessionToken);
+    if (!parsed) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -73,7 +74,7 @@ export async function POST(
       .single();
 
     if (error) {
-      console.error('[Explanations POST] Error:', error);
+      logger.error('Error', { context: 'explanations-post', error: error?.message });
       return NextResponse.json({ error: 'Failed to save explanation' }, { status: 500 });
     }
 
@@ -81,7 +82,7 @@ export async function POST(
 
     return NextResponse.json(data);
   } catch (err) {
-    console.error('[Explanations POST] Error:', err);
+    logger.error('Error', { context: 'explanations-post', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { parseSessionToken } from '@/lib/supabaseAuth';
+import { validateSessionToken } from '@/lib/supabaseAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
 
 /**
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     let viewerWallet: string | null = null;
     if (sessionToken) {
-      const parsed = parseSessionToken(sessionToken);
+      const parsed = await validateSessionToken(sessionToken);
       if (parsed) viewerWallet = parsed.walletAddress;
     }
 

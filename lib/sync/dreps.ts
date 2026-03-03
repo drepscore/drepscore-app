@@ -1,5 +1,6 @@
 import { getEnrichedDReps } from '@/lib/koios';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger as log } from '@/lib/logger';
 import {
   fetchProposals,
   resolveADAHandles,
@@ -46,8 +47,8 @@ interface SupabaseDRepRow {
  */
 export async function executeDrepsSync(): Promise<Record<string, unknown>> {
   const supabase = getSupabaseAdmin();
-  const logger = new SyncLogger(supabase, 'dreps');
-  await logger.start();
+  const syncLog = new SyncLogger(supabase, 'dreps');
+  await syncLog.start();
   resetKoiosMetrics();
 
   const syncErrors: string[] = [];
@@ -88,12 +89,10 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
           });
         }
       }
-      console.log(
-        `[dreps] Proposals: ${raw.length} fetched, ${classifiedProposalsList.length} classified`,
-      );
+      log.info('[dreps] Proposals fetched and classified', { fetched: raw.length, classified: classifiedProposalsList.length });
     } catch (err) {
       syncErrors.push(`Proposals: ${errMsg(err)}`);
-      console.warn('[dreps] Proposal fetch failed (non-fatal):', errMsg(err));
+      log.warn('[dreps] Proposal fetch failed (non-fatal)', { error: errMsg(err) });
     }
     phaseTiming.step1_proposals_ms = Date.now() - step1Start;
 
@@ -107,13 +106,13 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
     if (result.error || !result.allDReps?.length) {
       const msg = 'Koios DRep fetch returned no data';
       syncErrors.push(msg);
-      await logger.finalize(false, syncErrors.join('; '), phaseTiming);
+      await syncLog.finalize(false, syncErrors.join('; '), phaseTiming);
       throw new Error(msg);
     }
 
     const allDReps = result.allDReps;
     const rawVotesMap = result.rawVotesMap as Record<string, DRepVote[]> | undefined;
-    console.log(`[dreps] Enriched ${allDReps.length} DReps`);
+    log.info('[dreps] Enriched DReps', { count: allDReps.length });
     phaseTiming.step2_enrich_ms = Date.now() - step2Start;
 
     // Step 3: ADA Handle resolution (non-fatal)
@@ -127,10 +126,10 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
         if (handle) (drep as unknown as Record<string, unknown>).handle = handle;
       }
       handlesResolved = handleMap.size;
-      console.log(`[dreps] ADA Handles: ${handlesResolved} resolved out of ${allDReps.length}`);
+      log.info('[dreps] ADA Handles resolved', { resolved: handlesResolved, total: allDReps.length });
     } catch (err) {
       syncErrors.push(`ADA Handles: ${errMsg(err)}`);
-      console.warn('[dreps] ADA Handle resolution failed (non-fatal):', errMsg(err));
+      log.warn('[dreps] ADA Handle resolution failed (non-fatal)', { error: errMsg(err) });
     }
     phaseTiming.step3_handles_ms = Date.now() - step3Start;
 
@@ -144,9 +143,9 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
         const count = (info?.delegatorCount as number) || 0;
         existingDelegatorCounts.set(row.id, count);
       }
-      console.log(`[dreps] Preserved ${existingDelegatorCounts.size} existing delegator counts`);
+      log.info('[dreps] Preserved existing delegator counts', { count: existingDelegatorCounts.size });
     } catch (err) {
-      console.warn('[dreps] Could not read existing delegator counts:', errMsg(err));
+      log.warn('[dreps] Could not read existing delegator counts', { error: errMsg(err) });
     }
     phaseTiming.step3b_delegators_ms = Date.now() - step3bStart;
 
@@ -196,7 +195,7 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
       'id',
       'DReps',
     );
-    console.log(`[dreps] Upserted ${drepResult.success} DReps (${drepResult.errors} errors)`);
+    log.info('[dreps] Upserted DReps', { success: drepResult.success, errors: drepResult.errors });
     phaseTiming.step4_upsert_ms = Date.now() - step4Start;
 
     // Steps 5-6: Alignment scores + Score history (parallel)
@@ -226,7 +225,7 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
           'id',
           'Alignment',
         );
-        console.log(`[dreps] Alignment scores: ${r.success} computed`);
+        log.info('[dreps] Alignment scores computed', { count: r.success });
       })(),
 
       // Step 5b: Delegation snapshots
@@ -260,10 +259,10 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
             if (!error) inserted += batch.length;
           }
           if (inserted > 0) {
-            console.log(`[dreps] Delegation snapshots: ${inserted} for epoch ${epoch}`);
+            log.info('[dreps] Delegation snapshots', { inserted, epoch });
           }
         } catch (err) {
-          console.warn('[dreps] Delegation snapshot failed (non-fatal):', errMsg(err));
+          log.warn('[dreps] Delegation snapshot failed (non-fatal)', { error: errMsg(err) });
         }
       })(),
 
@@ -287,7 +286,7 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
           'Score history',
         );
         if (r.success > 0)
-          console.log(`[dreps] Score history: ${r.success} snapshots for ${today}`);
+          log.info('[dreps] Score history snapshots', { count: r.success, date: today });
       })(),
     ]);
 
@@ -295,7 +294,7 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
       if (r.status === 'rejected') {
         const msg = errMsg(r.reason);
         syncErrors.push(`Parallel: ${msg}`);
-        console.error('[dreps] Parallel step error:', msg);
+        log.error('[dreps] Parallel step error', { error: msg });
       }
     }
     phaseTiming.step56_parallel_ms = Date.now() - step56Start;
@@ -312,10 +311,8 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
       );
     }
 
-    const duration = (logger.elapsed / 1000).toFixed(1);
-    console.log(
-      `[dreps] Complete in ${duration}s — ${drepResult.success} DReps synced${syncErrors.length > 0 ? ` (${syncErrors.length} issues)` : ''}`,
-    );
+    const duration = (syncLog.elapsed / 1000).toFixed(1);
+    log.info('[dreps] Sync complete', { durationSeconds: duration, synced: drepResult.success, issues: syncErrors.length });
 
     const metrics = {
       dreps_synced: drepResult.success,
@@ -325,8 +322,8 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
       ...getKoiosMetrics(),
     };
 
-    await logger.finalize(success, syncErrors.length > 0 ? syncErrors.join('; ') : null, metrics);
-    await emitPostHog(success, 'dreps', logger.elapsed, metrics);
+    await syncLog.finalize(success, syncErrors.length > 0 ? syncErrors.join('; ') : null, metrics);
+    await emitPostHog(success, 'dreps', syncLog.elapsed, metrics);
     triggerAnalyticsDeploy('dreps');
 
     return {
@@ -339,8 +336,8 @@ export async function executeDrepsSync(): Promise<Record<string, unknown>> {
   } catch (outerErr) {
     const msg = errMsg(outerErr);
     syncErrors.push(`Fatal: ${msg}`);
-    console.error('[dreps] Fatal error:', msg);
-    await logger.finalize(false, syncErrors.join('; '), phaseTiming);
+    log.error('[dreps] Fatal error', { error: msg });
+    await syncLog.finalize(false, syncErrors.join('; '), phaseTiming);
     throw outerErr;
   }
 }

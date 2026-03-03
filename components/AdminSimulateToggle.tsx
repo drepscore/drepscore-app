@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useWallet } from '@/utils/wallet';
+import { getStoredSession } from '@/lib/supabaseAuth';
 
 export function AdminSimulateToggle() {
-  const { isAuthenticated, sessionAddress } = useWallet();
+  const { isAuthenticated } = useWallet();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -14,20 +15,23 @@ export function AdminSimulateToggle() {
   const isSimulating = searchParams.get('simulate') === 'true';
 
   useEffect(() => {
-    if (!isAuthenticated || !sessionAddress) {
+    const token = getStoredSession();
+    if (!isAuthenticated || !token) {
       setIsAdmin(false);
       return;
     }
 
     fetch('/api/admin/check', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: sessionAddress }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
     })
-      .then((r) => r.json())
-      .then((data) => setIsAdmin(data.isAdmin === true))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setIsAdmin(data?.isAdmin === true))
       .catch(() => setIsAdmin(false));
-  }, [isAuthenticated, sessionAddress]);
+  }, [isAuthenticated]);
 
   if (!isAdmin) return null;
 

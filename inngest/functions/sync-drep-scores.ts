@@ -20,6 +20,7 @@ import {
   type DRepProfileData,
 } from '@/lib/scoring';
 import { batchUpsert, SyncLogger, errMsg, emitPostHog } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 
 export const syncDrepScores = inngest.createFunction(
   {
@@ -31,8 +32,8 @@ export const syncDrepScores = inngest.createFunction(
   async ({ step }) => {
     const result = await step.run('compute-drep-scores', async () => {
       const supabase = getSupabaseAdmin();
-      const logger = new SyncLogger(supabase, 'scoring');
-      await logger.start();
+      const syncLog = new SyncLogger(supabase, 'scoring');
+      await syncLog.start();
       const timing: Record<string, number> = {};
 
       try {
@@ -64,7 +65,7 @@ export const syncDrepScores = inngest.createFunction(
         ]);
 
         if (!drepRows?.length || !voteRows?.length) {
-          console.log('[scoring] No DReps or votes — skipping');
+          logger.info('[scoring] No DReps or votes — skipping');
           return { success: true, skipped: true };
         }
 
@@ -344,14 +345,14 @@ export const syncDrepScores = inngest.createFunction(
           timing,
         };
 
-        console.log('[scoring] DRep Score V3 sync complete:', JSON.stringify(summary));
-        await logger.finalize(true, null, summary as Record<string, unknown>);
-        await emitPostHog(true, 'scoring', logger.elapsed, summary as Record<string, unknown>);
+        logger.info('[scoring] DRep Score V3 sync complete', summary);
+        await syncLog.finalize(true, null, summary as Record<string, unknown>);
+        await emitPostHog(true, 'scoring', syncLog.elapsed, summary as Record<string, unknown>);
         return summary;
       } catch (err) {
         const msg = errMsg(err);
-        console.error('[scoring] Fatal error:', msg);
-        await logger.finalize(false, msg, timing);
+        logger.error('[scoring] Fatal error', { error: err });
+        await syncLog.finalize(false, msg, timing);
         throw err;
       }
     });

@@ -15,6 +15,7 @@ import { calculateParticipationRate, applyRationaleCurve } from '@/utils/scoring
 import { getProposalPriority } from '@/utils/proposalPriority';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { getTreasuryBalance } from '@/lib/treasury';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,7 +149,7 @@ export async function GET(request: NextRequest) {
       urgentCount,
     });
   } catch (error) {
-    console.error('[Inbox API] Error:', error);
+    logger.error('Error', { context: 'inbox-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' },
     });
   } catch (error) {
-    console.error('[governance/epoch-recap] Error:', error);
+    logger.error('Error', { context: 'governance/epoch-recap', error: error });
     return NextResponse.json({ error: 'Failed to fetch epoch recap' }, { status: 500 });
   }
 }

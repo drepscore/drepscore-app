@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { validateSessionToken } from '@/lib/supabaseAuth';
 import { createClient } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -149,7 +150,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err) {
-    console.error('[epoch-review] Error:', err);
+    logger.error('Error', { context: 'epoch-review', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

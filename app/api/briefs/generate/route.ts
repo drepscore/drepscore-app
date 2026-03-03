@@ -14,6 +14,7 @@ import { notifyUser } from '@/lib/notifications';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { validateSessionToken } from '@/lib/supabaseAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, brief });
   } catch (err) {
-    console.error('[BriefGenerate] Error:', err);
+    logger.error('Error', { context: 'briefgenerate', error: err });
     return NextResponse.json({ error: 'Generation failed' }, { status: 500 });
   }
 }

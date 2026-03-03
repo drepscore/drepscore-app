@@ -4,6 +4,7 @@
  */
 
 import { getSupabaseAdmin, createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export interface SimilarProposalResult {
   txHash: string;
@@ -193,7 +194,7 @@ export async function precomputeSimilarityCache(): Promise<number> {
       onConflict: 'proposal_tx_hash,proposal_index,similar_tx_hash,similar_index',
     });
     if (!error) upserted += batch.length;
-    else console.error('[proposalSimilarity] Batch upsert error:', error.message);
+    else logger.error('[proposalSimilarity] Batch upsert error', { error: error.message });
   }
 
   return upserted;

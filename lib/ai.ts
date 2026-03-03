@@ -6,6 +6,8 @@
  * importing @anthropic-ai/sdk directly.
  */
 
+import { logger } from '@/lib/logger';
+
 export const MODELS = {
   /** Fast model for summaries, narratives, and explainers */
   FAST: 'claude-sonnet-4-5' as const,
@@ -60,7 +62,7 @@ export async function generateText(
     }
     return null;
   } catch (err) {
-    console.error('[AI] generateText error:', err);
+    logger.error('[AI] generateText error', { error: err });
     return null;
   }
 }
@@ -83,7 +85,7 @@ export async function generateJSON<T = unknown>(
       .trim();
     return JSON.parse(cleaned) as T;
   } catch {
-    console.error('[AI] Failed to parse JSON response');
+    logger.error('[AI] Failed to parse JSON response');
     return null;
   }
 }

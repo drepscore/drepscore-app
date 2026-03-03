@@ -18,6 +18,7 @@ import {
 import { computeOverallAlignment, getPrecomputedBreakdown } from '@/lib/alignment';
 import type { EnrichedDRep } from '@/lib/koios';
 import type { UserPrefKey } from '@/types/drep';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -316,7 +317,7 @@ export async function GET(request: NextRequest) {
       alignment,
     });
   } catch (error) {
-    console.error('[Compare API] Error:', error);
+    logger.error('Error', { context: 'compare-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

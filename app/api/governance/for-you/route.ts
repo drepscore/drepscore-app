@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase';
 import { cosineSimilarity } from '@/lib/representationMatch';
 import type { AlignmentDimension, AlignmentScores } from '@/lib/drepIdentity';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -282,7 +283,7 @@ export async function GET(request: NextRequest) {
       profileSource,
     });
   } catch (error) {
-    console.error('[For You API] Error:', error);
+    logger.error('Error', { context: 'for-you-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

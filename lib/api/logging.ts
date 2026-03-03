@@ -6,6 +6,7 @@
 
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export interface ApiLogEntry {
   keyId?: string | null;
@@ -43,7 +44,7 @@ export function logApiRequest(entry: ApiLogEntry): void {
       error_code: entry.errorCode || null,
     })
     .then(({ error }) => {
-      if (error) console.error('[API Log] Insert failed:', error.message);
+      if (error) logger.error('[API Log] Insert failed', { error: error.message });
     });
 
   // PostHog business events

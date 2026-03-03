@@ -4,6 +4,7 @@ import { blockTimeToEpoch } from '@/lib/koios';
 import { SyncLogger, batchUpsert, errMsg, emitPostHog } from '@/lib/sync-utils';
 import { computeSpoScores, type SpoVoteData } from '@/lib/scoring/spoScore';
 import { getExtendedImportanceWeight } from '@/lib/scoring';
+import { logger } from '@/lib/logger';
 
 const KOIOS_BASE = process.env.NEXT_PUBLIC_KOIOS_BASE_URL || 'https://api.koios.rest/api/v1';
 
@@ -17,8 +18,8 @@ export const syncSpoScores = inngest.createFunction(
   async ({ step }) => {
     const computeResult = await step.run('compute-scores', async () => {
       const supabase = getSupabaseAdmin();
-      const logger = new SyncLogger(supabase, 'spo_scores');
-      await logger.start();
+      const syncLog = new SyncLogger(supabase, 'spo_scores');
+      await syncLog.start();
 
       const [
         { data: voteRows },
@@ -40,8 +41,8 @@ export const syncSpoScores = inngest.createFunction(
 
       const currentEpoch =
         statsRow?.current_epoch ?? blockTimeToEpoch(Math.floor(Date.now() / 1000));
-      if (!voteRows?.length) {
-        await logger.finalize(true, null, { skipped: true });
+        if (!voteRows?.length) {
+        await syncLog.finalize(true, null, { skipped: true });
         return { success: true, skipped: true };
       }
 
@@ -233,12 +234,12 @@ export const syncSpoScores = inngest.createFunction(
           poolsScored: finalScores.size,
           votesProcessed: voteRows.length,
         };
-        await logger.finalize(true, null, summary);
-        await emitPostHog(true, 'spo_scores', logger.elapsed, summary);
+        await syncLog.finalize(true, null, summary);
+        await emitPostHog(true, 'spo_scores', syncLog.elapsed, summary);
         return summary;
       } catch (err) {
         const msg = errMsg(err);
-        await logger.finalize(false, msg, {});
+        await syncLog.finalize(false, msg, {});
         throw err;
       }
     });
@@ -266,7 +267,7 @@ export const syncSpoScores = inngest.createFunction(
         });
 
         if (!res.ok) {
-          console.warn('[sync-spo-scores] Koios pool_info failed:', res.status);
+          logger.warn('[sync-spo-scores] Koios pool_info failed', { status: res.status });
           return { fetched: 0, error: res.status };
         }
 
@@ -294,7 +295,7 @@ export const syncSpoScores = inngest.createFunction(
         }
         return { fetched: updated };
       } catch (err) {
-        console.warn('[sync-spo-scores] Koios metadata fetch failed:', errMsg(err));
+        logger.warn('[sync-spo-scores] Koios metadata fetch failed', { error: err });
         return { fetched: 0, error: errMsg(err) };
       }
     });

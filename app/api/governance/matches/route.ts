@@ -15,6 +15,7 @@ import { extractAlignments } from '@/lib/drepIdentity';
 import type { AlignmentDimension, AlignmentScores } from '@/lib/drepIdentity';
 import { createClient } from '@/lib/supabase';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -252,7 +253,7 @@ export async function GET(request: NextRequest) {
       userAlignments,
     });
   } catch (error) {
-    console.error('[Governance Matches API] Error:', error);
+    logger.error('Error', { context: 'governance-matches-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

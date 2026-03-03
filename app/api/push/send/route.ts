@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendPushBroadcast, buildPushPayload } from '@/lib/push';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { type NotificationPayload } from '@/lib/channelRenderers';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       total: targetAddresses.length,
     });
   } catch (err) {
-    console.error('[Push API] Error:', err);
+    logger.error('Error', { context: 'push-api', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

@@ -11,6 +11,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 import { generateText } from '@/lib/ai';
 import { SyncLogger, errMsg } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 import {
   fetchEthereumBenchmark,
   fetchPolkadotBenchmark,
@@ -40,8 +41,8 @@ export const syncGovernanceBenchmarks = inngest.createFunction(
 
     const results = await step.run('store-benchmarks', async () => {
       const supabase = getSupabaseAdmin();
-      const logger = new SyncLogger(supabase, 'benchmarks');
-      await logger.start();
+      const syncLog = new SyncLogger(supabase, 'benchmarks');
+      await syncLog.start();
       const stored: string[] = [];
 
       try {
@@ -66,7 +67,7 @@ export const syncGovernanceBenchmarks = inngest.createFunction(
           );
 
           if (error) {
-            console.error(`[sync-benchmarks] Failed to store ${b.chain}:`, error.message);
+            logger.error(`[sync-benchmarks] Failed to store ${b.chain}`, { error });
           } else {
             stored.push(b.chain);
           }
@@ -86,18 +87,19 @@ export const syncGovernanceBenchmarks = inngest.createFunction(
         );
 
         const summary = { stored, total: benchmarks.length };
-        await logger.finalize(true, null, summary as unknown as Record<string, unknown>);
+        await syncLog.finalize(true, null, summary as unknown as Record<string, unknown>);
         return summary;
       } catch (err) {
-        await logger.finalize(false, errMsg(err), { stored });
+        await syncLog.finalize(false, errMsg(err), { stored });
         throw err;
       }
     });
 
-    console.log(
-      `[sync-benchmarks] Stored ${results.stored.length}/${results.total} benchmarks:`,
-      results.stored,
-    );
+    logger.info('[sync-benchmarks] Benchmarks stored', {
+      stored: results.stored.length,
+      total: results.total,
+      chains: results.stored,
+    });
 
     let aiInsight: string | null = null;
 
@@ -127,7 +129,7 @@ export const syncGovernanceBenchmarks = inngest.createFunction(
             'You are a neutral, data-driven governance analyst. Output only the observation, no preamble.',
         });
       } catch (err) {
-        console.warn('[sync-benchmarks] AI insight failed, retrying once...', err);
+        logger.warn('[sync-benchmarks] AI insight failed, retrying once...', { error: err });
         await new Promise((r) => setTimeout(r, 3000));
         try {
           return await generateText(prompt, {
@@ -137,7 +139,7 @@ export const syncGovernanceBenchmarks = inngest.createFunction(
               'You are a neutral, data-driven governance analyst. Output only the observation, no preamble.',
           });
         } catch (retryErr) {
-          console.error('[sync-benchmarks] AI insight failed after retry:', retryErr);
+          logger.error('[sync-benchmarks] AI insight failed after retry', { error: retryErr });
           return null;
         }
       }

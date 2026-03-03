@@ -7,6 +7,7 @@ import {
   calculateTreasuryHealthScore,
   getPendingTreasuryProposals,
 } from '@/lib/treasury';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,7 @@ export async function GET() {
       pendingTotalAda: totalPendingAda,
     });
   } catch (error) {
-    console.error('[treasury/current] Error:', error);
+    logger.error('Error', { context: 'treasury/current', error: error });
     return NextResponse.json({ error: 'Failed to fetch treasury data' }, { status: 500 });
   }
 }

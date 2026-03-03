@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
+import { requireAuth } from '@/lib/supabaseAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 /**
  * POST: Complete Telegram connect flow
@@ -9,15 +10,8 @@ import { captureServerEvent } from '@/lib/posthog-server';
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = request.headers.get('authorization');
-    if (!auth?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const parsed = parseSessionToken(auth.slice(7));
-    if (!parsed || isSessionExpired(parsed)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
 
     const { token } = await request.json();
     if (!token) {
@@ -43,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const chatId = String(config.chatId);
-    const wallet = parsed.walletAddress;
+    const wallet = auth.wallet;
 
     // Create the actual connection
     await supabase.from('user_channels').upsert(
@@ -101,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('[Telegram Connect] Error:', err);
+    logger.error('Error', { context: 'telegram-connect', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

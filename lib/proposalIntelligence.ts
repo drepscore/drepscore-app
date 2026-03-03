@@ -7,6 +7,7 @@
  */
 
 import { createClient } from './supabase';
+import { logger } from '@/lib/logger';
 
 export type InsightCategory = 'voting' | 'treasury' | 'behavior' | 'participation';
 export type TrendDirection = 'up' | 'down' | 'flat' | 'new';
@@ -464,7 +465,7 @@ export async function computeInsights(): Promise<GovernanceInsight[]> {
       }
     }
   } catch (err) {
-    console.error('[ProposalIntelligence] Computation error:', err);
+    logger.error('[ProposalIntelligence] Computation error', { error: err });
   }
 
   return insights;

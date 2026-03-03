@@ -7,6 +7,7 @@ import {
   getDominantDimension,
   type AlignmentDimension,
 } from '@/lib/drepIdentity';
+import { logger } from '@/lib/logger';
 
 const CACHE_SECONDS = 300;
 
@@ -66,7 +67,7 @@ export async function GET() {
       .limit(200);
 
     if (snapError) {
-      console.error('Delegation graph snapshots error:', snapError);
+      logger.error('Delegation graph snapshots error', { context: 'governance/delegation-graph', error: snapError?.message });
       return NextResponse.json({ error: 'Failed to fetch delegation snapshots' }, { status: 500 });
     }
 
@@ -108,7 +109,7 @@ export async function GET() {
     }
 
     if (drepsError) {
-      console.error('Delegation graph dreps error:', drepsError);
+      logger.error('Delegation graph dreps error', { context: 'governance/delegation-graph', error: drepsError });
     }
 
     const drepsMap = new Map((dreps ?? []).map((d) => [d.id, d]));
@@ -180,7 +181,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('Delegation graph API error:', error);
+    logger.error('Delegation graph API error', { context: 'governance/delegation-graph', error: error });
     return NextResponse.json({ error: 'Failed to fetch delegation graph' }, { status: 500 });
   }
 }

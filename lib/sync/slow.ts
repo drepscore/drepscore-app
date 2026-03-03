@@ -5,6 +5,7 @@
  */
 
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger as log } from '@/lib/logger';
 import { SyncLogger, errMsg, emitPostHog, batchUpsert } from '@/lib/sync-utils';
 import { blake2bHex } from 'blakejs';
 import { fetchDRepVotingPowerHistory, fetchDRepInfo } from '@/utils/koios';
@@ -115,7 +116,7 @@ async function runRationalePipeline(supabase: SupabaseClient) {
 
   if (uncached.length === 0) return { fetched: 0, cached: alreadyCached.size, inline: 0 };
 
-  console.log(`[SlowSync] Fetching rationales for ${uncached.length} uncached votes...`);
+  log.info('[SlowSync] Fetching rationales for uncached votes', { count: uncached.length });
 
   const rationaleRows: Record<string, unknown>[] = [];
   for (let i = 0; i < uncached.length; i += RATIONALE_CONCURRENCY) {
@@ -151,7 +152,7 @@ async function runRationalePipeline(supabase: SupabaseClient) {
 
   await supabase.from('vote_rationales').delete().is('rationale_text', null);
 
-  console.log(`[SlowSync] Rationales: ${successRows.length} fetched, ${alreadyCached.size} cached`);
+  log.info('[SlowSync] Rationales processed', { fetched: successRows.length, cached: alreadyCached.size });
   return { fetched: successRows.length, cached: alreadyCached.size, inline: 0 };
 }
 
@@ -199,7 +200,7 @@ async function runAiSummaries(supabase: SupabaseClient) {
         proposalSummaries++;
       }
     } catch (e) {
-      console.error(`[SlowSync] AI proposal summary error:`, errMsg(e));
+      log.error('[SlowSync] AI proposal summary error', { error: errMsg(e) });
     }
   }
 
@@ -256,14 +257,12 @@ async function runAiSummaries(supabase: SupabaseClient) {
           rationaleSummaries++;
         }
       } catch (e) {
-        console.error(`[SlowSync] AI rationale summary error:`, errMsg(e));
+        log.error('[SlowSync] AI rationale summary error', { error: errMsg(e) });
       }
     }
   }
 
-  console.log(
-    `[SlowSync] AI summaries: ${proposalSummaries} proposals, ${rationaleSummaries} rationales`,
-  );
+  log.info('[SlowSync] AI summaries', { proposals: proposalSummaries, rationales: rationaleSummaries });
   return { proposals: proposalSummaries, rationales: rationaleSummaries, skipped: false };
 }
 
@@ -343,11 +342,11 @@ async function runSocialLinkChecks(supabase: SupabaseClient) {
       },
       { onConflict: 'drep_id,uri' },
     );
-    if (linkErr) console.error('[SlowSync] social_link_checks upsert error:', linkErr.message);
+    if (linkErr) log.error('[SlowSync] social_link_checks upsert error', { error: linkErr.message });
     checked++;
   }
 
-  if (checked > 0) console.log(`[SlowSync] Social links: ${checked} checked`);
+  if (checked > 0) log.info('[SlowSync] Social links checked', { count: checked });
   return { checked };
 }
 
@@ -370,13 +369,11 @@ async function runVotePowerBackfill(supabase: SupabaseClient) {
 
   const uniqueIds = [...drepSet];
   if (uniqueIds.length === 0) {
-    console.log('[SlowSync] Vote power backfill: complete (no NULL rows)');
+    log.info('[SlowSync] Vote power backfill: complete (no NULL rows)');
     return { exact: 0, nearest: 0 };
   }
 
-  console.log(
-    `[SlowSync] Backfilling voting power for ${uniqueIds.length} DReps (processing 50)...`,
-  );
+  log.info('[SlowSync] Backfilling voting power', { uniqueDreps: uniqueIds.length, processing: 50 });
   let exactCount = 0;
   let nearestCount = 0;
 
@@ -394,7 +391,7 @@ async function runVotePowerBackfill(supabase: SupabaseClient) {
         .from('drep_power_snapshots')
         .upsert(snapRows, { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
       if (snapErr)
-        console.error(`[SlowSync] power_snapshots upsert error for ${drepId}:`, snapErr.message);
+        log.error('[SlowSync] power_snapshots upsert error', { drepId, error: snapErr.message });
 
       for (const snap of snapRows) {
         const { count } = await supabase
@@ -427,11 +424,11 @@ async function runVotePowerBackfill(supabase: SupabaseClient) {
         nearestCount++;
       }
     } catch (err) {
-      console.warn(`[SlowSync] Power backfill error for ${drepId.slice(0, 20)}:`, errMsg(err));
+      log.warn('[SlowSync] Power backfill error', { drepId: drepId.slice(0, 20), error: errMsg(err) });
     }
   }
 
-  console.log(`[SlowSync] Power backfill: ${exactCount} exact, ${nearestCount} nearest`);
+  log.info('[SlowSync] Power backfill complete', { exact: exactCount, nearest: nearestCount });
   return { exact: exactCount, nearest: nearestCount };
 }
 
@@ -485,7 +482,7 @@ async function runRationaleHashVerification(supabase: SupabaseClient) {
     }
   }
 
-  console.log(`[SlowSync] Rationale hash: ${verified} verified, ${failed} mismatch`);
+  log.info('[SlowSync] Rationale hash verification', { verified, mismatch: failed });
   return { verified, failed };
 }
 
@@ -535,7 +532,7 @@ async function runDRepMetadataHashVerification(supabase: SupabaseClient) {
   }
 
   if (verified + failed > 0) {
-    console.log(`[SlowSync] DRep metadata hash: ${verified} verified, ${failed} mismatch`);
+    log.info('[SlowSync] DRep metadata hash verification', { verified, mismatch: failed });
   }
   return { verified, failed };
 }
@@ -568,11 +565,11 @@ async function runCriticalProposalNotifications(supabase: SupabaseClient) {
     metadata: { txHash: newest.tx_hash, index: newest.proposal_index },
   };
   await broadcastDiscord(event).catch((e) =>
-    console.error('[SlowSync] broadcastDiscord failed:', e),
+    log.error('[SlowSync] broadcastDiscord failed', { error: e }),
   );
   const sent = await broadcastEvent(event);
 
-  console.log(`[SlowSync] Critical proposal notifications: ${sent} sent`);
+  log.info('[SlowSync] Critical proposal notifications', { sent });
   return { sent, skipped: false };
 }
 
@@ -584,10 +581,10 @@ async function runCriticalProposalNotifications(supabase: SupabaseClient) {
  */
 export async function executeSlowSync(): Promise<Record<string, unknown>> {
   const supabase = getSupabaseAdmin();
-  const logger = new SyncLogger(supabase, 'slow');
-  await logger.start();
+  const syncLog = new SyncLogger(supabase, 'slow');
+  await syncLog.start();
 
-  console.log('[SlowSync] Starting slow sync...');
+  log.info('[SlowSync] Starting slow sync...');
   const syncErrors: string[] = [];
 
   const [
@@ -646,7 +643,7 @@ export async function executeSlowSync(): Promise<Record<string, unknown>> {
     if (allResults[i].status === 'rejected') {
       const msg = errMsg((allResults[i] as PromiseRejectedResult).reason);
       syncErrors.push(`${labels[i]}: ${msg}`);
-      console.error(`[SlowSync] ${labels[i]} failed:`, msg);
+      log.error(`[SlowSync] ${labels[i]} failed`, { error: msg });
     }
   }
 
@@ -665,16 +662,14 @@ export async function executeSlowSync(): Promise<Record<string, unknown>> {
     drep_hash_failed: settled.drepHash?.failed ?? 0,
     push_sent: settled.push?.sent ?? 0,
     similarity_cached: settled.similarity ?? 0,
-    duration_ms: logger.elapsed,
+    duration_ms: syncLog.elapsed,
   };
 
-  const duration = (logger.elapsed / 1000).toFixed(1);
-  console.log(
-    `[SlowSync] Complete in ${duration}s${syncErrors.length > 0 ? ` (${syncErrors.length} issues)` : ''}`,
-  );
+  const duration = (syncLog.elapsed / 1000).toFixed(1);
+  log.info('[SlowSync] Sync complete', { durationSeconds: duration, issues: syncErrors.length });
 
-  await logger.finalize(success, syncErrors.length > 0 ? syncErrors.join('; ') : null, metrics);
-  await emitPostHog(success, 'slow', logger.elapsed, metrics);
+  await syncLog.finalize(success, syncErrors.length > 0 ? syncErrors.join('; ') : null, metrics);
+  await emitPostHog(success, 'slow', syncLog.elapsed, metrics);
 
   return {
     success,

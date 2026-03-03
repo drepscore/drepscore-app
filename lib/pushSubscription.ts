@@ -3,6 +3,8 @@
  * Handles service worker registration, push subscription, and backend sync.
  */
 
+import { logger } from '@/lib/logger';
+
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -18,12 +20,12 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export async function subscribeToPush(authToken: string): Promise<boolean> {
   if (!VAPID_PUBLIC_KEY) {
-    console.warn('[Push] VAPID public key not configured');
+    logger.warn('[Push] VAPID public key not configured');
     return false;
   }
 
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.warn('[Push] Push notifications not supported');
+    logger.warn('[Push] Push notifications not supported');
     return false;
   }
 
@@ -55,7 +57,7 @@ export async function subscribeToPush(authToken: string): Promise<boolean> {
 
     return res.ok;
   } catch (err) {
-    console.error('[Push] Subscription failed:', err);
+    logger.error('[Push] Subscription failed', { error: err });
     return false;
   }
 }
@@ -85,7 +87,7 @@ export async function unsubscribeFromPush(authToken: string): Promise<boolean> {
 
     return true;
   } catch (err) {
-    console.error('[Push] Unsubscribe failed:', err);
+    logger.error('[Push] Unsubscribe failed', { error: err });
     return false;
   }
 }

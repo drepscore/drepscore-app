@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 import { shortenDRepId } from '@/utils/display';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,7 +137,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (err: any) {
     const msg = err?.message || err?.details || err?.hint || JSON.stringify(err);
-    console.error('[Leaderboard API] Error:', msg);
+    logger.error('Error', { context: 'leaderboard-api', error: msg });
     captureServerEvent('leaderboard_api_error', { error: msg });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }

@@ -9,6 +9,7 @@ import { notifyUser, broadcastEvent, type NotificationEvent } from '@/lib/notifi
 import { blockTimeToEpoch } from '@/lib/koios';
 import { checkAndAwardMilestones, MILESTONES } from '@/lib/milestones';
 import { errMsg } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 
 const SCORE_CHANGE_THRESHOLD = 3;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://drepscore.io';
@@ -240,7 +241,7 @@ export const checkNotifications = inngest.createFunction(
             }
           }
         } catch (e) {
-          console.warn(`[notifications] Milestone check failed for ${drep.id}:`, errMsg(e));
+          logger.warn(`[notifications] Milestone check failed for ${drep.id}`, { error: e });
         }
       }
     });

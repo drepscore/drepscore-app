@@ -10,6 +10,7 @@ import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { computeGHI } from '@/lib/ghi';
 import { SyncLogger, errMsg } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 
 export const snapshotGhi = inngest.createFunction(
   {
@@ -34,14 +35,14 @@ export const snapshotGhi = inngest.createFunction(
     });
 
     if (epoch === 0) {
-      console.warn('[snapshot-ghi] Could not determine current epoch, skipping');
+      logger.warn('[snapshot-ghi] Could not determine current epoch, skipping');
       return { skipped: true };
     }
 
     await step.run('store-ghi-snapshot', async () => {
       const supabase = getSupabaseAdmin();
-      const logger = new SyncLogger(supabase, 'ghi');
-      await logger.start();
+      const syncLog = new SyncLogger(supabase, 'ghi');
+      await syncLog.start();
 
       try {
         await supabase.from('ghi_snapshots').upsert(
@@ -67,9 +68,9 @@ export const snapshotGhi = inngest.createFunction(
           { onConflict: 'snapshot_type,epoch_no,snapshot_date' },
         );
 
-        await logger.finalize(true, null, { epoch, score: result.score, band: result.band });
+        await syncLog.finalize(true, null, { epoch, score: result.score, band: result.band });
       } catch (err) {
-        await logger.finalize(false, errMsg(err), { epoch });
+        await syncLog.finalize(false, errMsg(err), { epoch });
         throw err;
       }
     });
@@ -110,9 +111,11 @@ export const snapshotGhi = inngest.createFunction(
       });
     }
 
-    console.log(
-      `[snapshot-ghi] Stored GHI snapshot for epoch ${epoch}: ${result.score} (${result.band})`,
-    );
+    logger.info('[snapshot-ghi] Stored GHI snapshot', {
+      epoch,
+      score: result.score,
+      band: result.band,
+    });
     return { epoch, score: result.score, band: result.band, edi: !!result.edi };
   },
 );

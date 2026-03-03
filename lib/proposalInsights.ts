@@ -4,6 +4,7 @@
  */
 
 import { createClient } from './supabase';
+import { logger } from '@/lib/logger';
 
 export interface GovernanceInsight {
   id: string;
@@ -158,7 +159,7 @@ export async function computeInsights(): Promise<GovernanceInsight[]> {
       }
     }
   } catch (err) {
-    console.error('[Insights] Computation error:', err);
+    logger.error('[Insights] Computation error', { error: err });
   }
 
   return insights;

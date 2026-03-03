@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { applyRationaleCurve } from '@/utils/scoring';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
       pendingProposalCount: additionalVotes,
     });
   } catch (err) {
-    console.error('[Simulate API] Error:', err);
+    logger.error('Error', { context: 'simulate-api', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

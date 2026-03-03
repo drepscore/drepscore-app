@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
       currentPillars,
     });
   } catch (err) {
-    console.error('[Competitive API] Error:', err);
+    logger.error('Error', { context: 'competitive-api', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

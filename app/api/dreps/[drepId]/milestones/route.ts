@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export async function GET(
 
     return NextResponse.json({ milestones });
   } catch (error) {
-    console.error('Milestones API error:', error);
+    logger.error('Milestones API error', { context: 'dreps/:drepId/milestones', error: error });
     return NextResponse.json({ milestones: [] });
   }
 }

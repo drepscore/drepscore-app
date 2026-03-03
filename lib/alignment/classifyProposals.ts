@@ -5,6 +5,7 @@
 
 import { generateJSON } from '@/lib/ai';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 import type { ProposalInfo } from '@/types/koios';
 
 export interface ProposalClassification {
@@ -247,19 +248,14 @@ export async function classifyProposalsAI(
     }));
     const { error: historyErr } = await supabase.from('classification_history').insert(historyRows);
     if (historyErr) {
-      console.warn(
-        '[alignment] classification_history insert failed (non-fatal):',
-        historyErr.message,
-      );
+      logger.warn('[alignment] classification_history insert failed (non-fatal)', { error: historyErr.message });
     }
 
     await supabase
       .from('proposal_classifications')
       .upsert(rows, { onConflict: 'proposal_tx_hash,proposal_index' });
 
-    console.log(
-      `[alignment] Classified ${newClassifications.length} new proposals (${newClassifications.filter((c) => !c.aiSummary?.startsWith('Rule-based')).length} via AI)`,
-    );
+    logger.info('[alignment] Classified new proposals', { total: newClassifications.length, viaAI: newClassifications.filter((c) => !c.aiSummary?.startsWith('Rule-based')).length });
   }
 
   // Return all classifications

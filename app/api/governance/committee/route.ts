@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,7 @@ export async function GET() {
     const { data: votes, error } = await supabase.from('cc_votes').select('cc_hot_id, vote');
 
     if (error) {
-      console.error('[governance/committee] Supabase error:', error);
+      logger.error('Supabase error', { context: 'governance/committee', error: error?.message });
       return NextResponse.json({ members: [] });
     }
 
@@ -50,7 +51,7 @@ export async function GET() {
       },
     );
   } catch (error) {
-    console.error('[governance/committee] Error:', error);
+    logger.error('Error', { context: 'governance/committee', error: error });
     return NextResponse.json({ members: [] }, { status: 500 });
   }
 }

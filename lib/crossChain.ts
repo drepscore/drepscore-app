@@ -5,6 +5,8 @@
  * that fetch chain-native metrics for the Governance Observatory.
  */
 
+import { logger } from '@/lib/logger';
+
 export type Chain = 'cardano' | 'ethereum' | 'polkadot';
 
 export interface ChainBenchmark {
@@ -46,11 +48,11 @@ async function withRetry<T>(
       return await fn();
     } catch (err) {
       if (attempt === retries) {
-        console.error('[crossChain] All retries exhausted:', err);
+        logger.error('[crossChain] All retries exhausted', { error: err });
         return null;
       }
       const delay = initialDelay * 2 ** attempt;
-      console.warn(`[crossChain] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+      logger.warn('[crossChain] Attempt failed, retrying', { attempt: attempt + 1, delayMs: delay });
       await new Promise((r) => setTimeout(r, delay));
     }
   }
@@ -113,7 +115,7 @@ interface TallyOrgNode {
 async function tallyFetch(query: string, variables?: Record<string, unknown>): Promise<unknown> {
   const apiKey = process.env.TALLY_API_KEY;
   if (!apiKey) {
-    console.warn('[crossChain] TALLY_API_KEY not set, skipping Ethereum fetch');
+    logger.warn('[crossChain] TALLY_API_KEY not set, skipping Ethereum fetch');
     return null;
   }
 
@@ -135,13 +137,13 @@ async function tallyFetch(query: string, variables?: Record<string, unknown>): P
     if (!res.ok) {
       const msg = `Tally API error: ${res.status} ${res.statusText}`;
       if (res.status >= 500 || res.status === 429) throw new Error(msg);
-      console.error(`[crossChain] ${msg}`);
+      logger.error('[crossChain] Tally API error', { status: res.status, statusText: res.statusText });
       return null;
     }
 
     const json = await res.json();
     if (json.errors) {
-      console.error('[crossChain] Tally GraphQL errors:', json.errors);
+      logger.error('[crossChain] Tally GraphQL errors', { errors: json.errors });
       return null;
     }
 
@@ -234,7 +236,7 @@ async function subsquareFetch(path: string): Promise<unknown> {
     if (!res.ok) {
       const msg = `SubSquare API error: ${res.status} ${res.statusText}`;
       if (res.status >= 500 || res.status === 429) throw new Error(msg);
-      console.error(`[crossChain] ${msg}`);
+      logger.error('[crossChain] SubSquare API error', { status: res.status, statusText: res.statusText });
       return null;
     }
 
@@ -342,7 +344,7 @@ export async function fetchCardanoBenchmark(): Promise<ChainBenchmark | null> {
       fetchedAt: now.toISOString(),
     };
   } catch (err) {
-    console.error('[crossChain] Cardano benchmark fetch failed:', err);
+    logger.error('[crossChain] Cardano benchmark fetch failed', { error: err });
     return null;
   }
 }

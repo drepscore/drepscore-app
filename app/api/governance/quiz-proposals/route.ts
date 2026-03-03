@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 import type { AlignmentDimension } from '@/lib/drepIdentity';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,7 +51,7 @@ export async function GET() {
     .select('proposal_tx_hash, proposal_index, vote');
 
   if (votesError) {
-    console.error('[quiz-proposals] Failed to fetch votes:', votesError.message);
+    logger.error('Failed to fetch votes', { context: 'quiz-proposals', error: votesError.message });
     return NextResponse.json({ error: 'Failed to fetch vote data' }, { status: 500 });
   }
 
@@ -107,7 +108,7 @@ export async function GET() {
   ]);
 
   if (proposalResult.error) {
-    console.error('[quiz-proposals] Failed to fetch proposals:', proposalResult.error.message);
+    logger.error('Failed to fetch proposals', { context: 'quiz-proposals', error: proposalResult.error.message });
     return NextResponse.json({ error: 'Failed to fetch proposals' }, { status: 500 });
   }
 

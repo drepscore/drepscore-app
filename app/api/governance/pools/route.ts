@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +75,7 @@ export async function GET() {
       { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=300' } },
     );
   } catch (error) {
-    console.error('[governance/pools] Error:', error);
+    logger.error('Error', { context: 'governance/pools', error: error });
     return NextResponse.json({ pools: [] }, { status: 500 });
   }
 }

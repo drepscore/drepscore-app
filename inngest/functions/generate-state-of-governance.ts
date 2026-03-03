@@ -7,6 +7,7 @@
 
 import { inngest } from '@/lib/inngest';
 import { generateAndStoreReport } from '@/lib/stateOfGovernance';
+import { logger } from '@/lib/logger';
 
 export const generateStateOfGovernance = inngest.createFunction(
   {
@@ -20,7 +21,7 @@ export const generateStateOfGovernance = inngest.createFunction(
       return generateAndStoreReport();
     });
 
-    console.log(`[StateOfGovernance] Report for epoch ${result.epoch}: stored=${result.stored}`);
+    logger.info('[StateOfGovernance] Report generated', { epoch: result.epoch, stored: result.stored });
     return result;
   },
 );

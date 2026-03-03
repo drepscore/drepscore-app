@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSessionToken } from '@/lib/supabaseAuth';
 import { buildGovernanceFootprint } from '@/lib/governanceFootprint';
 import { getFeatureFlag } from '@/lib/featureFlags';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'private, s-maxage=300, stale-while-revalidate=600' },
     });
   } catch (error) {
-    console.error('[governance/footprint] Error:', error);
+    logger.error('Error', { context: 'governance/footprint', error: error });
     return NextResponse.json({ error: 'Failed to build governance footprint' }, { status: 500 });
   }
 }

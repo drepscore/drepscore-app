@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSessionToken } from '@/lib/supabaseAuth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { SupabaseUser, SupabaseUserUpdate } from '@/types/supabase';
+import { logger } from '@/lib/logger';
 
 async function authenticateRequest(request: NextRequest): Promise<string | null> {
   const authHeader = request.headers.get('Authorization');
@@ -75,7 +76,7 @@ export async function PATCH(request: NextRequest) {
     .single();
 
   if (error) {
-    console.error('User update error:', error);
+    logger.error('User update error', { context: 'user', error: error?.message });
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
   }
 

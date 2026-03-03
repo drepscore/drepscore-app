@@ -5,6 +5,7 @@
 
 import { generateJSON } from '@/lib/ai';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 interface RationaleInput {
   drepId: string;
@@ -127,7 +128,7 @@ export async function scoreRationalesBatch(
     }
   }
 
-  console.log(`[alignment] Scored ${unscored.length} rationales (${results.size} total cached)`);
+  logger.info('[alignment] Scored rationales', { scored: unscored.length, totalCached: results.size });
   return results;
 }
 

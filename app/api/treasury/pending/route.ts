@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTreasuryBalance, getPendingTreasuryProposals } from '@/lib/treasury';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,7 @@ export async function GET() {
       treasuryBalanceAda: balance.balanceAda,
     });
   } catch (error) {
-    console.error('[treasury/pending] Error:', error);
+    logger.error('Error', { context: 'treasury/pending', error: error });
     return NextResponse.json({ error: 'Failed to fetch pending proposals' }, { status: 500 });
   }
 }

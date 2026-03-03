@@ -4,9 +4,10 @@ import { createRequest, parseJson } from '../helpers';
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn();
 
+const mockValidateSession = vi.fn();
+
 vi.mock('@/lib/supabaseAuth', () => ({
-  parseSessionToken: vi.fn(),
-  isSessionExpired: vi.fn(),
+  validateSessionToken: (...args: unknown[]) => mockValidateSession(...args),
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -34,8 +35,11 @@ vi.mock('@/lib/posthog-server', () => ({
   captureServerEvent: vi.fn(),
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
 import { GET, POST } from '@/app/api/drep-claim/route';
-import { parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
 
 describe('GET /api/drep-claim', () => {
   beforeEach(() => {
@@ -79,13 +83,8 @@ describe('POST /api/drep-claim', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 401 when session is expired', async () => {
-    vi.mocked(parseSessionToken).mockReturnValue({
-      walletAddress: 'addr1...',
-      exp: 0,
-      iat: 0,
-    } as any);
-    vi.mocked(isSessionExpired).mockReturnValue(true);
+  it('returns 401 when session is invalid', async () => {
+    mockValidateSession.mockResolvedValue(null);
 
     const req = createRequest('/api/drep-claim', {
       method: 'POST',
@@ -96,12 +95,11 @@ describe('POST /api/drep-claim', () => {
   });
 
   it('claims a DRep successfully', async () => {
-    vi.mocked(parseSessionToken).mockReturnValue({
+    mockValidateSession.mockResolvedValue({
       walletAddress: 'addr1test',
       exp: Date.now() + 100000,
       iat: Date.now(),
-    } as any);
-    vi.mocked(isSessionExpired).mockReturnValue(false);
+    });
     mockUpdate.mockResolvedValue({ error: null });
 
     const req = createRequest('/api/drep-claim', {

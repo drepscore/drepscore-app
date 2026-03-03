@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
       proposals: proposalBreakdown.sort((a, b) => (a.aligned ? 1 : 0) - (b.aligned ? 1 : 0)),
     });
   } catch (err) {
-    console.error('[Representation API] Error:', err);
+    logger.error('Error', { context: 'representation-api', error: err });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

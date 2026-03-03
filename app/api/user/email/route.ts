@@ -10,19 +10,12 @@ import { sendEmail, generateVerificationUrl } from '@/lib/email';
 import { EmailVerificationEmail } from '@/lib/emailTemplates';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
-
-function getWallet(request: NextRequest): string | null {
-  const auth = request.headers.get('authorization');
-  if (!auth?.startsWith('Bearer ')) return null;
-  const parsed = parseSessionToken(auth.slice(7));
-  if (!parsed || isSessionExpired(parsed)) return null;
-  return parsed.walletAddress;
-}
+import { requireAuth } from '@/lib/supabaseAuth';
 
 export async function POST(request: NextRequest) {
-  const wallet = getWallet(request);
-  if (!wallet) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAuth(request);
+  if (auth instanceof NextResponse) return auth;
+  const wallet = auth.wallet;
 
   const { email } = await request.json();
   if (!email || typeof email !== 'string' || !email.includes('@')) {

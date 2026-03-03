@@ -9,6 +9,7 @@ import { inngest } from '@/lib/inngest';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { alertDiscord, emitPostHog, type SyncType } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 
 interface CheckResult {
   name: string;
@@ -283,9 +284,10 @@ export const checkSnapshotCompleteness = inngest.createFunction(
       });
     }
 
-    console.log(
-      `[snapshot-completeness] ${checks.length - failures.length}/${checks.length} passed`,
-    );
+    logger.info('[snapshot-completeness] Check complete', {
+      passed: checks.length - failures.length,
+      total: checks.length,
+    });
     return {
       total: checks.length,
       passed: checks.length - failures.length,

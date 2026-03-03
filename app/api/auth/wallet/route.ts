@@ -4,6 +4,7 @@ import { createSessionToken } from '@/lib/supabaseAuth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyNonce } from '@/lib/nonce';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     try {
       isValid = await checkSignature(hexPayload, dataSignature, address);
     } catch (sigError) {
-      console.error('Signature verification error:', sigError);
+      logger.error('Signature verification error', { context: 'auth/wallet', error: sigError });
       return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
     }
 
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (upsertError) {
-      console.error('User upsert error:', upsertError);
+      logger.error('User upsert error', { context: 'auth/wallet', error: upsertError?.message });
       return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 });
     }
 
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Auth error:', error);
+    logger.error('Auth error', { context: 'auth/wallet', error: error });
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
   }
 }

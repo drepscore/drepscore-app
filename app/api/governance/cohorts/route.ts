@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSessionToken } from '@/lib/supabaseAuth';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ cohort: result });
   } catch (error) {
-    console.error('[Cohorts API] Error:', error);
+    logger.error('Error', { context: 'cohorts-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

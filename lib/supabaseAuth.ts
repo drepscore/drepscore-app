@@ -1,4 +1,5 @@
 import * as jose from 'jose';
+import { NextRequest, NextResponse } from 'next/server';
 
 const SESSION_KEY = 'drepscore_session';
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -73,6 +74,28 @@ export async function clearSessionCookie(): Promise<void> {
   } catch {}
 }
 
+/**
+ * Extract and verify the session from an Authorization: Bearer header.
+ * Returns { wallet } on success, or a 401 NextResponse on failure.
+ */
+export async function requireAuth(
+  request: NextRequest,
+): Promise<{ wallet: string } | NextResponse> {
+  const auth = request.headers.get('authorization');
+  if (!auth?.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const session = await validateSessionToken(auth.slice(7));
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  return { wallet: session.walletAddress };
+}
+
+/**
+ * CLIENT-ONLY: Decode a JWT payload without signature verification.
+ * Do NOT use for server-side auth — use `validateSessionToken` or `requireAuth` instead.
+ */
 export function parseSessionToken(token: string): SessionPayload | null {
   try {
     const parts = token.split('.');

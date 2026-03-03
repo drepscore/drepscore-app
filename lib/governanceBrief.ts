@@ -6,6 +6,7 @@
  */
 
 import { getSupabaseAdmin } from './supabase';
+import { logger } from '@/lib/logger';
 
 export interface DRepBriefContext {
   drepId: string;
@@ -209,7 +210,7 @@ Open proposals: ${ctx.proposalsOpen}${ctx.proposalsCritical > 0 ? ` (${ctx.propo
       };
     }
   } catch (err) {
-    console.error('[GovernanceBrief] AI narration failed, using template:', err);
+    logger.error('[GovernanceBrief] AI narration failed, using template', { error: err });
   }
   return template;
 }
@@ -237,7 +238,7 @@ ${contextSummary}`;
       };
     }
   } catch (err) {
-    console.error('[GovernanceBrief] AI narration failed, using template:', err);
+    logger.error('[GovernanceBrief] AI narration failed, using template', { error: err });
   }
   return template;
 }
@@ -343,7 +344,7 @@ export async function storeBrief(
     .single();
 
   if (error) {
-    console.error('[GovernanceBrief] Store error:', error);
+    logger.error('[GovernanceBrief] Store error', { error: error?.message });
     return null;
   }
   return data?.id ?? null;

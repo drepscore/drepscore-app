@@ -10,6 +10,7 @@ const webpush = require('web-push');
 
 import { type NotificationPayload } from './channelRenderers';
 import { getSupabaseAdmin } from './supabase';
+import { logger } from '@/lib/logger';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
@@ -48,7 +49,7 @@ async function sendToSubscription(
     if (statusCode === 410 || statusCode === 404) {
       return { success: false, expired: true };
     }
-    console.error('[Push] Send error:', statusCode, (err as Error)?.message);
+    logger.error('[Push] Send error', { statusCode, error: (err as Error)?.message });
     return { success: false };
   }
 }

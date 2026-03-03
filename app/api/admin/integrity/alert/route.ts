@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, getSupabaseAdmin } from '@/lib/supabase';
 import { inngest } from '@/lib/inngest';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -257,16 +258,14 @@ export async function GET(request: NextRequest) {
 
   for (const { syncType, staleMins, config } of staleTypes) {
     try {
-      console.log(
-        `[AlertCron] Self-healing: triggering ${syncType} (${staleMins}m stale > ${config.mins}m threshold) via Inngest`,
-      );
+      logger.info('Self-healing: triggering sync via Inngest', { context: 'alert-cron', syncType, staleMins, threshold: config.mins });
       await inngest.send({ name: config.event });
       recoveries.push(`${syncType}: triggered`);
-      console.log(`[AlertCron] Recovery ${syncType}: Inngest event sent`);
+      logger.info('Recovery: Inngest event sent', { context: 'alert-cron', syncType });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       recoveries.push(`${syncType}: failed (${msg})`);
-      console.warn(`[AlertCron] Recovery failed for ${syncType}:`, msg);
+      logger.warn('Recovery failed', { context: 'alert-cron', syncType, error: msg });
     }
   }
 

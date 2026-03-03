@@ -7,6 +7,7 @@
  */
 
 import { getDimensionLabel, type AlignmentScores, getDominantDimension } from './drepIdentity';
+import { logger } from '@/lib/logger';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -101,7 +102,7 @@ Output only the 2-sentence profile. No quotation marks, no preamble.`;
     const aiNarrative = await generateText(prompt, { maxTokens: 200 });
     if (aiNarrative && aiNarrative.length > 20) return aiNarrative.trim();
   } catch (err) {
-    console.error('[Narrative] AI generation failed:', err);
+    logger.error('[Narrative] AI generation failed', { error: err });
   }
   return template;
 }

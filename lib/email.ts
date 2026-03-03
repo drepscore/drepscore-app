@@ -9,6 +9,7 @@ import { Resend } from 'resend';
 import React from 'react';
 
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 import { type NotificationPayload, renderEmail } from './channelRenderers';
 import { type ChannelTarget, registerChannelSender } from './notifications';
@@ -31,7 +32,7 @@ export async function sendEmail(
   options?: { unsubscribeUrl?: string; tags?: Array<{ name: string; value: string }> },
 ): Promise<boolean> {
   if (!process.env.RESEND_API_KEY) {
-    console.warn('[Email] RESEND_API_KEY not configured');
+    logger.warn('[Email] RESEND_API_KEY not configured');
     return false;
   }
 
@@ -52,7 +53,7 @@ export async function sendEmail(
     });
 
     if (error) {
-      console.error('[Email] Send error:', error);
+      logger.error('[Email] Send error', { error });
       captureServerEvent('email_delivered', {
         template: subject,
         success: false,
@@ -64,7 +65,7 @@ export async function sendEmail(
     captureServerEvent('email_delivered', { template: subject, success: true });
     return true;
   } catch (err) {
-    console.error('[Email] Send exception:', err);
+    logger.error('[Email] Send exception', { error: err });
     return false;
   }
 }

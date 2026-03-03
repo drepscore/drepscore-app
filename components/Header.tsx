@@ -114,21 +114,23 @@ export function Header() {
       .catch(() => {});
   }, [isAuthenticated]);
 
-  const adminCheckAddress = sessionAddress || address;
   useEffect(() => {
-    if (!adminCheckAddress) {
+    const token = getStoredSession();
+    if (!token) {
       setIsAdmin(false);
       return;
     }
     fetch('/api/admin/check', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: adminCheckAddress }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
     })
-      .then((r) => r.json())
-      .then((d) => setIsAdmin(d.isAdmin === true))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setIsAdmin(d?.isAdmin === true))
       .catch(() => setIsAdmin(false));
-  }, [adminCheckAddress]);
+  }, [isAuthenticated]);
 
   const [inboxCount, setInboxCount] = useState(0);
   useEffect(() => {

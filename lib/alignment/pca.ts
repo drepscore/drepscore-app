@@ -5,6 +5,7 @@
 
 import { Matrix, SVD } from 'ml-matrix';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 import { imputeMatrix } from './voteMatrix';
 import type { ProposalClassification } from './classifyProposals';
 
@@ -30,7 +31,7 @@ export function computePCA(
   opts?: { components?: number },
 ): PCAResult | null {
   if (rawMatrix.length < 3 || rawMatrix[0]?.length < 3) {
-    console.warn('[PCA] Matrix too small for meaningful analysis');
+    logger.warn('[PCA] Matrix too small for meaningful analysis');
     return null;
   }
 
@@ -205,9 +206,7 @@ export async function storePCAResults(
     await supabase.from('drep_pca_coordinates').upsert(chunk, { onConflict: 'drep_id,run_id' });
   }
 
-  console.log(
-    `[PCA] Stored run ${result.runId}: ${numDreps} DReps, ${result.explainedVariance.length} components, ${(result.totalExplainedVariance * 100).toFixed(1)}% variance explained`,
-  );
+  logger.info('[PCA] Stored run', { runId: result.runId, numDreps, components: result.explainedVariance.length, varianceExplainedPct: parseFloat((result.totalExplainedVariance * 100).toFixed(1)) });
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSessionToken } from '@/lib/supabaseAuth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import type { PollResultsResponse } from '@/types/supabase';
+import { logger } from '@/lib/logger';
 
 function aggregateCounts(rows: { vote: string }[]): {
   yes: number;
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
     .eq('proposal_index', proposalIndex);
 
   if (error) {
-    console.error('Poll results query error:', error);
+    logger.error('Poll results query error', { context: 'polls/results', error: error?.message });
     return NextResponse.json({ error: 'Failed to fetch results' }, { status: 500 });
   }
 

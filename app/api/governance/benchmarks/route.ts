@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,7 @@ export async function GET() {
       .limit(3);
 
     if (latestErr) {
-      console.error('[benchmarks] Latest fetch error:', latestErr.message);
+      logger.error('Latest fetch error', { context: 'benchmarks', error: latestErr.message });
       return NextResponse.json({ error: 'Failed to fetch benchmarks' }, { status: 500 });
     }
 
@@ -56,7 +57,7 @@ export async function GET() {
       },
     );
   } catch (err) {
-    console.error('[benchmarks] Unexpected error:', err);
+    logger.error('Unexpected error', { context: 'benchmarks', error: err });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

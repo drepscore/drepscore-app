@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, XCircle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { getStoredSession } from '@/lib/supabaseAuth';
 
 interface FlagDetail {
   key: string;
@@ -22,7 +23,7 @@ interface CategoryGroup {
   enabledCount: number;
 }
 
-export function FeatureFlagAdmin({ adminAddress }: { adminAddress: string }) {
+export function FeatureFlagAdmin() {
   const [flags, setFlags] = useState<FlagDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
@@ -31,7 +32,10 @@ export function FeatureFlagAdmin({ adminAddress }: { adminAddress: string }) {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/feature-flags');
+      const token = getStoredSession();
+      const res = await fetch('/api/admin/feature-flags', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!res.ok) return;
       const data = await res.json();
       setFlags(data.details ?? []);
@@ -65,10 +69,14 @@ export function FeatureFlagAdmin({ adminAddress }: { adminAddress: string }) {
   const toggle = async (key: string, enabled: boolean) => {
     setToggling(key);
     try {
+      const token = getStoredSession();
       const res = await fetch('/api/admin/feature-flags', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, enabled, address: adminAddress }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ key, enabled }),
       });
       if (res.ok) {
         setFlags((prev) => prev.map((f) => (f.key === key ? { ...f, enabled } : f)));

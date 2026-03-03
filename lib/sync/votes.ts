@@ -1,6 +1,7 @@
 import { DRepVote } from '@/types/koios';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 import { fetchAllVotesBulk, resetKoiosMetrics, getKoiosMetrics } from '@/utils/koios';
 import {
   SyncLogger,
@@ -30,8 +31,8 @@ interface SupabaseVoteRow {
  */
 export async function executeVotesSync(): Promise<Record<string, unknown>> {
   const supabase = getSupabaseAdmin();
-  const logger = new SyncLogger(supabase, 'votes');
-  await logger.start();
+  const syncLog = new SyncLogger(supabase, 'votes');
+  await syncLog.start();
   resetKoiosMetrics();
 
   let votesSynced = 0;
@@ -40,9 +41,7 @@ export async function executeVotesSync(): Promise<Record<string, unknown>> {
   try {
     const bulkVotesMap: Record<string, DRepVote[]> = await fetchAllVotesBulk();
     const totalVotes = Object.values(bulkVotesMap).reduce((sum, v) => sum + v.length, 0);
-    console.log(
-      `[VoteSync] Bulk votes fetched: ${totalVotes} votes across ${Object.keys(bulkVotesMap).length} DReps`,
-    );
+    logger.info('[VoteSync] Bulk votes fetched', { totalVotes, drepCount: Object.keys(bulkVotesMap).length });
 
     const voteRows: SupabaseVoteRow[] = [];
     for (const [drepId, votes] of Object.entries(bulkVotesMap)) {
@@ -91,7 +90,7 @@ export async function executeVotesSync(): Promise<Record<string, unknown>> {
         'Votes',
       );
       votesSynced = result.success;
-      console.log(`[VoteSync] Upserted ${result.success} votes (${result.errors} errors)`);
+      logger.info('[VoteSync] Upserted votes', { success: result.success, errors: result.errors });
     }
 
     // Vote count reconciliation
@@ -158,7 +157,7 @@ export async function executeVotesSync(): Promise<Record<string, unknown>> {
     }
 
     if (reconciled > 0) {
-      console.log(`[VoteSync] Vote count reconciliation: ${reconciled} DReps updated`);
+      logger.info('[VoteSync] Vote count reconciliation', { drepsUpdated: reconciled });
     }
 
     const metrics = {
@@ -167,23 +166,23 @@ export async function executeVotesSync(): Promise<Record<string, unknown>> {
       validation_errors: validationErrors,
       ...getKoiosMetrics(),
     };
-    await logger.finalize(true, null, metrics);
-    await emitPostHog(true, 'votes', logger.elapsed, metrics);
+    await syncLog.finalize(true, null, metrics);
+    await emitPostHog(true, 'votes', syncLog.elapsed, metrics);
     triggerAnalyticsDeploy('votes');
 
     return {
       success: true,
       votesSynced,
       reconciled,
-      durationSeconds: (logger.elapsed / 1000).toFixed(1),
+      durationSeconds: (syncLog.elapsed / 1000).toFixed(1),
       timestamp: new Date().toISOString(),
     };
   } catch (err) {
     const msg = errMsg(err);
-    console.error('[VoteSync] Fatal error:', msg);
+    logger.error('[VoteSync] Fatal error', { error: msg });
     const metrics = { votes_synced: votesSynced, reconciled };
-    await logger.finalize(false, msg, metrics);
-    await emitPostHog(false, 'votes', logger.elapsed, metrics);
+    await syncLog.finalize(false, msg, metrics);
+    await emitPostHog(false, 'votes', syncLog.elapsed, metrics);
     throw err;
   }
 }

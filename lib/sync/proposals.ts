@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 import { SyncLogger, errMsg, emitPostHog, alertDiscord } from '@/lib/sync-utils';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { fetchProposals, fetchVotesForProposals, fetchProposalVotingSummary } from '@/utils/koios';
@@ -16,8 +17,8 @@ const TAG = '[proposals]';
  */
 export async function executeProposalsSync(): Promise<Record<string, unknown>> {
   const supabase = getSupabaseAdmin();
-  const logger = new SyncLogger(supabase, 'proposals');
-  await logger.start();
+  const syncLog = new SyncLogger(supabase, 'proposals');
+  await syncLog.start();
 
   const errors: string[] = [];
   let proposalCount = 0;
@@ -87,7 +88,7 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
           .upsert(batch, { onConflict: 'tx_hash,proposal_index', ignoreDuplicates: false });
         if (error) {
           errors.push(`Proposal upsert: ${error.message}`);
-          console.error(`${TAG} Proposal upsert error:`, error.message);
+          logger.error(`${TAG} Proposal upsert error`, { error: error.message });
         }
       }
 
@@ -97,10 +98,10 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
         .filter((p) => !p.ratifiedEpoch && !p.enactedEpoch && !p.droppedEpoch && !p.expiredEpoch)
         .map((p) => ({ txHash: p.txHash, index: p.index }));
 
-      console.log(`${TAG} ${proposalCount} proposals upserted, ${openProposals.length} open`);
+      logger.info(`${TAG} Proposals upserted`, { count: proposalCount, open: openProposals.length });
     } catch (err) {
       errors.push(`Proposals: ${errMsg(err)}`);
-      console.error(`${TAG} Proposal fetch failed:`, errMsg(err));
+      logger.error(`${TAG} Proposal fetch failed`, { error: errMsg(err) });
     }
 
     // --- Fetch and upsert votes for open proposals ---
@@ -135,17 +136,15 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
             .upsert(batch, { onConflict: 'vote_tx_hash', ignoreDuplicates: false });
           if (error) {
             errors.push(`Vote upsert: ${error.message}`);
-            console.error(`${TAG} Vote upsert error:`, error.message);
+            logger.error(`${TAG} Vote upsert error`, { error: error.message });
           }
         }
 
         voteCount = deduped.length;
-        console.log(
-          `${TAG} ${voteCount} votes upserted for ${openProposals.length} open proposals`,
-        );
+        logger.info(`${TAG} Votes upserted`, { count: voteCount, openProposals: openProposals.length });
       } catch (err) {
         errors.push(`Votes: ${errMsg(err)}`);
-        console.error(`${TAG} Vote fetch failed:`, errMsg(err));
+        logger.error(`${TAG} Vote fetch failed`, { error: errMsg(err) });
       }
     }
 
@@ -213,9 +212,9 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
           summaryCount += results.filter((r) => r.status === 'fulfilled' && r.value).length;
         }
 
-        if (summaryCount > 0) console.log(`${TAG} Voting summaries: ${summaryCount} refreshed`);
+        if (summaryCount > 0) logger.info(`${TAG} Voting summaries refreshed`, { count: summaryCount });
       } catch (err) {
-        console.warn(`${TAG} Voting summary refresh error:`, errMsg(err));
+        logger.warn(`${TAG} Voting summary refresh error`, { error: errMsg(err) });
       }
     }
 
@@ -270,12 +269,12 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
             }
             voteSnapshotCount = inserted;
             if (inserted > 0) {
-              console.log(`${TAG} Vote snapshots: ${inserted} proposals for epoch ${epoch}`);
+              logger.info(`${TAG} Vote snapshots`, { inserted, epoch });
             }
           }
         }
       } catch (err) {
-        console.warn(`${TAG} Vote snapshot failed (non-fatal):`, errMsg(err));
+        logger.warn(`${TAG} Vote snapshot failed (non-fatal)`, { error: errMsg(err) });
       }
     }
 
@@ -311,11 +310,11 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
         pushSent = await broadcastEvent(event);
       }
     } catch (err) {
-      console.warn(`${TAG} Notification broadcast skipped:`, err);
+      logger.warn(`${TAG} Notification broadcast skipped`, { error: err });
     }
   } catch (err) {
     errors.push(`Unhandled: ${errMsg(err)}`);
-    console.error(`${TAG} Unhandled error:`, errMsg(err));
+    logger.error(`${TAG} Unhandled error`, { error: errMsg(err) });
   }
 
   const success = errors.length === 0;
@@ -327,8 +326,8 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
     push_sent: pushSent,
   };
 
-  await logger.finalize(success, errors.length > 0 ? errors.join('; ') : null, metrics);
-  await emitPostHog(success, 'proposals', logger.elapsed, metrics);
+  await syncLog.finalize(success, errors.length > 0 ? errors.join('; ') : null, metrics);
+  await emitPostHog(success, 'proposals', syncLog.elapsed, metrics);
 
   if (!success) {
     throw new Error(errors.join('; '));
@@ -341,7 +340,7 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
     summariesRefreshed: summaryCount,
     voteSnapshots: voteSnapshotCount,
     pushSent,
-    durationSeconds: (logger.elapsed / 1000).toFixed(1),
+    durationSeconds: (syncLog.elapsed / 1000).toFixed(1),
     timestamp: new Date().toISOString(),
   };
 }

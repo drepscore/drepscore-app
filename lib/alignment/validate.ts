@@ -4,6 +4,7 @@
  */
 
 import type { NormalizedScoreRow } from './normalize';
+import { logger } from '@/lib/logger';
 
 export interface CorrelationResult {
   dim1: string;
@@ -102,12 +103,9 @@ export function validateDimensionIndependence(rows: NormalizedScoreRow[]): Valid
   };
 
   if (flaggedPairs.length > 0) {
-    console.warn(`[alignment:validate] ${flaggedPairs.length} correlated dimension pairs found:`);
-    for (const pair of flaggedPairs) {
-      console.warn(`  ${pair.dim1} ↔ ${pair.dim2}: r=${pair.correlation}`);
-    }
+    logger.warn('[alignment:validate] Correlated dimension pairs found', { count: flaggedPairs.length, pairs: flaggedPairs.map(p => `${p.dim1}↔${p.dim2}: r=${p.correlation}`) });
   } else {
-    console.log('[alignment:validate] All 6 dimensions are sufficiently independent');
+    logger.info('[alignment:validate] All 6 dimensions are sufficiently independent');
   }
 
   return report;

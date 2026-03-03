@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { findSimilarProposals } from '@/lib/treasury';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
     });
   } catch (error) {
-    console.error('[treasury/similar] Error:', error);
+    logger.error('Error', { context: 'treasury/similar', error: error });
     return NextResponse.json({ error: 'Failed to find similar proposals' }, { status: 500 });
   }
 }

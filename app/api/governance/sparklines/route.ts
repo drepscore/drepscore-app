@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
@@ -32,7 +33,7 @@ export async function GET() {
       decentralization: decentralization.data ?? [],
     });
   } catch (err) {
-    console.error('[Sparklines]', err);
+    logger.error('Error', { context: 'sparklines', error: err });
     return NextResponse.json({ participation: [], treasury: [], decentralization: [] });
   }
 }

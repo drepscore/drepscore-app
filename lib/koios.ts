@@ -11,6 +11,7 @@ import {
   checkKoiosHealth,
   parseMetadataFields,
 } from '@/utils/koios';
+import { logger } from '@/lib/logger';
 import type { DRepVotesResponse } from '@/types/koios';
 import {
   calculateParticipationRate,
@@ -187,7 +188,7 @@ async function fetchVotesBatched(
           const votes = await fetchDRepVotes(id);
           return { id, votes };
         } catch (error) {
-          console.error(`[DRepScore] Failed to fetch votes for ${id}:`, error);
+          logger.error('[DRepScore] Failed to fetch votes', { drepId: id, error });
           return { id, votes: [] };
         }
       }),
@@ -224,14 +225,12 @@ export async function getEnrichedDReps(
 
   try {
     if (isDev) {
-      console.log(
-        `[DRepScore] getEnrichedDReps(wellDocumentedOnly=${wellDocumentedOnly}) - loading ALL DReps in batches`,
-      );
+      logger.info('[DRepScore] getEnrichedDReps - loading ALL DReps in batches', { wellDocumentedOnly });
     }
 
     const isHealthy = await checkKoiosHealth();
     if (!isHealthy) {
-      console.error('[DRepScore] Koios API health check failed');
+      logger.error('[DRepScore] Koios API health check failed');
       return { dreps: [], allDReps: [], error: true, totalAvailable: 0 };
     }
 
@@ -243,19 +242,17 @@ export async function getEnrichedDReps(
       getActualProposalCount(),
     ]);
     if (isDev) {
-      console.log(
-        `[DRepScore] Current epoch: ${currentEpoch}, active proposal epochs: ${activeProposalEpochs.size}, actual proposals: ${actualProposalCount}`,
-      );
+      logger.info('[DRepScore] Epoch context', { currentEpoch, activeProposalEpochs: activeProposalEpochs.size, actualProposalCount });
     }
 
     let drepList = await fetchAllDReps();
     if (!drepList || drepList.length === 0) {
-      console.warn('[DRepScore] Empty DRep list from Koios — retrying once after 3s');
+      logger.warn('[DRepScore] Empty DRep list from Koios — retrying once after 3s');
       await new Promise((r) => setTimeout(r, 3000));
       drepList = await fetchAllDReps();
     }
     if (!drepList || drepList.length === 0) {
-      console.error('[DRepScore] No DReps found after retry');
+      logger.error('[DRepScore] No DReps found after retry');
       return { dreps: [], allDReps: [], error: true, totalAvailable: 0 };
     }
 
@@ -264,7 +261,7 @@ export async function getEnrichedDReps(
     const allDrepIds = registeredDReps.map((d) => d.drep_id);
 
     if (isDev) {
-      console.log(`[DRepScore] Loading ALL ${totalAvailable} DReps in batches of ${BATCH_SIZE}...`);
+      logger.info('[DRepScore] Loading all DReps in batches', { total: totalAvailable, batchSize: BATCH_SIZE });
     }
 
     const allBaseDreps: DRep[] = [];
@@ -276,9 +273,7 @@ export async function getEnrichedDReps(
       const totalBatches = Math.ceil(allDrepIds.length / BATCH_SIZE);
 
       if (isDev) {
-        console.log(
-          `[DRepScore] Batch ${batchNum}/${totalBatches}: fetching ${batchIds.length} DReps...`,
-        );
+        logger.info('[DRepScore] Fetching batch', { batch: batchNum, totalBatches, count: batchIds.length });
       }
 
       const { info, metadata } = await fetchDRepsWithDetails(batchIds);
@@ -432,8 +427,7 @@ export async function getEnrichedDReps(
     const drepsToReturn = wellDocumentedOnly ? wellDocumentedDReps : sorted;
 
     if (isDev) {
-      console.log(`[DRepScore] Loaded ${sorted.length} DReps with drepScore`);
-      console.log(`[DRepScore] Well documented: ${wellDocumentedDReps.length}/${sorted.length}`);
+      logger.info('[DRepScore] Loaded DReps with scores', { total: sorted.length, wellDocumented: wellDocumentedDReps.length });
     }
 
     return {
@@ -444,7 +438,7 @@ export async function getEnrichedDReps(
       ...(options?.includeRawVotes ? { rawVotesMap: allRawVotes } : {}),
     };
   } catch (error) {
-    console.error('[DRepScore] Error in getEnrichedDReps:', error);
+    logger.error('[DRepScore] Error in getEnrichedDReps', { error });
     return { dreps: [], allDReps: [], error: true, totalAvailable: 0 };
   }
 }

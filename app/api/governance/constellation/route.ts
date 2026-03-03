@@ -5,6 +5,7 @@ import { getProposalPriority } from '@/utils/proposalPriority';
 import type { AlignmentDimension } from '@/lib/drepIdentity';
 import { extractAlignments, alignmentsToArray, getDominantDimension } from '@/lib/drepIdentity';
 import type { ConstellationApiData } from '@/lib/constellation/types';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -201,7 +202,7 @@ export async function GET() {
       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' },
     });
   } catch (error) {
-    console.error('Constellation API error:', error);
+    logger.error('Constellation API error', { context: 'governance/constellation', error: error });
     return NextResponse.json({ error: 'Failed to fetch constellation data' }, { status: 500 });
   }
 }

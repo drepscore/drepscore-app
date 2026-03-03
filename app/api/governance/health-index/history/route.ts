@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
 import { computeGHI, type GHIResult } from '@/lib/ghi';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
       { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=600' } },
     );
   } catch (error) {
-    console.error('[GHI History] Failed:', error);
+    logger.error('Failed', { context: 'ghi-history', error: error });
     return NextResponse.json({ error: 'Failed to fetch GHI history' }, { status: 500 });
   }
 }

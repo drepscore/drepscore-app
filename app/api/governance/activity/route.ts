@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -193,7 +194,7 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
     });
   } catch (error) {
-    console.error('Activity API error:', error);
+    logger.error('Activity API error', { context: 'governance/activity', error: error });
     return NextResponse.json({ error: 'Failed to fetch activity' }, { status: 500 });
   }
 }

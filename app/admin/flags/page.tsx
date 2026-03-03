@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import { useWallet } from '@/utils/wallet';
+import { getStoredSession } from '@/lib/supabaseAuth';
 import { FeatureFlagAdmin } from '@/components/admin/FeatureFlagAdmin';
 import { Card, CardContent } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 
 export default function FlagsPage() {
-  const { address, sessionAddress } = useWallet();
+  const { isAuthenticated, address, sessionAddress } = useWallet();
   const adminAddress = sessionAddress || address;
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!adminAddress) {
+    const token = getStoredSession();
+    if (!token) {
       setIsAdmin(false);
       setChecking(false);
       return;
@@ -22,14 +24,16 @@ export default function FlagsPage() {
     setChecking(true);
     fetch('/api/admin/check', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: adminAddress }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
     })
-      .then((r) => r.json())
-      .then((data) => setIsAdmin(data.isAdmin === true))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setIsAdmin(data?.isAdmin === true))
       .catch(() => setIsAdmin(false))
       .finally(() => setChecking(false));
-  }, [adminAddress]);
+  }, [isAuthenticated]);
 
   if (checking) {
     return (
@@ -66,7 +70,7 @@ export default function FlagsPage() {
           Toggle features on/off instantly. Changes take effect within 60 seconds (cache TTL).
         </p>
       </div>
-      <FeatureFlagAdmin adminAddress={adminAddress!} />
+      <FeatureFlagAdmin />
     </div>
   );
 }

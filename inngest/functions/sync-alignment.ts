@@ -29,6 +29,7 @@ import { normalizeToPercentiles, type RawScoreRow } from '@/lib/alignment/normal
 import { computePCA, storePCAResults } from '@/lib/alignment/pca';
 import { validateDimensionIndependence } from '@/lib/alignment/validate';
 import { batchUpsert, errMsg, emitPostHog, capMsg, fetchAll } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 import type { ProposalInfo } from '@/types/koios';
 
 function mapDBProposal(row: Record<string, unknown>): ProposalInfo {
@@ -85,7 +86,7 @@ export const syncAlignment = inngest.createFunction(
     onFailure: async ({ error }) => {
       const sb = getSupabaseAdmin();
       const msg = errMsg(error);
-      console.error('[alignment] Function failed permanently:', msg);
+      logger.error('[alignment] Function failed permanently', { error });
       await sb
         .from('sync_log')
         .update({
@@ -515,7 +516,7 @@ export const syncAlignment = inngest.createFunction(
     });
 
     await emitPostHog(true, 'alignment', Date.now() - startTime, finalResult);
-    console.log('[alignment] Sync complete:', JSON.stringify(finalResult, null, 2));
+    logger.info('[alignment] Sync complete', finalResult);
     return finalResult;
   },
 );

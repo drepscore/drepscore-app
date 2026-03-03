@@ -8,6 +8,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { fetchTreasuryBalance } from '@/utils/koios';
 import { calculateTreasuryHealthScore } from '@/lib/treasury';
 import { SyncLogger, emitPostHog, errMsg, pingHeartbeat } from '@/lib/sync-utils';
+import { logger } from '@/lib/logger';
 
 export const syncTreasurySnapshot = inngest.createFunction(
   {
@@ -18,8 +19,8 @@ export const syncTreasurySnapshot = inngest.createFunction(
   [{ cron: '30 22 * * *' }, { event: 'drepscore/sync.treasury' }],
   async ({ step }) => {
     const supabase = getSupabaseAdmin();
-    const logger = new SyncLogger(supabase, 'treasury');
-    await logger.start();
+    const syncLog = new SyncLogger(supabase, 'treasury');
+    await syncLog.start();
 
     let snapshotEpoch = 0;
     let errorMessage: string | null = null;
@@ -145,24 +146,26 @@ export const syncTreasurySnapshot = inngest.createFunction(
             { onConflict: 'snapshot_type,epoch_no,snapshot_date' },
           );
 
-          console.log(
-            `[treasury] Health snapshot: score=${health.score} runway=${health.runwayMonths}mo epoch=${snapshot.epoch}`,
-          );
+          logger.info('[treasury] Health snapshot stored', {
+            score: health.score,
+            runwayMonths: health.runwayMonths,
+            epoch: snapshot.epoch,
+          });
           return { inserted: true, epoch: snapshot.epoch, healthScore: health.score };
         } catch (err) {
-          console.error('[treasury] Health snapshot failed:', errMsg(err));
+          logger.error('[treasury] Health snapshot failed', { error: err });
           return { error: errMsg(err) };
         }
       });
 
-      await logger.finalize(true, null, {
+      await syncLog.finalize(true, null, {
         epoch: snapshot.epoch,
         balance_lovelace: snapshot.balanceLovelace,
         withdrawals_lovelace: withdrawals,
         reserves_income_lovelace: reservesIncome,
         health_snapshot: healthResult,
       });
-      await emitPostHog(true, 'treasury', logger.elapsed, { epoch: snapshot.epoch });
+      await emitPostHog(true, 'treasury', syncLog.elapsed, { epoch: snapshot.epoch });
       await pingHeartbeat('HEARTBEAT_URL_DAILY');
 
       await step.run('heartbeat-daily', () => pingHeartbeat('HEARTBEAT_URL_DAILY'));
@@ -170,8 +173,8 @@ export const syncTreasurySnapshot = inngest.createFunction(
       return { epoch: snapshot.epoch, balance: snapshot.balanceLovelace, health: healthResult };
     } catch (e) {
       errorMessage = errMsg(e);
-      await logger.finalize(false, errorMessage, { epoch: snapshotEpoch });
-      await emitPostHog(false, 'treasury', logger.elapsed, { epoch: snapshotEpoch });
+      await syncLog.finalize(false, errorMessage, { epoch: snapshotEpoch });
+      await emitPostHog(false, 'treasury', syncLog.elapsed, { epoch: snapshotEpoch });
       throw e;
     }
   },

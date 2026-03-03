@@ -4,6 +4,7 @@
  */
 
 import { getSupabaseAdmin } from './supabase';
+import { logger } from '@/lib/logger';
 import { computeGHI, type GHIResult } from './ghi';
 import { computeInsights, type GovernanceInsight } from './proposalIntelligence';
 import { generateText } from './ai';
@@ -238,7 +239,7 @@ export async function generateAndStoreReport(
   );
 
   if (error) {
-    console.error('[StateOfGovernance] Store error:', error);
+    logger.error('[StateOfGovernance] Store error', { error: error?.message });
     return { epoch: data.epoch, stored: false };
   }
 

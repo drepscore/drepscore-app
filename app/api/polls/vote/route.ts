@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { blockTimeToEpoch } from '@/lib/koios';
 import { updateUserProfile } from '@/lib/matching/userProfile';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 const VALID_VOTES = ['yes', 'no', 'abstain'] as const;
 type Vote = (typeof VALID_VOTES)[number];
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
       .eq('id', existing.id);
 
     if (updateError) {
-      console.error('Poll vote update error:', updateError);
+      logger.error('Poll vote update error', { context: 'polls/vote', error: updateError?.message });
       return NextResponse.json({ error: 'Failed to update vote' }, { status: 500 });
     }
   } else {
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (insertError) {
-      console.error('Poll vote insert error:', insertError);
+      logger.error('Poll vote insert error', { context: 'polls/vote', error: insertError?.message });
       return NextResponse.json({ error: 'Failed to record vote' }, { status: 500 });
     }
   }
@@ -186,12 +187,12 @@ export async function POST(request: NextRequest) {
       epoch: currentEpoch,
     })
     .then(({ error: evtErr }) => {
-      if (evtErr) console.error('[Poll Vote] governance_event write failed:', evtErr);
+      if (evtErr) logger.error('governance_event write failed', { context: 'poll-vote', error: evtErr?.message });
     });
 
   // Update user governance profile (fire-and-forget, don't block response)
   updateUserProfile(walletAddress).catch((err) => {
-    console.error('[Poll Vote] Failed to update user profile:', err);
+    logger.error('Failed to update user profile', { context: 'poll-vote', error: err });
   });
 
   const { data: allVotes } = await supabase

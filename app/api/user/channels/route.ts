@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { parseSessionToken, isSessionExpired } from '@/lib/supabaseAuth';
+import { requireAuth } from '@/lib/supabaseAuth';
 import { captureServerEvent } from '@/lib/posthog-server';
 
-function getWallet(request: NextRequest): string | null {
-  const auth = request.headers.get('authorization');
-  if (!auth?.startsWith('Bearer ')) return null;
-  const parsed = parseSessionToken(auth.slice(7));
-  if (!parsed || isSessionExpired(parsed)) return null;
-  return parsed.walletAddress;
-}
-
 export async function GET(request: NextRequest) {
-  const wallet = getWallet(request);
-  if (!wallet) return NextResponse.json([], { status: 401 });
+  const auth = await requireAuth(request);
+  if (auth instanceof NextResponse) return auth;
+  const wallet = auth.wallet;
 
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
@@ -25,8 +18,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const wallet = getWallet(request);
-  if (!wallet) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAuth(request);
+  if (auth instanceof NextResponse) return auth;
+  const wallet = auth.wallet;
 
   const { channel, channelIdentifier, config } = await request.json();
   if (!channel || !channelIdentifier) {
@@ -54,8 +48,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const wallet = getWallet(request);
-  if (!wallet) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireAuth(request);
+  if (auth instanceof NextResponse) return auth;
+  const wallet = auth.wallet;
 
   const { channel } = await request.json();
   if (!channel) return NextResponse.json({ error: 'Missing channel' }, { status: 400 });

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 import { SyncLogger, batchUpsert, errMsg, emitPostHog } from '@/lib/sync-utils';
 import { fetchDRepDelegatorCount } from '@/utils/koios';
 import { blockTimeToEpoch } from '@/lib/koios';
@@ -12,8 +13,8 @@ const DELEGATOR_CONCURRENCY = 20;
  */
 export async function executeSecondarySync(): Promise<Record<string, unknown>> {
   const supabase = getSupabaseAdmin();
-  const logger = new SyncLogger(supabase, 'secondary');
-  await logger.start();
+  const syncLog = new SyncLogger(supabase, 'secondary');
+  await syncLog.start();
 
   const errors: string[] = [];
   let delegatorsUpdated = 0;
@@ -85,7 +86,7 @@ export async function executeSecondarySync(): Promise<Record<string, unknown>> {
             .from('drep_power_snapshots')
             .upsert(batch, { onConflict: 'drep_id,epoch_no', ignoreDuplicates: true });
           if (batchErr)
-            console.error('[Secondary] power_snapshots batch upsert error:', batchErr.message);
+            logger.error('[Secondary] power_snapshots batch upsert error', { error: batchErr.message });
         }
         return rows.length;
       })(),
@@ -150,8 +151,8 @@ export async function executeSecondarySync(): Promise<Record<string, unknown>> {
     integrity_saved: integritySaved,
   };
 
-  await logger.finalize(success, errors.length > 0 ? errors.join('; ') : null, metrics);
-  await emitPostHog(success, 'secondary', logger.elapsed, metrics);
+  await syncLog.finalize(success, errors.length > 0 ? errors.join('; ') : null, metrics);
+  await emitPostHog(success, 'secondary', syncLog.elapsed, metrics);
 
   if (!success) {
     throw new Error(errors.join('; '));
@@ -160,7 +161,7 @@ export async function executeSecondarySync(): Promise<Record<string, unknown>> {
   return {
     success,
     ...metrics,
-    durationSeconds: (logger.elapsed / 1000).toFixed(1),
+    durationSeconds: (syncLog.elapsed / 1000).toFixed(1),
     timestamp: new Date().toISOString(),
   };
 }

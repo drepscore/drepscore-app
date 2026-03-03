@@ -1,25 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllFlags, setFeatureFlag, invalidateFlagCache } from '@/lib/featureFlags';
+import { requireAuth } from '@/lib/supabaseAuth';
 
 export const dynamic = 'force-dynamic';
-
-export async function GET() {
-  try {
-    const allFlags = await getAllFlags();
-    const flags: Record<string, boolean> = {};
-    for (const f of allFlags) {
-      flags[f.key] = f.enabled;
-    }
-    return NextResponse.json(
-      { flags, details: allFlags },
-      {
-        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
-      },
-    );
-  } catch {
-    return NextResponse.json({ error: 'Failed to load flags' }, { status: 500 });
-  }
-}
 
 function isAdminWallet(address: string): boolean {
   const adminWallets = (process.env.ADMIN_WALLETS || '')
@@ -29,20 +12,52 @@ function isAdminWallet(address: string): boolean {
   return adminWallets.includes(address.toLowerCase());
 }
 
+/**
+ * GET: Returns flag boolean map for all callers.
+ * Admin-authenticated requests also receive detailed flag metadata.
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const allFlags = await getAllFlags();
+    const flags: Record<string, boolean> = {};
+    for (const f of allFlags) {
+      flags[f.key] = f.enabled;
+    }
+
+    const auth = await requireAuth(request);
+    const isAdmin = !(auth instanceof NextResponse) && isAdminWallet(auth.wallet);
+
+    return NextResponse.json(
+      isAdmin ? { flags, details: allFlags } : { flags },
+      {
+        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+      },
+    );
+  } catch {
+    return NextResponse.json({ error: 'Failed to load flags' }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH: Toggle a flag. Requires an authenticated admin session.
+ */
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+
+    if (!isAdminWallet(auth.wallet)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
-    const { key, enabled, address } = body;
+    const { key, enabled } = body;
 
     if (typeof key !== 'string' || typeof enabled !== 'boolean') {
       return NextResponse.json(
-        { error: 'Invalid body: { key: string, enabled: boolean, address: string }' },
+        { error: 'Invalid body: { key: string, enabled: boolean }' },
         { status: 400 },
       );
-    }
-
-    if (!address || typeof address !== 'string' || !isAdminWallet(address)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const success = await setFeatureFlag(key, enabled);

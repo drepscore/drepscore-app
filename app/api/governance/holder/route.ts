@@ -13,6 +13,7 @@ import { blockTimeToEpoch } from '@/lib/koios';
 import { getProposalPriority } from '@/utils/proposalPriority';
 import { getDRepPrimaryName } from '@/utils/display';
 import { calculateRepresentationMatch, findBestMatchDReps } from '@/lib/representationMatch';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -280,7 +281,7 @@ export async function GET(request: NextRequest) {
       visitStreak: userProfile?.visit_streak ?? 0,
     });
   } catch (error) {
-    console.error('[Governance Dashboard API] Error:', error);
+    logger.error('Error', { context: 'governance-dashboard-api', error: error });
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

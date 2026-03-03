@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { getDRepById } from '@/lib/data';
 import { getDRepPrimaryName } from '@/utils/display';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { logger } from '@/lib/logger';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://drepscore.io';
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('[Telegram Webhook] Error:', err);
+    logger.error('Error', { context: 'telegram-webhook', error: err });
     return NextResponse.json({ ok: true });
   }
 }
