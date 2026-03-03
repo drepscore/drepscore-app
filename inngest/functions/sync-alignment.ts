@@ -148,7 +148,7 @@ export const syncAlignment = inngest.createFunction(
     // Capped at 200 per run to stay under Cloudflare 100s timeout;
     // subsequent runs pick up the next unscored batch.
     const rationaleResult = await step.run('score-rationales', async () => {
-      const STEP_BATCH_LIMIT = 200;
+      const STEP_BATCH_LIMIT = 50;
       const sb = getSupabaseAdmin();
 
       // Left-join to find rationales that haven't been quality-scored yet

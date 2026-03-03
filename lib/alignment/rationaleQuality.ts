@@ -51,12 +51,12 @@ export async function scoreRationalesBatch(
   const supabase = getSupabaseAdmin();
   const results = new Map<string, number>();
 
-  // Check which already have scores
   const { data: existing } = await supabase
     .from('drep_votes')
     .select('drep_id, proposal_tx_hash, proposal_index, rationale_quality')
     .not('rationale_quality', 'is', null)
-    .in('drep_id', [...new Set(rationales.map((r) => r.drepId))]);
+    .in('drep_id', [...new Set(rationales.map((r) => r.drepId))])
+    .range(0, 99999);
 
   const scoredSet = new Set<string>();
   for (const row of existing || []) {
@@ -113,16 +113,17 @@ export async function scoreRationalesBatch(
       }
     }
 
-    // Batch update scores
     if (updates.length > 0) {
-      for (const update of updates) {
-        await supabase
-          .from('drep_votes')
-          .update({ rationale_quality: update.rationale_quality })
-          .eq('drep_id', update.drep_id)
-          .eq('proposal_tx_hash', update.proposal_tx_hash)
-          .eq('proposal_index', update.proposal_index);
-      }
+      await Promise.all(
+        updates.map((u) =>
+          supabase
+            .from('drep_votes')
+            .update({ rationale_quality: u.rationale_quality })
+            .eq('drep_id', u.drep_id)
+            .eq('proposal_tx_hash', u.proposal_tx_hash)
+            .eq('proposal_index', u.proposal_index),
+        ),
+      );
     }
   }
 
