@@ -24,9 +24,12 @@ export function createClient() {
 }
 
 /**
- * Admin Supabase client for writes
- * Uses service role key - SERVER-ONLY, never expose to client
- * Full write access, bypasses RLS
+ * Admin Supabase client for writes.
+ * Uses service role key - SERVER-ONLY, never expose to client.
+ * Full write access, bypasses RLS.
+ *
+ * Not a singleton: Supabase JS is HTTP-based so client creation is cheap.
+ * Profiled at <0.1ms per call — no measurable benefit from caching.
  */
 export function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

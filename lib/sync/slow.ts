@@ -174,6 +174,7 @@ async function runAiSummaries(supabase: SupabaseClient) {
     .neq('abstract', '')
     .limit(10);
 
+  const proposalUpdates: { tx_hash: string; proposal_index: number; ai_summary: string }[] = [];
   for (const row of unsummarized || []) {
     try {
       const amountCtx = row.withdrawal_amount
@@ -192,16 +193,15 @@ async function runAiSummaries(supabase: SupabaseClient) {
       const raw = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
       const summary = raw ? truncateToWordBoundary(stripUrls(raw), 160) : null;
       if (summary) {
-        await supabase
-          .from('proposals')
-          .update({ ai_summary: summary })
-          .eq('tx_hash', row.tx_hash)
-          .eq('proposal_index', row.proposal_index);
+        proposalUpdates.push({ tx_hash: row.tx_hash, proposal_index: row.proposal_index, ai_summary: summary });
         proposalSummaries++;
       }
     } catch (e) {
       log.error('[SlowSync] AI proposal summary error', { error: errMsg(e) });
     }
+  }
+  if (proposalUpdates.length > 0) {
+    await batchUpsert(supabase, 'proposals', proposalUpdates, 'tx_hash,proposal_index', 'AI proposal summary');
   }
 
   const { data: unsumRationales } = await supabase
@@ -232,6 +232,7 @@ async function runAiSummaries(supabase: SupabaseClient) {
     const dirs = new Map<string, string>();
     for (const v of vRows || []) dirs.set(v.vote_tx_hash, v.vote);
 
+    const rationaleUpdates: { vote_tx_hash: string; ai_summary: string }[] = [];
     for (const row of unsumRationales) {
       try {
         const title =
@@ -250,15 +251,15 @@ async function runAiSummaries(supabase: SupabaseClient) {
         const raw = msg.content[0]?.type === 'text' ? msg.content[0].text.trim() : null;
         const summary = raw ? truncateToWordBoundary(stripUrls(raw), 160) : null;
         if (summary) {
-          await supabase
-            .from('vote_rationales')
-            .update({ ai_summary: summary })
-            .eq('vote_tx_hash', row.vote_tx_hash);
+          rationaleUpdates.push({ vote_tx_hash: row.vote_tx_hash, ai_summary: summary });
           rationaleSummaries++;
         }
       } catch (e) {
         log.error('[SlowSync] AI rationale summary error', { error: errMsg(e) });
       }
+    }
+    if (rationaleUpdates.length > 0) {
+      await batchUpsert(supabase, 'vote_rationales', rationaleUpdates, 'vote_tx_hash', 'AI rationale summary');
     }
   }
 
@@ -312,7 +313,7 @@ async function runSocialLinkChecks(supabase: SupabaseClient) {
     .filter((l) => !freshSet.has(`${l.drep_id}|${l.uri}`))
     .slice(0, LINK_CHECK_LIMIT);
 
-  let checked = 0;
+  const linkResults: Record<string, unknown>[] = [];
   for (const link of toCheck) {
     let status = 'broken';
     let httpStatus: number | null = null;
@@ -332,22 +333,20 @@ async function runSocialLinkChecks(supabase: SupabaseClient) {
       /* stays broken */
     }
 
-    const { error: linkErr } = await supabase.from('social_link_checks').upsert(
-      {
-        drep_id: link.drep_id,
-        uri: link.uri,
-        status,
-        http_status: httpStatus,
-        last_checked_at: new Date().toISOString(),
-      },
-      { onConflict: 'drep_id,uri' },
-    );
-    if (linkErr) log.error('[SlowSync] social_link_checks upsert error', { error: linkErr.message });
-    checked++;
+    linkResults.push({
+      drep_id: link.drep_id,
+      uri: link.uri,
+      status,
+      http_status: httpStatus,
+      last_checked_at: new Date().toISOString(),
+    });
   }
 
-  if (checked > 0) log.info('[SlowSync] Social links checked', { count: checked });
-  return { checked };
+  if (linkResults.length > 0) {
+    await batchUpsert(supabase, 'social_link_checks', linkResults, 'drep_id,uri', 'Social link check');
+    log.info('[SlowSync] Social links checked', { count: linkResults.length });
+  }
+  return { checked: linkResults.length };
 }
 
 // ── Operation 4: Vote power backfill ────────────────────────────────────────
@@ -393,17 +392,22 @@ async function runVotePowerBackfill(supabase: SupabaseClient) {
       if (snapErr)
         log.error('[SlowSync] power_snapshots upsert error', { drepId, error: snapErr.message });
 
-      for (const snap of snapRows) {
-        const { count } = await supabase
-          .from('drep_votes')
-          .update(
-            { voting_power_lovelace: snap.amount_lovelace, power_source: 'exact' },
-            { count: 'exact' },
-          )
-          .eq('drep_id', drepId)
-          .eq('epoch_no', snap.epoch_no)
-          .is('voting_power_lovelace', null);
-        exactCount += count || 0;
+      const epochPowerMap = new Map(snapRows.map((s) => [s.epoch_no, s.amount_lovelace]));
+      const { data: exactVotes } = await supabase
+        .from('drep_votes')
+        .select('vote_tx_hash, epoch_no')
+        .eq('drep_id', drepId)
+        .in('epoch_no', snapRows.map((s) => s.epoch_no))
+        .is('voting_power_lovelace', null);
+
+      const exactUpdates = (exactVotes || []).map((v: { vote_tx_hash: string; epoch_no: number }) => ({
+        vote_tx_hash: v.vote_tx_hash,
+        voting_power_lovelace: epochPowerMap.get(v.epoch_no)!,
+        power_source: 'exact',
+      }));
+      exactCount += exactUpdates.length;
+      if (exactUpdates.length > 0) {
+        await batchUpsert(supabase, 'drep_votes', exactUpdates, 'vote_tx_hash', 'Power exact');
       }
 
       const { data: remaining } = await supabase
@@ -413,15 +417,19 @@ async function runVotePowerBackfill(supabase: SupabaseClient) {
         .is('voting_power_lovelace', null)
         .not('epoch_no', 'is', null);
 
-      for (const vote of remaining || []) {
+      const nearestUpdates = (remaining || []).map((vote: { vote_tx_hash: string; epoch_no: number }) => {
         const nearest = history.reduce((best, h) =>
           Math.abs(h.epoch_no - vote.epoch_no) < Math.abs(best.epoch_no - vote.epoch_no) ? h : best,
         );
-        await supabase
-          .from('drep_votes')
-          .update({ voting_power_lovelace: parseInt(nearest.amount, 10), power_source: 'nearest' })
-          .eq('vote_tx_hash', vote.vote_tx_hash);
-        nearestCount++;
+        return {
+          vote_tx_hash: vote.vote_tx_hash,
+          voting_power_lovelace: parseInt(nearest.amount, 10),
+          power_source: 'nearest',
+        };
+      });
+      nearestCount += nearestUpdates.length;
+      if (nearestUpdates.length > 0) {
+        await batchUpsert(supabase, 'drep_votes', nearestUpdates, 'vote_tx_hash', 'Power nearest');
       }
     } catch (err) {
       log.warn('[SlowSync] Power backfill error', { drepId: drepId.slice(0, 20), error: errMsg(err) });
@@ -457,6 +465,7 @@ async function runRationaleHashVerification(supabase: SupabaseClient) {
   let verified = 0;
   let failed = 0;
 
+  const hashUpdates: { vote_tx_hash: string; hash_verified: boolean }[] = [];
   for (const row of unchecked) {
     const expectedHash = hashMap.get(row.vote_tx_hash);
     if (!expectedHash) continue;
@@ -471,15 +480,15 @@ async function runRationaleHashVerification(supabase: SupabaseClient) {
       const rawBytes = new Uint8Array(await res.arrayBuffer());
       const computedHash = blake2bHex(rawBytes, undefined, 32);
       const matches = computedHash === expectedHash;
-      await supabase
-        .from('vote_rationales')
-        .update({ hash_verified: matches })
-        .eq('vote_tx_hash', row.vote_tx_hash);
+      hashUpdates.push({ vote_tx_hash: row.vote_tx_hash, hash_verified: matches });
       if (matches) verified++;
       else failed++;
     } catch {
       /* skip */
     }
+  }
+  if (hashUpdates.length > 0) {
+    await batchUpsert(supabase, 'vote_rationales', hashUpdates, 'vote_tx_hash', 'Rationale hash');
   }
 
   log.info('[SlowSync] Rationale hash verification', { verified, mismatch: failed });
@@ -509,6 +518,7 @@ async function runDRepMetadataHashVerification(supabase: SupabaseClient) {
   let verified = 0;
   let failed = 0;
 
+  const metaHashUpdates: { id: string; metadata_hash_verified: boolean }[] = [];
   for (const id of drepIds) {
     const anchor = anchorMap.get(id);
     if (!anchor) continue;
@@ -523,12 +533,15 @@ async function runDRepMetadataHashVerification(supabase: SupabaseClient) {
       const rawBytes = new Uint8Array(await res.arrayBuffer());
       const computedHash = blake2bHex(rawBytes, undefined, 32);
       const matches = computedHash === anchor.hash;
-      await supabase.from('dreps').update({ metadata_hash_verified: matches }).eq('id', id);
+      metaHashUpdates.push({ id, metadata_hash_verified: matches });
       if (matches) verified++;
       else failed++;
     } catch {
       /* skip */
     }
+  }
+  if (metaHashUpdates.length > 0) {
+    await batchUpsert(supabase, 'dreps', metaHashUpdates, 'id', 'DRep metadata hash');
   }
 
   if (verified + failed > 0) {

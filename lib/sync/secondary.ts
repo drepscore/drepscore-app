@@ -35,20 +35,22 @@ export async function executeSecondarySync(): Promise<Record<string, unknown>> {
         let updated = 0;
         for (let i = 0; i < dreps.length; i += DELEGATOR_CONCURRENCY) {
           const chunk = dreps.slice(i, i + DELEGATOR_CONCURRENCY);
-          const settled = await Promise.allSettled(
+          const chunkUpdates: Record<string, unknown>[] = [];
+          await Promise.allSettled(
             chunk.map(async (drep) => {
               const count = await fetchDRepDelegatorCount(drep.id);
               const existing = (drep.info as Record<string, unknown>) ?? {};
-              if (existing.delegatorCount === count) return false;
-              const { error } = await supabase
-                .from('dreps')
-                .update({ info: { ...existing, delegatorCount: count } })
-                .eq('id', drep.id);
-              if (error) throw new Error(error.message);
-              return true;
+              if (existing.delegatorCount === count) return;
+              chunkUpdates.push({
+                id: drep.id,
+                info: { ...existing, delegatorCount: count },
+              });
             }),
           );
-          updated += settled.filter((r) => r.status === 'fulfilled' && r.value).length;
+          if (chunkUpdates.length > 0) {
+            const result = await batchUpsert(supabase, 'dreps', chunkUpdates, 'id', 'DelegatorCounts');
+            updated += result.success;
+          }
         }
         return updated;
       })(),

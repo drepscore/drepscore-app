@@ -130,6 +130,7 @@ export async function executeVotesSync(): Promise<Record<string, unknown>> {
       }
     }
 
+    const reconUpdates: Record<string, unknown>[] = [];
     for (const [drepId, counts] of computedCounts) {
       const info = allCurrentInfo.get(drepId);
       if (!info) continue;
@@ -141,19 +142,21 @@ export async function executeVotesSync(): Promise<Record<string, unknown>> {
       )
         continue;
 
-      await supabase
-        .from('dreps')
-        .update({
-          info: {
-            ...info,
-            totalVotes: counts.total,
-            yesVotes: counts.yes,
-            noVotes: counts.no,
-            abstainVotes: counts.abstain,
-          },
-        })
-        .eq('id', drepId);
-      reconciled++;
+      reconUpdates.push({
+        id: drepId,
+        info: {
+          ...info,
+          totalVotes: counts.total,
+          yesVotes: counts.yes,
+          noVotes: counts.no,
+          abstainVotes: counts.abstain,
+        },
+      });
+    }
+
+    if (reconUpdates.length > 0) {
+      const result = await batchUpsert(supabase, 'dreps', reconUpdates, 'id', 'VoteReconciliation');
+      reconciled = result.success;
     }
 
     if (reconciled > 0) {

@@ -771,14 +771,25 @@ export async function getVotesByProposal(
 
     if (error || !votes) return [];
 
-    // Fetch DRep names and alignment data
+    // Fetch DRep names/alignment and vote rationales in parallel (both depend only on votes)
     const drepIds = [...new Set(votes.map((v) => v.drep_id))];
-    const { data: dreps } = await supabase
-      .from('dreps')
-      .select(
-        'id, info, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency',
-      )
-      .in('id', drepIds);
+    const voteTxHashes = votes.map((v) => v.vote_tx_hash);
+
+    const [drepsResult, rationalesResult] = await Promise.all([
+      supabase
+        .from('dreps')
+        .select(
+          'id, info, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency',
+        )
+        .in('id', drepIds),
+      supabase
+        .from('vote_rationales')
+        .select('vote_tx_hash, rationale_text, ai_summary, hash_verified')
+        .in('vote_tx_hash', voteTxHashes),
+    ]);
+
+    const dreps = drepsResult.data;
+    const rationales = rationalesResult.data;
 
     const drepNameMap = new Map<string, string | null>();
     const drepAlignmentMap = new Map<string, ProposalVoteDetail['alignments']>();
@@ -795,13 +806,6 @@ export async function getVotesByProposal(
         });
       }
     }
-
-    // Fetch rationale text and AI summaries
-    const voteTxHashes = votes.map((v) => v.vote_tx_hash);
-    const { data: rationales } = await supabase
-      .from('vote_rationales')
-      .select('vote_tx_hash, rationale_text, ai_summary, hash_verified')
-      .in('vote_tx_hash', voteTxHashes);
 
     const rationaleMap = new Map<
       string,
@@ -1222,12 +1226,19 @@ export async function getVotingPowerSummary(
   }
 
   // Fallback: sum from per-vote data (less accurate, missing system auto-DReps)
-  const { data: votes } = await supabase
-    .from('drep_votes')
-    .select('vote, voting_power_lovelace')
-    .eq('proposal_tx_hash', txHash)
-    .eq('proposal_index', proposalIndex)
-    .not('voting_power_lovelace', 'is', null);
+  // Run drep_votes and dreps in parallel (independent queries)
+  const [votesResult, activeDrepsResult] = await Promise.all([
+    supabase
+      .from('drep_votes')
+      .select('vote, voting_power_lovelace')
+      .eq('proposal_tx_hash', txHash)
+      .eq('proposal_index', proposalIndex)
+      .not('voting_power_lovelace', 'is', null),
+    supabase.from('dreps').select('info').eq('info->>isActive', 'true'),
+  ]);
+
+  const votes = votesResult.data;
+  const activeDreps = activeDrepsResult.data;
 
   let yesPower = 0,
     noPower = 0,
@@ -1251,11 +1262,6 @@ export async function getVotingPowerSummary(
       }
     }
   }
-
-  const { data: activeDreps } = await supabase
-    .from('dreps')
-    .select('info')
-    .eq('info->>isActive', 'true');
 
   let totalActivePower = 0;
   if (activeDreps) {

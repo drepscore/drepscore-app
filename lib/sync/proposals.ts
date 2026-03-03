@@ -238,18 +238,21 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
             );
 
           if (summaries?.length) {
+            const txHashes = [...new Set(summaries.map((s) => s.proposal_tx_hash))];
+            const { data: existing } = await supabase
+              .from('proposal_vote_snapshots')
+              .select('proposal_tx_hash, proposal_index')
+              .eq('epoch', epoch)
+              .in('proposal_tx_hash', txHashes);
+            const existingKeys = new Set(
+              (existing ?? []).map((r) => `${r.proposal_tx_hash}|${r.proposal_index}`),
+            );
+            const toInsert = summaries.filter(
+              (s) => !existingKeys.has(`${s.proposal_tx_hash}|${s.proposal_index}`),
+            );
             let inserted = 0;
-            for (const s of summaries) {
-              const { data: existing } = await supabase
-                .from('proposal_vote_snapshots')
-                .select('epoch')
-                .eq('epoch', epoch)
-                .eq('proposal_tx_hash', s.proposal_tx_hash)
-                .eq('proposal_index', s.proposal_index)
-                .maybeSingle();
-              if (existing) continue;
-
-              const { error } = await supabase.from('proposal_vote_snapshots').insert({
+            for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+              const batch = toInsert.slice(i, i + BATCH_SIZE).map((s) => ({
                 epoch,
                 proposal_tx_hash: s.proposal_tx_hash,
                 proposal_index: s.proposal_index,
@@ -264,8 +267,9 @@ export async function executeProposalsSync(): Promise<Record<string, unknown>> {
                 cc_yes_count: s.committee_yes_votes_cast ?? 0,
                 cc_no_count: s.committee_no_votes_cast ?? 0,
                 cc_abstain_count: s.committee_abstain_votes_cast ?? 0,
-              });
-              if (!error) inserted++;
+              }));
+              const { error } = await supabase.from('proposal_vote_snapshots').insert(batch);
+              if (!error) inserted += batch.length;
             }
             voteSnapshotCount = inserted;
             if (inserted > 0) {
