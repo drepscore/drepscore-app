@@ -32,6 +32,8 @@ These override all other guidance when in conflict.
 
 12. **`.env.local` is PRODUCTION.** Any local operation hitting Supabase/Koios/external services is a production operation. Never run sync, backfills, or write-path tests from localhost without explicit user approval.
 
-13. **Supabase MCP for migrations — never the CLI.** `npx supabase db push` has no access token locally. Use MCP `apply_migration`.
+13. **Supabase MCP for migrations — never the CLI.** `npx supabase db push` has no access token locally. Use MCP `apply_migration`. Apply migrations autonomously after pushing code — never present a "before merging" checklist to the user. Corrected twice.
 
 14. **Echo-back on complex tasks.** Before creating the first `TodoWrite` for any 3+ step task, state which of these rules apply. Active recall beats passive loading.
+
+15. **Worktree `.git` is a file.** In git worktrees, `.git` is a file pointing to the main repo's git dir, not a directory. Write PR body files to the worktree root (e.g., `PR_BODY.md`), not inside `.git/`.

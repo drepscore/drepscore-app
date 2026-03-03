@@ -32,7 +32,9 @@ alwaysApply: false
 | `governance_dna_quiz_vote` | Client | `vote`, `proposal_type`, `question_number` |
 | `governance_dna_quiz_completed` | Client | `votes_count`, `top_match_score`, `matches_found` |
 | `governance_dna_quiz_retake` | Client | `previous_votes_count` |
-| `governance_matches_calculated` | Server | `matches_count`, `top_match_score`, `has_current_drep_match` |
+| `governance_matches_calculated` | Server | `matches_count`, `top_match_score`, `has_current_drep_match`, `match_method`, `user_vote_count`, `overall_confidence` |
+| `governance_dna_reveal_viewed` | Client | `votes_count`, `top_match_score`, `matches_count`, `has_current_drep_match`, `match_method`, `overall_confidence` |
+| `quick_match_completed` | Server | `treasury`, `protocol`, `transparency`, `personality_label`, `top_match_score`, `matches_count` |
 | `drep_view_mode_changed` | Client | `mode` |
 | `drep_quick_view_opened` | Client | `drep_id`, `drep_score`, `has_match`, `view_mode` |
 
@@ -47,6 +49,7 @@ Use `<PageViewTracker event="..." />` in server-rendered pages.
 | `proposals_page_viewed` | `app/proposals/page.tsx` |
 | `compare_page_viewed` | `app/compare/page.tsx` |
 | `governance_page_viewed` | `app/governance/page.tsx` |
+| `quick_match_page_viewed` | `app/match/page.tsx` |
 
 ### Observable Data Loaders
 

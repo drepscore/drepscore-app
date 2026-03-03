@@ -61,48 +61,24 @@
 - **Context**: `cookies()` from `next/headers` is now async in Next.js 16. Must `await cookies()` before calling `.get()`.
 - **Pattern**: Always `const cookieStore = await cookies()` in RSC.
 
-### PowerShell mkdir doesn't accept -p flag
-
-- **Context**: `mkdir -p dir1 dir2` fails in PowerShell. Use `New-Item -ItemType Directory -Force -Path dir1, dir2` instead.
-- **Pattern**: Always use PowerShell-native commands. Don't assume bash flags work.
-
 ### useRef requires initial value in strict TS
 
 - **Context**: `useRef<Type>()` without an argument causes TS error in strict mode. Pass `undefined` or `null`.
 - **Pattern**: Always provide initial value: `useRef<Type>(null)` or `useRef<Type>(undefined)`.
 
-## 2026-03-02 — Session 14 (Experience Architecture)
+## 2026-03-02 — Sessions 14-15
 
 ### Production domain is drepscore.io, NOT drepscore.com
 
-- **Context**: `drepscore.com` DNS still points to Vercel (returns "deployment could not be found on Vercel"). The actual Railway production domain is `drepscore.io`.
-- **Pattern**: Always use `drepscore.io` for production URLs. `drepscore.com` is stale/misconfigured.
+- **Context**: `drepscore.com` DNS still points to Vercel. The actual Railway production domain is `drepscore.io`.
+- **Pattern**: Always use `drepscore.io` for production URLs.
+- **Promoted to rule**: `architecture.md`, `critical.md` (#3).
 
-### Never use VERCEL_URL — use BASE_URL from lib/constants.ts
+### PowerShell — consolidated (appeared 6+ times across Sessions 8-21)
 
-- **Context**: Server-side fetch in `app/pulse/page.tsx` used `process.env.VERCEL_URL` as a fallback for constructing API URLs. This env var doesn't exist on Railway.
-- **Pattern**: Always import `BASE_URL` from `@/lib/constants` (reads `NEXT_PUBLIC_SITE_URL`, falls back to localhost). Never reference Vercel-specific env vars.
-- **Promoted to rule**: `architecture.md` — added "Platform Constraints (Railway, NOT Vercel)" section with explicit prohibitions and `BASE_URL` as canonical pattern.
-
-## 2026-03-02 — Session 15 (Hero Constellation Polish)
-
-### Auto-deploy: don't stop at "code complete"
-
-- **Context**: Implemented all 6 visual polish items, confirmed tsc passes, then stopped and summarized changes. User had to ask "why didn't you deploy?"
-- **Pattern**: The Ship It Checklist exists in workflow.md. After the last code change compiles clean, run it immediately. No summary, no pause.
-- **Promoted to rule**: Consolidated Deployment Protocol + Completion Protocol into a single numbered "Ship It Checklist" in workflow.md that's mechanical and impossible to skip.
-
-### Branch check before writing code
-
-- **Context**: Started coding directly on `main` instead of creating a feature branch. Had to create the branch retroactively before committing.
-- **Pattern**: Always run `git branch --show-current` before the first edit. If on main, branch first.
-- **Promoted to rule**: Added "Branch check (step 0)" as the first item in Build Phase in workflow.md.
-
-### PowerShell: bash patterns tried first, then fixed — 5th occurrence
-
-- **Context**: Tried heredoc for commit message, failed, then used file-based approach. Same pattern has now appeared 5 times across sessions.
-- **Pattern**: Never attempt bash syntax. Use only the PowerShell patterns from the Shell Compatibility table in workflow.md.
-- **Promoted to rule**: Rewrote Shell Compatibility section as a mandatory table of correct patterns with wrong patterns explicitly listed as "will fail."
+- **Context**: Repeatedly tried bash patterns (heredoc, `&&`, `mkdir -p`, `curl -s -o /dev/null`, `grep`/`cat`) before fixing with PowerShell equivalents. Each occurrence wasted 30-60s.
+- **Pattern**: Never attempt any bash syntax. `curl` in PS is aliased to `Invoke-WebRequest`. Use `;` not `&&`. Write multi-line strings to files. See Shell Compatibility in workflow.md.
+- **Promoted to rule**: `critical.md` (#5), `workflow.md` Shell Compatibility table.
 
 ## 2026-03-03 — Session 20 (PCA Alignment System)
 
@@ -132,3 +108,16 @@
 - **Context**: User had to ask me to run the migration and trigger the scoring. Should have done it without asking.
 - **Pattern**: After deploy, autonomously: (1) run pending migrations, (2) trigger any new Inngest functions that need initial data population, (3) verify results.
 - **Promoted to rule**: `deploy.md` — autonomous migration + initial data population after deploy.
+
+## 2026-03-03 — Session 21 (DNA Quiz + Matching UX)
+
+### Autonomous migration/verification — second correction
+
+- **Context**: Built all 7 phases, created PR, then told user "apply migration 031 before merging." User said "Run the migration yourself, you should always handle migrations autonomously." This is the SECOND time this correction has been given (first was Session DRep Score V3).
+- **Pattern**: After code is pushed/merged, immediately: (1) apply migrations via Supabase MCP, (2) verify dependent data exists, (3) merge PR, (4) deploy, (5) verify endpoints. Never present a "before merging" checklist — just do it.
+- **Promoted to rule**: Reinforced in `critical.md` (#13) and `deploy.md`. This pattern should now be muscle memory.
+
+### Worktree `.git` is a file, not a directory
+
+- **Context**: Tried to write `PR_BODY.md` to `.git/PR_BODY.md` in a worktree. Failed with EEXIST because `.git` in a worktree is a file (pointing to the main repo's git dir), not a directory.
+- **Pattern**: In worktrees, write PR body files to the worktree root (e.g., `PR_BODY.md`), not inside `.git/`.

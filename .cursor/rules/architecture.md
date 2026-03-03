@@ -68,6 +68,7 @@ Next.js App (server components + API routes + client components)
 | Proposals sync (inline in Inngest)   | `inngest/functions/sync-proposals.ts`                                                                                   |
 | DRep types                           | `types/drep.ts`, `types/koios.ts`                                                                                       |
 | Alignment scoring (PCA)              | `lib/alignment/` (pca, voteMatrix, classifyProposals, normalize, dimensions, rationaleQuality, validate), `lib/alignment.ts` |
+| Matching engine (quiz + confidence)  | `lib/matching/confidence.ts`, `lib/matching/dimensionAgreement.ts`, `lib/matching/userProfile.ts`, `lib/representationMatch.ts` |
 | Admin integrity                      | `app/api/admin/integrity/route.ts`, `app/admin/integrity/page.tsx`                                                      |
 | Feature flags                        | `lib/featureFlags.ts`, `components/FeatureGate.tsx`, `app/api/admin/feature-flags/route.ts`, `app/admin/flags/page.tsx` |
 | Cross-chain governance               | `lib/crossChain.ts`, `inngest/functions/sync-governance-benchmarks.ts`                                                  |
@@ -128,7 +129,7 @@ Each pillar is computed as a raw score, then percentile-normalized across the fu
 
 ## Database (Supabase)
 
-30 migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`, `drep_milestones`, `position_statements`, `vote_explanations`, `governance_philosophy`, `governance_benchmarks`, `feature_flags` (with `category` column, 41 rows), `proposal_classifications`, `pca_results`, `drep_pca_coordinates`, `alignment_snapshots`
+32 migrations. Key tables: `dreps`, `drep_votes`, `vote_rationales`, `proposals`, `drep_score_history`, `proposal_voting_summary`, `drep_power_snapshots`, `poll_responses`, `sync_log`, `integrity_snapshots`, `api_keys`, `api_usage_log`, `drep_milestones`, `position_statements`, `vote_explanations`, `governance_philosophy`, `governance_benchmarks`, `feature_flags` (with `category` column, 41 rows), `proposal_classifications`, `pca_results`, `drep_pca_coordinates`, `alignment_snapshots`, `user_governance_profiles`
 
 ### `dreps` Table Schema Convention
 
