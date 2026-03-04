@@ -13,7 +13,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN --mount=type=cache,target=/app/.next/cache npm run build
+RUN --mount=type=cache,id=nextjs-cache,target=/app/.next/cache npm run build
 
 # ── Runtime ──
 FROM base AS runner

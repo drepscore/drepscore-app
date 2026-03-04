@@ -149,9 +149,16 @@ jobs:
         with:
           name: nextjs-build
           path: |
-            .next
+            .next/standalone
+            .next/static
+            .next/BUILD_ID
+            .next/build-manifest.json
+            .next/app-build-manifest.json
+            .next/prerender-manifest.json
+            .next/routes-manifest.json
+            .next/required-server-files.json
+            .next/server
             public
-            !.next/cache
           retention-days: 1
 
   e2e:
