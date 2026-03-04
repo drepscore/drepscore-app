@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withRouteHandler } from '@/lib/api/withRouteHandler';
 import { createClient } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,8 @@ export const GET = withRouteHandler(async (request, { requestId }) => {
     .eq('drep_id', drepId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logger.error('Failed to fetch DRep votes', { context: 'drep/votes', drepId, error: error.message, requestId });
+    return NextResponse.json({ error: 'Failed to fetch votes' }, { status: 500 });
   }
 
   return NextResponse.json({

@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { withRouteHandler, type RouteContext } from '@/lib/api/withRouteHandler';
 import { ChannelConnectSchema, ChannelDeleteSchema } from '@/lib/api/schemas/user';
+import { logger } from '@/lib/logger';
 
 export const GET = withRouteHandler(async (request: NextRequest, { wallet }: RouteContext) => {
   const supabase = getSupabaseAdmin();
@@ -31,7 +32,8 @@ export const POST = withRouteHandler(async (request: NextRequest, { wallet }: Ro
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logger.error('Failed to connect notification channel', { context: 'user/channels', error: error.message, channel });
+    return NextResponse.json({ error: 'Failed to connect channel' }, { status: 500 });
   }
 
   captureServerEvent('notification_channel_connected', { channel }, wallet!);

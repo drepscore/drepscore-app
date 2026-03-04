@@ -72,6 +72,10 @@ Use `next/dynamic` with `ssr: false` for components importing heavy libs (Three.
 |---------|------|-------------|-------|
 | S18 | 2026-03-03 | 2 | CI cascade, hooks order |
 | S19 | 2026-03-04 | 2 | test error shape after withRouteHandler wrap |
+| S20 | 2026-03-04 | 1 | Sentry Cron Monitors: use captureCheckIn (start/end) not withMonitor for Inngest step-based functions |
+| S21 | 2026-03-04 | 1 | React version mismatch (react vs react-dom) blocks jsdom render — keep versions pinned together |
+| S22 | 2026-03-04 | 1 | @testing-library/react needs explicit cleanup() in vitest jsdom env when tests share test-ids |
+| S23 | 2026-03-04 | 1 | Dashboard config (Sentry alerts, PostHog funnels) can't be automated via code — document reproducible setup in docs/ |
 
 _Last updated: 2026-03-04_
 _Review at session start. Archive promoted entries immediately._

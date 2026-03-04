@@ -1,5 +1,6 @@
 import { inngest } from '@/lib/inngest';
 import { callSyncRoute } from '@/inngest/helpers';
+import { cronCheckIn, cronCheckOut } from '@/lib/sentry-cron';
 
 export const alertIntegrity = inngest.createFunction(
   {
@@ -8,8 +9,16 @@ export const alertIntegrity = inngest.createFunction(
   },
   { cron: '0 */6 * * *' },
   async ({ step }) => {
-    return step.run('execute-integrity-alert', () =>
-      callSyncRoute('/api/admin/integrity/alert', 60_000),
-    );
+    const checkInId = cronCheckIn('alert-integrity', '0 */6 * * *');
+    try {
+      const result = await step.run('execute-integrity-alert', () =>
+        callSyncRoute('/api/admin/integrity/alert', 60_000),
+      );
+      cronCheckOut('alert-integrity', checkInId, true);
+      return result;
+    } catch (error) {
+      cronCheckOut('alert-integrity', checkInId, false);
+      throw error;
+    }
   },
 );

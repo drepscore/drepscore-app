@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { withRouteHandler, type RouteContext } from '@/lib/api/withRouteHandler';
 import { NotificationPrefSchema } from '@/lib/api/schemas/user';
+import { logger } from '@/lib/logger';
 
 export const GET = withRouteHandler(async (request: NextRequest, { wallet }: RouteContext) => {
   const supabase = getSupabaseAdmin();
@@ -30,7 +31,8 @@ export const POST = withRouteHandler(async (request: NextRequest, { wallet }: Ro
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logger.error('Failed to update notification preference', { context: 'user/notification-prefs', error: error.message });
+    return NextResponse.json({ error: 'Failed to update preference' }, { status: 500 });
   }
 
   captureServerEvent(

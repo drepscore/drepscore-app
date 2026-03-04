@@ -73,6 +73,29 @@ function main() {
   if (summaryPath) {
     fs.appendFileSync(summaryPath, output + '\n');
   }
+
+  const baselineFile = path.join(__dirname, '..', '.bundle-baseline.json');
+  const currentBaseline = { totalSize, timestamp: new Date().toISOString(), chunkCount: chunks.length };
+
+  if (fs.existsSync(baselineFile)) {
+    const prev = JSON.parse(fs.readFileSync(baselineFile, 'utf8'));
+    const prevTotal = prev.totalSize as number;
+    const delta = totalSize - prevTotal;
+    const pctChange = ((delta / prevTotal) * 100).toFixed(1);
+    const status = delta > prevTotal * 0.1 ? 'REGRESSION' : delta < 0 ? 'IMPROVED' : 'OK';
+
+    const regressionLine = `\n**Bundle delta:** ${formatBytes(delta)} (${pctChange}%) — ${status}`;
+    console.log(regressionLine);
+    if (summaryPath) fs.appendFileSync(summaryPath, regressionLine + '\n');
+
+    if (status === 'REGRESSION') {
+      console.error(`Bundle size regression: ${pctChange}% increase exceeds 10% threshold`);
+      process.exit(1);
+    }
+  } else {
+    fs.writeFileSync(baselineFile, JSON.stringify(currentBaseline, null, 2));
+    console.log(`\nBaseline recorded: ${formatBytes(totalSize)} (${chunks.length} chunks)`);
+  }
 }
 
 main();

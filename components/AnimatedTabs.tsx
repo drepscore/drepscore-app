@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { spring } from '@/lib/animations';
 import { cn } from '@/lib/utils';
+import { posthog } from '@/lib/posthog';
 import type { LucideIcon } from 'lucide-react';
 
 export interface TabDefinition {
@@ -19,12 +20,14 @@ interface AnimatedTabsProps {
   defaultTab?: string;
   /** When set, the tab bar becomes sticky at this offset from the top (px). */
   stickyOffset?: number;
+  /** Additional properties sent with the drep_profile_tab_changed PostHog event. */
+  trackingContext?: Record<string, string>;
   className?: string;
 }
 
 const SLIDE_DISTANCE = 60;
 
-export function AnimatedTabs({ tabs, defaultTab, stickyOffset, className }: AnimatedTabsProps) {
+export function AnimatedTabs({ tabs, defaultTab, stickyOffset, trackingContext, className }: AnimatedTabsProps) {
   const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id || '');
   const prevIndexRef = useRef(tabs.findIndex((t) => t.id === activeTab));
   const [direction, setDirection] = useState(0);
@@ -44,6 +47,7 @@ export function AnimatedTabs({ tabs, defaultTab, stickyOffset, className }: Anim
     setDirection(newIndex > oldIndex ? 1 : -1);
     prevIndexRef.current = newIndex;
     setActiveTab(value);
+    posthog?.capture('drep_profile_tab_changed', { tab: value, ...trackingContext });
 
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', `#${value}`);

@@ -3,7 +3,8 @@ import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   test: {
-    include: ['__tests__/**/*.test.ts'],
+    include: ['__tests__/**/*.test.ts', '__tests__/**/*.test.tsx'],
+    environment: 'jsdom',
     coverage: {
       provider: 'v8',
       include: [

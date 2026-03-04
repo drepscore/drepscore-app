@@ -5,6 +5,7 @@ import { Vote, BarChart3, TrendingUp, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 interface DRepProfileTabsProps {
+  drepId?: string;
   votingRecordContent: ReactNode;
   scoreAnalysisContent: ReactNode;
   trajectoryContent: ReactNode;
@@ -12,6 +13,7 @@ interface DRepProfileTabsProps {
 }
 
 export function DRepProfileTabs({
+  drepId,
   votingRecordContent,
   scoreAnalysisContent,
   trajectoryContent,
@@ -44,5 +46,5 @@ export function DRepProfileTabs({
     },
   ];
 
-  return <AnimatedTabs tabs={tabs} defaultTab="voting" stickyOffset={64} />;
+  return <AnimatedTabs tabs={tabs} defaultTab="voting" stickyOffset={64} trackingContext={drepId ? { drepId } : undefined} />;
 }

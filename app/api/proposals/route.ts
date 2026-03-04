@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withRouteHandler } from '@/lib/api/withRouteHandler';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,8 @@ export const GET = withRouteHandler(async (request, { requestId }) => {
     .limit(limit);
 
   if (error) {
-    return NextResponse.json({ proposals: [] }, { status: 500 });
+    logger.error('Failed to fetch proposals', { context: 'proposals', error: error.message, requestId });
+    return NextResponse.json({ error: 'Failed to fetch proposals' }, { status: 500 });
   }
 
   const proposals = (data || []).map((p) => ({

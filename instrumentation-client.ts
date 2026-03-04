@@ -4,7 +4,7 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  tracesSampleRate: 0.1,
+  tracesSampleRate: 0.25, // temporary: revert to 0.1 after baseline established
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 1.0,
 

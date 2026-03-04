@@ -25,6 +25,7 @@ export const GET = withRouteHandler(async (request, { requestId }) => {
       );
 
     if (error || !proposals) {
+      logger.error('Failed to fetch proposals', { context: 'governance/summary', error: error?.message, requestId });
       return NextResponse.json({ error: 'Failed to fetch proposals' }, { status: 500 });
     }
 

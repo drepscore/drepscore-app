@@ -3,6 +3,7 @@ import { createClient, getSupabaseAdmin } from '@/lib/supabase';
 import { getSpendingEffectiveness } from '@/lib/treasury';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { withRouteHandler } from '@/lib/api/withRouteHandler';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,7 +99,8 @@ export const POST = withRouteHandler(async (request: NextRequest) => {
     );
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      logger.error('Failed to submit accountability response', { context: 'treasury/accountability', error: error.message, txHash, index });
+      return NextResponse.json({ error: 'Failed to submit response' }, { status: 500 });
     }
 
     captureServerEvent(

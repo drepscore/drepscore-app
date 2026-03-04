@@ -10,6 +10,7 @@ import { captureServerEvent } from '@/lib/posthog-server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { alertCritical, emitPostHog, type SyncType } from '@/lib/sync-utils';
 import { logger } from '@/lib/logger';
+import { cronCheckIn, cronCheckOut } from '@/lib/sentry-cron';
 
 interface CheckResult {
   name: string;
@@ -25,6 +26,8 @@ export const checkSnapshotCompleteness = inngest.createFunction(
   },
   { cron: '0 6 * * *' },
   async ({ step }) => {
+    const checkInId = cronCheckIn('check-snapshot-completeness', '0 6 * * *');
+    try {
     const checks = await step.run('run-completeness-checks', async () => {
       const supabase = getSupabaseAdmin();
       const today = new Date().toISOString().slice(0, 10);
@@ -288,11 +291,16 @@ export const checkSnapshotCompleteness = inngest.createFunction(
       passed: checks.length - failures.length,
       total: checks.length,
     });
+    cronCheckOut('check-snapshot-completeness', checkInId, failures.length === 0);
     return {
       total: checks.length,
       passed: checks.length - failures.length,
       failed: failures.length,
       checks,
     };
+    } catch (error) {
+      cronCheckOut('check-snapshot-completeness', checkInId, false);
+      throw error;
+    }
   },
 );

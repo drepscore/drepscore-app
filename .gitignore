@@ -79,3 +79,6 @@ analytics/.vercel/
 # Temp commit/PR files
 COMMIT_MSG*.txt
 PR_BODY*.md
+
+# Bundle baseline (machine-specific)
+.bundle-baseline.json

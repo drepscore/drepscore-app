@@ -55,7 +55,9 @@ export async function GET(request: NextRequest) {
       weekViews: weekResult.count ?? 0,
       totalViews: totalResult.count ?? 0,
     });
-  } catch {
-    return NextResponse.json({ weekViews: 0, totalViews: 0 }, { status: 500 });
+  } catch (err) {
+    const { logger } = await import('@/lib/logger');
+    logger.error('Failed to fetch view counts', { context: 'views', drepId, error: err instanceof Error ? err.message : String(err) });
+    return NextResponse.json({ error: 'Failed to fetch view counts' }, { status: 500 });
   }
 }

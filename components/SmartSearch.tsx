@@ -7,6 +7,7 @@ import { Search, X, Clock } from 'lucide-react';
 import { EnrichedDRep } from '@/lib/koios';
 import { getDRepDisplayName } from '@/utils/display';
 import { cn } from '@/lib/utils';
+import { posthog } from '@/lib/posthog';
 
 const RECENT_KEY = 'drepscore_recent_searches';
 const MAX_RECENT = 5;
@@ -95,6 +96,7 @@ export function SmartSearch({ dreps, value, onChange, onSelectDRep, className }:
       saveRecentSearch(name);
       setRecentSearches(getRecentSearches());
       setIsFocused(false);
+      posthog?.capture('smart_search_result_clicked', { drep_id: drepId, query: value });
       onSelectDRep?.(drepId);
     },
     [onSelectDRep],
@@ -106,6 +108,7 @@ export function SmartSearch({ dreps, value, onChange, onSelectDRep, className }:
         saveRecentSearch(value.trim());
         setRecentSearches(getRecentSearches());
         setIsFocused(false);
+        posthog?.capture('smart_search_query', { query: value.trim(), result_count: suggestions.length });
       }
       if (e.key === 'Escape') {
         setIsFocused(false);

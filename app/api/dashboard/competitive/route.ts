@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withRouteHandler } from '@/lib/api/withRouteHandler';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ export const GET = withRouteHandler(async (request, { requestId }) => {
     .order('score', { ascending: false });
 
   if (error || !allDreps) {
+    logger.error('Failed to fetch DReps', { context: 'dashboard/competitive', error: error?.message, requestId });
     return NextResponse.json({ error: 'Failed to fetch DReps' }, { status: 500 });
   }
 

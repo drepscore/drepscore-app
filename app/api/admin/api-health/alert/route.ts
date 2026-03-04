@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { broadcastDiscord } from '@/lib/notifications';
+import { alertEmail } from '@/lib/sync-utils';
 import { withRouteHandler } from '@/lib/api/withRouteHandler';
 
 export const dynamic = 'force-dynamic';
@@ -191,15 +192,22 @@ export const GET = withRouteHandler(async (request) => {
     const passedCount = checks.filter((c) => c.passed).length;
     lines.push('', `${passedCount}/${checks.length} checks passed`);
 
-    await broadcastDiscord({
-      eventType: 'api-health-alert',
-      title:
-        criticalFailures.length > 0
-          ? `\u{1f6a8} API Alert: ${criticalFailures.length} critical issue${criticalFailures.length > 1 ? 's' : ''}`
-          : `\u26a0\ufe0f API Warning: ${warnings.length} issue${warnings.length > 1 ? 's' : ''}`,
-      body: lines.join('\n'),
-      url: 'https://analytics.drepscore.io/api-analytics',
-    });
+    const alertTitle =
+      criticalFailures.length > 0
+        ? `\u{1f6a8} API Alert: ${criticalFailures.length} critical issue${criticalFailures.length > 1 ? 's' : ''}`
+        : `\u26a0\ufe0f API Warning: ${warnings.length} issue${warnings.length > 1 ? 's' : ''}`;
+
+    await Promise.allSettled([
+      broadcastDiscord({
+        eventType: 'api-health-alert',
+        title: alertTitle,
+        body: lines.join('\n'),
+        url: 'https://analytics.drepscore.io/api-analytics',
+      }),
+      criticalFailures.length > 0
+        ? alertEmail(alertTitle, lines.join('\n'))
+        : Promise.resolve(),
+    ]);
   }
 
   // Log health check to sync_log
