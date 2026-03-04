@@ -12,20 +12,21 @@ alwaysApply: false
 
 > A build is NOT complete until production is running the new code. This applies to ALL features, not just hotfixes. See `critical.md #2`. Corrected 5 times.
 
-After code compiles clean and all local checks pass, execute this IMMEDIATELY without asking:
+After code compiles clean, execute this IMMEDIATELY without asking:
 
-1. `git add` relevant files → `git commit -F COMMIT_MSG.txt` → `Remove-Item COMMIT_MSG.txt`
-2. `git push -u origin HEAD`
-3. `gh pr create --title "..." --body-file PR_BODY.md` → `Remove-Item PR_BODY.md`
-4. `gh pr checks <N> --watch` — fix failures if yours, verify pre-existing if not
-5. `gh pr merge <N> --squash --delete-branch`
-6. Apply pending migrations via Supabase MCP `apply_migration` → then `npm run gen:types`
-7. Monitor Railway deployment: `railway logs` to watch build, poll until healthy
-8. PUT `/api/inngest` if Inngest functions were added/modified → `npm run inngest:status` to verify
-9. Hit new/changed endpoints on `drepscore.io` to verify
-10. `npm run posthog:check <event>` if new analytics events were added
-11. `git checkout main; git pull`
-12. Update `tasks/lessons.md` if corrections occurred
+1. `npm run preflight` — parallel format:check + lint + type-check + test. Fix ALL failures before proceeding. This is the primary gate, not CI.
+2. `git add` relevant files → `git commit -F COMMIT_MSG.txt` → `Remove-Item COMMIT_MSG.txt`
+3. `git push -u origin HEAD` (pre-push hook re-runs preflight automatically)
+4. `gh pr create --title "..." --body-file PR_BODY.md` → `Remove-Item PR_BODY.md`
+5. `gh pr checks <N>` — poll every 30s. All checks should pass since preflight caught issues locally. If CI fails on something preflight didn't catch, fix and push.
+6. `gh pr merge <N> --squash --delete-branch`
+7. Apply pending migrations via Supabase MCP `apply_migration` → then `npm run gen:types`
+8. Monitor Railway deployment: `railway logs` to watch build, poll until healthy
+9. PUT `/api/inngest` if Inngest functions were added/modified → `npm run inngest:status` to verify
+10. Hit new/changed endpoints on `drepscore.io` to verify
+11. `npm run posthog:check <event>` if new analytics events were added
+12. `git checkout main; git pull`
+13. Update `tasks/lessons.md` if corrections occurred
 
 **Never** say "build complete — PR next" or "ready for review." Just ship it.
 

@@ -33,6 +33,7 @@ First-principles checklist:
 ## Build Phase
 
 - **Branch check (step 0)**: `git branch --show-current`. On `main` and not a hotfix → STOP and branch first
+- **Preflight after each batch**: Run `npm run preflight` after completing each batch in multi-batch plans. Catch formatting, lint, type, and test issues incrementally — not at the end
 - **Research before build**: New library/API → research summary before implementation
 - **Analytics inline**: Every new user interaction gets a PostHog event in the same diff (see `analytics.mdc`)
 - **No orphaned components**: Every component created must be imported and rendered in the same commit

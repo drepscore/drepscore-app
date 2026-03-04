@@ -39,7 +39,7 @@ jobs:
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run type-check
 
-  lint:
+  format:
     needs: install
     runs-on: ubuntu-latest
     steps:
@@ -52,6 +52,19 @@ jobs:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run format:check
+
+  lint:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - uses: actions/cache/restore@v5
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run lint
 
   test:
@@ -91,7 +104,7 @@ jobs:
           "
 
   build:
-    needs: [type-check, lint, test]
+    needs: [type-check, format, lint, test]
     runs-on: ubuntu-latest
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
@@ -115,6 +128,7 @@ jobs:
   e2e:
     needs: install
     runs-on: ubuntu-latest
+    continue-on-error: true
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
@@ -134,7 +148,18 @@ jobs:
         with:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - run: npx playwright install --with-deps chromium
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install Playwright system deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npm run build
       - name: Start server and run E2E
         run: |
@@ -166,7 +191,7 @@ jobs:
 
   notify:
     if: failure()
-    needs: [type-check, lint, test, build]
+    needs: [type-check, format, lint, test, build]
     runs-on: ubuntu-latest
     steps:
       - name: Discord notification

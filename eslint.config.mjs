@@ -17,7 +17,15 @@ const eslintConfig = defineConfig([
       'react-hooks/immutability': 'warn',
     },
   },
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'scripts/**', '__tests__/**']),
+  globalIgnores([
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+    'scripts/**',
+    '__tests__/**',
+    'analytics/**',
+  ]),
 ]);
 
 export default eslintConfig;

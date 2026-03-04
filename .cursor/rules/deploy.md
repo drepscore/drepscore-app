@@ -22,6 +22,14 @@ Always use Supabase MCP `apply_migration` — never the CLI. The MCP authenticat
 
 Naming: sequential 3-digit prefix + descriptive snake_case: `020_feature_name.sql`
 
+## Pre-Push Preflight (MANDATORY)
+
+Run `npm run preflight` before every push. It checks format, lint, types, and tests in parallel (~90s). The `pre-push` git hook enforces this automatically.
+
+If preflight fails, fix locally before pushing. CI is a safety net, not the primary feedback loop.
+
+For agents: run preflight after each batch of changes during multi-batch plans, not just at the end. Catch issues incrementally.
+
 ## Release Gating
 
 **Direct to main (hotfix):** Single-commit bug fixes, docs, config, dependency patches.
