@@ -159,6 +159,13 @@ export function useTreasuryPending() {
   });
 }
 
+export function useTreasuryHistory(epochs = 30) {
+  return useQuery({
+    queryKey: ['treasury-history', epochs],
+    queryFn: () => fetchJson(`/api/treasury/history?epochs=${epochs}`),
+  });
+}
+
 export function useTreasurySimulate(burnAdjust: number) {
   return useQuery({
     queryKey: ['treasury-simulate', burnAdjust],
