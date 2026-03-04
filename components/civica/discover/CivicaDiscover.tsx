@@ -25,11 +25,7 @@ interface CivicaDiscoverProps {
   proposalCount: number;
 }
 
-export function CivicaDiscover({
-  dreps,
-  totalAvailable,
-  proposalCount,
-}: CivicaDiscoverProps) {
+export function CivicaDiscover({ dreps, totalAvailable, proposalCount }: CivicaDiscoverProps) {
   const [activeTab, setActiveTab] = useState<TabId>('dreps');
 
   const tabs: Tab[] = [

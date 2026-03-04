@@ -4,7 +4,14 @@ import Link from 'next/link';
 import { ShieldCheck, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { computeTier } from '@/lib/scoring/tiers';
-import { TIER_SCORE_COLOR, TIER_BORDER, TIER_BG, TIER_GLOW, TIER_BADGE_BG, tierKey } from './tierStyles';
+import {
+  TIER_SCORE_COLOR,
+  TIER_BORDER,
+  TIER_BG,
+  TIER_GLOW,
+  TIER_BADGE_BG,
+  tierKey,
+} from './tierStyles';
 
 export interface CivicaSPOData {
   poolId: string;
@@ -85,7 +92,8 @@ export function CivicaSPOCard({ pool, rank }: CivicaSPOCardProps) {
             )}
             {pool.delegatorCount > 0 && (
               <span className="text-[10px] text-muted-foreground">
-                {isClaimed ? '· ' : ''}{pool.delegatorCount.toLocaleString()} delegators
+                {isClaimed ? '· ' : ''}
+                {pool.delegatorCount.toLocaleString()} delegators
               </span>
             )}
             {pool.liveStakeAda > 0 && (
@@ -98,10 +106,20 @@ export function CivicaSPOCard({ pool, rank }: CivicaSPOCardProps) {
 
         {/* Score + tier */}
         <div className="text-right shrink-0">
-          <div className={cn('font-display text-3xl font-bold tabular-nums leading-none', TIER_SCORE_COLOR[tier])}>
+          <div
+            className={cn(
+              'font-display text-3xl font-bold tabular-nums leading-none',
+              TIER_SCORE_COLOR[tier],
+            )}
+          >
             {score}
           </div>
-          <span className={cn('text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full mt-1 inline-block', TIER_BADGE_BG[tier])}>
+          <span
+            className={cn(
+              'text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full mt-1 inline-block',
+              TIER_BADGE_BG[tier],
+            )}
+          >
             {tier}
           </span>
         </div>
@@ -139,10 +157,12 @@ export function CivicaSPOCard({ pool, rank }: CivicaSPOCardProps) {
         <span className="text-[10px] text-muted-foreground/50 tabular-nums">
           {pool.voteCount} governance votes
         </span>
-        <span className={cn(
-          'flex items-center gap-0.5 text-xs font-medium transition-colors',
-          'text-muted-foreground group-hover:text-primary',
-        )}>
+        <span
+          className={cn(
+            'flex items-center gap-0.5 text-xs font-medium transition-colors',
+            'text-muted-foreground group-hover:text-primary',
+          )}
+        >
           View <ChevronRight className="h-3.5 w-3.5" />
         </span>
       </div>

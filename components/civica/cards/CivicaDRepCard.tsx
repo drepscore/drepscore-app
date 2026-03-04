@@ -6,13 +6,28 @@ import { TrendingUp, TrendingDown, Minus, CheckCircle2, XCircle, ChevronRight } 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { computeTier } from '@/lib/scoring/tiers';
-import { TIER_SCORE_COLOR, TIER_BORDER, TIER_BG, TIER_GLOW, TIER_BADGE_BG, tierKey } from './tierStyles';
+import {
+  TIER_SCORE_COLOR,
+  TIER_BORDER,
+  TIER_BG,
+  TIER_GLOW,
+  TIER_BADGE_BG,
+  tierKey,
+} from './tierStyles';
 import type { EnrichedDRep } from '@/lib/koios';
 
-const ALIGNMENT_LABELS: [keyof Pick<EnrichedDRep,
-  'alignmentTreasuryConservative' | 'alignmentTreasuryGrowth' | 'alignmentDecentralization' |
-  'alignmentSecurity' | 'alignmentInnovation' | 'alignmentTransparency'
->, string][] = [
+const ALIGNMENT_LABELS: [
+  keyof Pick<
+    EnrichedDRep,
+    | 'alignmentTreasuryConservative'
+    | 'alignmentTreasuryGrowth'
+    | 'alignmentDecentralization'
+    | 'alignmentSecurity'
+    | 'alignmentInnovation'
+    | 'alignmentTransparency'
+  >,
+  string,
+][] = [
   ['alignmentTreasuryConservative', 'Fiscal'],
   ['alignmentTreasuryGrowth', 'Growth'],
   ['alignmentDecentralization', 'Decent.'],
@@ -35,8 +50,9 @@ export function CivicaDRepCard({ drep, rank }: CivicaDRepCardProps) {
   const displayName = drep.name || drep.ticker || drep.handle || `${drep.drepId.slice(0, 12)}…`;
   const hasAlignmentData = drep.alignmentDecentralization !== null;
 
-  const allAlignmentNull =
-    ALIGNMENT_LABELS.every(([key]) => (drep as any)[key] === null || (drep as any)[key] === undefined);
+  const allAlignmentNull = ALIGNMENT_LABELS.every(
+    ([key]) => (drep as any)[key] === null || (drep as any)[key] === undefined,
+  );
 
   return (
     <Link
@@ -82,10 +98,20 @@ export function CivicaDRepCard({ drep, rank }: CivicaDRepCardProps) {
 
         {/* Score + tier badge */}
         <div className="text-right shrink-0">
-          <div className={cn('font-display text-3xl font-bold tabular-nums leading-none', TIER_SCORE_COLOR[tier])}>
+          <div
+            className={cn(
+              'font-display text-3xl font-bold tabular-nums leading-none',
+              TIER_SCORE_COLOR[tier],
+            )}
+          >
             {score}
           </div>
-          <span className={cn('text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full mt-1 inline-block', TIER_BADGE_BG[tier])}>
+          <span
+            className={cn(
+              'text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full mt-1 inline-block',
+              TIER_BADGE_BG[tier],
+            )}
+          >
             {tier}
           </span>
         </div>
@@ -105,10 +131,7 @@ export function CivicaDRepCard({ drep, rank }: CivicaDRepCardProps) {
                   <span className="tabular-nums">{pct}</span>
                 </div>
                 <div className="h-0.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-primary/50"
-                    style={{ width: `${pct}%` }}
-                  />
+                  <div className="h-full rounded-full bg-primary/50" style={{ width: `${pct}%` }} />
                 </div>
               </div>
             );
@@ -117,14 +140,18 @@ export function CivicaDRepCard({ drep, rank }: CivicaDRepCardProps) {
       )}
 
       {/* ── Hover expansion: rationale + momentum ──────────── */}
-      <div className={cn(
-        'overflow-hidden transition-all duration-200',
-        hovered ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0',
-      )}>
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-200',
+          hovered ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0',
+        )}
+      >
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/40 mb-3">
           <span>
             Rationale rate:{' '}
-            <span className="font-medium text-foreground">{Math.round(drep.rationaleRate ?? 0)}%</span>
+            <span className="font-medium text-foreground">
+              {Math.round(drep.rationaleRate ?? 0)}%
+            </span>
           </span>
           <span className="flex items-center gap-1">
             Trend:{' '}
@@ -146,10 +173,12 @@ export function CivicaDRepCard({ drep, rank }: CivicaDRepCardProps) {
             ? `${Math.round(drep.effectiveParticipation)}% participation`
             : 'No participation data'}
         </span>
-        <span className={cn(
-          'flex items-center gap-0.5 text-xs font-medium transition-colors',
-          'text-muted-foreground group-hover:text-primary',
-        )}>
+        <span
+          className={cn(
+            'flex items-center gap-0.5 text-xs font-medium transition-colors',
+            'text-muted-foreground group-hover:text-primary',
+          )}
+        >
           View <ChevronRight className="h-3.5 w-3.5" />
         </span>
       </div>

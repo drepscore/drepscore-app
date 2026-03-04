@@ -97,19 +97,18 @@ export function CivicaDRepBrowse({ dreps, totalAvailable }: CivicaDRepBrowseProp
     if (filters.alignment !== 'all') {
       const field = ALIGNMENT_FIELD_MAP[filters.alignment];
       if (field) {
-        result = result
-          .filter((d) => {
-            const vals = ALIGNMENT_FIELD_MAP;
-            const all = Object.values(vals).map((f) => (d as any)[f] as number | null);
-            const dominant = all.reduce<[string, number]>(
-              (best, v, i) => {
-                const dim = Object.keys(vals)[i];
-                return v !== null && v > best[1] ? [dim, v] : best;
-              },
-              ['', -1],
-            );
-            return dominant[0] === filters.alignment;
-          });
+        result = result.filter((d) => {
+          const vals = ALIGNMENT_FIELD_MAP;
+          const all = Object.values(vals).map((f) => (d as any)[f] as number | null);
+          const dominant = all.reduce<[string, number]>(
+            (best, v, i) => {
+              const dim = Object.keys(vals)[i];
+              return v !== null && v > best[1] ? [dim, v] : best;
+            },
+            ['', -1],
+          );
+          return dominant[0] === filters.alignment;
+        });
       }
     }
 
@@ -252,11 +251,7 @@ export function CivicaDRepBrowse({ dreps, totalAvailable }: CivicaDRepBrowseProp
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {pageItems.map((drep, i) => (
-            <CivicaDRepCard
-              key={drep.drepId}
-              drep={drep}
-              rank={page * PAGE_SIZE + i + 1}
-            />
+            <CivicaDRepCard key={drep.drepId} drep={drep} rank={page * PAGE_SIZE + i + 1} />
           ))}
         </div>
       )}
@@ -275,7 +270,8 @@ export function CivicaDRepBrowse({ dreps, totalAvailable }: CivicaDRepBrowseProp
           </Button>
           <div className="flex gap-1">
             {Array.from({ length: Math.min(totalPages, 7) }).map((_, idx) => {
-              const pg = totalPages <= 7 ? idx : idx === 0 ? 0 : idx === 6 ? totalPages - 1 : page - 2 + idx;
+              const pg =
+                totalPages <= 7 ? idx : idx === 0 ? 0 : idx === 6 ? totalPages - 1 : page - 2 + idx;
               return (
                 <button
                   key={pg}

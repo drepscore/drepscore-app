@@ -47,9 +47,7 @@ export function CivicaSPOBrowse() {
     }
 
     if (tier !== 'All') {
-      result = result.filter(
-        (p: any) => computeTier(p.governanceScore ?? 0) === tier,
-      );
+      result = result.filter((p: any) => computeTier(p.governanceScore ?? 0) === tier);
     }
 
     if (claimedOnly) {
@@ -73,7 +71,9 @@ export function CivicaSPOBrowse() {
     return (
       <div className="pt-16 text-center space-y-2 text-muted-foreground text-sm">
         <p>No governance-active pools found.</p>
-        <p className="text-xs opacity-60">Pools appear here once they vote on governance actions.</p>
+        <p className="text-xs opacity-60">
+          Pools appear here once they vote on governance actions.
+        </p>
       </div>
     );
   }
@@ -105,7 +105,11 @@ export function CivicaSPOBrowse() {
               variant="ghost"
               size="sm"
               className="h-9 shrink-0"
-              onClick={() => { setSearch(''); setTier('All'); setClaimedOnly(false); }}
+              onClick={() => {
+                setSearch('');
+                setTier('All');
+                setClaimedOnly(false);
+              }}
             >
               <RotateCcw className="h-3.5 w-3.5 mr-1" />
               Reset
@@ -141,8 +145,7 @@ export function CivicaSPOBrowse() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Showing{' '}
-        <strong className="text-foreground">{filtered.length}</strong>
+        Showing <strong className="text-foreground">{filtered.length}</strong>
         {!isDefault && ` of ${pools.length}`} pools
       </p>
 
@@ -154,11 +157,7 @@ export function CivicaSPOBrowse() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((pool: any, i: number) => (
-            <CivicaSPOCard
-              key={pool.poolId}
-              pool={pool}
-              rank={i + 1}
-            />
+            <CivicaSPOCard key={pool.poolId} pool={pool} rank={i + 1} />
           ))}
         </div>
       )}

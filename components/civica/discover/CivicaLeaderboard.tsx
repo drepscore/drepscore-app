@@ -128,9 +128,7 @@ export function CivicaLeaderboard() {
                   {/* Rank */}
                   <span className="w-8 text-sm font-bold tabular-nums text-center shrink-0">
                     {medal ?? (
-                      <span className="text-muted-foreground font-normal">
-                        {globalRank}
-                      </span>
+                      <span className="text-muted-foreground font-normal">{globalRank}</span>
                     )}
                   </span>
 
@@ -235,7 +233,9 @@ export function CivicaLeaderboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {weeklyMovers.gainers.length > 0 && (
               <div className="space-y-1">
-                <p className="text-[10px] text-emerald-400 font-medium uppercase tracking-wider">Rising</p>
+                <p className="text-[10px] text-emerald-400 font-medium uppercase tracking-wider">
+                  Rising
+                </p>
                 {weeklyMovers.gainers.slice(0, 3).map((m: any) => (
                   <Link
                     key={m.drepId}
@@ -243,14 +243,18 @@ export function CivicaLeaderboard() {
                     className="flex items-center justify-between text-xs hover:text-primary transition-colors"
                   >
                     <span className="truncate text-foreground/80 max-w-[160px]">{m.name}</span>
-                    <span className="text-emerald-400 font-medium tabular-nums shrink-0">+{m.delta}</span>
+                    <span className="text-emerald-400 font-medium tabular-nums shrink-0">
+                      +{m.delta}
+                    </span>
                   </Link>
                 ))}
               </div>
             )}
             {weeklyMovers.losers.length > 0 && (
               <div className="space-y-1">
-                <p className="text-[10px] text-rose-400 font-medium uppercase tracking-wider">Falling</p>
+                <p className="text-[10px] text-rose-400 font-medium uppercase tracking-wider">
+                  Falling
+                </p>
                 {weeklyMovers.losers.slice(0, 3).map((m: any) => (
                   <Link
                     key={m.drepId}
@@ -258,7 +262,9 @@ export function CivicaLeaderboard() {
                     className="flex items-center justify-between text-xs hover:text-primary transition-colors"
                   >
                     <span className="truncate text-foreground/80 max-w-[160px]">{m.name}</span>
-                    <span className="text-rose-400 font-medium tabular-nums shrink-0">{m.delta}</span>
+                    <span className="text-rose-400 font-medium tabular-nums shrink-0">
+                      {m.delta}
+                    </span>
                   </Link>
                 ))}
               </div>

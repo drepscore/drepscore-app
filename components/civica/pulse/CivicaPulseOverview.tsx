@@ -51,7 +51,9 @@ function StatCard({
       )}
     >
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</p>
+        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+          {label}
+        </p>
         <Icon className={cn('h-4 w-4', accentClass)} />
       </div>
       <div className={cn('font-display text-3xl font-bold leading-none tabular-nums', accentClass)}>
@@ -123,7 +125,9 @@ export function CivicaPulseOverview() {
       {/* ── Stats grid ──────────────────────────────────────── */}
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => <StatCardSkeleton key={i} />)}
+          {Array.from({ length: 8 }).map((_, i) => (
+            <StatCardSkeleton key={i} />
+          ))}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -169,8 +173,8 @@ export function CivicaPulseOverview() {
               (pulse?.avgParticipationRate ?? 0) >= 70
                 ? 'success'
                 : (pulse?.avgParticipationRate ?? 0) >= 40
-                ? 'warning'
-                : 'danger'
+                  ? 'warning'
+                  : 'danger'
             }
           />
           <StatCard
@@ -182,8 +186,8 @@ export function CivicaPulseOverview() {
               (pulse?.avgRationaleRate ?? 0) >= 60
                 ? 'success'
                 : (pulse?.avgRationaleRate ?? 0) >= 30
-                ? 'warning'
-                : 'danger'
+                  ? 'warning'
+                  : 'danger'
             }
           />
           {treasury && (
@@ -195,19 +199,21 @@ export function CivicaPulseOverview() {
                   treasury.trend === 'growing'
                     ? '↑ Growing'
                     : treasury.trend === 'shrinking'
-                    ? '↓ Shrinking'
-                    : 'Stable'
+                      ? '↓ Shrinking'
+                      : 'Stable'
                 }
                 icon={DollarSign}
-                accent={treasury.trend === 'growing' ? 'success' : treasury.trend === 'shrinking' ? 'danger' : 'default'}
+                accent={
+                  treasury.trend === 'growing'
+                    ? 'success'
+                    : treasury.trend === 'shrinking'
+                      ? 'danger'
+                      : 'default'
+                }
               />
               <StatCard
                 label="Treasury Runway"
-                value={
-                  treasury.runwayMonths >= 999
-                    ? '∞'
-                    : `${treasury.runwayMonths}mo`
-                }
+                value={treasury.runwayMonths >= 999 ? '∞' : `${treasury.runwayMonths}mo`}
                 sub={
                   treasury.pendingCount > 0
                     ? `${treasury.pendingCount} withdrawal${treasury.pendingCount > 1 ? 's' : ''} pending`
@@ -237,10 +243,13 @@ export function CivicaPulseOverview() {
             {pulse.spotlightProposal.title}
           </Link>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="capitalize">{pulse.spotlightProposal.proposalType?.replace(/([A-Z])/g, ' $1').trim()}</span>
+            <span className="capitalize">
+              {pulse.spotlightProposal.proposalType?.replace(/([A-Z])/g, ' $1').trim()}
+            </span>
             {pulse.spotlightProposal.voteCoverage != null && (
               <span>
-                <strong className="text-foreground">{pulse.spotlightProposal.voteCoverage}%</strong> DRep vote coverage
+                <strong className="text-foreground">{pulse.spotlightProposal.voteCoverage}%</strong>{' '}
+                DRep vote coverage
               </span>
             )}
           </div>
@@ -254,7 +263,9 @@ export function CivicaPulseOverview() {
             <div className="rounded-xl border border-emerald-900/30 bg-emerald-950/10 p-4 space-y-3">
               <div className="flex items-center gap-1.5">
                 <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-                <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Rising this week</p>
+                <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                  Rising this week
+                </p>
               </div>
               <div className="space-y-2">
                 {gainers.map((m: any) => (
@@ -281,7 +292,9 @@ export function CivicaPulseOverview() {
             <div className="rounded-xl border border-rose-900/30 bg-rose-950/10 p-4 space-y-3">
               <div className="flex items-center gap-1.5">
                 <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
-                <p className="text-xs font-semibold text-rose-400 uppercase tracking-wider">Falling this week</p>
+                <p className="text-xs font-semibold text-rose-400 uppercase tracking-wider">
+                  Falling this week
+                </p>
               </div>
               <div className="space-y-2">
                 {losers.map((m: any) => (

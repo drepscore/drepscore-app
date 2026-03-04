@@ -61,10 +61,7 @@ export function ProposalsBrowse() {
       );
     }
     if (statusFilter !== 'All') {
-      r = r.filter(
-        (p: any) =>
-          (p.status ?? 'Open').toLowerCase() === statusFilter.toLowerCase(),
-      );
+      r = r.filter((p: any) => (p.status ?? 'Open').toLowerCase() === statusFilter.toLowerCase());
     }
     return r;
   }, [proposals, search, statusFilter]);
