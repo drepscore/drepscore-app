@@ -6,11 +6,16 @@ import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { useWallet } from '@/utils/wallet';
 import { useGovernanceHolder } from '@/hooks/queries';
+import { useFeatureFlag } from '@/components/FeatureGate';
+import { posthog } from '@/lib/posthog';
 import { ActivityTicker } from '@/components/ActivityTicker';
 import { PersonalizedStatsStrip } from '@/components/PersonalizedStatsStrip';
+import { ConstellationSearch } from '@/components/ConstellationSearch';
+import { ConstellationNodeDetail } from '@/components/ConstellationNodeDetail';
 
 import type { UserSegment } from '@/components/PersonalGovernanceCard';
 import type { ConstellationRef } from '@/components/GovernanceConstellation';
+import type { ConstellationNode3D } from '@/lib/constellation/types';
 import type { AlignmentDimension } from '@/lib/drepIdentity';
 
 const GovernanceConstellation = dynamic(
@@ -55,6 +60,10 @@ export function ConstellationHero({
   const [scrolledPastHero, setScrolledPastHero] = useState(false);
   const [hasHovered, setHasHovered] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+
+  const interactiveFlag = useFeatureFlag('interactive_constellation');
+  const isInteractive = interactiveFlag === true;
+  const [selectedNode, setSelectedNode] = useState<ConstellationNode3D | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolledPastHero(window.scrollY > 100);
@@ -140,6 +149,46 @@ export function ConstellationHero({
     );
   }, []);
 
+  const searchInputRef = useRef<HTMLDivElement>(null);
+
+  const handleNodeSelect = useCallback((node: ConstellationNode3D) => {
+    setSelectedNode(node);
+    posthog.capture('constellation_node_clicked', {
+      nodeType: node.nodeType,
+      nodeId: node.id,
+      nodeName: node.name,
+    });
+  }, []);
+
+  const handleSearchSelect = useCallback((drepId: string) => {
+    constellationRef.current?.flyToNode(drepId);
+    posthog.capture('constellation_search_used', { drepId });
+  }, []);
+
+  const handleDetailClose = useCallback(() => {
+    setSelectedNode(null);
+    constellationRef.current?.resetCamera();
+  }, []);
+
+  useEffect(() => {
+    if (!isInteractive) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && selectedNode) {
+        setSelectedNode(null);
+        constellationRef.current?.resetCamera();
+      }
+      if (e.key === '/' && !selectedNode) {
+        const active = document.activeElement?.tagName;
+        if (active === 'INPUT' || active === 'TEXTAREA') return;
+        e.preventDefault();
+        const input = searchInputRef.current?.querySelector('input');
+        input?.focus();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isInteractive, selectedNode]);
+
   const handleConstellationHover = useCallback(() => {
     if (hasHovered) return;
     setHasHovered(true);
@@ -207,8 +256,10 @@ export function ConstellationHero({
     >
       <GovernanceConstellation
         ref={constellationRef}
+        interactive={isInteractive}
         onReady={handleConstellationReady}
         onContracted={handleConstellationContracted}
+        onNodeSelect={isInteractive ? handleNodeSelect : undefined}
         className={contracted ? 'h-[40vh]' : 'h-[85vh]'}
       />
 
@@ -216,6 +267,18 @@ export function ConstellationHero({
       <div
         className={`absolute inset-0 z-[1] bg-gradient-to-b from-[#0a0b14] via-[#0f1225] to-[#0a0b14] transition-opacity duration-700 pointer-events-none ${constellationReady ? 'opacity-0' : 'opacity-100'}`}
       />
+
+      {/* Interactive constellation search overlay */}
+      {isInteractive && constellationReady && !showPersonalCard && (
+        <div ref={searchInputRef} className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-sm px-4 animate-fade-in-up pointer-events-auto">
+          <ConstellationSearch onSelect={handleSearchSelect} />
+        </div>
+      )}
+
+      {/* Interactive constellation detail panel */}
+      {isInteractive && (
+        <ConstellationNodeDetail node={selectedNode} onClose={handleDetailClose} />
+      )}
 
       {/* First-hover educational tooltip */}
       {showTooltip && (

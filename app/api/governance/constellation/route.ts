@@ -102,6 +102,7 @@ export const GET = withRouteHandler(async (_request, { requestId }) => {
       const arr = alignmentsToArray(alignments);
       return {
         id: (d.id as string).slice(0, 16),
+        fullId: d.id as string,
         name: d.info?.name || d.info?.ticker || d.info?.handle || null,
         power: raw / maxPower,
         score: d.score || 0,
@@ -127,6 +128,7 @@ export const GET = withRouteHandler(async (_request, { requestId }) => {
       const arr = alignmentsToArray(aligns);
       return {
         id: (p.pool_id as string).slice(0, 16),
+        fullId: p.pool_id as string,
         name: p.ticker || p.pool_name || null,
         power: (p.vote_count || 0) / maxPoolVotes,
         score: p.governance_score ?? 50,
@@ -138,6 +140,7 @@ export const GET = withRouteHandler(async (_request, { requestId }) => {
 
     const ccNodes: ConstellationApiData['nodes'] = ccIds.map((ccId) => ({
       id: ccId.slice(0, 16),
+      fullId: ccId,
       name: null,
       power: 0.8,
       score: 75,

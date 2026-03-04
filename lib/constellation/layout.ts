@@ -35,6 +35,7 @@ const MAX_VISIBLE_SCALE = 0.25;
 
 interface LayoutInput {
   id: string;
+  fullId: string;
   name: string | null;
   power: number;
   score: number;
@@ -69,6 +70,7 @@ export function computeLayout(inputs: LayoutInput[], nodeLimit: number): LayoutR
 
     const anchor: ConstellationNode3D = {
       id: `__anchor_${dim}__`,
+      fullId: `__anchor_${dim}__`,
       name: dim,
       power: 1,
       score: 50,
