@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +18,6 @@ interface ConstellationSearchProps {
 
 export function ConstellationSearch({ onSelect, className }: ConstellationSearchProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchableDRep[]>([]);
   const [dreps, setDreps] = useState<SearchableDRep[]>([]);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -26,19 +25,18 @@ export function ConstellationSearch({ onSelect, className }: ConstellationSearch
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/dreps?limit=500&fields=drepId,name,ticker,drepScore')
       .then((r) => r.json())
-      .then((data) => setDreps(data?.dreps || data || []))
+      .then((data) => { if (!cancelled) setDreps(data?.dreps || data || []); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (!query || query.length < 2) {
-      setResults([]);
-      return;
-    }
+  const results = useMemo(() => {
+    if (!query || query.length < 2) return [];
     const q = query.toLowerCase();
-    const matched = dreps
+    return dreps
       .filter((d) => {
         const name = (d.name || '').toLowerCase();
         const ticker = (d.ticker || '').toLowerCase();
@@ -46,15 +44,12 @@ export function ConstellationSearch({ onSelect, className }: ConstellationSearch
         return name.includes(q) || ticker.includes(q) || id.includes(q);
       })
       .slice(0, 6);
-    setResults(matched);
-    setActiveIndex(0);
   }, [query, dreps]);
 
   const handleSelect = useCallback(
     (drepId: string) => {
       onSelect(drepId);
       setQuery('');
-      setResults([]);
       setOpen(false);
       inputRef.current?.blur();
     },
@@ -74,7 +69,6 @@ export function ConstellationSearch({ onSelect, className }: ConstellationSearch
         handleSelect(results[activeIndex].drepId);
       } else if (e.key === 'Escape') {
         setQuery('');
-        setResults([]);
         setOpen(false);
         inputRef.current?.blur();
       }
@@ -102,6 +96,7 @@ export function ConstellationSearch({ onSelect, className }: ConstellationSearch
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setActiveIndex(0);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
@@ -113,7 +108,6 @@ export function ConstellationSearch({ onSelect, className }: ConstellationSearch
           <button
             onClick={() => {
               setQuery('');
-              setResults([]);
               inputRef.current?.focus();
             }}
             className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-white/40 hover:text-white/60"

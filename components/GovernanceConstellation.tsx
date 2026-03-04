@@ -60,7 +60,7 @@ export const GovernanceConstellation = forwardRef<ConstellationRef, Constellatio
     const [quality, setQuality] = useState<'low' | 'mid' | 'high'>('high');
 
     const onNodeSelectRef = useRef(onNodeSelect);
-    onNodeSelectRef.current = onNodeSelect;
+    useEffect(() => { onNodeSelectRef.current = onNodeSelect; }, [onNodeSelect]);
 
     const flyToNodeImpl = async (nodeId: string): Promise<ConstellationNode3D | null> => {
       const controls = cameraControlsRef.current;
