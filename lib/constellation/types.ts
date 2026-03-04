@@ -4,6 +4,7 @@ export type GovernanceNodeType = 'drep' | 'spo' | 'cc';
 
 export interface ConstellationNode3D {
   id: string;
+  fullId: string;
   name: string | null;
   power: number;
   score: number;
@@ -37,6 +38,7 @@ export interface ConstellationEvent {
 export interface ConstellationApiData {
   nodes: Array<{
     id: string;
+    fullId: string;
     name: string | null;
     power: number;
     score: number;

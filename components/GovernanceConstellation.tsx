@@ -17,13 +17,16 @@ import type {
 
 export interface ConstellationRef {
   findMe: (target: FindMeTarget) => Promise<void>;
+  flyToNode: (nodeId: string) => Promise<ConstellationNode3D | null>;
   pulseNode: (drepId: string) => void;
   resetCamera: () => void;
 }
 
 interface ConstellationProps {
+  interactive?: boolean;
   onReady?: () => void;
   onContracted?: () => void;
+  onNodeSelect?: (node: ConstellationNode3D) => void;
   className?: string;
 }
 
@@ -42,7 +45,10 @@ const INITIAL_CAMERA: [number, number, number] = [0, 0, 22];
 const INITIAL_TARGET: [number, number, number] = [0, 0, 0];
 
 export const GovernanceConstellation = forwardRef<ConstellationRef, ConstellationProps>(
-  function GovernanceConstellation({ onReady, onContracted, className }, ref) {
+  function GovernanceConstellation(
+    { interactive, onReady, onContracted, onNodeSelect, className },
+    ref,
+  ) {
     const cameraControlsRef = useRef<CameraControls>(null);
     const [ready, setReady] = useState(false);
     const [sceneState, setSceneState] = useState<SceneState>({
@@ -55,6 +61,27 @@ export const GovernanceConstellation = forwardRef<ConstellationRef, Constellatio
       animating: false,
     });
     const [quality, setQuality] = useState<'low' | 'mid' | 'high'>('high');
+
+    const onNodeSelectRef = useRef(onNodeSelect);
+    useEffect(() => {
+      onNodeSelectRef.current = onNodeSelect;
+    }, [onNodeSelect]);
+
+    const flyToNodeImpl = async (nodeId: string): Promise<ConstellationNode3D | null> => {
+      const controls = cameraControlsRef.current;
+      if (!controls || sceneState.nodes.length === 0) return null;
+
+      const node = sceneState.nodes.find((n) => n.id === nodeId || n.fullId === nodeId);
+      if (!node || node.isAnchor) return null;
+
+      setSceneState((prev) => ({ ...prev, animating: true, highlightId: node.id, dimmed: true }));
+
+      const [x, y, z] = node.position;
+      await controls.setLookAt(x, y, z + 5, x, y, z, true);
+
+      onNodeSelectRef.current?.(node);
+      return node;
+    };
 
     useImperativeHandle(ref, () => ({
       findMe: async (target: FindMeTarget) => {
@@ -72,6 +99,7 @@ export const GovernanceConstellation = forwardRef<ConstellationRef, Constellatio
               ...prev.nodes,
               {
                 id: '__user__',
+                fullId: '__user__',
                 name: 'You',
                 power: 0,
                 score: 50,
@@ -118,6 +146,8 @@ export const GovernanceConstellation = forwardRef<ConstellationRef, Constellatio
         onContracted?.();
       },
 
+      flyToNode: flyToNodeImpl,
+
       pulseNode: (drepId: string) => {
         setSceneState((prev) => ({ ...prev, pulseId: drepId }));
         setTimeout(() => setSceneState((prev) => ({ ...prev, pulseId: null })), 1200);
@@ -125,7 +155,7 @@ export const GovernanceConstellation = forwardRef<ConstellationRef, Constellatio
 
       resetCamera: () => {
         cameraControlsRef.current?.setLookAt(...INITIAL_CAMERA, ...INITIAL_TARGET, true);
-        setSceneState((prev) => ({ ...prev, highlightId: null, dimmed: false }));
+        setSceneState((prev) => ({ ...prev, highlightId: null, dimmed: false, animating: false }));
       },
     }));
 
@@ -161,7 +191,7 @@ export const GovernanceConstellation = forwardRef<ConstellationRef, Constellatio
               inset: 0,
               width: '100%',
               height: '100%',
-              pointerEvents: 'none',
+              pointerEvents: interactive ? 'auto' : 'none',
             }}
             role="img"
             aria-label="Interactive 3D visualization of Cardano governance showing DRep representatives as a glowing constellation"
@@ -176,6 +206,8 @@ export const GovernanceConstellation = forwardRef<ConstellationRef, Constellatio
               highlightId={sceneState.highlightId}
               dimmed={sceneState.dimmed}
               pulseId={sceneState.pulseId}
+              interactive={interactive}
+              onNodeClick={interactive ? (node) => flyToNodeImpl(node.id) : undefined}
             />
             <ConstellationEdges edges={sceneState.edges} dimmed={sceneState.dimmed} />
             <ShootingStars />
@@ -214,11 +246,15 @@ function ConstellationNodes({
   highlightId,
   dimmed,
   pulseId,
+  interactive,
+  onNodeClick,
 }: {
   nodes: ConstellationNode3D[];
   highlightId: string | null;
   dimmed: boolean;
   pulseId: string | null;
+  interactive?: boolean;
+  onNodeClick?: (node: ConstellationNode3D) => void;
 }) {
   const [frameReady, setFrameReady] = useState(false);
 
@@ -233,6 +269,17 @@ function ConstellationNodes({
   const spoNodes = nodes.filter((n) => n.nodeType === 'spo');
   const ccNodes = nodes.filter((n) => n.nodeType === 'cc');
   const anchorNodes = nodes.filter((n) => n.isAnchor);
+
+  const handlePointerEnter = interactive
+    ? () => {
+        document.body.style.cursor = 'pointer';
+      }
+    : undefined;
+  const handlePointerLeave = interactive
+    ? () => {
+        document.body.style.cursor = '';
+      }
+    : undefined;
 
   return (
     <>
@@ -251,7 +298,17 @@ function ConstellationNodes({
           const isPulsing = pulseId === node.id;
           const s = isPulsing ? node.scale * 1.8 : isHighlighted ? node.scale * 1.5 : node.scale;
 
-          return <Instance key={node.id} position={node.position} scale={s} color={color.hex} />;
+          return (
+            <Instance
+              key={node.id}
+              position={node.position}
+              scale={s}
+              color={color.hex}
+              onPointerDown={interactive ? () => onNodeClick?.(node) : undefined}
+              onPointerEnter={handlePointerEnter}
+              onPointerLeave={handlePointerLeave}
+            />
+          );
         })}
       </Instances>
 
@@ -267,7 +324,15 @@ function ConstellationNodes({
             transparent
           />
           {spoNodes.map((node) => (
-            <Instance key={node.id} position={node.position} scale={node.scale} color="#06b6d4" />
+            <Instance
+              key={node.id}
+              position={node.position}
+              scale={node.scale}
+              color="#06b6d4"
+              onPointerDown={interactive ? () => onNodeClick?.(node) : undefined}
+              onPointerEnter={handlePointerEnter}
+              onPointerLeave={handlePointerLeave}
+            />
           ))}
         </Instances>
       )}
@@ -284,7 +349,15 @@ function ConstellationNodes({
             transparent
           />
           {ccNodes.map((node) => (
-            <Instance key={node.id} position={node.position} scale={node.scale} color="#f59e0b" />
+            <Instance
+              key={node.id}
+              position={node.position}
+              scale={node.scale}
+              color="#f59e0b"
+              onPointerDown={interactive ? () => onNodeClick?.(node) : undefined}
+              onPointerEnter={handlePointerEnter}
+              onPointerLeave={handlePointerLeave}
+            />
           ))}
         </Instances>
       )}
