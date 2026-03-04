@@ -15,9 +15,20 @@ See `docs/strategy/ultimate-vision.md` for full build sequence.
   - Root layout branching (old shell when flag off, CivicaShell when on)
   - /my-gov stub page (auth-gated)
 
-## Next Up
+- [x] Civica Phase 1B — GovTerm, Metadata, Home Pages — PR #78
+  - GovTerm component (localStorage progressive dismissal, segment-aware tooltips)
+  - 12 governance terms in lib/microcopy.ts GOV_TERMS
+  - generateMetadata() on /, /discover, /pulse, /my-gov (Civica-branded)
+  - Home/anonymous: constellation hero + value prop + Quick Match CTA + SSR stats
+  - Home/citizen: DRep report card, pillar bars, epoch callout
+  - Home/DRep: score hero, sparkline, quick win card, competitive context
+  - Home/SPO: governance score hero, claim prompt, competitive neighbors
+  - CivicaHomePage segment dispatcher
+  - useDRepReportCard, useDashboardCompetitive, useSPOPoolCompetitive hooks
 
-- [ ] Civica Phase 1B — GovTerm, metadata, Home anonymous/citizen pages
+## Next Up (Phase 2A)
+
+- [ ] Civica Phase 2A — Discover unified browse, DRep/SPO card component, Leaderboard
 - [ ] Score Tier System (A1) — tier assignment, change detection, progress-to-next, history
 - [ ] Intelligent Notification Triggers (A2) — post-sync Inngest functions for meaningful state changes
 - [ ] Alignment Drift Detection (A3) — citizen-DRep alignment monitoring + re-delegation intelligence
