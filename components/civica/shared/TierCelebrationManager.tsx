@@ -86,7 +86,7 @@ export function TierCelebrationManager({
   };
 
   if (change) {
-    const shareText = `${entityName} just reached the ${change.new_tier} tier on DRepScore! Score: ${change.new_score}`;
+    const shareText = `${entityName} just reached the ${change.new_tier} tier on Civica! Score: ${change.new_score}`;
     return (
       <CelebrationOverlay
         entityType={entityType}

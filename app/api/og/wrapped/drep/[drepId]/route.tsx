@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 interface DRepWrappedData {
   score_start?: number;
@@ -129,7 +130,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ drep
               marginBottom: '16px',
             }}
           >
-            {period ? 'My DRepScore This Epoch' : 'My DRepScore'}
+            {period ? 'My Civica Score This Epoch' : 'My Civica Score'}
           </div>
 
           <OGScoreRing score={drep.drepScore} size={280} />
@@ -229,6 +230,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ drep
     );
   } catch (error) {
     console.error('[OG Wrapped DRep] Error:', error);
-    return new ImageResponse(<OGFallback message="My DRepScore" />, { width: 1080, height: 1080 });
+    return new ImageResponse(<OGFallback message="My Civica Score" />, {
+      width: 1080,
+      height: 1080,
+    });
   }
 }

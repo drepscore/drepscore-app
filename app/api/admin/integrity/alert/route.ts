@@ -311,7 +311,7 @@ export const GET = withRouteHandler(async (request) => {
         type: 'header',
         text: {
           type: 'plain_text',
-          text: `DRepScore: ${criticals.length} critical, ${warnings.length} warning`,
+          text: `Civica: ${criticals.length} critical, ${warnings.length} warning`,
         },
       },
       ...alerts.map((a) => ({
@@ -325,7 +325,7 @@ export const GET = withRouteHandler(async (request) => {
     body = { blocks };
   } else {
     const lines = alerts.map(formatAlertLine);
-    body = { content: `**DRepScore Integrity Alert**\n\n${lines.join('\n\n')}` };
+    body = { content: `**Civica Integrity Alert**\n\n${lines.join('\n\n')}` };
   }
 
   if (recoveries.length > 0) {

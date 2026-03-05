@@ -1,12 +1,8 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase';
-import { blockTimeToEpoch } from '@/lib/koios';
-import { getProposalPriority } from '@/utils/proposalPriority';
 import { validateSessionToken } from '@/lib/supabaseAuth';
-import { HomepageDualMode } from '@/components/HomepageDualMode';
 import { PageViewTracker } from '@/components/PageViewTracker';
-import { getFeatureFlag } from '@/lib/featureFlags';
 import { CivicaHomePage } from '@/components/civica/CivicaHomePage';
 
 export const dynamic = 'force-dynamic';
@@ -72,12 +68,6 @@ async function getGovernancePulse() {
         ? `${(totalAda / 1_000_000).toFixed(1)}M`
         : `${Math.round(totalAda).toLocaleString()}`;
 
-  const pRates = dreps.map((d: any) => d.effective_participation || 0).filter((r: number) => r > 0);
-  const avgP =
-    pRates.length > 0
-      ? Math.round(pRates.reduce((a: number, b: number) => a + b, 0) / pRates.length)
-      : 0;
-
   const openProposals = proposals.filter(
     (p: any) => !p.ratified_epoch && !p.enacted_epoch && !p.dropped_epoch && !p.expired_epoch,
   );
@@ -95,34 +85,6 @@ async function getGovernancePulse() {
     activeSpOs: spoPoolIds.size,
     ccMembers: ccIds.size,
   };
-}
-
-async function getTopDReps() {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from('dreps')
-    .select(
-      'id, score, effective_participation, size_tier, info, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency',
-    )
-    .eq('info->>isActive', 'true')
-    .order('score', { ascending: false })
-    .limit(6);
-
-  return (data || []).map((row: any) => ({
-    drepId: row.id,
-    name: row.info?.name || null,
-    ticker: row.info?.ticker || null,
-    handle: row.info?.handle || null,
-    drepScore: row.score || 0,
-    sizeTier: row.size_tier || 'small',
-    effectiveParticipation: row.effective_participation || 0,
-    alignmentTreasuryConservative: row.alignment_treasury_conservative,
-    alignmentTreasuryGrowth: row.alignment_treasury_growth,
-    alignmentDecentralization: row.alignment_decentralization,
-    alignmentSecurity: row.alignment_security,
-    alignmentInnovation: row.alignment_innovation,
-    alignmentTransparency: row.alignment_transparency,
-  }));
 }
 
 async function getSSRHolderData(): Promise<{ data: any; walletAddress: string } | null> {
@@ -189,32 +151,13 @@ async function getSSRHolderData(): Promise<{ data: any; walletAddress: string } 
 }
 
 export default async function HomePage() {
-  const [pulseData, topDReps, ssrAuth, civicaEnabled] = await Promise.all([
-    getGovernancePulse(),
-    getTopDReps(),
-    getSSRHolderData(),
-    getFeatureFlag('civica_frontend', false),
-  ]);
-
-  if (civicaEnabled) {
-    return (
-      <>
-        <PageViewTracker event="homepage_viewed" />
-        <CivicaHomePage
-          pulseData={pulseData}
-          ssrHolderData={ssrAuth?.data || null}
-          ssrWalletAddress={ssrAuth?.walletAddress || null}
-        />
-      </>
-    );
-  }
+  const [pulseData, ssrAuth] = await Promise.all([getGovernancePulse(), getSSRHolderData()]);
 
   return (
     <>
       <PageViewTracker event="homepage_viewed" />
-      <HomepageDualMode
+      <CivicaHomePage
         pulseData={pulseData}
-        topDReps={topDReps}
         ssrHolderData={ssrAuth?.data || null}
         ssrWalletAddress={ssrAuth?.walletAddress || null}
       />

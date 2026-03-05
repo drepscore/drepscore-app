@@ -30,14 +30,14 @@ async function handleUnsubscribe(token: string | null): Promise<NextResponse> {
 
   return new NextResponse(
     `<!DOCTYPE html>
-<html><head><title>Unsubscribed — DRepScore</title>
+<html><head><title>Unsubscribed — Civica</title>
 <style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f6f9fc;margin:0}
 .card{background:#fff;padding:48px;border-radius:12px;text-align:center;max-width:400px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 h1{color:#1a1a2e;margin:0 0 12px}p{color:#6b7280;line-height:1.6}
 a{color:#6366f1;text-decoration:none}</style></head>
 <body><div class="card">
 <h1>Unsubscribed</h1>
-<p>You won't receive any more email digests from DRepScore.</p>
+<p>You won't receive any more email digests from Civica.</p>
 <p>Changed your mind? <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'https://drepscore.io'}/profile">Update your preferences</a></p>
 </div></body></html>`,
     { status: 200, headers: { 'Content-Type': 'text/html' } },

@@ -5,7 +5,7 @@ import { EpochTimeline } from '@/components/EpochTimeline';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Epoch Recaps | DRepScore',
+  title: 'Epoch Recaps | Civica',
   description: 'Browse the history of Cardano governance epoch by epoch',
 };
 

@@ -292,8 +292,8 @@ export function DRepCommandCenter({ drepId }: { drepId: string }) {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         ogImageUrl={`/api/og/wrapped/drep/${encodeURIComponent(drepId)}`}
-        shareText={`My governance score on @DRepScore — check it out!`}
-        shareUrl={`${typeof window !== 'undefined' ? window.location.origin : 'https://drepscore.app'}/drep/${encodeURIComponent(drepId)}`}
+        shareText={`My governance score on @CivicaGov — check it out!`}
+        shareUrl={`${typeof window !== 'undefined' ? window.location.origin : 'https://drepscore.io'}/drep/${encodeURIComponent(drepId)}`}
         title="Share your profile"
       />
     </div>

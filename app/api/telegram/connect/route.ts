@@ -73,7 +73,7 @@ export const POST = withRouteHandler(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: config.chatId,
-          text: "✅ <b>Wallet Connected!</b>\n\nYour Telegram is now linked to your DRepScore account. You'll receive governance alerts here.",
+          text: "✅ <b>Wallet Connected!</b>\n\nYour Telegram is now linked to your Civica account. You'll receive governance alerts here.",
           parse_mode: 'HTML',
         }),
       }).catch(() => {});

@@ -89,7 +89,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ dre
         <div class="stat-value">${(drep.delegator_count ?? 0).toLocaleString()}</div>
       </div>
     </div>
-    <a href="https://drepscore.app/drep/${encodeURIComponent(drepId)}" target="_blank" class="cta">View full profile on DRepScore \u2197</a>
+    <a href="https://drepscore.app/drep/${encodeURIComponent(drepId)}" target="_blank" class="cta">View full profile on Civica \u2197</a>
   </div>
 </body>
 </html>`;

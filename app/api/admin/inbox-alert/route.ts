@@ -157,7 +157,7 @@ export const GET = withRouteHandler(async (request) => {
           type: 'header',
           text: {
             type: 'plain_text',
-            text: `DRepScore Governance Alert — ${alerts.length} issue${alerts.length !== 1 ? 's' : ''}`,
+            text: `Civica Governance Alert — ${alerts.length} issue${alerts.length !== 1 ? 's' : ''}`,
           },
         },
         ...alerts.map((a) => ({
@@ -180,7 +180,7 @@ export const GET = withRouteHandler(async (request) => {
           title: `Governance Engagement Alert — ${alerts.length} issue${alerts.length !== 1 ? 's' : ''}`,
           description: lines.join('\n\n'),
           color: alerts.some((a) => a.level === 'critical') ? 0xff4444 : 0xf59e0b,
-          footer: { text: 'DRepScore Inbox Monitor' },
+          footer: { text: 'Civica Inbox Monitor' },
           timestamp: new Date().toISOString(),
         },
       ],

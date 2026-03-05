@@ -1,9 +1,6 @@
 import { Metadata } from 'next';
 import { getAllDReps } from '@/lib/data';
-import { HomepageShell } from '@/components/HomepageShell';
 import { PageViewTracker } from '@/components/PageViewTracker';
-import { DiscoverTabs } from '@/components/DiscoverTabs';
-import { getFeatureFlag } from '@/lib/featureFlags';
 import { CivicaDiscover } from '@/components/civica/discover/CivicaDiscover';
 import { createClient } from '@/lib/supabase';
 
@@ -37,49 +34,24 @@ async function getProposalCount(): Promise<number> {
 }
 
 export default async function DiscoverPage() {
-  const [{ dreps, allDReps, totalAvailable }, civicaEnabled, proposalCount] = await Promise.all([
+  const [{ allDReps, totalAvailable }, proposalCount] = await Promise.all([
     getAllDReps(),
-    getFeatureFlag('civica_frontend'),
     getProposalCount(),
   ]);
 
-  if (civicaEnabled) {
-    return (
-      <div className="container mx-auto px-4 sm:px-6 py-6">
-        <PageViewTracker event="discover_page_viewed" />
-        <div className="space-y-1 mb-5">
-          <h1 className="text-2xl font-bold tracking-tight">Discover</h1>
-          <p className="text-sm text-muted-foreground">
-            Browse DReps, stake pools, proposals, and Constitutional Committee members.
-          </p>
-        </div>
-        <CivicaDiscover
-          dreps={allDReps}
-          totalAvailable={totalAvailable}
-          proposalCount={proposalCount}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="space-y-2 mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Discover Governance</h1>
+    <div className="container mx-auto px-4 sm:px-6 py-6">
+      <PageViewTracker event="discover_page_viewed" />
+      <div className="space-y-1 mb-5">
+        <h1 className="text-2xl font-bold tracking-tight">Discover</h1>
         <p className="text-sm text-muted-foreground">
-          Explore DReps, stake pools, and Constitutional Committee members participating in Cardano
-          governance.
+          Browse DReps, stake pools, proposals, and Constitutional Committee members.
         </p>
       </div>
-      <PageViewTracker event="discover_page_viewed" />
-      <DiscoverTabs
-        drepsContent={
-          <HomepageShell
-            initialDReps={dreps}
-            initialAllDReps={allDReps}
-            initialTotalAvailable={totalAvailable}
-          />
-        }
+      <CivicaDiscover
+        dreps={allDReps}
+        totalAvailable={totalAvailable}
+        proposalCount={proposalCount}
       />
     </div>
   );

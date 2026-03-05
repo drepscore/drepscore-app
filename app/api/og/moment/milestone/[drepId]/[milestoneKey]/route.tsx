@@ -110,7 +110,7 @@ export async function GET(
               <div
                 style={{ display: 'flex', fontSize: '16px', color: OG.textMuted, marginTop: '4px' }}
               >
-                DRepScore: {drep.drepScore}/100
+                Civica Score: {drep.drepScore}/100
               </div>
             </div>
           </div>

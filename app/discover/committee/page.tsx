@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { ArrowLeft, Users, ShieldCheck, Activity } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Constitutional Committee — DRepScore',
+  title: 'Constitutional Committee — Civica',
   description:
     'Explore Constitutional Committee members, transparency scores, and governance voting records on Cardano.',
 };

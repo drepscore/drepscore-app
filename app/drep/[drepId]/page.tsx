@@ -6,8 +6,10 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
+import nextDynamic from 'next/dynamic';
 import type { Metadata } from 'next';
+
+export const dynamic = 'force-dynamic';
 import { getProposalDisplayTitle } from '@/utils/display';
 import { getDRepPrimaryName } from '@/utils/display';
 import {
@@ -22,7 +24,7 @@ import {
 import { VoteRecord } from '@/types/drep';
 import { VotingHistoryWithPrefs } from '@/components/VotingHistoryWithPrefs';
 import { InlineDelegationCTA } from '@/components/InlineDelegationCTA';
-const ScoreHistoryChart = dynamic(
+const ScoreHistoryChart = nextDynamic(
   () => import('@/components/ScoreHistoryChart').then((m) => m.ScoreHistoryChart),
   { loading: () => <div className="h-32 animate-pulse bg-muted rounded-lg" /> },
 );
@@ -41,7 +43,7 @@ import { CompareButton } from '@/components/CompareButton';
 import { ProfileViewTracker } from '@/components/ProfileViewTracker';
 import { PageViewTracker } from '@/components/PageViewTracker';
 import { ProfileViewStats } from '@/components/ProfileViewStats';
-const MilestoneBadges = dynamic(
+const MilestoneBadges = nextDynamic(
   () => import('@/components/MilestoneBadges').then((m) => m.MilestoneBadges),
   { loading: () => <div className="h-32 animate-pulse bg-muted rounded-lg" /> },
 );
@@ -49,7 +51,7 @@ import { GovernancePhilosophyEditor } from '@/components/GovernancePhilosophyEdi
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { DRepTreasuryStance } from '@/components/DRepTreasuryStance';
 import { DRepProfileHero } from '@/components/DRepProfileHero';
-const AlignmentTrajectory = dynamic(
+const AlignmentTrajectory = nextDynamic(
   () => import('@/components/AlignmentTrajectory').then((m) => m.AlignmentTrajectory),
   { loading: () => <div className="h-32 animate-pulse bg-muted rounded-lg" /> },
 );
@@ -96,12 +98,12 @@ export async function generateMetadata({ params }: DRepDetailPageProps): Promise
 
   if (!drep) {
     return {
-      title: 'DRep Not Found — DRepScore',
+      title: 'DRep Not Found — Civica',
     };
   }
 
   const name = getDRepPrimaryName(drep);
-  const title = `${name} — DRepScore ${drep.drepScore}/100`;
+  const title = `${name} — Civica ${drep.drepScore}/100`;
   const description = `Participation: ${drep.effectiveParticipation}% · Rationale: ${drep.rationaleRate}% · Reliability: ${drep.reliabilityScore}% · Profile: ${drep.profileCompleteness}%`;
   const ogImageUrl = `${BASE_URL}/api/og/drep/${encodeURIComponent(drepId)}`;
 
@@ -112,7 +114,7 @@ export async function generateMetadata({ params }: DRepDetailPageProps): Promise
       title,
       description,
       type: 'profile',
-      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${name} DRepScore card` }],
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${name} Civica card` }],
     },
     twitter: {
       card: 'summary_large_image',

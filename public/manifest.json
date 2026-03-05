@@ -1,7 +1,7 @@
 {
-  "name": "DRepScore — Cardano Governance Intelligence",
-  "short_name": "DRepScore",
-  "description": "Discover and delegate to Cardano DReps aligned with your values. Governance scores, voting records, and real-time intelligence.",
+  "name": "Civica — Cardano Governance Intelligence",
+  "short_name": "Civica",
+  "description": "The civic hub for the Cardano Nation. Find your DRep, track governance proposals, and participate in on-chain democracy.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0b14",

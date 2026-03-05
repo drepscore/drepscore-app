@@ -4,6 +4,7 @@ import { getDRepPrimaryName } from '@/utils/display';
 import { OGBackground, OGFooter, OG, tierColor } from '@/lib/og-utils';
 
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

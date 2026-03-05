@@ -43,7 +43,7 @@ export function ShareModal({
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = 'drepscore-card.png';
+      a.download = 'civica-card.png';
       a.click();
       URL.revokeObjectURL(blobUrl);
     } catch {
@@ -96,7 +96,7 @@ export function ShareModal({
             </Button>
           </div>
 
-          <p className="text-center text-xs text-muted-foreground">via DRepScore</p>
+          <p className="text-center text-xs text-muted-foreground">via Civica</p>
         </div>
       </DialogContent>
     </Dialog>

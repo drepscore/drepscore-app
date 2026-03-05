@@ -133,14 +133,16 @@ const ANOMALY_MIN_RECORDS = 20;
 const CONSECUTIVE_DROP_RUNS = 3;
 
 export class SyncLogger {
-  private id: number | null = null;
+  id: number | null = null;
   private startTime: number;
 
   constructor(
     private supabase: ReturnType<typeof getSupabaseAdmin>,
     private syncType: SyncType,
+    existingId?: number | null,
   ) {
     this.startTime = Date.now();
+    if (existingId) this.id = existingId;
   }
 
   async start() {

@@ -5,7 +5,7 @@ import { PageViewTracker } from '@/components/PageViewTracker';
 import { CommitteePageClient } from '@/components/CommitteePageClient';
 
 export const metadata: Metadata = {
-  title: 'Constitutional Committee — DRepScore',
+  title: 'Constitutional Committee — Civica',
   description:
     'Explore the Constitutional Committee members and their governance voting records on Cardano.',
 };

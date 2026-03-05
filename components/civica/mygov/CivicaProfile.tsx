@@ -422,7 +422,7 @@ export function CivicaProfile() {
             <span className="text-emerald-400 font-medium">Wallet connected</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            DRepScore uses your Cardano wallet for authentication. No passwords or email required.
+            Civica uses your Cardano wallet for authentication. No passwords or email required.
           </p>
         </div>
       </Section>

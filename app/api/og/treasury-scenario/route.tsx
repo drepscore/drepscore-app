@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         <div
           style={{ display: 'flex', fontSize: '18px', color: OG.textMuted, marginBottom: '24px' }}
         >
-          Treasury What-If Scenario — DRepScore
+          Treasury What-If Scenario — Civica
         </div>
 
         <div

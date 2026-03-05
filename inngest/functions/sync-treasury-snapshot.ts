@@ -18,12 +18,18 @@ export const syncTreasurySnapshot = inngest.createFunction(
   },
   [{ cron: '30 22 * * *' }, { event: 'drepscore/sync.treasury' }],
   async ({ step }) => {
-    const supabase = getSupabaseAdmin();
-    const syncLog = new SyncLogger(supabase, 'treasury');
-    await syncLog.start();
-
     let snapshotEpoch = 0;
     let errorMessage: string | null = null;
+
+    const logId = await step.run('init-sync-log', async () => {
+      const sb = getSupabaseAdmin();
+      const sl = new SyncLogger(sb, 'treasury');
+      await sl.start();
+      return sl.id;
+    });
+
+    const supabase = getSupabaseAdmin();
+    const syncLog = new SyncLogger(supabase, 'treasury', logId);
 
     try {
       const snapshot = await step.run('fetch-treasury-balance', async () => {

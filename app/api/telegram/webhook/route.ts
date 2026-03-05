@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       case '/start':
         await sendMessage(
           chatId,
-          `<b>Welcome to DRepScore Bot!</b>\n\n` +
+          `<b>Welcome to Civica Bot!</b>\n\n` +
             `Commands:\n` +
             `/connect — Link your wallet to receive alerts\n` +
             `/score &lt;drepId&gt; — Check a DRep's score\n` +
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       case '/help':
         await sendMessage(
           chatId,
-          `<b>DRepScore Bot Commands:</b>\n\n` +
+          `<b>Civica Bot Commands:</b>\n\n` +
             `/connect — Get a link to verify your wallet and enable alerts\n` +
             `/score &lt;drepId&gt; — Look up any DRep's current score\n` +
             `/pending &lt;drepId&gt; — Check pending proposals for a DRep\n` +
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
           `<b>Connect Your Wallet</b>\n\n` +
             `Visit the link below and connect the wallet associated with your DRep:\n\n` +
             `<a href="${SITE_URL}/profile?telegram_connect=${token}">${SITE_URL}/profile</a>\n\n` +
-            `This will link your Telegram to your DRepScore account for alerts.`,
+            `This will link your Telegram to your Civica account for alerts.`,
         );
         break;
       }
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
             `Rationale: ${drep.rationaleRate}%\n` +
             `Reliability: ${drep.reliabilityScore}%\n` +
             `Profile: ${drep.profileCompleteness}%\n\n` +
-            `<a href="${SITE_URL}/drep/${encodeURIComponent(drepId)}">View on DRepScore</a>`,
+            `<a href="${SITE_URL}/drep/${encodeURIComponent(drepId)}">View on Civica</a>`,
         );
         break;
       }

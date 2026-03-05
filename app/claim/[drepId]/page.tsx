@@ -14,11 +14,11 @@ export async function generateMetadata({ params }: ClaimPageProps): Promise<Meta
   const drep = await getDRepById(decodeURIComponent(drepId));
 
   if (!drep) {
-    return { title: 'DRep Not Found — DRepScore' };
+    return { title: 'DRep Not Found — Civica' };
   }
 
   const name = getDRepPrimaryName(drep);
-  const title = `Claim your DRepScore profile — ${name} scored ${drep.drepScore}/100`;
+  const title = `Claim your Civica profile — ${name} scored ${drep.drepScore}/100`;
   const description = `${name} is ranked among Cardano DReps. Claim your profile to access your dashboard, governance inbox, and score tracking.`;
   const ogImageUrl = `${BASE_URL}/api/og/drep/${encodeURIComponent(drepId)}`;
 
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: ClaimPageProps): Promise<Meta
       title,
       description,
       type: 'profile',
-      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${name} DRepScore card` }],
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${name} Civica card` }],
     },
     twitter: {
       card: 'summary_large_image',

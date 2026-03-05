@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!poolRow) {
     const short = poolId.slice(0, 12);
     return {
-      title: `SPO ${short}… Governance Profile — DRepScore`,
+      title: `SPO ${short}… Governance Profile — Civica`,
       description: `Governance participation and voting record for stake pool ${short}… on Cardano.`,
     };
   }
@@ -51,8 +51,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const tier = score != null ? computeTier(score) : null;
   const title =
     score != null && tier
-      ? `${name} — SPO Governance Score: ${score} (${tier}) — DRepScore`
-      : `${name} — SPO Governance Profile — DRepScore`;
+      ? `${name} — SPO Governance Score: ${score} (${tier}) — Civica`
+      : `${name} — SPO Governance Profile — Civica`;
   return {
     title,
     description: `SPO governance score, voting record, and alignment data for ${name} on Cardano.`,

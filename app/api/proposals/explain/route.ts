@@ -64,7 +64,7 @@ export const POST = withRouteHandler(
       ? `This proposal requests ${(Number(proposal.withdrawal_amount) / 1_000_000).toLocaleString()} ADA from the Cardano treasury.`
       : '';
 
-    const prompt = `You are a governance analyst writing for DRepScore, a Cardano governance intelligence platform. Write a clear, informative explanation of this governance proposal for a crypto-literate audience.
+    const prompt = `You are a governance analyst writing for Civica, a Cardano governance intelligence platform. Write a clear, informative explanation of this governance proposal for a crypto-literate audience.
 
 PROPOSAL:
 Title: ${proposal.title || 'Untitled'}

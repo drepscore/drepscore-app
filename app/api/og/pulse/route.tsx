@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase';
 import { OGBackground, OGFooter, OG } from '@/lib/og-utils';
 
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

@@ -38,13 +38,13 @@ function renderBadgeSvg(name: string, score: number, theme: 'dark' | 'light'): s
   const height = 28;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${height}">
-  <title>${name} — DRepScore ${score}/100 (${tier})</title>
+  <title>${name} — Civica ${score}/100 (${tier})</title>
   <rect width="${totalWidth}" height="${height}" rx="4" fill="${bg}"/>
   <clipPath id="r"><rect width="${totalWidth}" height="${height}" rx="4"/></clipPath>
   <g clip-path="url(#r)">
     <rect x="${labelWidth}" width="${scoreWidth}" height="${height}" fill="${color}22"/>
   </g>
-  <text x="8" y="18" font-family="Verdana,Geneva,sans-serif" font-size="11" fill="${textColor}" font-weight="600">DRepScore</text>
+  <text x="8" y="18" font-family="Verdana,Geneva,sans-serif" font-size="11" fill="${textColor}" font-weight="600">Civica</text>
   <text x="${labelWidth + 8}" y="18" font-family="Verdana,Geneva,sans-serif" font-size="11" fill="${color}" font-weight="700">${score}/100</text>
   <text x="${labelWidth + 56}" y="18" font-family="Verdana,Geneva,sans-serif" font-size="9" fill="${color}cc">${tier}</text>
 </svg>`;
@@ -63,10 +63,10 @@ function renderCardSvg(name: string, score: number, drep: any, theme: 'dark' | '
   const h = 140;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
-  <title>${name} — DRepScore ${score}/100 (${tier})</title>
+  <title>${name} — Civica ${score}/100 (${tier})</title>
   <rect width="${w}" height="${h}" rx="8" fill="${bg}" stroke="${borderColor}" stroke-width="1"/>
   <text x="16" y="28" font-family="Verdana,Geneva,sans-serif" font-size="14" fill="${textColor}" font-weight="700">${displayName}</text>
-  <text x="16" y="50" font-family="Verdana,Geneva,sans-serif" font-size="11" fill="${mutedColor}">DRepScore</text>
+  <text x="16" y="50" font-family="Verdana,Geneva,sans-serif" font-size="11" fill="${mutedColor}">Civica</text>
   <text x="16" y="75" font-family="Verdana,Geneva,sans-serif" font-size="28" fill="${color}" font-weight="700">${score}</text>
   <text x="58" y="75" font-family="Verdana,Geneva,sans-serif" font-size="14" fill="${mutedColor}">/100</text>
   <text x="105" y="75" font-family="Verdana,Geneva,sans-serif" font-size="12" fill="${color}">${tier}</text>
@@ -82,7 +82,7 @@ function renderMinimalSvg(score: number, theme: 'dark' | 'light'): string {
   const color = getTierColor(score);
   const bg = theme === 'dark' ? '#1e293b' : '#f1f5f9';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="28">
-  <title>DRepScore ${score}/100</title>
+  <title>Civica ${score}/100</title>
   <rect width="52" height="28" rx="4" fill="${bg}"/>
   <text x="26" y="18" text-anchor="middle" font-family="Verdana,Geneva,sans-serif" font-size="12" fill="${color}" font-weight="700">${score}</text>
 </svg>`;
@@ -109,7 +109,7 @@ a{color:inherit;text-decoration:none}
 </style></head><body>
 <div class="card">
 <div class="name">${name.length > 30 ? name.slice(0, 28) + '&hellip;' : name}</div>
-<div class="label">DRepScore</div>
+<div class="label">Civica</div>
 <div><span class="score">${score}<span>/100</span></span><span class="tier">${tier}</span></div>
 <div class="stats">
 <span>Participation ${Math.round(drep.effectiveParticipation * 100)}%</span>

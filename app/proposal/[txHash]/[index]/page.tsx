@@ -98,8 +98,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const proposal = isNaN(proposalIndex) ? null : await getProposalByKey(txHash, proposalIndex);
   const title = proposal?.title || `Proposal ${txHash.slice(0, 12)}...`;
   return {
-    title: `${title} — DRepScore`,
-    description: `Governance proposal details, votes, and analysis on DRepScore.`,
+    title: `${title} — Civica`,
+    description: `Governance proposal details, votes, and analysis on Civica.`,
   };
 }
 
