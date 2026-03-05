@@ -67,19 +67,29 @@ See `.cursor/plans/civica_phase_3b_eab7f1b4.plan.md` for this phase's detailed p
   - Nav + route hygiene: My Gov sub-nav (Dashboard/Inbox/Profile), 8 legacy route redirects,
     CommandPalette updated with Inbox/Profile routes
 
-## In Progress (Phase 3B — shipping)
+## Completed (Phase 3B — shipped)
 
-- [ ] Preflight (lint, type-check, build)
-- [ ] Commit, PR, merge, deploy, smoke test
+- [x] Preflight (lint, type-check, build)
+- [x] Commit, PR, merge, deploy, smoke test
 
-## Next Up (Phase 3C)
+## Completed (Phase 3C — shipped)
 
-- [ ] SPO Profile Redesign (5.2): Mirror DRep profile architecture — VP1 hero with SPO Score,
-  alignment radar, governance statement. VP2 tabs: voting record, score analysis, delegator breakdown,
-  competitive context. Wire retrospective #7 (Koios /pool_delegators + /pool_voting_power_history).
-- [ ] Proposal Detail Redesign (5.3): "Proposal cards that connect everything" — AI category badge,
-  tri-body vote bars, treasury impact, similar proposals, your DRep's vote highlighted,
-  Phase B scaffold "What representatives are saying" section.
-- [ ] CC Members Civica Integration: Evaluate if Discover > Committee tab suffices or if a
-  standalone Civica-styled /committee page adds value.
-- [ ] Phase 6: Celebrations, sharing, polish — after all profile pages are complete.
+- [x] SPO Profile Redesign (5.2): Mirror DRep profile architecture — VP1 hero with SPO Score,
+      alignment radar, governance statement. VP2 tabs: voting record, score analysis, delegator breakdown,
+      competitive context. Wire retrospective #7 (Koios /pool_delegators + /pool_voting_power_history).
+- [x] Proposal Detail Redesign (5.3): "Proposal cards that connect everything" — AI category badge,
+      tri-body vote bars, treasury impact, similar proposals, your DRep's vote highlighted,
+      Phase B scaffold "What representatives are saying" section.
+- [x] CC Members Civica Integration: /discover/committee — server-rendered page with CC transparency
+      scores (participation rate + DRep alignment), alignment tension detection, route redirects
+      (/committee → /discover/committee, /proposals/:txHash/:index → /proposal/:txHash/:index),
+      CommandPalette entry added.
+
+## Next Up (Phase 3D — Celebrations, Sharing & Communication Preview)
+
+- [ ] Phase 3D: Celebrations, sharing, polish
+  - Milestone celebration modals (first vote delegation, score tier upgrade)
+  - Social share cards for DRep scores and governance milestones
+  - DRep communication preview (Statements tab VP2 — behind drep_communication flag)
+  - Confetti / achievement system scaffold
+- [ ] Phase 6: Full polish run — after all profile pages are complete.

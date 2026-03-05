@@ -9,6 +9,11 @@ import { PoolProfileClient } from '@/components/PoolProfileClient';
 import { GovernanceRadar } from '@/components/GovernanceRadar';
 import { ArrowLeft, TrendingUp, BarChart3 } from 'lucide-react';
 import type { AlignmentScores } from '@/lib/drepIdentity';
+import { getFeatureFlag } from '@/lib/featureFlags';
+import { TierThemeProvider } from '@/components/providers/TierThemeProvider';
+import { SpoProfileTabsV1 } from '@/components/civica/profiles/SpoProfileTabsV1';
+import { computeTier, computeTierProgress } from '@/lib/scoring/tiers';
+import { tierKey, TIER_BADGE_BG, TIER_SCORE_COLOR } from '@/components/civica/cards/tierStyles';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,10 +38,24 @@ function formatPledge(lovelace: number | string | null | undefined): string {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { poolId } = await params;
-  const short = poolId.slice(0, 12);
+  const poolRow = await getPoolRow(poolId);
+  if (!poolRow) {
+    const short = poolId.slice(0, 12);
+    return {
+      title: `SPO ${short}… Governance Profile — DRepScore`,
+      description: `Governance participation and voting record for stake pool ${short}… on Cardano.`,
+    };
+  }
+  const name = (poolRow.pool_name as string) || poolId.slice(0, 12) + '…';
+  const score = poolRow.governance_score as number | null;
+  const tier = score != null ? computeTier(score) : null;
+  const title =
+    score != null && tier
+      ? `${name} — SPO Governance Score: ${score} (${tier}) — DRepScore`
+      : `${name} — SPO Governance Profile — DRepScore`;
   return {
-    title: `SPO ${short}… Governance Profile — DRepScore`,
-    description: `Governance participation and voting record for stake pool ${short}… on Cardano.`,
+    title,
+    description: `SPO governance score, voting record, and alignment data for ${name} on Cardano.`,
   };
 }
 
@@ -46,7 +65,7 @@ async function getPoolRow(poolId: string) {
     const { data, error } = await supabase
       .from('pools')
       .select(
-        'pool_id, ticker, pool_name, pledge, governance_score, participation_rate, consistency_score, reliability_score, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency, delegator_count, live_stake, vote_count',
+        'pool_id, ticker, pool_name, pledge, governance_score, participation_rate, consistency_score, reliability_score, governance_identity_score, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency, delegator_count, live_stake, vote_count, governance_statement',
       )
       .eq('pool_id', poolId)
       .single();
@@ -157,6 +176,8 @@ function toAlignments(row: Record<string, unknown> | null): AlignmentScores {
 export default async function PoolProfilePage({ params }: PageProps) {
   const { poolId } = await params;
   const supabase = createClient();
+
+  const civicaEnabled = await getFeatureFlag('civica_frontend');
 
   const { data: votes } = await supabase
     .from('spo_votes')
@@ -322,6 +343,8 @@ export default async function PoolProfilePage({ params }: PageProps) {
   const participationPillar = (poolRow.participation_rate as number) ?? participationRate;
   const consistencyPillar = (poolRow.consistency_score as number) ?? null;
   const reliabilityPillar = (poolRow.reliability_score as number) ?? null;
+  const governanceIdentityPillar = (poolRow.governance_identity_score as number) ?? null;
+  const governanceStatement = (poolRow.governance_statement as string) ?? null;
   const alignments = toAlignments(poolRow);
 
   const hasAnyAlignment =
@@ -332,192 +355,374 @@ export default async function PoolProfilePage({ params }: PageProps) {
     alignments.innovation != null ||
     alignments.transparency != null;
 
-  return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
-      <PageViewTracker event="pool_profile_viewed" properties={{ pool_id: poolId }} />
+  const tier = computeTier(governanceScore);
+  const tk = tierKey(tier);
+  const tierProgress = computeTierProgress(governanceScore);
 
-      <Link href="/discover">
-        <Button variant="ghost" className="gap-2 -ml-2">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Discover
-        </Button>
-      </Link>
-
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {displayName.length > 32 ? displayName.slice(0, 32) + '…' : displayName}
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              {ticker && (
-                <Badge variant="outline" className="text-cyan-500 border-cyan-500/40">
-                  {ticker.toUpperCase()}
-                </Badge>
-              )}
-              <span className="text-3xl font-bold tabular-nums">{governanceScore}</span>
-              <span className="text-muted-foreground text-sm">governance score</span>
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-              <span>{delegatorCount.toLocaleString()} delegators</span>
-              <span>{formatAda(liveStake)} ADA live stake</span>
-              {pledge != null && <span>{formatPledge(pledge)} ADA pledge</span>}
-            </div>
+  // Score Analysis card (shared between civica and legacy paths)
+  const scoreAnalysisCard = (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5" />
+          Score Analysis
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Participation · 38%</span>
+            <span className="font-mono tabular-nums">{participationPillar ?? '—'}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-cyan-500/80"
+              style={{ width: `${Math.min(100, Math.max(0, participationPillar ?? 0))}%` }}
+            />
           </div>
         </div>
-
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-4 border-y border-border">
-          <div className="flex flex-col items-center text-center min-w-[80px]">
-            <span className="text-xs text-muted-foreground">Votes</span>
-            <span className="text-sm font-semibold font-mono tabular-nums">{voteCount}</span>
-          </div>
-          <div className="flex flex-col items-center text-center min-w-[80px]">
-            <span className="text-xs text-muted-foreground">Participation</span>
-            <span className="text-sm font-semibold font-mono tabular-nums">
-              {participationRate}%
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Consistency · 24%</span>
+            <span className="font-mono tabular-nums">
+              {consistencyPillar != null ? consistencyPillar : '—'}%
             </span>
           </div>
-          {scoreRank != null && (
-            <div className="flex flex-col items-center text-center min-w-[80px]">
-              <span className="text-xs text-muted-foreground">Score Rank</span>
-              <span className="text-sm font-semibold font-mono tabular-nums">
-                Top {100 - scoreRank}%
-              </span>
-            </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-purple-500/80"
+              style={{ width: `${Math.min(100, Math.max(0, consistencyPillar ?? 0))}%` }}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Reliability · 23%</span>
+            <span className="font-mono tabular-nums">
+              {reliabilityPillar != null ? reliabilityPillar : '—'}%
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-amber-500/80"
+              style={{ width: `${Math.min(100, Math.max(0, reliabilityPillar ?? 0))}%` }}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Governance Identity · 15%</span>
+            <span className="font-mono tabular-nums">
+              {governanceIdentityPillar != null ? `${governanceIdentityPillar}%` : '—'}
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-emerald-500/80"
+              style={{
+                width: `${Math.min(100, Math.max(0, governanceIdentityPillar ?? 0))}%`,
+              }}
+            />
+          </div>
+          {governanceIdentityPillar == null && (
+            <p className="text-xs text-muted-foreground">
+              Governance identity scoring coming soon.
+            </p>
           )}
         </div>
+        {tierProgress.recommendedAction && (
+          <p className="text-xs text-muted-foreground border-t pt-3 mt-3">
+            💡 {tierProgress.recommendedAction}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {hasAnyAlignment && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Alignment Radar</CardTitle>
-              </CardHeader>
-              <CardContent className="flex justify-center">
-                <GovernanceRadar alignments={alignments} size="full" />
-              </CardContent>
-            </Card>
+  // Score History card
+  const scoreHistoryCard =
+    sortedSnapshots.length > 0 ? (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Score History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="pb-2 pr-4">Epoch</th>
+                  <th className="pb-2 pr-4">Score</th>
+                  <th className="pb-2 pr-4">Participation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedSnapshots.map((s) => (
+                  <tr key={s.epoch_no} className="border-b border-border/50">
+                    <td className="py-2 pr-4 font-mono">{s.epoch_no}</td>
+                    <td className="py-2 pr-4 font-mono tabular-nums">
+                      {s.governance_score ?? '—'}
+                    </td>
+                    <td className="py-2 pr-4 font-mono tabular-nums">
+                      {s.participation_rate != null ? `${s.participation_rate}%` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    ) : null;
+
+  // Inter-body card
+  const interBodyCard = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Inter-Body Alignment</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {interBody.drepPct != null && (
+            <div>
+              <span className="text-sm text-muted-foreground">Agrees with DRep majority</span>
+              <p className="text-xl font-bold tabular-nums">{interBody.drepPct}%</p>
+            </div>
           )}
-          <Card>
-            <CardHeader>
-              <CardTitle>Inter-Body Alignment</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {interBody.drepPct != null && (
-                  <div>
-                    <span className="text-sm text-muted-foreground">Agrees with DRep majority</span>
-                    <p className="text-xl font-bold tabular-nums">{interBody.drepPct}%</p>
-                  </div>
-                )}
-                {interBody.ccPct != null && (
-                  <div>
-                    <span className="text-sm text-muted-foreground">Agrees with CC majority</span>
-                    <p className="text-xl font-bold tabular-nums">{interBody.ccPct}%</p>
-                  </div>
-                )}
-                {interBody.drepPct == null && interBody.ccPct == null && (
-                  <p className="text-sm text-muted-foreground">
-                    No inter-body alignment data for proposals this pool voted on.
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {interBody.ccPct != null && (
+            <div>
+              <span className="text-sm text-muted-foreground">Agrees with CC majority</span>
+              <p className="text-xl font-bold tabular-nums">{interBody.ccPct}%</p>
+            </div>
+          )}
+          {interBody.drepPct == null && interBody.ccPct == null && (
+            <p className="text-sm text-muted-foreground">
+              No inter-body alignment data for proposals this pool voted on.
+            </p>
+          )}
         </div>
-      </div>
+      </CardContent>
+    </Card>
+  );
 
-      <div className="space-y-6 pt-4 border-t">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Score Analysis
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Participation · 45%</span>
-                <span className="font-mono tabular-nums">{participationPillar ?? '—'}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-cyan-500/80"
-                  style={{ width: `${Math.min(100, Math.max(0, participationPillar ?? 0))}%` }}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Consistency · 30%</span>
-                <span className="font-mono tabular-nums">
-                  {consistencyPillar != null ? consistencyPillar : '—'}%
+  return (
+    <TierThemeProvider score={civicaEnabled ? governanceScore : null}>
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        <PageViewTracker event="pool_profile_viewed" properties={{ pool_id: poolId }} />
+
+        <Link href="/discover">
+          <Button variant="ghost" className="gap-2 -ml-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Discover
+          </Button>
+        </Link>
+
+        {civicaEnabled ? (
+          /* VP1 Civica Hero */
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {displayName.length > 40 ? displayName.slice(0, 40) + '…' : displayName}
+                </h1>
+                {ticker && (
+                  <Badge variant="outline" className="text-cyan-500 border-cyan-500/40 font-mono">
+                    {ticker.toUpperCase()}
+                  </Badge>
+                )}
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TIER_BADGE_BG[tk]}`}
+                >
+                  {tier}
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-purple-500/80"
-                  style={{ width: `${Math.min(100, Math.max(0, consistencyPillar ?? 0))}%` }}
-                />
+
+              <div className="flex items-baseline gap-2">
+                <span className={`text-4xl font-bold tabular-nums ${TIER_SCORE_COLOR[tk]}`}>
+                  {governanceScore}
+                </span>
+                <span className="text-muted-foreground text-sm">governance score</span>
+                {scoreRank != null && (
+                  <span className="ml-2 inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                    Top {100 - scoreRank}% of governance-active SPOs
+                  </span>
+                )}
               </div>
+
+              {governanceStatement && (
+                <p className="text-sm text-muted-foreground italic max-w-2xl">
+                  &ldquo;
+                  {governanceStatement.length > 150
+                    ? governanceStatement.slice(0, 150) + '…'
+                    : governanceStatement}
+                  &rdquo;
+                </p>
+              )}
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Reliability · 25%</span>
-                <span className="font-mono tabular-nums">
-                  {reliabilityPillar != null ? reliabilityPillar : '—'}%
+
+            {/* Key fact chips */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 py-4 border-y border-border">
+              <div className="flex flex-col items-center text-center min-w-[80px]">
+                <span className="text-xs text-muted-foreground">Votes Cast</span>
+                <span className="text-sm font-semibold font-mono tabular-nums">{voteCount}</span>
+              </div>
+              <div className="flex flex-col items-center text-center min-w-[80px]">
+                <span className="text-xs text-muted-foreground">Participation</span>
+                <span className="text-sm font-semibold font-mono tabular-nums">
+                  {participationRate}%
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-amber-500/80"
-                  style={{ width: `${Math.min(100, Math.max(0, reliabilityPillar ?? 0))}%` }}
-                />
+              <div className="flex flex-col items-center text-center min-w-[80px]">
+                <span className="text-xs text-muted-foreground">Delegators</span>
+                <span className="text-sm font-semibold font-mono tabular-nums">
+                  {delegatorCount.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex flex-col items-center text-center min-w-[80px]">
+                <span className="text-xs text-muted-foreground">Live Stake</span>
+                <span className="text-sm font-semibold font-mono tabular-nums">
+                  {formatAda(liveStake)} ₳
+                </span>
+              </div>
+              {interBody.drepPct != null && (
+                <div className="flex flex-col items-center text-center min-w-[100px]">
+                  <span className="text-xs text-muted-foreground">Agrees w/ DReps</span>
+                  <span className="text-sm font-semibold font-mono tabular-nums text-cyan-400">
+                    {interBody.drepPct}%
+                  </span>
+                </div>
+              )}
+              {interBody.ccPct != null && (
+                <div className="flex flex-col items-center text-center min-w-[100px]">
+                  <span className="text-xs text-muted-foreground">Agrees w/ CC</span>
+                  <span className="text-sm font-semibold font-mono tabular-nums text-violet-400">
+                    {interBody.ccPct}%
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Governance Radar */}
+            {hasAnyAlignment && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Alignment Radar</CardTitle>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  <GovernanceRadar alignments={alignments} size="full" />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        ) : (
+          /* Legacy VP0 header */
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {displayName.length > 32 ? displayName.slice(0, 32) + '…' : displayName}
+                </h1>
+                <div className="flex items-center gap-2 mt-1">
+                  {ticker && (
+                    <Badge variant="outline" className="text-cyan-500 border-cyan-500/40">
+                      {ticker.toUpperCase()}
+                    </Badge>
+                  )}
+                  <span className="text-3xl font-bold tabular-nums">{governanceScore}</span>
+                  <span className="text-muted-foreground text-sm">governance score</span>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+                  <span>{delegatorCount.toLocaleString()} delegators</span>
+                  <span>{formatAda(liveStake)} ADA live stake</span>
+                  {pledge != null && <span>{formatPledge(pledge)} ADA pledge</span>}
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {sortedSnapshots.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Score History
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="pb-2 pr-4">Epoch</th>
-                      <th className="pb-2 pr-4">Score</th>
-                      <th className="pb-2 pr-4">Participation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedSnapshots.map((s) => (
-                      <tr key={s.epoch_no} className="border-b border-border/50">
-                        <td className="py-2 pr-4 font-mono">{s.epoch_no}</td>
-                        <td className="py-2 pr-4 font-mono tabular-nums">
-                          {s.governance_score ?? '—'}
-                        </td>
-                        <td className="py-2 pr-4 font-mono tabular-nums">
-                          {s.participation_rate != null ? `${s.participation_rate}%` : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 py-4 border-y border-border">
+              <div className="flex flex-col items-center text-center min-w-[80px]">
+                <span className="text-xs text-muted-foreground">Votes</span>
+                <span className="text-sm font-semibold font-mono tabular-nums">{voteCount}</span>
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex flex-col items-center text-center min-w-[80px]">
+                <span className="text-xs text-muted-foreground">Participation</span>
+                <span className="text-sm font-semibold font-mono tabular-nums">
+                  {participationRate}%
+                </span>
+              </div>
+              {scoreRank != null && (
+                <div className="flex flex-col items-center text-center min-w-[80px]">
+                  <span className="text-xs text-muted-foreground">Score Rank</span>
+                  <span className="text-sm font-semibold font-mono tabular-nums">
+                    Top {100 - scoreRank}%
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {hasAnyAlignment && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Alignment Radar</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex justify-center">
+                    <GovernanceRadar alignments={alignments} size="full" />
+                  </CardContent>
+                </Card>
+              )}
+              {interBodyCard}
+            </div>
+          </div>
         )}
 
-        <PoolProfileClient votes={safeVotes} proposals={proposals} />
+        {/* VP2 Section */}
+        {civicaEnabled ? (
+          <SpoProfileTabsV1
+            poolId={poolId}
+            votingRecordContent={<PoolProfileClient votes={safeVotes} proposals={proposals} />}
+            scoreAnalysisContent={scoreAnalysisCard}
+            trajectoryContent={
+              <div className="space-y-6">
+                {scoreHistoryCard ?? (
+                  <Card>
+                    <CardContent className="py-8 text-center">
+                      <p className="text-sm text-muted-foreground">No score history yet.</p>
+                    </CardContent>
+                  </Card>
+                )}
+                <p className="text-xs text-muted-foreground px-1">
+                  Delegator trend data coming soon via /api/spo/{poolId}/trends.
+                </p>
+              </div>
+            }
+            interBodyContent={
+              <div className="space-y-6">
+                {interBodyCard}
+                {hasAnyAlignment && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Alignment Radar</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex justify-center">
+                      <GovernanceRadar alignments={alignments} size="full" />
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            }
+          />
+        ) : (
+          <div className="space-y-6 pt-4 border-t">
+            {scoreAnalysisCard}
+            {scoreHistoryCard}
+            <PoolProfileClient votes={safeVotes} proposals={proposals} />
+          </div>
+        )}
       </div>
-    </div>
+    </TierThemeProvider>
   );
 }
