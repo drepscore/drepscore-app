@@ -83,6 +83,14 @@ export const PAGE_COMMANDS: CommandItem[] = [
     icon: Sparkles,
     href: '/my-gov',
   },
+  {
+    id: 'page-committee',
+    label: 'Constitutional Committee',
+    sublabel: 'CC member transparency scores and voting records',
+    group: 'pages',
+    icon: Landmark,
+    href: '/discover/committee',
+  },
   { id: 'page-developers', label: 'Developers', sublabel: 'API documentation', group: 'pages', icon: Code2, href: '/developers' },
 ];
 

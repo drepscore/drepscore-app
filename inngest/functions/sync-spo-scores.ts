@@ -409,7 +409,6 @@ export const syncSpoScores = inngest.createFunction(
       const { data: poolsNeedingMeta } = await supabase
         .from('pools')
         .select('pool_id')
-        .or('ticker.is.null,pool_name.is.null')
         .limit(100);
 
       if (!poolsNeedingMeta?.length) return { fetched: 0 };
