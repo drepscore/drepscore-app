@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { DeveloperPage } from '@/components/DeveloperPage';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Developers — Civica API',
   description:

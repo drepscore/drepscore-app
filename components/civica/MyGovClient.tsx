@@ -6,7 +6,6 @@ import { Bell, User, LayoutDashboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSegment } from '@/components/providers/SegmentProvider';
-import { useFeatureFlag } from '@/components/FeatureGate';
 import { CitizenCommandCenter } from './mygov/CitizenCommandCenter';
 import { DRepCommandCenter } from './mygov/DRepCommandCenter';
 import { SPOCommandCenter } from './mygov/SPOCommandCenter';
@@ -59,18 +58,7 @@ function ConnectPrompt() {
 }
 
 export function MyGovClient() {
-  const civica = useFeatureFlag('civica_frontend');
   const { segment, isLoading, drepId, poolId, delegatedDrep } = useSegment();
-
-  if (civica === null) return null;
-
-  if (!civica) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12">
-        <p className="text-muted-foreground">This page is not yet available.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 sm:px-6 py-8 space-y-6">

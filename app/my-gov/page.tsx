@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import type { Metadata } from 'next';
 import { MyGovClient } from '@/components/civica/MyGovClient';
 
