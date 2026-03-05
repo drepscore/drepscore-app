@@ -14,7 +14,14 @@ interface ShareModalProps {
   title: string;
 }
 
-export function ShareModal({ open, onClose, ogImageUrl, shareText, shareUrl, title }: ShareModalProps) {
+export function ShareModal({
+  open,
+  onClose,
+  ogImageUrl,
+  shareText,
+  shareUrl,
+  title,
+}: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 
@@ -54,9 +61,7 @@ export function ShareModal({ open, onClose, ogImageUrl, shareText, shareUrl, tit
         <div className="space-y-4">
           {/* OG card preview */}
           <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted">
-            {!imgLoaded && (
-              <div className="absolute inset-0 animate-pulse bg-muted rounded-lg" />
-            )}
+            {!imgLoaded && <div className="absolute inset-0 animate-pulse bg-muted rounded-lg" />}
             <img
               src={ogImageUrl}
               alt="Share preview"
@@ -67,20 +72,12 @@ export function ShareModal({ open, onClose, ogImageUrl, shareText, shareUrl, tit
 
           {/* Action buttons */}
           <div className="flex gap-2">
-            <Button
-              variant="default"
-              className="flex-1 gap-2"
-              onClick={handleShareX}
-            >
+            <Button variant="default" className="flex-1 gap-2" onClick={handleShareX}>
               <Share2 className="h-4 w-4" />
               Share on X
             </Button>
 
-            <Button
-              variant="outline"
-              className="flex-1 gap-2"
-              onClick={handleCopy}
-            >
+            <Button variant="outline" className="flex-1 gap-2" onClick={handleCopy}>
               {copied ? (
                 <>
                   <Check className="h-4 w-4 text-green-500" />
@@ -94,12 +91,7 @@ export function ShareModal({ open, onClose, ogImageUrl, shareText, shareUrl, tit
               )}
             </Button>
 
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleDownload}
-              aria-label="Download"
-            >
+            <Button variant="outline" size="icon" onClick={handleDownload} aria-label="Download">
               <Download className="h-4 w-4" />
             </Button>
           </div>

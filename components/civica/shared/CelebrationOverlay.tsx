@@ -109,14 +109,15 @@ export function CelebrationOverlay({
             {/* Content */}
             <div className="flex flex-col items-center gap-4 px-6 pb-6 pt-8 text-center">
               {/* Label */}
-              <span className={`text-xs font-semibold uppercase tracking-widest ${TIER_SCORE_COLOR[newTierKey]}`}>
+              <span
+                className={`text-xs font-semibold uppercase tracking-widest ${TIER_SCORE_COLOR[newTierKey]}`}
+              >
                 Tier Change
               </span>
 
               {/* Headline */}
               <h2 className="text-2xl font-bold leading-tight">
-                You reached{' '}
-                <span className={TIER_SCORE_COLOR[newTierKey]}>{newTier}</span>!
+                You reached <span className={TIER_SCORE_COLOR[newTierKey]}>{newTier}</span>!
               </h2>
 
               {/* Name */}
@@ -154,9 +155,7 @@ export function CelebrationOverlay({
               </div>
 
               {/* Countdown label */}
-              <p className="text-xs text-muted-foreground">
-                Auto-dismissing in {countdown}s
-              </p>
+              <p className="text-xs text-muted-foreground">Auto-dismissing in {countdown}s</p>
             </div>
 
             {/* Progress bar */}

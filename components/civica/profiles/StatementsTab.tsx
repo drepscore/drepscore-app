@@ -35,7 +35,9 @@ export function StatementsTab({ drepId, drepName, isOwner, onCompose }: Statemen
   }, [drepId]);
 
   if (loading) {
-    return <div className="py-8 text-center text-sm text-muted-foreground">Loading statements…</div>;
+    return (
+      <div className="py-8 text-center text-sm text-muted-foreground">Loading statements…</div>
+    );
   }
 
   return (

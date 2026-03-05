@@ -40,10 +40,19 @@ export async function GET(
               gap: '24px',
             }}
           >
-            <div style={{ display: 'flex', fontSize: '28px', color: OG.textMuted, fontWeight: 500 }}>
+            <div
+              style={{ display: 'flex', fontSize: '28px', color: OG.textMuted, fontWeight: 500 }}
+            >
               Your Governance This Epoch
             </div>
-            <div style={{ display: 'flex', fontSize: '20px', color: OG.textDim, fontFamily: 'monospace' }}>
+            <div
+              style={{
+                display: 'flex',
+                fontSize: '20px',
+                color: OG.textDim,
+                fontFamily: 'monospace',
+              }}
+            >
               {shortStake}
             </div>
             <div
@@ -177,9 +186,7 @@ export async function GET(
                   minWidth: '180px',
                 }}
               >
-                <div
-                  style={{ display: 'flex', fontSize: '32px', fontWeight: 700, color: OG.text }}
-                >
+                <div style={{ display: 'flex', fontSize: '32px', fontWeight: 700, color: OG.text }}>
                   {s.value}
                 </div>
                 <div

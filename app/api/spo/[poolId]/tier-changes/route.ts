@@ -3,10 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ poolId: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ poolId: string }> }) {
   const { poolId } = await params;
   const url = new URL(request.url);
   const since = url.searchParams.get('since');

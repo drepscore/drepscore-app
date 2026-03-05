@@ -22,7 +22,13 @@ interface StatementCardProps {
   isUsersDRep?: boolean;
 }
 
-export function StatementCard({ drepName, drepId, statementText, createdAt, isUsersDRep }: StatementCardProps) {
+export function StatementCard({
+  drepName,
+  drepId,
+  statementText,
+  createdAt,
+  isUsersDRep,
+}: StatementCardProps) {
   const [expanded, setExpanded] = useState(false);
   const truncated = statementText.length > 200 && !expanded;
 
@@ -30,7 +36,10 @@ export function StatementCard({ drepName, drepId, statementText, createdAt, isUs
     <Card className={isUsersDRep ? 'border-l-4 border-l-amber-500 border-l-solid' : ''}>
       <CardContent className="pt-4 pb-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <Link href={`/drep/${encodeURIComponent(drepId)}`} className="font-medium text-sm hover:underline">
+          <Link
+            href={`/drep/${encodeURIComponent(drepId)}`}
+            className="font-medium text-sm hover:underline"
+          >
             {drepName}
           </Link>
           <div className="flex items-center gap-2">

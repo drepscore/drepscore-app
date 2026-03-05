@@ -90,7 +90,8 @@ export function AnimatedTabs({
           const delta = e.clientX - dragStart;
           if (Math.abs(delta) > 50) {
             const activeIndex = tabs.findIndex((t) => t.id === activeTab);
-            if (delta < 0 && activeIndex < tabs.length - 1) handleTabChange(tabs[activeIndex + 1].id);
+            if (delta < 0 && activeIndex < tabs.length - 1)
+              handleTabChange(tabs[activeIndex + 1].id);
             if (delta > 0 && activeIndex > 0) handleTabChange(tabs[activeIndex - 1].id);
           }
         }}
