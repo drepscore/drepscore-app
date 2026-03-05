@@ -25,6 +25,8 @@ const FRESHNESS_THRESHOLDS: Record<string, { mins: number; event: string }> = {
   epoch_recaps: { mins: 8640, event: 'drepscore/sync.epoch-recaps' },
   spo_scores: { mins: 1500, event: 'drepscore/sync.spo-scores' },
   governance_epoch_stats: { mins: 1500, event: 'drepscore/sync.governance-epoch-stats' },
+  data_moat: { mins: 1500, event: 'drepscore/sync.data-moat' },
+  catalyst: { mins: 1500, event: 'drepscore/sync.catalyst' },
 };
 
 const RECENT_FAILURE_WINDOW_MS = 15 * 60 * 1000;

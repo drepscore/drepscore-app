@@ -21,6 +21,10 @@ const THRESHOLDS: Record<string, number> = {
   epoch_recaps: 8640,
   spo_scores: 2880,
   governance_epoch_stats: 2880,
+  data_moat: 2880,
+  catalyst: 2880,
+  catalyst_proposals: 2880,
+  catalyst_funds: 2880,
 };
 
 export const GET = withRouteHandler(async () => {
@@ -84,6 +88,8 @@ export const GET = withRouteHandler(async () => {
         { name: 'spo_score_snapshots', col: 'epoch' },
         { name: 'spo_alignment_snapshots', col: 'epoch' },
         { name: 'governance_epoch_stats', col: 'epoch_no' },
+        { name: 'epoch_governance_summaries', col: 'epoch_no' },
+        { name: 'drep_delegator_snapshots', col: 'epoch_no' },
       ];
 
       const snapshotChecks = await Promise.all(

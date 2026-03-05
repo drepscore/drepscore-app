@@ -258,6 +258,41 @@ export const checkSnapshotCompleteness = inngest.createFunction(
           detail: govStatsRow ? `epoch ${epoch} present` : `epoch ${epoch} MISSING`,
         });
 
+        // 17. Epoch governance summaries (data moat) for current epoch
+        const { data: epochSummaryRow } = await supabase
+          .from('epoch_governance_summaries')
+          .select('epoch_no')
+          .eq('epoch_no', epoch)
+          .maybeSingle();
+        results.push({
+          name: 'epoch_governance_summaries',
+          passed: !!epochSummaryRow,
+          detail: epochSummaryRow ? `epoch ${epoch} present` : `epoch ${epoch} MISSING`,
+        });
+
+        // 18. Delegator snapshots (data moat) for current epoch
+        const { count: delegatorSnapCount } = await supabase
+          .from('drep_delegator_snapshots')
+          .select('drep_id', { count: 'exact', head: true })
+          .eq('epoch_no', epoch);
+        const delegatorSnapCoverage =
+          expectedDreps > 0 ? ((delegatorSnapCount ?? 0) / expectedDreps) * 100 : 0;
+        results.push({
+          name: 'drep_delegator_snapshots',
+          passed: delegatorSnapCoverage >= 50,
+          detail: `${delegatorSnapCount ?? 0}/${expectedDreps} DReps (${delegatorSnapCoverage.toFixed(1)}%)`,
+        });
+
+        // 19. Committee members (data moat) — not epoch-scoped; verify presence
+        const { count: ccMemberCount } = await supabase
+          .from('committee_members')
+          .select('hot_credential', { count: 'exact', head: true });
+        results.push({
+          name: 'committee_members',
+          passed: (ccMemberCount ?? 0) > 0,
+          detail: `${ccMemberCount ?? 0} members tracked`,
+        });
+
         return results;
       });
 
