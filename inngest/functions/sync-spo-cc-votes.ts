@@ -72,6 +72,8 @@ export const syncSpoAndCcVotes = inngest.createFunction(
           block_time: v.block_time,
           tx_hash: v.tx_hash,
           epoch: v.epoch,
+          meta_url: v.meta_url,
+          meta_hash: v.meta_hash,
         }));
 
         let upserted = 0;

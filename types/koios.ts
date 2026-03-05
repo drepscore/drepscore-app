@@ -193,7 +193,7 @@ export interface SPOVote {
   epoch: number;
 }
 
-// Constitutional Committee Vote (from /vote_list?voter_role=eq.CC)
+// Constitutional Committee Vote (from /vote_list?voter_role=eq.ConstitutionalCommittee)
 export interface CCVote {
   cc_hot_id: string;
   proposal_tx_hash: string;
@@ -202,6 +202,8 @@ export interface CCVote {
   block_time: number;
   tx_hash: string;
   epoch: number;
+  meta_url: string | null;
+  meta_hash: string | null;
 }
 
 // Koios account_info response fields we consume

@@ -940,7 +940,7 @@ export async function fetchAllCCVotesBulk(): Promise<CCVote[]> {
   let page = 0;
 
   while (true) {
-    const url = `/vote_list?voter_role=eq.CC&limit=${VOTE_LIST_PAGE_SIZE}&offset=${offset}`;
+    const url = `/vote_list?voter_role=eq.ConstitutionalCommittee&limit=${VOTE_LIST_PAGE_SIZE}&offset=${offset}`;
     const data = await koiosFetch<
       Array<{
         vote_tx_hash: string;
@@ -950,6 +950,8 @@ export async function fetchAllCCVotesBulk(): Promise<CCVote[]> {
         epoch_no: number;
         block_time: number;
         vote: 'Yes' | 'No' | 'Abstain';
+        meta_url: string | null;
+        meta_hash: string | null;
       }>
     >(url, { cache: 'no-store' });
 
@@ -965,6 +967,8 @@ export async function fetchAllCCVotesBulk(): Promise<CCVote[]> {
         block_time: row.block_time,
         tx_hash: row.vote_tx_hash,
         epoch: row.epoch_no,
+        meta_url: row.meta_url ?? null,
+        meta_hash: row.meta_hash ?? null,
       });
     }
 

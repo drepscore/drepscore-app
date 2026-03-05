@@ -10,12 +10,13 @@ Implementation is NOT complete until deployed and validated in production. Use `
 2. Stage files, commit (conventional: `feat:`, `fix:`, `refactor:`, etc.)
 3. `git push -u origin HEAD`
 4. `gh pr create` -- poll CI until green, fix failures
-5. Merge: `gh api repos/drepscore/drepscore-app/pulls/<N>/merge -X PUT -f merge_method=squash`
-6. Apply migrations via Supabase MCP -> `npm run gen:types` if needed
-7. Monitor Railway (`railway logs`, poll ~5 min)
-8. PUT `https://drepscore.io/api/inngest` if Inngest functions changed
-9. Verify endpoints on `drepscore.io`, run `npm run smoke-test`
-10. Clean up worktree if applicable
+5. **Pre-merge check**: `bash scripts/pre-merge-check.sh <PR#>` -- blocks if CI is running on main or branch is behind
+6. Merge: `gh api repos/drepscore/drepscore-app/pulls/<N>/merge -X PUT -f merge_method=squash`
+7. Apply migrations via Supabase MCP -> `npm run gen:types` if needed
+8. Monitor Railway (`railway logs`, poll ~5 min)
+9. PUT `https://drepscore.io/api/inngest` if Inngest functions changed
+10. Verify endpoints on `drepscore.io`, run `npm run smoke-test`
+11. Clean up worktree if applicable
 
 ## Hard Constraints
 
@@ -70,6 +71,10 @@ C:\Users\dalto\drepscore\
 - Hotfixes: direct on main. Features: `git worktree add ../drepscore-<name> -b feature/<name>`
 - `gh auth switch --user drepscore` before gh commands
 - From worktrees: `gh api .../merge` (not `gh pr merge`)
+- **Parallel agent safety**: Multiple agents may be working simultaneously. Before merging:
+  1. Run `bash scripts/pre-merge-check.sh <PR#>` -- hard requirement
+  2. If another PR merged recently, rebase first: `git fetch origin && git rebase origin/main`
+  3. Never merge while CI is running on main -- wait for it to finish
 
 ## Environment
 
@@ -80,13 +85,14 @@ C:\Users\dalto\drepscore\
 
 ## Scripts
 
-| Script           | Purpose                                 |
-| ---------------- | --------------------------------------- |
-| `preflight`      | format:check + lint + type-check + test |
-| `gen:types`      | Supabase types after migrations         |
-| `inngest:status` | Verify function registration            |
-| `posthog:check`  | Verify analytics events                 |
-| `smoke-test`     | Production health checks                |
+| Script               | Purpose                                    |
+| -------------------- | ------------------------------------------ |
+| `preflight`          | format:check + lint + type-check + test    |
+| `gen:types`          | Supabase types after migrations            |
+| `inngest:status`     | Verify function registration               |
+| `posthog:check`      | Verify analytics events                    |
+| `smoke-test`         | Production health checks                   |
+| `pre-merge-check.sh` | Block merge if CI running or branch behind |
 
 ## Path-Scoped Rules
 

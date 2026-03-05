@@ -30,6 +30,7 @@ import { generateWeeklyDigest } from '@/inngest/functions/generate-weekly-digest
 import { notifyEpochRecap } from '@/inngest/functions/notify-epoch-recap';
 import { syncDataMoat } from '@/inngest/functions/sync-data-moat';
 import { syncCatalyst } from '@/inngest/functions/sync-catalyst';
+import { syncCcRationales } from '@/inngest/functions/sync-cc-rationales';
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -64,5 +65,6 @@ export const { GET, POST, PUT } = serve({
     notifyEpochRecap,
     syncDataMoat,
     syncCatalyst,
+    syncCcRationales,
   ],
 });

@@ -4,68 +4,74 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageViewTracker } from '@/components/PageViewTracker';
 import Link from 'next/link';
-import { ArrowLeft, Users, ShieldCheck, Activity } from 'lucide-react';
+import { ArrowLeft, Users, ShieldCheck, Activity, Scale, BookOpen, Info } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Constitutional Committee — Civica',
   description:
-    'Explore Constitutional Committee members, transparency scores, and governance voting records on Cardano.',
+    'Explore Constitutional Committee members, fidelity scores, and governance voting records on Cardano.',
 };
 
 export const dynamic = 'force-dynamic';
 
-interface CivicaMemberAgg {
-  ccHotId: string;
-  voteCount: number;
-  yesCount: number;
-  noCount: number;
-  abstainCount: number;
-  approvalRate: number;
-  transparencyScore: number;
-  drepAlignmentPct: number | null;
-  participationRate: number;
+interface MemberRow {
+  cc_hot_id: string;
+  author_name: string | null;
+  status: string | null;
+  fidelity_score: number | null;
+  rationale_provision_rate: number | null;
+  avg_article_coverage: number | null;
+  avg_reasoning_quality: number | null;
+  consistency_score: number | null;
 }
 
 interface AlignmentTensionProposal {
   txHash: string;
   proposalIndex: number;
+  title: string | null;
   drepMajority: string;
   ccVote: string;
 }
 
-function computeDrepAlignment(
-  memberVotes: { proposal_tx_hash: string; proposal_index: number; vote: string }[],
-  alignmentMap: Map<string, { drepMajority: string }>,
-): number | null {
-  let matched = 0;
-  let compared = 0;
-  for (const v of memberVotes) {
-    const key = `${v.proposal_tx_hash}-${v.proposal_index}`;
-    const alignment = alignmentMap.get(key);
-    if (!alignment) continue;
-    if (alignment.drepMajority !== 'Abstain') {
-      compared++;
-      if (v.vote === alignment.drepMajority) matched++;
-    }
-  }
-  return compared > 0 ? Math.round((matched / compared) * 100) : null;
+function fidelityColor(score: number | null): string {
+  if (score == null) return 'text-muted-foreground';
+  if (score >= 85) return 'text-emerald-500';
+  if (score >= 70) return 'text-cyan-500';
+  if (score >= 55) return 'text-amber-500';
+  if (score >= 40) return 'text-orange-500';
+  return 'text-rose-500';
 }
 
-export default async function CivicaCommitteePage() {
+function fidelityBarColor(score: number | null): string {
+  if (score == null) return 'bg-muted';
+  if (score >= 85) return 'bg-emerald-500/80';
+  if (score >= 70) return 'bg-cyan-500/80';
+  if (score >= 55) return 'bg-amber-500/80';
+  if (score >= 40) return 'bg-orange-500/80';
+  return 'bg-rose-500/80';
+}
+
+export default async function CommitteeFidelityPage() {
   const supabase = createClient();
 
-  const [{ data: votes }, { count: totalProposals }, { data: alignmentRows }] = await Promise.all([
-    supabase.from('cc_votes').select('cc_hot_id, proposal_tx_hash, proposal_index, vote'),
-    supabase.from('proposals').select('*', { count: 'exact', head: true }),
-    supabase
-      .from('inter_body_alignment')
-      .select('proposal_tx_hash, proposal_index, drep_yes_pct, drep_no_pct'),
-  ]);
+  const [{ data: members }, { data: votes }, { data: alignmentRows }, { data: proposals }] =
+    await Promise.all([
+      supabase
+        .from('cc_members')
+        .select(
+          'cc_hot_id, author_name, status, fidelity_score, rationale_provision_rate, avg_article_coverage, avg_reasoning_quality, consistency_score',
+        ),
+      supabase.from('cc_votes').select('cc_hot_id, proposal_tx_hash, proposal_index, vote'),
+      supabase
+        .from('inter_body_alignment')
+        .select('proposal_tx_hash, proposal_index, drep_yes_pct, drep_no_pct'),
+      supabase.from('proposals').select('tx_hash, index, title'),
+    ]);
 
+  const safeMembers: MemberRow[] = (members ?? []) as MemberRow[];
   const safeVotes = votes ?? [];
-  const safeTotalProposals = totalProposals ?? 0;
 
-  // Build alignment map: proposalKey → drepMajority
+  // Build alignment map
   const alignmentMap = new Map<string, { drepMajority: string }>();
   for (const row of alignmentRows ?? []) {
     const key = `${row.proposal_tx_hash}-${row.proposal_index}`;
@@ -78,57 +84,47 @@ export default async function CivicaCommitteePage() {
     alignmentMap.set(key, { drepMajority });
   }
 
-  // Group votes by member
-  const memberVotesMap = new Map<
-    string,
-    { proposal_tx_hash: string; proposal_index: number; vote: string }[]
-  >();
-  for (const v of safeVotes) {
-    const existing = memberVotesMap.get(v.cc_hot_id) ?? [];
-    existing.push({
-      proposal_tx_hash: v.proposal_tx_hash,
-      proposal_index: v.proposal_index,
-      vote: v.vote,
-    });
-    memberVotesMap.set(v.cc_hot_id, existing);
+  // Build proposal title map
+  const proposalTitleMap = new Map<string, string>();
+  for (const p of proposals ?? []) {
+    proposalTitleMap.set(`${p.tx_hash}-${p.index}`, p.title ?? '');
   }
 
-  // Aggregate per member
-  const members: CivicaMemberAgg[] = Array.from(memberVotesMap.entries())
-    .map(([ccHotId, memberVotes]) => {
-      let yes = 0,
-        no = 0,
-        abstain = 0;
-      for (const v of memberVotes) {
-        if (v.vote === 'Yes') yes++;
-        else if (v.vote === 'No') no++;
-        else abstain++;
-      }
-      const voteCount = yes + no + abstain;
-      const approvalRate = voteCount > 0 ? Math.round((yes / voteCount) * 100) : 0;
-      const participationRate = safeTotalProposals > 0 ? (voteCount / safeTotalProposals) * 100 : 0;
-      const drepAlignmentPct = computeDrepAlignment(memberVotes, alignmentMap);
-      const transparencyScore = Math.round(
-        0.7 * Math.min(100, participationRate) + 0.3 * (drepAlignmentPct ?? 50),
-      );
+  // Build vote counts from cc_votes for members without cc_members entries
+  const memberVoteCounts = new Map<string, number>();
+  for (const v of safeVotes) {
+    memberVoteCounts.set(v.cc_hot_id, (memberVoteCounts.get(v.cc_hot_id) ?? 0) + 1);
+  }
+
+  // Merge: prefer cc_members data, fill gaps from cc_votes
+  const memberIds = new Set([
+    ...safeMembers.map((m) => m.cc_hot_id),
+    ...Array.from(memberVoteCounts.keys()),
+  ]);
+
+  const memberLookup = new Map(safeMembers.map((m) => [m.cc_hot_id, m]));
+
+  const sortedMembers = Array.from(memberIds)
+    .map((id) => {
+      const m = memberLookup.get(id);
       return {
-        ccHotId,
-        voteCount,
-        yesCount: yes,
-        noCount: no,
-        abstainCount: abstain,
-        approvalRate,
-        participationRate,
-        drepAlignmentPct,
-        transparencyScore,
+        ccHotId: id,
+        authorName: m?.author_name ?? null,
+        status: m?.status ?? null,
+        fidelityScore: m?.fidelity_score ?? null,
+        rationaleProvision: m?.rationale_provision_rate ?? null,
+        articleCoverage: m?.avg_article_coverage ?? null,
+        reasoningQuality: m?.avg_reasoning_quality ?? null,
+        consistency: m?.consistency_score ?? null,
+        voteCount: memberVoteCounts.get(id) ?? 0,
       };
     })
-    .sort((a, b) => b.transparencyScore - a.transparencyScore);
+    .sort((a, b) => (b.fidelityScore ?? -1) - (a.fidelityScore ?? -1));
 
-  const totalMembers = members.length;
+  const totalMembers = sortedMembers.length;
   const totalVotes = safeVotes.length;
 
-  // Unanimous rate
+  // Unanimous + tension
   const proposalVoteCounts = new Map<string, Map<string, string>>();
   for (const v of safeVotes) {
     const key = `${v.proposal_tx_hash}-${v.proposal_index}`;
@@ -147,7 +143,6 @@ export default async function CivicaCommitteePage() {
     const isUnanimous = allVotes.every((v) => v === firstVote);
     if (isUnanimous) {
       unanimousCount++;
-      // Check alignment tension
       const alignment = alignmentMap.get(proposalKey);
       if (
         alignment &&
@@ -155,9 +150,11 @@ export default async function CivicaCommitteePage() {
         firstVote !== alignment.drepMajority
       ) {
         const [txHash, idxStr] = proposalKey.split(/-(?=\d+$)/);
+        const proposalIndex = parseInt(idxStr ?? '0', 10);
         tensionProposals.push({
           txHash,
-          proposalIndex: parseInt(idxStr ?? '0', 10),
+          proposalIndex,
+          title: proposalTitleMap.get(proposalKey) || null,
           drepMajority: alignment.drepMajority,
           ccVote: firstVote,
         });
@@ -168,11 +165,19 @@ export default async function CivicaCommitteePage() {
   const unanimousRate =
     proposalVoteCounts.size > 0 ? Math.round((unanimousCount / proposalVoteCounts.size) * 100) : 0;
 
+  // Average fidelity
+  const scoredMembers = sortedMembers.filter((m) => m.fidelityScore != null);
+  const avgFidelity =
+    scoredMembers.length > 0
+      ? Math.round(
+          scoredMembers.reduce((sum, m) => sum + (m.fidelityScore ?? 0), 0) / scoredMembers.length,
+        )
+      : null;
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       <PageViewTracker event="civica_committee_page_viewed" />
 
-      {/* Back nav */}
       <Link
         href="/discover"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -181,13 +186,12 @@ export default async function CivicaCommitteePage() {
         Back to Discover
       </Link>
 
-      {/* Header */}
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Constitutional Committee</h1>
         <p className="text-sm text-muted-foreground max-w-xl">
           The Constitutional Committee ensures governance proposals align with the Cardano
-          Constitution. Transparency scores reflect participation rate and alignment with DRep
-          majority positions.
+          Constitution. Fidelity scores measure rationale quality, article citations, reasoning
+          depth, and consistency.
         </p>
       </div>
 
@@ -202,7 +206,7 @@ export default async function CivicaCommitteePage() {
       ) : (
         <>
           {/* Stat cards */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
@@ -239,71 +243,103 @@ export default async function CivicaCommitteePage() {
                 </p>
               </CardContent>
             </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Scale className="h-4 w-4" />
+                  Avg Fidelity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`text-2xl font-bold ${fidelityColor(avgFidelity)}`}>
+                  {avgFidelity ?? '—'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {scoredMembers.length} of {totalMembers} scored
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Members table */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Member Transparency</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Member Constitutional Fidelity
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-muted-foreground text-xs">
-                      <th className="text-left px-4 py-3 font-medium">Member ID</th>
+                      <th className="text-left px-4 py-3 font-medium">Member</th>
                       <th className="text-right px-4 py-3 font-medium">Votes</th>
                       <th className="text-right px-4 py-3 font-medium hidden sm:table-cell">
-                        Yes / No / Abs
+                        Rationale
                       </th>
                       <th className="text-right px-4 py-3 font-medium hidden md:table-cell">
-                        Approval
+                        Articles
                       </th>
                       <th className="text-right px-4 py-3 font-medium hidden lg:table-cell">
-                        DRep Align
+                        Reasoning
                       </th>
-                      <th className="px-4 py-3 font-medium w-40">Transparency</th>
+                      <th className="px-4 py-3 font-medium w-44">Fidelity</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {members.map((m) => (
+                    {sortedMembers.map((m) => (
                       <tr
                         key={m.ccHotId}
                         className="border-b last:border-0 hover:bg-muted/40 transition-colors"
                       >
-                        <td className="px-4 py-3 font-mono text-xs text-foreground/80">
-                          {m.ccHotId.slice(0, 12)}…{m.ccHotId.slice(-6)}
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/committee/${encodeURIComponent(m.ccHotId)}`}
+                            className="hover:text-primary transition-colors"
+                          >
+                            {m.authorName ? (
+                              <span className="text-sm font-medium">{m.authorName}</span>
+                            ) : (
+                              <span className="font-mono text-xs text-foreground/80">
+                                {m.ccHotId.slice(0, 12)}...{m.ccHotId.slice(-6)}
+                              </span>
+                            )}
+                          </Link>
+                          {m.status && (
+                            <Badge
+                              variant="outline"
+                              className={`ml-2 text-[10px] ${m.status === 'authorized' ? 'text-emerald-500 border-emerald-500/40' : 'text-muted-foreground'}`}
+                            >
+                              {m.status}
+                            </Badge>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">{m.voteCount}</td>
-                        <td className="px-4 py-3 text-right hidden sm:table-cell">
-                          <span className="text-emerald-500">{m.yesCount}</span>
-                          <span className="text-muted-foreground mx-0.5">/</span>
-                          <span className="text-rose-500">{m.noCount}</span>
-                          <span className="text-muted-foreground mx-0.5">/</span>
-                          <span className="text-amber-500">{m.abstainCount}</span>
+                        <td className="px-4 py-3 text-right hidden sm:table-cell tabular-nums">
+                          {m.rationaleProvision != null
+                            ? `${Math.round(m.rationaleProvision)}%`
+                            : '—'}
                         </td>
                         <td className="px-4 py-3 text-right hidden md:table-cell tabular-nums">
-                          {m.approvalRate}%
+                          {m.articleCoverage != null ? `${Math.round(m.articleCoverage)}` : '—'}
                         </td>
                         <td className="px-4 py-3 text-right hidden lg:table-cell tabular-nums">
-                          {m.drepAlignmentPct !== null ? (
-                            <Badge variant="outline" className="text-xs font-mono">
-                              {m.drepAlignmentPct}%
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
+                          {m.reasoningQuality != null ? `${Math.round(m.reasoningQuality)}` : '—'}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                               <div
-                                className="h-full rounded-full bg-cyan-500/80"
-                                style={{ width: `${m.transparencyScore}%` }}
+                                className={`h-full rounded-full ${fidelityBarColor(m.fidelityScore)}`}
+                                style={{ width: `${m.fidelityScore ?? 0}%` }}
                               />
                             </div>
-                            <span className="text-sm font-mono tabular-nums w-8 text-right">
-                              {m.transparencyScore}
+                            <span
+                              className={`text-sm font-mono tabular-nums w-8 text-right ${fidelityColor(m.fidelityScore)}`}
+                            >
+                              {m.fidelityScore ?? '—'}
                             </span>
                           </div>
                         </td>
@@ -315,12 +351,11 @@ export default async function CivicaCommitteePage() {
             </CardContent>
           </Card>
 
-          {/* Alignment Tension section */}
+          {/* Alignment Tension */}
           {tensionProposals.length > 0 && (
             <Card className="border-amber-500/30">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <span className="text-amber-500">⚡</span>
                   Alignment Tension
                   <Badge variant="outline" className="text-amber-500 border-amber-500/40 text-xs">
                     {tensionProposals.length}
@@ -348,9 +383,22 @@ export default async function CivicaCommitteePage() {
                           key={`${t.txHash}-${t.proposalIndex}`}
                           className="border-b last:border-0 hover:bg-muted/40 transition-colors"
                         >
-                          <td className="px-4 py-3 font-mono text-xs text-foreground/80">
-                            {t.txHash.slice(0, 12)}…{t.txHash.slice(-6)}
-                            <span className="text-muted-foreground ml-1">#{t.proposalIndex}</span>
+                          <td className="px-4 py-3">
+                            <Link
+                              href={`/proposal/${t.txHash}/${t.proposalIndex}`}
+                              className="hover:text-primary transition-colors"
+                            >
+                              {t.title ? (
+                                <span className="text-sm line-clamp-1">{t.title}</span>
+                              ) : (
+                                <span className="font-mono text-xs text-foreground/80">
+                                  {t.txHash.slice(0, 12)}...{t.txHash.slice(-6)}
+                                  <span className="text-muted-foreground ml-1">
+                                    #{t.proposalIndex}
+                                  </span>
+                                </span>
+                              )}
+                            </Link>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Badge
@@ -384,6 +432,45 @@ export default async function CivicaCommitteePage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Methodology */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
+                <Info className="h-3.5 w-3.5" />
+                Scoring Methodology
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs text-muted-foreground">
+                <div>
+                  <p className="font-medium text-foreground">Rationale Provision (20%)</p>
+                  <p>Percentage of votes accompanied by a CIP-136 rationale document.</p>
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Article Coverage (30%)</p>
+                  <p>
+                    How well cited constitutional articles match the expected articles for each
+                    proposal type.
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Reasoning Quality (30%)</p>
+                  <p>
+                    Depth of analysis: summary, rationale statement, precedent discussion, and
+                    counterarguments.
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Consistency (20%)</p>
+                  <p>
+                    Independent judgment (bell curve peaking at moderate DRep alignment) plus vote
+                    responsiveness.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
