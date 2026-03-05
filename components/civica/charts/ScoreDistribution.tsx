@@ -1,5 +1,6 @@
 'use client';
 
+// Score distribution histogram for DRep scores
 import { useMemo, useState } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { bin as d3bin, max as d3max } from 'd3-array';
