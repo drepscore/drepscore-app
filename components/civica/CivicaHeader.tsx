@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Home, Compass, Activity, Landmark, Search, Building2 } from 'lucide-react';
+import { Home, Compass, Activity, Landmark, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWallet } from '@/utils/wallet-context';
 import { useSegment, type UserSegment } from '@/components/providers/SegmentProvider';
@@ -20,7 +20,6 @@ const NAV_ITEMS = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/discover', label: 'Discover', icon: Compass },
   { href: '/pulse', label: 'Pulse', icon: Activity },
-  { href: '/committee', label: 'Committee', icon: Building2 },
   { href: '/my-gov', label: 'My Gov', icon: Landmark },
 ] as const;
 

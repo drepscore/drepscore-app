@@ -47,6 +47,7 @@ Build failures or production bugs if violated:
 
 | Purpose                   | Location                                            |
 | ------------------------- | --------------------------------------------------- |
+| Product strategy & vision | `docs/strategy/ultimate-vision.md`                  |
 | Data reads                | `lib/data.ts`                                       |
 | Supabase client           | `lib/supabase.ts`                                   |
 | Koios helpers (sync only) | `utils/koios.ts`                                    |

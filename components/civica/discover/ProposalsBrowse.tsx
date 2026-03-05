@@ -6,7 +6,8 @@ import { Search, X, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useProposals } from '@/hooks/queries';
+import { useProposals, useDRepVotes } from '@/hooks/queries';
+import { useWallet } from '@/utils/wallet-context';
 
 const TYPE_COLORS: Record<string, string> = {
   ParameterChange: 'bg-blue-950/30 text-blue-400 border-blue-800/30',
@@ -41,13 +42,34 @@ function typeLabel(type: string): string {
   return map[type] ?? type;
 }
 
+const VOTE_PILL: Record<string, { label: string; color: string }> = {
+  Yes: { label: 'Yes', color: 'text-green-500 bg-green-500/10 border-green-500/20' },
+  No: { label: 'No', color: 'text-red-500 bg-red-500/10 border-red-500/20' },
+  Abstain: { label: 'Abstain', color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
+};
+
 export function ProposalsBrowse() {
   const { data: rawData, isLoading } = useProposals(200);
   const data = rawData as any;
   const proposals: any[] = data?.proposals ?? [];
+  const { delegatedDrepId } = useWallet();
+  const { data: drepVotesRaw } = useDRepVotes(delegatedDrepId);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+
+  // Build a lookup: "txHash:index" -> vote
+  const drepVoteMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const votes = (drepVotesRaw as any)?.votes ?? drepVotesRaw;
+    if (Array.isArray(votes)) {
+      for (const v of votes) {
+        const key = `${v.proposal_tx_hash ?? v.proposalTxHash}:${v.proposal_index ?? v.proposalIndex}`;
+        map.set(key, v.vote);
+      }
+    }
+    return map;
+  }, [drepVotesRaw]);
 
   const filtered = useMemo(() => {
     let r = proposals;
@@ -129,6 +151,8 @@ export function ProposalsBrowse() {
         <div className="rounded-xl border border-border divide-y divide-border/50 overflow-hidden">
           {filtered.map((p: any) => {
             const status = p.status ?? 'Open';
+            const drepVote = drepVoteMap.get(`${p.txHash}:${p.index}`);
+            const pill = drepVote ? VOTE_PILL[drepVote] : null;
             return (
               <Link
                 key={`${p.txHash}-${p.index}`}
@@ -148,6 +172,17 @@ export function ProposalsBrowse() {
                 <span className="flex-1 text-sm text-foreground truncate min-w-0">
                   {p.title || `${p.txHash?.slice(0, 16)}…`}
                 </span>
+                {pill && (
+                  <span
+                    className={cn(
+                      'text-[10px] font-semibold px-1.5 py-0.5 rounded border shrink-0 hidden sm:inline',
+                      pill.color,
+                    )}
+                    title={`Your DRep voted ${pill.label}`}
+                  >
+                    DRep: {pill.label}
+                  </span>
+                )}
                 <span
                   className={cn(
                     'text-xs font-medium shrink-0',

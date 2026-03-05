@@ -38,7 +38,7 @@ export function SimilarProposals({ txHash, proposalIndex }: SimilarProposalsProp
           {proposals.map((p) => (
             <Link
               key={`${p.txHash}-${p.index}`}
-              href={`/proposals/${p.txHash}/${p.index}`}
+              href={`/proposal/${p.txHash}/${p.index}`}
               className="flex items-center justify-between gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors group"
             >
               <div className="flex-1 min-w-0">

@@ -60,6 +60,13 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof Landmark; color:
   },
 };
 
+function formatTreasuryPct(amount: number, balance: number): string {
+  const pct = (amount / balance) * 100;
+  if (pct >= 1) return `${pct.toFixed(1)}%`;
+  if (pct >= 0.01) return `${pct.toFixed(2)}%`;
+  return `${pct.toFixed(3)}%`;
+}
+
 interface ProposalHeroV1Props {
   txHash: string;
   proposalIndex: number;
@@ -67,6 +74,7 @@ interface ProposalHeroV1Props {
   proposalType: string;
   status: string;
   withdrawalAmount: number | null;
+  treasuryBalanceAda: number | null;
   treasuryTier: string | null;
   proposedEpoch: number | null;
   expirationEpoch: number | null;
@@ -85,6 +93,7 @@ export function ProposalHeroV1({
   title,
   proposalType,
   withdrawalAmount,
+  treasuryBalanceAda,
   treasuryTier,
   proposedEpoch,
   expirationEpoch,
@@ -139,6 +148,12 @@ export function ProposalHeroV1({
           <CardContent className="py-3 px-4">
             <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
               {withdrawalAmount.toLocaleString()} ADA requested
+              {treasuryBalanceAda && treasuryBalanceAda > 0 && (
+                <span className="font-normal text-amber-600/80 dark:text-amber-400/70">
+                  {' '}
+                  ({formatTreasuryPct(withdrawalAmount, treasuryBalanceAda)} of treasury)
+                </span>
+              )}
             </p>
           </CardContent>
         </Card>

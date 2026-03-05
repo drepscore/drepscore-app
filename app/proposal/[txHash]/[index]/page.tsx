@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getProposalByKey, getVotesByProposal } from '@/lib/data';
 import { blockTimeToEpoch } from '@/lib/koios';
+import { getTreasuryBalance } from '@/lib/treasury';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProposalDescription } from '@/components/ProposalDescription';
@@ -40,9 +41,10 @@ export default async function ProposalDetailPage({ params }: PageProps) {
 
   if (isNaN(proposalIndex)) notFound();
 
-  const [proposal, votes] = await Promise.all([
+  const [proposal, votes, treasury] = await Promise.all([
     getProposalByKey(txHash, proposalIndex),
     getVotesByProposal(txHash, proposalIndex),
+    getTreasuryBalance(),
   ]);
 
   if (!proposal) notFound();
@@ -82,6 +84,7 @@ export default async function ProposalDetailPage({ params }: PageProps) {
         proposalType={proposal.proposalType}
         status={status}
         withdrawalAmount={proposal.withdrawalAmount}
+        treasuryBalanceAda={treasury?.balanceAda ?? null}
         treasuryTier={proposal.treasuryTier}
         proposedEpoch={proposal.proposedEpoch}
         expirationEpoch={proposal.expirationEpoch}

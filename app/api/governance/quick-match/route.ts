@@ -1,7 +1,7 @@
 /**
  * Quick Match API — converts 3 value-based answers into an alignment vector
- * and matches against DRep alignment scores using Euclidean distance.
- * No wallet/auth required.
+ * and matches against DRep (or SPO) alignment scores using Euclidean distance.
+ * No wallet/auth required. Supports match_type: 'drep' | 'spo'.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,6 +14,7 @@ import {
   getIdentityColor,
 } from '@/lib/drepIdentity';
 import type { AlignmentScores, AlignmentDimension } from '@/lib/drepIdentity';
+import { computeDimensionAgreement } from '@/lib/matching/dimensionAgreement';
 import { captureServerEvent } from '@/lib/posthog-server';
 
 export const dynamic = 'force-dynamic';
@@ -61,14 +62,19 @@ function distanceToScore(distance: number): number {
 }
 
 export const POST = withRouteHandler(async (request, { requestId }) => {
-  let body: { treasury?: string; protocol?: string; transparency?: string };
+  let body: {
+    treasury?: string;
+    protocol?: string;
+    transparency?: string;
+    match_type?: 'drep' | 'spo';
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { treasury, protocol, transparency } = body;
+  const { treasury, protocol, transparency, match_type = 'drep' } = body;
 
   if (!treasury || !ANSWER_VECTORS.treasury[treasury]) {
     return NextResponse.json({ error: 'Invalid treasury answer' }, { status: 400 });
@@ -104,6 +110,77 @@ export const POST = withRouteHandler(async (request, { requestId }) => {
 
   const supabase = getSupabaseAdmin();
 
+  if (match_type === 'spo') {
+    // SPO matching — query pools table
+    const { data: pools } = await supabase
+      .from('pools')
+      .select(
+        'pool_id, ticker, pool_name, governance_score, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency',
+      )
+      .not('alignment_treasury_conservative', 'is', null);
+
+    if (!pools?.length) {
+      return NextResponse.json({
+        matches: [],
+        userAlignments,
+        personalityLabel: null,
+        matchType: 'spo',
+      });
+    }
+
+    const ranked = pools
+      .map((p) => {
+        const spoAlignments = extractAlignments(p);
+        const distance = euclideanDistance(userAlignments, spoAlignments);
+        const dimAgreement = computeDimensionAgreement(userAlignments, spoAlignments);
+        return {
+          entityId: p.pool_id as string,
+          entityName: (p.ticker as string) || (p.pool_name as string) || null,
+          entityScore: Number(p.governance_score) || 0,
+          matchScore: distanceToScore(distance),
+          alignments: spoAlignments,
+          dominantDimension: getDominantDimension(spoAlignments),
+          agreeDimensions: dimAgreement.agreeDimensions,
+          differDimensions: dimAgreement.differDimensions,
+        };
+      })
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, 5);
+
+    const personalityLabel = getPersonalityLabel(userAlignments);
+    const dominant = getDominantDimension(userAlignments);
+    const identityColor = getIdentityColor(dominant);
+
+    captureServerEvent('quick_match_completed', {
+      treasury,
+      protocol,
+      transparency,
+      match_type: 'spo',
+      personality_label: personalityLabel,
+      top_match_score: ranked[0]?.matchScore ?? null,
+      matches_count: ranked.length,
+    });
+
+    return NextResponse.json({
+      matches: ranked.map((r) => ({
+        drepId: r.entityId,
+        drepName: r.entityName,
+        drepScore: r.entityScore,
+        matchScore: r.matchScore,
+        alignments: r.alignments,
+        identityColor: getIdentityColor(r.dominantDimension).hex,
+        personalityLabel: getPersonalityLabel(r.alignments),
+        agreeDimensions: r.agreeDimensions,
+        differDimensions: r.differDimensions,
+      })),
+      userAlignments,
+      personalityLabel,
+      identityColor: identityColor.hex,
+      matchType: 'spo',
+    });
+  }
+
+  // DRep matching (default)
   const { data: dreps } = await supabase
     .from('dreps')
     .select(
@@ -112,13 +189,19 @@ export const POST = withRouteHandler(async (request, { requestId }) => {
     .not('alignment_treasury_conservative', 'is', null);
 
   if (!dreps?.length) {
-    return NextResponse.json({ matches: [], userAlignments, personalityLabel: null });
+    return NextResponse.json({
+      matches: [],
+      userAlignments,
+      personalityLabel: null,
+      matchType: 'drep',
+    });
   }
 
   const ranked = dreps
     .map((d) => {
       const drepAlignments = extractAlignments(d);
       const distance = euclideanDistance(userAlignments, drepAlignments);
+      const dimAgreement = computeDimensionAgreement(userAlignments, drepAlignments);
       return {
         drepId: d.id,
         drepName: ((d.info as Record<string, unknown>)?.name as string) || null,
@@ -126,6 +209,8 @@ export const POST = withRouteHandler(async (request, { requestId }) => {
         matchScore: distanceToScore(distance),
         alignments: drepAlignments,
         dominantDimension: getDominantDimension(drepAlignments),
+        agreeDimensions: dimAgreement.agreeDimensions,
+        differDimensions: dimAgreement.differDimensions,
       };
     })
     .sort((a, b) => b.matchScore - a.matchScore)
@@ -139,6 +224,7 @@ export const POST = withRouteHandler(async (request, { requestId }) => {
     treasury,
     protocol,
     transparency,
+    match_type: 'drep',
     personality_label: personalityLabel,
     top_match_score: ranked[0]?.matchScore ?? null,
     matches_count: ranked.length,
@@ -150,11 +236,15 @@ export const POST = withRouteHandler(async (request, { requestId }) => {
       drepName: r.drepName,
       drepScore: r.drepScore,
       matchScore: r.matchScore,
+      alignments: r.alignments,
       identityColor: getIdentityColor(r.dominantDimension).hex,
       personalityLabel: getPersonalityLabel(r.alignments),
+      agreeDimensions: r.agreeDimensions,
+      differDimensions: r.differDimensions,
     })),
     userAlignments,
     personalityLabel,
     identityColor: identityColor.hex,
+    matchType: 'drep',
   });
 });
