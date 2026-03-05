@@ -297,17 +297,17 @@ export function ConstellationHero({
             <span className="text-white">This is Cardano governance. All of it.</span>
           </h1>
 
-          <p className="mt-4 text-sm sm:text-base md:text-lg text-white/60 text-center max-w-2xl animate-fade-in-up animation-delay-200 hero-text-shadow">
+          <p className="mt-4 text-sm sm:text-base md:text-lg text-white/80 text-center max-w-2xl animate-fade-in-up animation-delay-200 hero-text-shadow">
             {stats.activeDReps.toLocaleString()} DReps. {stats.activeSpOs} Pools. {stats.ccMembers}{' '}
             Committee Members. {stats.totalAdaGoverned} ADA.
           </p>
 
           {/* Live stats strip */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs sm:text-sm text-white/40 animate-fade-in-up animation-delay-200 hero-text-shadow">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs sm:text-sm text-white/60 animate-fade-in-up animation-delay-200 hero-text-shadow">
             <span>{stats.activeDReps.toLocaleString()} DReps</span>
-            <span className="hidden sm:inline text-white/20">|</span>
+            <span className="hidden sm:inline text-white/30">|</span>
             <span>{stats.activeSpOs} Pools</span>
-            <span className="hidden sm:inline text-white/20">|</span>
+            <span className="hidden sm:inline text-white/30">|</span>
             <span>{stats.ccMembers} CC Members</span>
           </div>
 
@@ -324,7 +324,7 @@ export function ConstellationHero({
           )}
 
           {/* Tri-body legend */}
-          <div className="mt-3 flex items-center justify-center gap-4 text-xs text-white/40 animate-fade-in-up animation-delay-200">
+          <div className="mt-3 flex items-center justify-center gap-4 text-xs text-white/60 animate-fade-in-up animation-delay-200">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary" />
               DReps
@@ -359,7 +359,7 @@ export function ConstellationHero({
           <div
             className={`mt-6 transition-opacity duration-500 animate-bounce ${scrolledPastHero ? 'opacity-0' : 'opacity-60'}`}
           >
-            <ChevronDown className="w-6 h-6 text-white/50" />
+            <ChevronDown className="w-6 h-6 text-white/70" />
           </div>
         </div>
       )}

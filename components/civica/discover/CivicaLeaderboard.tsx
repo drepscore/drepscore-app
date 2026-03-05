@@ -136,7 +136,7 @@ export function CivicaLeaderboard() {
                   <span className="flex-1 text-sm font-medium text-foreground truncate min-w-0">
                     {entry.name}
                     {!entry.isActive && (
-                      <span className="ml-1 text-[10px] text-muted-foreground/50">(inactive)</span>
+                      <span className="ml-1 text-[10px] text-muted-foreground/70">(inactive)</span>
                     )}
                   </span>
 

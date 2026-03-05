@@ -4,7 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Home, Compass, Activity, Landmark, Search, User, LogOut } from 'lucide-react';
+import { Home, Compass, Activity, Landmark, Search, User, LogOut, Sun, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { useWallet } from '@/utils/wallet-context';
 import { useSegment, type UserSegment } from '@/components/providers/SegmentProvider';
@@ -42,6 +43,7 @@ export function CivicaHeader() {
   const { connected, disconnect } = useWallet();
   const { segment, stakeAddress } = useSegment();
   const unreadCount = useUnreadNotifications(stakeAddress ?? null);
+  const { resolvedTheme, setTheme } = useTheme();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
 
   const isActive = (href: string) => {
@@ -103,9 +105,20 @@ export function CivicaHeader() {
             aria-label="Open command palette"
           >
             <Search className="h-4 w-4 mr-1.5" />
-            <kbd className="text-xs text-muted-foreground/60 bg-muted px-1.5 py-0.5 rounded">
+            <kbd className="text-xs text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded">
               ⌘K
             </kbd>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            <Sun className="h-4 w-4 rotate-0 scale-100 transition-transform dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
           </Button>
 
           {connected ? (

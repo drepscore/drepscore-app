@@ -69,7 +69,7 @@ export function CrossChainReportCard({ benchmark, className = '' }: CrossChainRe
       </p>
 
       {/* Data source + freshness */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground/50">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
         <span>Data from {model.source}</span>
         {freshness && <span>Updated {freshness}</span>}
       </div>
@@ -85,7 +85,7 @@ function MetricCell({ metric, chainColor }: { metric: ChainMetric; chainColor: s
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info className="h-3 w-3 shrink-0 cursor-help text-muted-foreground/40" />
+              <Info className="h-3 w-3 shrink-0 cursor-help text-muted-foreground/70" />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[220px] text-xs">
               {metric.context}

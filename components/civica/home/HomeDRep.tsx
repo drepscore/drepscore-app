@@ -26,20 +26,20 @@ import { useSegment } from '@/components/providers/SegmentProvider';
 
 const TIER_COLORS: Record<string, string> = {
   Emerging: 'text-muted-foreground',
-  Bronze: 'text-amber-600',
-  Silver: 'text-slate-400',
-  Gold: 'text-yellow-500',
-  Diamond: 'text-cyan-400',
-  Legendary: 'text-violet-400',
+  Bronze: 'text-amber-700 dark:text-amber-600',
+  Silver: 'text-slate-500 dark:text-slate-400',
+  Gold: 'text-yellow-600 dark:text-yellow-500',
+  Diamond: 'text-cyan-600 dark:text-cyan-400',
+  Legendary: 'text-violet-600 dark:text-violet-400',
 };
 
 const TIER_BG: Record<string, string> = {
   Emerging: 'bg-card border-border',
-  Bronze: 'bg-amber-950/20 border-amber-800/25',
-  Silver: 'bg-slate-900/30 border-slate-700/25',
-  Gold: 'bg-yellow-950/20 border-yellow-800/25',
-  Diamond: 'bg-cyan-950/20 border-cyan-800/25',
-  Legendary: 'bg-violet-950/20 border-violet-800/25',
+  Bronze: 'bg-amber-50 dark:bg-amber-950/20 border-amber-300/40 dark:border-amber-800/25',
+  Silver: 'bg-slate-50 dark:bg-slate-900/30 border-slate-300/40 dark:border-slate-700/25',
+  Gold: 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-300/50 dark:border-yellow-800/25',
+  Diamond: 'bg-cyan-50 dark:bg-cyan-950/20 border-cyan-300/50 dark:border-cyan-800/25',
+  Legendary: 'bg-violet-50 dark:bg-violet-950/20 border-violet-300/50 dark:border-violet-800/25',
 };
 
 function SparkLine({ history }: { history: { score: number }[] }) {

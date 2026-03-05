@@ -154,7 +154,7 @@ export function CivicaSPOCard({ pool, rank }: CivicaSPOCardProps) {
 
       {/* ── Footer ──────────────────────────────────────────── */}
       <div className="mt-auto pt-2 flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+        <span className="text-[10px] text-muted-foreground/70 tabular-nums">
           {pool.voteCount} governance votes
         </span>
         <span

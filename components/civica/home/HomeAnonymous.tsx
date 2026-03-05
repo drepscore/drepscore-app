@@ -65,12 +65,12 @@ export function HomeAnonymous({ pulseData }: HomeAnonymousProps) {
         {/* Value prop overlay */}
         <div className="absolute inset-0 flex items-center justify-center px-4">
           <div className="text-center max-w-2xl space-y-4">
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground drop-shadow-lg leading-tight">
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white drop-shadow-lg leading-tight">
               Cardano has a government.
               <br />
               <span className="text-primary">Know who represents you.</span>
             </h1>
-            <p className="text-base sm:text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg text-white/80 max-w-lg mx-auto leading-relaxed">
               Every ADA holder has a voice in <GovTerm term="governanceAction">governance</GovTerm>.
               Find the <GovTerm term="drep">DRep</GovTerm> who shares your values — in under 2
               minutes.

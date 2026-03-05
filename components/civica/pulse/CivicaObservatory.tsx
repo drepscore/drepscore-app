@@ -100,7 +100,7 @@ function EDICard({ metric }: { metric: EDIMetric }) {
           {metric.label}
         </p>
         <div className="relative">
-          <Info className="h-3.5 w-3.5 text-muted-foreground/50 cursor-help" />
+          <Info className="h-3.5 w-3.5 text-muted-foreground/70 cursor-help" />
           <div className="absolute bottom-full right-0 mb-2 w-56 p-2 rounded-lg border border-border bg-popover text-xs text-muted-foreground shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-10">
             {metric.description}
           </div>

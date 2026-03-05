@@ -165,7 +165,7 @@ export function GovernanceObservatory({
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-500/70" />
             <div className="min-w-0">
               <p className="text-sm italic text-muted-foreground">{aiInsight}</p>
-              <span className="mt-1 inline-block text-[10px] text-muted-foreground/40">
+              <span className="mt-1 inline-block text-[10px] text-muted-foreground/70">
                 AI-generated observation
               </span>
             </div>
@@ -176,7 +176,7 @@ export function GovernanceObservatory({
         <CrossChainDecentralization />
 
         {/* Methodology footer */}
-        <p className="text-center text-[11px] leading-relaxed text-muted-foreground/50">
+        <p className="text-center text-[11px] leading-relaxed text-muted-foreground/70">
           Each chain&apos;s metrics reflect its own governance model. Cross-chain scores are only
           shown for mathematically comparable properties (power distribution). Data sources: Cardano
           (on-chain via Koios), Ethereum (Tally), Polkadot (SubSquare).

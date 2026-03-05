@@ -68,7 +68,7 @@ export function CrossChainDecentralization({
                     </span>
                   </>
                 ) : (
-                  <span className="flex-1 text-xs italic text-muted-foreground/50">
+                  <span className="flex-1 text-xs italic text-muted-foreground/70">
                     Coming soon
                   </span>
                 )}
@@ -78,7 +78,7 @@ export function CrossChainDecentralization({
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2 py-6 text-center">
-          <Info className="h-5 w-5 text-muted-foreground/40" />
+          <Info className="h-5 w-5 text-muted-foreground/70" />
           <p className="text-xs text-muted-foreground/60">
             Edinburgh Decentralization Index metrics will appear here once EDI data is available for
             each chain&apos;s voting power distribution.
@@ -86,7 +86,7 @@ export function CrossChainDecentralization({
         </div>
       )}
 
-      <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground/50">
+      <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground/70">
         Power decentralization measured using the Edinburgh Decentralization Index methodology — 7
         standardized metrics applied to each chain&apos;s voting power distribution.
       </p>

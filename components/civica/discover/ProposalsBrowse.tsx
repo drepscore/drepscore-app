@@ -24,7 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
   Ratified: 'text-sky-400',
   Enacted: 'text-violet-400',
   Dropped: 'text-muted-foreground',
-  Expired: 'text-muted-foreground/50',
+  Expired: 'text-muted-foreground/70',
 };
 
 const STATUS_FILTERS = ['All', 'Open', 'Ratified', 'Enacted', 'Expired', 'Dropped'];
@@ -191,7 +191,7 @@ export function ProposalsBrowse() {
                 >
                   {status}
                 </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground/70 shrink-0 group-hover:text-muted-foreground transition-colors" />
               </Link>
             );
           })}

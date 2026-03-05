@@ -136,8 +136,8 @@ export function GovTerm({ term, children, segmentOverride, className }: GovTermP
           )}
 
           <div className="px-3 py-1.5 border-t border-border/40 flex items-center gap-1">
-            <HelpCircle className="h-3 w-3 text-muted-foreground/40" />
-            <span className="text-[10px] text-muted-foreground/40">Civica Glossary</span>
+            <HelpCircle className="h-3 w-3 text-muted-foreground/70" />
+            <span className="text-[10px] text-muted-foreground/70">Civica Glossary</span>
           </div>
         </TooltipContent>
       </Tooltip>

@@ -168,7 +168,7 @@ export function CivicaDRepCard({ drep, rank }: CivicaDRepCardProps) {
 
       {/* ── CTA ────────────────────────────────────────────── */}
       <div className="mt-auto pt-2 flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground/50">
+        <span className="text-[10px] text-muted-foreground/70">
           {drep.effectiveParticipation
             ? `${Math.round(drep.effectiveParticipation)}% participation`
             : 'No participation data'}

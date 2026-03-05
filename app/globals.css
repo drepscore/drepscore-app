@@ -131,7 +131,7 @@
   --secondary-foreground: oklch(0.96 0.005 260);
 
   --muted: oklch(0.15 0.015 260);
-  --muted-foreground: oklch(0.55 0.03 260);
+  --muted-foreground: oklch(0.65 0.025 260);
 
   --accent: oklch(0.13 0.02 260);
   --accent-foreground: oklch(0.96 0.005 260);
@@ -322,7 +322,10 @@
 }
 
 [data-slot='card']:hover {
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.06);
+  border-color: rgb(var(--identity-rgb) / 0.12);
+  box-shadow:
+    0 4px 16px rgb(0 0 0 / 0.06),
+    0 0 0 1px rgb(var(--identity-rgb) / 0.05);
   transform: translateY(-1px) scale(1.003);
 }
 

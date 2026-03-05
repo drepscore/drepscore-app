@@ -32,20 +32,20 @@ const GovernanceConstellation = dynamic(
 
 const TIER_COLORS: Record<string, string> = {
   Emerging: 'text-muted-foreground',
-  Bronze: 'text-amber-600',
-  Silver: 'text-slate-400',
-  Gold: 'text-yellow-500',
-  Diamond: 'text-cyan-400',
-  Legendary: 'text-violet-400',
+  Bronze: 'text-amber-700 dark:text-amber-600',
+  Silver: 'text-slate-500 dark:text-slate-400',
+  Gold: 'text-yellow-600 dark:text-yellow-500',
+  Diamond: 'text-cyan-600 dark:text-cyan-400',
+  Legendary: 'text-violet-600 dark:text-violet-400',
 };
 
 const TIER_BG: Record<string, string> = {
   Emerging: 'bg-muted/40',
-  Bronze: 'bg-amber-950/30 border-amber-800/30',
-  Silver: 'bg-slate-900/40 border-slate-700/30',
-  Gold: 'bg-yellow-950/30 border-yellow-800/30',
-  Diamond: 'bg-cyan-950/30 border-cyan-800/30',
-  Legendary: 'bg-violet-950/30 border-violet-800/30',
+  Bronze: 'bg-amber-50 dark:bg-amber-950/30 border-amber-300/40 dark:border-amber-800/30',
+  Silver: 'bg-slate-50 dark:bg-slate-900/40 border-slate-300/40 dark:border-slate-700/30',
+  Gold: 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/50 dark:border-yellow-800/30',
+  Diamond: 'bg-cyan-50 dark:bg-cyan-950/30 border-cyan-300/50 dark:border-cyan-800/30',
+  Legendary: 'bg-violet-50 dark:bg-violet-950/30 border-violet-300/50 dark:border-violet-800/30',
 };
 
 interface PulseData {
@@ -86,10 +86,10 @@ function UndelegatedHome({ pulseData }: { pulseData: PulseData }) {
 
         <div className="absolute inset-0 flex items-center justify-center px-4">
           <div className="text-center max-w-xl space-y-2">
-            <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground drop-shadow-lg leading-tight">
+            <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white drop-shadow-lg leading-tight">
               Your ADA is <span className="text-primary">unrepresented</span>.
             </h1>
-            <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
+            <p className="text-sm sm:text-base text-white/80 max-w-md mx-auto">
               {pulseData.activeProposals > 0 ? (
                 <>
                   {pulseData.activeProposals} proposals are being voted on right now — and your

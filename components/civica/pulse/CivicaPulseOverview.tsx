@@ -79,7 +79,7 @@ function StatCard({
       </div>
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
       {href && (
-        <div className="flex items-center gap-1 text-[10px] text-muted-foreground/50 group-hover:text-primary transition-colors">
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70 group-hover:text-primary transition-colors">
           View details <ChevronRight className="h-3 w-3" />
         </div>
       )}
