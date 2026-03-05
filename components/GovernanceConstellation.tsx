@@ -19,6 +19,7 @@ import { computeLayout } from '@/lib/constellation/layout';
 const DREP_COLOR = '#2dd4bf';
 const SPO_COLOR = '#06b6d4';
 const CC_COLOR = '#fbbf24';
+const CORE_COLOR = '#fff0d4'; // warm white sun — distinct from all node colors
 import type {
   ConstellationApiData,
   FindMeTarget,
@@ -53,7 +54,7 @@ interface SceneState {
 }
 
 const INITIAL_CAMERA: [number, number, number] = [0, -18, 10];
-const INITIAL_TARGET: [number, number, number] = [0, 0, 0];
+const INITIAL_TARGET: [number, number, number] = [0, 0, -1];
 const ROTATION_SPEED = 0.05; // radians/s, ~2 min per revolution
 
 export const GovernanceConstellation = forwardRef<ConstellationRef, ConstellationProps>(
@@ -195,10 +196,7 @@ export const GovernanceConstellation = forwardRef<ConstellationRef, Constellatio
       quality === 'low' ? 1 : quality === 'mid' ? 1.5 : Math.min(window.devicePixelRatio, 2);
 
     return (
-      <div
-        className={`relative z-0 w-full ${className || ''}`}
-        style={{ minHeight: '100vh', background: '#0a0b14' }}
-      >
+      <div className={`relative z-0 w-full ${className || ''}`} style={{ background: '#0a0b14' }}>
         {ready && (
           <Canvas
             dpr={dpr}
@@ -609,15 +607,27 @@ function GovernanceCore() {
   return (
     <group>
       <mesh ref={coreRef}>
-        <sphereGeometry args={[0.35, 24, 24]} />
+        <sphereGeometry args={[0.7, 32, 32]} />
         <meshStandardMaterial
-          emissive={CC_COLOR}
-          emissiveIntensity={1.5}
-          color={CC_COLOR}
+          emissive={CORE_COLOR}
+          emissiveIntensity={3}
+          color={CORE_COLOR}
           toneMapped={false}
         />
       </mesh>
-      <pointLight color={CC_COLOR} intensity={2} distance={6} decay={2} />
+      {/* Corona glow — soft halo around the sun */}
+      <mesh>
+        <sphereGeometry args={[2.0, 16, 16]} />
+        <meshBasicMaterial
+          color={CORE_COLOR}
+          transparent
+          opacity={0.06}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+      <pointLight color={CORE_COLOR} intensity={4} distance={12} decay={2} />
     </group>
   );
 }
