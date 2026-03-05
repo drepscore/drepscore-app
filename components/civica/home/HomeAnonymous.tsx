@@ -54,28 +54,37 @@ export function HomeAnonymous({ pulseData }: HomeAnonymousProps) {
   return (
     <div className="relative min-h-screen flex flex-col">
       {/* ── Constellation hero (75vh) ────────────────────────────────── */}
-      <section className="relative h-[60vh] min-h-[480px] overflow-hidden" aria-hidden="true">
+      <section
+        className="relative h-[60vh] sm:h-[calc(60vh+3.5rem)] min-h-[480px] sm:-mt-14 overflow-hidden"
+        aria-hidden="true"
+      >
         <div className="absolute inset-0">
           <GovernanceConstellation className="w-full h-full" interactive={false} />
         </div>
 
-        {/* Gradient fade at bottom */}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+        {/* Gradient fade at bottom — elongated for softer transition */}
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
 
         {/* Value prop overlay */}
-        <div className="absolute inset-0 flex items-center justify-center px-4">
-          <div className="text-center max-w-2xl space-y-4">
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white drop-shadow-lg leading-tight">
-              Your ADA. Your government.
-              <br />
-              <span className="text-[#fff0d4]">Know who represents you.</span>
-            </h1>
-            <p className="text-base sm:text-lg text-white/80 max-w-lg mx-auto leading-relaxed">
-              Every ADA holder has a voice in <GovTerm term="governanceAction">governance</GovTerm>.
-              Find the <GovTerm term="drep">DRep</GovTerm> who shares your values — in under 2
-              minutes.
-            </p>
-          </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:pt-14">
+          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white drop-shadow-lg leading-tight text-center">
+            Your ADA. Your government.
+          </h1>
+
+          {/* Gap where the constellation core sun shows through */}
+          <div className="h-14 sm:h-20" />
+
+          <p className="font-display text-xl sm:text-2xl lg:text-3xl font-semibold text-[#fff0d4] drop-shadow-lg text-center">
+            Know who represents you.
+          </p>
+          <p
+            className="text-base sm:text-lg text-white/80 max-w-lg mx-auto leading-relaxed text-center mt-3"
+            style={{ textShadow: '0 2px 12px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.5)' }}
+          >
+            Every ADA holder has a voice in <GovTerm term="governanceAction">governance</GovTerm>.
+            Find the <GovTerm term="drep">DRep</GovTerm> who shares your values — in under 2
+            minutes.
+          </p>
         </div>
       </section>
 

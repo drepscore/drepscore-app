@@ -29,7 +29,7 @@ const ARM_ANGLES: Record<AlignmentDimension, number> = (() => {
 const ARM_PITCH = [0.06, -0.06, 0.06, -0.06, 0.06, -0.06]; // ~3.5° tilt — flattened ecliptic disc
 const ARM_FAN_ARC = Math.PI / 3;
 const MAX_RADIUS = 15;
-const ANCHOR_RADIUS = MAX_RADIUS * 0.3;
+const ANCHOR_RADIUS = MAX_RADIUS * 0.4; // structural hexagon outside CC ring
 const MIN_VISIBLE_SCALE = 0.06;
 const MAX_VISIBLE_SCALE = 0.25;
 
@@ -46,7 +46,7 @@ interface LayoutInput {
 
 const SPO_LIMIT = 400;
 const SPO_SCALE_FACTOR = 0.6;
-const CC_SCALE_FACTOR = 0.8;
+const CC_SCALE_FACTOR = 1.15; // CC nodes slightly bigger than largest DRep
 
 export function computeLayout(inputs: LayoutInput[], nodeLimit: number): LayoutResult {
   const drepInputs = inputs.filter((n) => n.nodeType === 'drep');
@@ -120,12 +120,12 @@ export function computeLayout(inputs: LayoutInput[], nodeLimit: number): LayoutR
     nodeMap.set(node.id, node);
   }
 
-  // CC nodes — tight cluster near origin, elevated
+  // CC nodes — inner ring orbiting the core sun
   for (let i = 0; i < ccInputs.length; i++) {
     const input = ccInputs[i];
     const ccAngle = (i / Math.max(ccInputs.length, 1)) * Math.PI * 2;
-    const ccRadius = 4.5;
-    const z = 0.4;
+    const ccRadius = 3.5;
+    const z = 0.3;
     const scale = MAX_VISIBLE_SCALE * CC_SCALE_FACTOR;
     const node: ConstellationNode3D = {
       ...input,
@@ -160,7 +160,7 @@ function computeNodePosition(input: LayoutInput): [number, number, number] {
 
   if (totalWeight < 1) {
     const hashAngle = ((hash >> 8) % 10000) / 10000;
-    const r = 2.5 + hashNorm * 2.0;
+    const r = 5.5 + hashNorm * 2.5; // past CC inner ring
     const a = hashAngle * Math.PI * 2;
     return [Math.cos(a) * r, Math.sin(a) * r, (hashAngle - 0.5) * 0.6];
   }
@@ -168,9 +168,9 @@ function computeNodePosition(input: LayoutInput): [number, number, number] {
   const dirAngle = Math.atan2(wy, wx);
   const specialization = Math.min(1, totalWeight / (DIMS.length * 30));
 
-  // H4: Arm-tip clustering — push nodes toward outer 60-80% of arm
+  // DReps start outside the CC inner ring and extend to arm tips
   const clustered = Math.pow(specialization, 0.7);
-  const dist = MAX_RADIUS * (0.25 + clustered * 0.7);
+  const dist = MAX_RADIUS * (0.4 + clustered * 0.55);
 
   const fanOffset = (hashNorm - 0.5) * ARM_FAN_ARC;
   const finalAngle = dirAngle + fanOffset;

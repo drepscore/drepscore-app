@@ -51,8 +51,15 @@ export function CivicaHeader() {
     return pathname === href || pathname.startsWith(href + '/');
   };
 
+  const isHome = pathname === '/';
+
   return (
-    <header className="sticky top-0 z-50 hidden sm:block border-b border-border/50 bg-background/80 backdrop-blur-xl">
+    <header
+      className={cn(
+        'sticky top-0 z-50 hidden sm:block transition-colors',
+        isHome ? 'bg-transparent' : 'border-b border-border/50 bg-background/80 backdrop-blur-xl',
+      )}
+    >
       <div className="mx-auto max-w-7xl flex items-center justify-between h-14 px-6">
         <div className="flex items-center gap-1">
           <Link
