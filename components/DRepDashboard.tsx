@@ -211,11 +211,11 @@ export function DRepDashboard({ drep, scoreHistory, isSimulated }: DRepDashboard
                 Explain Your Vote ({missingRationale.length})
               </h3>
               <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                DRepScore Explanations
+                Explanations
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              These votes lack on-chain rationale. Add a DRepScore explanation so delegators
+              These votes lack on-chain rationale. Add an explanation so delegators
               understand your reasoning.
             </p>
             <div className="border rounded-lg overflow-hidden">

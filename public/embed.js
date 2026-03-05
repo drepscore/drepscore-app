@@ -45,7 +45,7 @@
     iframe.style.borderRadius = '12px';
     iframe.style.overflow = 'hidden';
     iframe.setAttribute('loading', 'lazy');
-    iframe.setAttribute('title', 'DRepScore ' + type + ' widget');
+    iframe.setAttribute('title', 'Civica ' + type + ' widget');
 
     script.parentNode.insertBefore(iframe, script.nextSibling);
   });
