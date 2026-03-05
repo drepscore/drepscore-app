@@ -218,6 +218,305 @@ export type Database = {
           },
         ];
       };
+      catalyst_campaigns: {
+        Row: {
+          amount: number | null;
+          awarded_at: string | null;
+          excerpt: string | null;
+          fund_id: string | null;
+          id: string;
+          launched_at: string | null;
+          slug: string | null;
+          synced_at: string;
+          title: string;
+        };
+        Insert: {
+          amount?: number | null;
+          awarded_at?: string | null;
+          excerpt?: string | null;
+          fund_id?: string | null;
+          id: string;
+          launched_at?: string | null;
+          slug?: string | null;
+          synced_at?: string;
+          title: string;
+        };
+        Update: {
+          amount?: number | null;
+          awarded_at?: string | null;
+          excerpt?: string | null;
+          fund_id?: string | null;
+          id?: string;
+          launched_at?: string | null;
+          slug?: string | null;
+          synced_at?: string;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'catalyst_campaigns_fund_id_fkey';
+            columns: ['fund_id'];
+            isOneToOne: false;
+            referencedRelation: 'catalyst_funds';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      catalyst_funds: {
+        Row: {
+          amount: number | null;
+          awarded_at: string | null;
+          banner_img_url: string | null;
+          completed_count: number | null;
+          currency: string | null;
+          currency_symbol: string | null;
+          funded_count: number | null;
+          hero_img_url: string | null;
+          id: string;
+          launched_at: string | null;
+          proposals_count: number | null;
+          slug: string | null;
+          status: string | null;
+          synced_at: string;
+          title: string;
+        };
+        Insert: {
+          amount?: number | null;
+          awarded_at?: string | null;
+          banner_img_url?: string | null;
+          completed_count?: number | null;
+          currency?: string | null;
+          currency_symbol?: string | null;
+          funded_count?: number | null;
+          hero_img_url?: string | null;
+          id: string;
+          launched_at?: string | null;
+          proposals_count?: number | null;
+          slug?: string | null;
+          status?: string | null;
+          synced_at?: string;
+          title: string;
+        };
+        Update: {
+          amount?: number | null;
+          awarded_at?: string | null;
+          banner_img_url?: string | null;
+          completed_count?: number | null;
+          currency?: string | null;
+          currency_symbol?: string | null;
+          funded_count?: number | null;
+          hero_img_url?: string | null;
+          id?: string;
+          launched_at?: string | null;
+          proposals_count?: number | null;
+          slug?: string | null;
+          status?: string | null;
+          synced_at?: string;
+          title?: string;
+        };
+        Relationships: [];
+      };
+      catalyst_proposal_team: {
+        Row: {
+          proposal_id: string;
+          team_member_id: string;
+        };
+        Insert: {
+          proposal_id: string;
+          team_member_id: string;
+        };
+        Update: {
+          proposal_id?: string;
+          team_member_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'catalyst_proposal_team_proposal_id_fkey';
+            columns: ['proposal_id'];
+            isOneToOne: false;
+            referencedRelation: 'catalyst_proposals';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catalyst_proposal_team_team_member_id_fkey';
+            columns: ['team_member_id'];
+            isOneToOne: false;
+            referencedRelation: 'catalyst_team_members';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      catalyst_proposals: {
+        Row: {
+          abstain_votes_count: number | null;
+          alignment_score: number | null;
+          amount_received: number | null;
+          amount_requested: number | null;
+          auditability_score: number | null;
+          campaign_id: string | null;
+          chain_proposal_id: string | null;
+          chain_proposal_index: number | null;
+          currency: string | null;
+          experience: string | null;
+          feasibility_score: number | null;
+          fund_id: string | null;
+          funded_at: string | null;
+          funding_status: string | null;
+          id: string;
+          ideascale_id: string | null;
+          link: string | null;
+          no_votes_count: number | null;
+          no_wallets: number | null;
+          opensource: boolean | null;
+          problem: string | null;
+          project_details: Json | null;
+          project_length: string | null;
+          slug: string | null;
+          solution: string | null;
+          status: string | null;
+          synced_at: string;
+          title: string;
+          unique_wallets: number | null;
+          website: string | null;
+          yes_votes_count: number | null;
+          yes_wallets: number | null;
+        };
+        Insert: {
+          abstain_votes_count?: number | null;
+          alignment_score?: number | null;
+          amount_received?: number | null;
+          amount_requested?: number | null;
+          auditability_score?: number | null;
+          campaign_id?: string | null;
+          chain_proposal_id?: string | null;
+          chain_proposal_index?: number | null;
+          currency?: string | null;
+          experience?: string | null;
+          feasibility_score?: number | null;
+          fund_id?: string | null;
+          funded_at?: string | null;
+          funding_status?: string | null;
+          id: string;
+          ideascale_id?: string | null;
+          link?: string | null;
+          no_votes_count?: number | null;
+          no_wallets?: number | null;
+          opensource?: boolean | null;
+          problem?: string | null;
+          project_details?: Json | null;
+          project_length?: string | null;
+          slug?: string | null;
+          solution?: string | null;
+          status?: string | null;
+          synced_at?: string;
+          title: string;
+          unique_wallets?: number | null;
+          website?: string | null;
+          yes_votes_count?: number | null;
+          yes_wallets?: number | null;
+        };
+        Update: {
+          abstain_votes_count?: number | null;
+          alignment_score?: number | null;
+          amount_received?: number | null;
+          amount_requested?: number | null;
+          auditability_score?: number | null;
+          campaign_id?: string | null;
+          chain_proposal_id?: string | null;
+          chain_proposal_index?: number | null;
+          currency?: string | null;
+          experience?: string | null;
+          feasibility_score?: number | null;
+          fund_id?: string | null;
+          funded_at?: string | null;
+          funding_status?: string | null;
+          id?: string;
+          ideascale_id?: string | null;
+          link?: string | null;
+          no_votes_count?: number | null;
+          no_wallets?: number | null;
+          opensource?: boolean | null;
+          problem?: string | null;
+          project_details?: Json | null;
+          project_length?: string | null;
+          slug?: string | null;
+          solution?: string | null;
+          status?: string | null;
+          synced_at?: string;
+          title?: string;
+          unique_wallets?: number | null;
+          website?: string | null;
+          yes_votes_count?: number | null;
+          yes_wallets?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'catalyst_proposals_campaign_id_fkey';
+            columns: ['campaign_id'];
+            isOneToOne: false;
+            referencedRelation: 'catalyst_campaigns';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'catalyst_proposals_fund_id_fkey';
+            columns: ['fund_id'];
+            isOneToOne: false;
+            referencedRelation: 'catalyst_funds';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      catalyst_team_members: {
+        Row: {
+          bio: string | null;
+          completed_proposals: number | null;
+          discord: string | null;
+          funded_proposals: number | null;
+          hero_img_url: string | null;
+          id: string;
+          ideascale: string | null;
+          linkedin: string | null;
+          name: string | null;
+          submitted_proposals: number | null;
+          synced_at: string;
+          telegram: string | null;
+          twitter: string | null;
+          username: string | null;
+        };
+        Insert: {
+          bio?: string | null;
+          completed_proposals?: number | null;
+          discord?: string | null;
+          funded_proposals?: number | null;
+          hero_img_url?: string | null;
+          id: string;
+          ideascale?: string | null;
+          linkedin?: string | null;
+          name?: string | null;
+          submitted_proposals?: number | null;
+          synced_at?: string;
+          telegram?: string | null;
+          twitter?: string | null;
+          username?: string | null;
+        };
+        Update: {
+          bio?: string | null;
+          completed_proposals?: number | null;
+          discord?: string | null;
+          funded_proposals?: number | null;
+          hero_img_url?: string | null;
+          id?: string;
+          ideascale?: string | null;
+          linkedin?: string | null;
+          name?: string | null;
+          submitted_proposals?: number | null;
+          synced_at?: string;
+          telegram?: string | null;
+          twitter?: string | null;
+          username?: string | null;
+        };
+        Relationships: [];
+      };
       cc_votes: {
         Row: {
           block_time: number;
