@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useGovernanceSummary } from '@/hooks/queries';
+import { useGovernancePulse } from '@/hooks/queries';
 import { useTreasuryCurrent } from '@/hooks/queries';
 import { useGovernanceLeaderboard } from '@/hooks/queries';
 import { CivicaEpochReport } from './CivicaEpochReport';
@@ -106,7 +106,7 @@ function formatAda(ada: number): string {
 
 export function CivicaPulseOverview() {
   const [activeTab, setActiveTab] = useState<PulseTab>('overview');
-  const { data: rawPulse, isLoading: pulseLoading } = useGovernanceSummary();
+  const { data: rawPulse, isLoading: pulseLoading } = useGovernancePulse();
   const pulse = rawPulse as any;
 
   const { data: rawTreasury, isLoading: treasuryLoading } = useTreasuryCurrent();

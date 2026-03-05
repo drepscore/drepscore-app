@@ -29,7 +29,58 @@ const TYPE_ICON_COLOR: Record<ActionType, string> = {
   tier_approaching: 'text-violet-400',
 };
 
-export function ActionFeed({ actions }: { actions: Action[] }) {
+function ActionCard({
+  action,
+  featured = false,
+}: {
+  action: Action;
+  featured?: boolean;
+}) {
+  const Icon = TYPE_ICON[action.type];
+  const colorClass = TYPE_COLOR[action.type];
+  const iconColor = TYPE_ICON_COLOR[action.type];
+
+  const inner = (
+    <div
+      className={cn(
+        'flex items-start gap-3 rounded-xl border transition-colors',
+        featured ? 'p-5' : 'p-4',
+        colorClass,
+        action.href && 'cursor-pointer hover:brightness-110',
+      )}
+    >
+      <Icon className={cn(featured ? 'h-5 w-5 mt-0.5' : 'h-4 w-4 mt-0.5', 'shrink-0', iconColor)} />
+      <div className="flex-1 min-w-0">
+        <p className={cn('font-medium leading-snug', featured ? 'text-base' : 'text-sm')}>
+          {action.title}
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">{action.description}</p>
+      </div>
+      {action.href && action.cta && (
+        <div className="flex items-center gap-0.5 shrink-0 text-xs font-medium text-muted-foreground group-hover:text-foreground">
+          {action.cta}
+          <ChevronRight className="h-3 w-3" />
+        </div>
+      )}
+    </div>
+  );
+
+  return action.href ? (
+    <Link href={action.href} className="block group">
+      {inner}
+    </Link>
+  ) : (
+    <div>{inner}</div>
+  );
+}
+
+export function ActionFeed({
+  actions,
+  emphasizeFirst = false,
+}: {
+  actions: Action[];
+  emphasizeFirst?: boolean;
+}) {
   if (actions.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card px-5 py-8 text-center space-y-2">
@@ -39,43 +90,23 @@ export function ActionFeed({ actions }: { actions: Action[] }) {
     );
   }
 
+  if (emphasizeFirst && actions.length > 0) {
+    const [first, ...rest] = actions;
+    return (
+      <div className="space-y-2">
+        <ActionCard key={first.id} action={first} featured />
+        {rest.map((action) => (
+          <ActionCard key={action.id} action={action} />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
-      {actions.map((action) => {
-        const Icon = TYPE_ICON[action.type];
-        const colorClass = TYPE_COLOR[action.type];
-        const iconColor = TYPE_ICON_COLOR[action.type];
-
-        const inner = (
-          <div
-            className={cn(
-              'flex items-start gap-3 rounded-xl border p-4 transition-colors',
-              colorClass,
-              action.href && 'cursor-pointer hover:brightness-110',
-            )}
-          >
-            <Icon className={cn('h-4 w-4 mt-0.5 shrink-0', iconColor)} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium leading-snug">{action.title}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{action.description}</p>
-            </div>
-            {action.href && action.cta && (
-              <div className="flex items-center gap-0.5 shrink-0 text-xs font-medium text-muted-foreground group-hover:text-foreground">
-                {action.cta}
-                <ChevronRight className="h-3 w-3" />
-              </div>
-            )}
-          </div>
-        );
-
-        return action.href ? (
-          <Link key={action.id} href={action.href} className="block group">
-            {inner}
-          </Link>
-        ) : (
-          <div key={action.id}>{inner}</div>
-        );
-      })}
+      {actions.map((action) => (
+        <ActionCard key={action.id} action={action} />
+      ))}
     </div>
   );
 }

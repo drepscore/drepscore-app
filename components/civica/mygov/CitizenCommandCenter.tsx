@@ -1,10 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { Users, ChevronRight, Vote, TrendingUp, TrendingDown, Minus, Shield } from 'lucide-react';
+import {
+  Users,
+  ChevronRight,
+  Vote,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Shield,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useGovernanceSummary, useGovernancePulse, useDRepVotes } from '@/hooks/queries';
+import { useDRepReportCard, useGovernancePulse, useDRepVotes } from '@/hooks/queries';
 import {
   tierKey,
   TIER_SCORE_COLOR,
@@ -31,20 +42,20 @@ export function CitizenCommandCenter({
 }: {
   delegatedDrep: string | null | undefined;
 }) {
-  const { data: rawDrep, isLoading: drepLoading } = useGovernanceSummary(delegatedDrep);
+  const { data: rawCard, isLoading: drepLoading } = useDRepReportCard(delegatedDrep);
   const { data: rawPulse, isLoading: pulseLoading } = useGovernancePulse();
   const { data: rawVotes, isLoading: votesLoading } = useDRepVotes(delegatedDrep);
 
-  const drep = rawDrep as any;
+  const card = rawCard as any;
   const pulse = rawPulse as any;
   const votes: any[] = (rawVotes as any)?.votes ?? rawVotes ?? [];
   const recentVotes = Array.isArray(votes) ? votes.slice(0, 3) : [];
 
-  const drepScore: number = drep?.drepScore ?? drep?.score ?? 0;
-  const drepName: string = drep?.name ?? drep?.givenName ?? delegatedDrep ?? '—';
-  const drepIsActive: boolean = drep?.isActive ?? drep?.active ?? true;
+  const drepScore: number = card?.score ?? 0;
+  const drepName: string = card?.name ?? delegatedDrep ?? '—';
+  const drepIsActive: boolean = card?.isActive ?? true;
   const drepTier = tierKey(computeTier(drepScore));
-  const scoreDelta: number | undefined = drep?.scoreDelta ?? drep?.weeklyDelta ?? drep?.recentTrend;
+  const scoreDelta: number | undefined = card?.momentum;
 
   const activeProposals: number = pulse?.activeProposals ?? 0;
   const criticalProposals: number = pulse?.criticalProposals ?? 0;
@@ -73,6 +84,36 @@ export function CitizenCommandCenter({
         ? 'text-emerald-400'
         : 'text-rose-400';
 
+  const healthStatus: 'green' | 'yellow' | 'red' =
+    !delegatedDrep || drepLoading
+      ? 'yellow'
+      : drepScore >= 70 && drepIsActive
+        ? 'green'
+        : drepScore >= 40 && drepIsActive
+          ? 'yellow'
+          : 'red';
+
+  const HealthIcon =
+    healthStatus === 'green'
+      ? CheckCircle2
+      : healthStatus === 'yellow'
+        ? AlertTriangle
+        : XCircle;
+
+  const healthLabel =
+    healthStatus === 'green'
+      ? 'Healthy'
+      : healthStatus === 'yellow'
+        ? 'Needs attention'
+        : 'At risk';
+
+  const healthColor =
+    healthStatus === 'green'
+      ? 'text-emerald-400'
+      : healthStatus === 'yellow'
+        ? 'text-amber-400'
+        : 'text-rose-400';
+
   return (
     <div className="space-y-6">
       {/* Delegation health card */}
@@ -86,9 +127,19 @@ export function CitizenCommandCenter({
           >
             <div className="flex items-start justify-between">
               <div className="space-y-1">
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
-                  Your Delegated DRep
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+                    Your Delegated DRep
+                  </p>
+                  {!drepLoading && (
+                    <div className={cn('flex items-center gap-1', healthColor)}>
+                      <HealthIcon className="h-3 w-3" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider">
+                        {healthLabel}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 {drepLoading ? (
                   <Skeleton className="h-6 w-40" />
                 ) : (

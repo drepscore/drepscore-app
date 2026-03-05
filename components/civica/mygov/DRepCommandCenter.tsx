@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useGovernanceSummary, useGovernancePulse, useDRepVotes } from '@/hooks/queries';
+import { useDRepReportCard, useGovernancePulse, useDRepVotes } from '@/hooks/queries';
 import {
   tierKey,
   TIER_SCORE_COLOR,
@@ -61,23 +61,23 @@ function ScoreGauge({ score, tier }: { score: number; tier: string }) {
 }
 
 export function DRepCommandCenter({ drepId }: { drepId: string }) {
-  const { data: rawSummary, isLoading: summaryLoading } = useGovernanceSummary(drepId);
+  const { data: rawCard, isLoading: summaryLoading } = useDRepReportCard(drepId);
   const { data: rawPulse, isLoading: pulseLoading } = useGovernancePulse();
   const { data: rawVotes, isLoading: votesLoading } = useDRepVotes(drepId);
 
-  const summary = rawSummary as any;
+  const card = rawCard as any;
   const pulse = rawPulse as any;
   const votes: any[] = (rawVotes as any)?.votes ?? rawVotes ?? [];
   const allVotes = Array.isArray(votes) ? votes : [];
 
-  const drepScore: number = summary?.drepScore ?? summary?.score ?? 0;
-  const drepTier: string = computeTier(drepScore) ?? 'Emerging';
-  const drepIsActive: boolean = summary?.isActive ?? summary?.active ?? true;
-  const delegatorCount: number = summary?.delegatorCount ?? 0;
-  const scoreDelta: number | undefined =
-    summary?.scoreDelta ?? summary?.weeklyDelta ?? summary?.recentTrend;
-  const rationaleRate: number = summary?.rationaleRate ?? 0;
-  const participationRate: number = summary?.participationRate ?? 0;
+  const drepScore: number = card?.score ?? 0;
+  const drepTier: string = card?.tier ?? computeTier(drepScore) ?? 'Emerging';
+  const drepIsActive: boolean = card?.isActive ?? true;
+  const delegatorCount: number = card?.delegatorCount ?? 0;
+  const scoreDelta: number | undefined = card?.momentum;
+  const rationaleRate: number =
+    card?.rationaleRate ?? card?.votingRecord?.rationaleRate ?? 0;
+  const participationRate: number = card?.participationRate ?? 0;
 
   const activeProposals: number = pulse?.activeProposals ?? 0;
   const criticalProposals: number = pulse?.criticalProposals ?? 0;
@@ -257,9 +257,9 @@ export function DRepCommandCenter({ drepId }: { drepId: string }) {
       {actions.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Recommended Actions
+            {actions.length === 1 ? 'Action Required' : 'Recommended Actions'}
           </p>
-          <ActionFeed actions={actions} />
+          <ActionFeed actions={actions} emphasizeFirst />
         </div>
       ) : (
         <div className="rounded-xl border border-emerald-900/30 bg-emerald-950/10 px-5 py-4 text-center space-y-1">

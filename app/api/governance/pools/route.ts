@@ -11,7 +11,7 @@ export const GET = withRouteHandler(async (_request, { requestId }) => {
   const { data: poolRows } = await supabase
     .from('pools')
     .select(
-      'pool_id, ticker, pool_name, governance_score, vote_count, participation_pct, consistency_pct, reliability_pct, delegator_count, live_stake_lovelace, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency',
+      'pool_id, ticker, pool_name, governance_score, vote_count, participation_pct, consistency_pct, reliability_pct, delegator_count, live_stake_lovelace, claimed_by, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency',
     )
     .gt('vote_count', 0)
     .order('governance_score', { ascending: false, nullsFirst: false })
@@ -31,6 +31,7 @@ export const GET = withRouteHandler(async (_request, { requestId }) => {
       liveStakeAda: p.live_stake_lovelace
         ? Math.round(Number(p.live_stake_lovelace) / 1_000_000)
         : 0,
+      claimedBy: p.claimed_by ?? null,
     }));
 
     return NextResponse.json(

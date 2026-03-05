@@ -29,7 +29,7 @@ export const GET = withRouteHandler(async (request: NextRequest) => {
   const { data: drep } = await supabase
     .from('dreps')
     .select(
-      'id, score, current_tier, score_momentum, engagement_quality, effective_participation_v3, reliability_v3, governance_identity, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency',
+      'id, score, current_tier, score_momentum, engagement_quality, effective_participation_v3, reliability_v3, governance_identity, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency, info, participation_rate, rationale_rate',
     )
     .eq('id', drepId)
     .single();
@@ -98,12 +98,19 @@ export const GET = withRouteHandler(async (request: NextRequest) => {
     }
   }
 
+  const info = (drep.info as Record<string, any> | null) ?? {};
+
   return NextResponse.json({
     drepId,
     score: drep.score,
     tier: drep.current_tier ?? tierProgress.currentTier,
     tierProgress,
     momentum: drep.score_momentum,
+    name: info.name ?? info.ticker ?? null,
+    isActive: info.isActive ?? true,
+    delegatorCount: info.delegatorCount ?? 0,
+    participationRate: drep.participation_rate != null ? Number(drep.participation_rate) : null,
+    rationaleRate: drep.rationale_rate != null ? Number(drep.rationale_rate) : null,
     pillars: {
       engagementQuality: drep.engagement_quality,
       effectiveParticipation: drep.effective_participation_v3,
