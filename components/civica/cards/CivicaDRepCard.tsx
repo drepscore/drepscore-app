@@ -39,9 +39,10 @@ const ALIGNMENT_LABELS: [
 interface CivicaDRepCardProps {
   drep: EnrichedDRep;
   rank?: number;
+  matchScore?: number | null;
 }
 
-export function CivicaDRepCard({ drep, rank }: CivicaDRepCardProps) {
+export function CivicaDRepCard({ drep, rank, matchScore }: CivicaDRepCardProps) {
   const [hovered, setHovered] = useState(false);
 
   const score = drep.drepScore ?? 0;
@@ -114,6 +115,20 @@ export function CivicaDRepCard({ drep, rank }: CivicaDRepCardProps) {
           >
             {tier}
           </span>
+          {matchScore != null && (
+            <span
+              className={cn(
+                'text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full mt-1 ml-1 inline-block',
+                matchScore >= 70
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                  : matchScore >= 50
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                    : 'bg-muted text-muted-foreground',
+              )}
+            >
+              {matchScore}% match
+            </span>
+          )}
         </div>
       </div>
 

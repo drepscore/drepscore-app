@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, LayoutGrid, TableProperties, ChevronRight } from 'lucide-react';
+import { RotateCcw, LayoutGrid, TableProperties, ChevronRight, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CivicaDRepCard } from '@/components/civica/cards/CivicaDRepCard';
 import { computeTier } from '@/lib/scoring/tiers';
@@ -12,6 +13,13 @@ import type { EnrichedDRep } from '@/lib/koios';
 import { ScoreDistribution } from '@/components/civica/charts/ScoreDistribution';
 import { DiscoverFilterBar } from './DiscoverFilterBar';
 import { DiscoverPagination } from './DiscoverPagination';
+import {
+  loadMatchProfile,
+  alignmentDistance,
+  distanceToMatchScore,
+  type StoredMatchProfile,
+} from '@/lib/matchStore';
+import type { AlignmentScores } from '@/lib/drepIdentity';
 
 const TIER_CHIPS = ['All', 'Emerging', 'Bronze', 'Silver', 'Gold', 'Diamond', 'Legendary'];
 
@@ -102,10 +110,23 @@ function DRepTableRow({ drep, rank }: { drep: EnrichedDRep; rank: number }) {
   );
 }
 
+type SortMode = 'score' | 'match';
+
 export function CivicaDRepBrowse({ dreps }: CivicaDRepBrowseProps) {
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [page, setPage] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode);
+  // Load match profile from localStorage (lazy init — no effect needed)
+  const sortParam = searchParams.get('sort');
+  const [matchProfile] = useState<StoredMatchProfile | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return loadMatchProfile();
+  });
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    if (typeof window === 'undefined') return 'score';
+    return sortParam === 'match' && loadMatchProfile() ? 'match' : 'score';
+  });
 
   const pageSize = viewMode === 'table' ? TABLE_PAGE_SIZE : CARD_PAGE_SIZE;
 
@@ -173,8 +194,32 @@ export function CivicaDRepBrowse({ dreps }: CivicaDRepBrowseProps) {
       }
     }
 
+    // Sort by match compatibility if enabled and profile exists
+    if (sortMode === 'match' && matchProfile) {
+      const userAlign = matchProfile.userAlignments;
+      result = [...result].sort((a, b) => {
+        const aAlign: AlignmentScores = {
+          treasuryConservative: a.alignmentTreasuryConservative,
+          treasuryGrowth: a.alignmentTreasuryGrowth,
+          decentralization: a.alignmentDecentralization,
+          security: a.alignmentSecurity,
+          innovation: a.alignmentInnovation,
+          transparency: a.alignmentTransparency,
+        };
+        const bAlign: AlignmentScores = {
+          treasuryConservative: b.alignmentTreasuryConservative,
+          treasuryGrowth: b.alignmentTreasuryGrowth,
+          decentralization: b.alignmentDecentralization,
+          security: b.alignmentSecurity,
+          innovation: b.alignmentInnovation,
+          transparency: b.alignmentTransparency,
+        };
+        return alignmentDistance(userAlign, aAlign) - alignmentDistance(userAlign, bAlign);
+      });
+    }
+
     return result;
-  }, [dreps, filters]);
+  }, [dreps, filters, sortMode, matchProfile]);
 
   const allScores = useMemo(() => dreps.map((d) => d.drepScore ?? 0), [dreps]);
 
@@ -226,7 +271,32 @@ export function CivicaDRepBrowse({ dreps }: CivicaDRepBrowseProps) {
         pageInfo={totalPages > 1 ? `Page ${page + 1} / ${totalPages}` : undefined}
       />
 
-      {/* View mode toggle */}
+      {/* Match sort banner + view mode toggle */}
+      {matchProfile && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSortMode(sortMode === 'match' ? 'score' : 'match')}
+            className={cn(
+              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border',
+              sortMode === 'match'
+                ? 'bg-primary/10 border-primary/30 text-primary'
+                : 'bg-muted/30 border-border text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {sortMode === 'match' ? 'Sorted by match' : 'Sort by match'}
+          </button>
+          {sortMode === 'match' && (
+            <span className="text-xs text-muted-foreground">
+              Based on your{' '}
+              <Link href="/match" className="text-primary hover:underline">
+                governance profile
+              </Link>
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-end gap-1">
         <button
           onClick={() => toggleViewMode('cards')}
@@ -265,9 +335,28 @@ export function CivicaDRepBrowse({ dreps }: CivicaDRepBrowseProps) {
         </div>
       ) : viewMode === 'cards' ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {pageItems.map((drep, i) => (
-            <CivicaDRepCard key={drep.drepId} drep={drep} rank={page * pageSize + i + 1} />
-          ))}
+          {pageItems.map((drep, i) => {
+            let ms: number | null = null;
+            if (sortMode === 'match' && matchProfile) {
+              const dAlign: AlignmentScores = {
+                treasuryConservative: drep.alignmentTreasuryConservative,
+                treasuryGrowth: drep.alignmentTreasuryGrowth,
+                decentralization: drep.alignmentDecentralization,
+                security: drep.alignmentSecurity,
+                innovation: drep.alignmentInnovation,
+                transparency: drep.alignmentTransparency,
+              };
+              ms = distanceToMatchScore(alignmentDistance(matchProfile.userAlignments, dAlign));
+            }
+            return (
+              <CivicaDRepCard
+                key={drep.drepId}
+                drep={drep}
+                rank={sortMode === 'match' ? undefined : page * pageSize + i + 1}
+                matchScore={ms}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="rounded-xl border border-border divide-y divide-border/50 overflow-hidden">

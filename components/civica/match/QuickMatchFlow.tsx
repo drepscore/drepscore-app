@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Shield,
@@ -17,6 +17,9 @@ import {
   ChevronRight,
   Zap,
   RotateCcw,
+  History,
+  Server,
+  Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +29,7 @@ import { RadarOverlay } from '@/components/matching/RadarOverlay';
 import { cn } from '@/lib/utils';
 import { DelegateButton } from '@/components/DelegateButton';
 import type { AlignmentScores } from '@/lib/drepIdentity';
+import { saveMatchProfile, loadMatchProfile, type StoredMatchProfile } from '@/lib/matchStore';
 
 /* ─── Types ─────────────────────────────────────────────── */
 
@@ -145,6 +149,7 @@ const QUESTIONS: Question[] = [
 /* ─── Component ─────────────────────────────────────────── */
 
 type Step = 'intro' | 0 | 1 | 2 | 'loading' | 'results' | 'error';
+type MatchType = 'drep' | 'spo';
 
 export function QuickMatchFlow() {
   const [step, setStep] = useState<Step>('intro');
@@ -152,35 +157,57 @@ export function QuickMatchFlow() {
   const [selected, setSelected] = useState<string | null>(null);
   const [results, setResults] = useState<QuickMatchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [matchType, setMatchType] = useState<MatchType>('drep');
+  const [storedProfile, setStoredProfile] = useState<StoredMatchProfile | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const fetchMatches = useCallback(async (finalAnswers: Record<string, string>) => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    try {
-      const res = await fetch('/api/governance/quick-match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          treasury: finalAnswers.treasury,
-          protocol: finalAnswers.protocol,
-          transparency: finalAnswers.transparency,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const data: QuickMatchResponse = await res.json();
-      setResults(data);
-      setStep('results');
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-      setStep('error');
-    }
+  // Load stored match profile on mount
+  useEffect(() => {
+    setStoredProfile(loadMatchProfile());
   }, []);
+
+  const fetchMatches = useCallback(
+    async (finalAnswers: Record<string, string>, type: MatchType) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const res = await fetch('/api/governance/quick-match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            treasury: finalAnswers.treasury,
+            protocol: finalAnswers.protocol,
+            transparency: finalAnswers.transparency,
+            match_type: type,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data: QuickMatchResponse = await res.json();
+        setResults(data);
+        setStep('results');
+
+        // Persist match profile
+        saveMatchProfile({
+          userAlignments: data.userAlignments,
+          personalityLabel: data.personalityLabel,
+          identityColor: data.identityColor,
+          matchType: type,
+          answers: finalAnswers,
+          timestamp: Date.now(),
+        });
+        setStoredProfile(null); // Clear "previous match" since we just did a new one
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setError(err instanceof Error ? err.message : 'Something went wrong');
+        setStep('error');
+      }
+    },
+    [],
+  );
 
   const handleAnswer = useCallback(
     (questionId: string, value: string) => {
@@ -197,11 +224,11 @@ export function QuickMatchFlow() {
         } else {
           // All questions answered — fetch matches
           setStep('loading');
-          fetchMatches(newAnswers);
+          fetchMatches(newAnswers, matchType);
         }
       }, 350);
     },
-    [answers, step, fetchMatches],
+    [answers, step, fetchMatches, matchType],
   );
 
   const restart = useCallback(() => {
@@ -254,7 +281,22 @@ export function QuickMatchFlow() {
 
       {/* Content */}
       <div className="flex-1 flex items-center justify-center px-4 py-8">
-        {step === 'intro' && <IntroScreen onStart={() => setStep(0)} />}
+        {step === 'intro' && (
+          <IntroScreen
+            onStart={() => setStep(0)}
+            matchType={matchType}
+            onMatchTypeChange={setMatchType}
+            storedProfile={storedProfile}
+            onViewPrevious={() => {
+              if (storedProfile) {
+                setMatchType(storedProfile.matchType);
+                setAnswers(storedProfile.answers);
+                setStep('loading');
+                fetchMatches(storedProfile.answers, storedProfile.matchType);
+              }
+            }}
+          />
+        )}
         {typeof step === 'number' && (
           <QuestionScreen
             question={QUESTIONS[step]}
@@ -263,7 +305,9 @@ export function QuickMatchFlow() {
           />
         )}
         {step === 'loading' && <LoadingScreen />}
-        {step === 'results' && results && <ResultsScreen results={results} onRestart={restart} />}
+        {step === 'results' && results && (
+          <ResultsScreen results={results} onRestart={restart} matchType={matchType} />
+        )}
         {step === 'error' && <ErrorScreen message={error} onRetry={restart} />}
       </div>
     </div>
@@ -272,7 +316,19 @@ export function QuickMatchFlow() {
 
 /* ─── Sub-screens ───────────────────────────────────────── */
 
-function IntroScreen({ onStart }: { onStart: () => void }) {
+function IntroScreen({
+  onStart,
+  matchType,
+  onMatchTypeChange,
+  storedProfile,
+  onViewPrevious,
+}: {
+  onStart: () => void;
+  matchType: MatchType;
+  onMatchTypeChange: (type: MatchType) => void;
+  storedProfile: StoredMatchProfile | null;
+  onViewPrevious: () => void;
+}) {
   return (
     <div className="text-center max-w-lg space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -280,17 +336,58 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
       </div>
       <div className="space-y-2">
         <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight">
-          Find Your DRep
+          {matchType === 'spo' ? 'Find Your SPO' : 'Find Your DRep'}
         </h1>
         <p className="text-muted-foreground text-base sm:text-lg leading-relaxed">
-          Answer 3 questions about your governance values. We&apos;ll match you to DReps who think
-          like you.
+          Answer 3 questions about your governance values. We&apos;ll match you to{' '}
+          {matchType === 'spo' ? 'stake pool operators' : 'DReps'} who think like you.
         </p>
       </div>
+
+      {/* Match type toggle */}
+      <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
+        <button
+          onClick={() => onMatchTypeChange('drep')}
+          className={cn(
+            'px-4 py-1.5 rounded-md text-sm font-medium transition-all',
+            matchType === 'drep'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Users className="h-3.5 w-3.5 inline mr-1.5" />
+          DReps
+        </button>
+        <button
+          onClick={() => onMatchTypeChange('spo')}
+          className={cn(
+            'px-4 py-1.5 rounded-md text-sm font-medium transition-all',
+            matchType === 'spo'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Server className="h-3.5 w-3.5 inline mr-1.5" />
+          SPOs
+        </button>
+      </div>
+
       <Button size="lg" className="text-base px-8 py-6 rounded-xl font-semibold" onClick={onStart}>
         Start Quick Match
         <ArrowRight className="ml-2 h-5 w-5" />
       </Button>
+
+      {/* Previous results CTA */}
+      {storedProfile && (
+        <button
+          onClick={onViewPrevious}
+          className="flex items-center gap-2 mx-auto text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <History className="h-4 w-4" />
+          View your previous {storedProfile.matchType === 'spo' ? 'SPO' : 'DRep'} match results
+        </button>
+      )}
+
       <p className="text-xs text-muted-foreground">
         No wallet required &middot; Takes under 60 seconds
       </p>
@@ -392,10 +489,14 @@ function ErrorScreen({ message, onRetry }: { message: string | null; onRetry: ()
 function ResultsScreen({
   results,
   onRestart,
+  matchType,
 }: {
   results: QuickMatchResponse;
   onRestart: () => void;
+  matchType: MatchType;
 }) {
+  const isSPO = matchType === 'spo';
+
   return (
     <div className="w-full max-w-3xl space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-500">
       {/* User identity */}
@@ -423,7 +524,9 @@ function ResultsScreen({
 
       {/* Matches */}
       <div className="space-y-4">
-        <h3 className="font-display text-lg font-semibold text-center">Your Top Matches</h3>
+        <h3 className="font-display text-lg font-semibold text-center">
+          Your Top {isSPO ? 'SPO' : 'DRep'} Matches
+        </h3>
 
         <div className="grid gap-3">
           {results.matches.map((match, i) => (
@@ -432,6 +535,7 @@ function ResultsScreen({
               rank={i + 1}
               match={match}
               userAlignments={results.userAlignments}
+              matchType={matchType}
             />
           ))}
         </div>
@@ -440,8 +544,8 @@ function ResultsScreen({
       {/* CTAs */}
       <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2 pb-8">
         <Button asChild size="lg">
-          <Link href="/discover">
-            Browse All DReps
+          <Link href={isSPO ? '/discover?tab=spos' : '/discover?sort=match'}>
+            Browse All {isSPO ? 'SPOs' : 'DReps'}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
@@ -460,12 +564,18 @@ function QuickMatchResultCard({
   rank,
   match,
   userAlignments,
+  matchType = 'drep',
 }: {
   rank: number;
   match: MatchResult;
   userAlignments: AlignmentScores;
+  matchType?: MatchType;
 }) {
   const displayName = match.drepName || match.drepId.slice(0, 16) + '...';
+  const isSPO = matchType === 'spo';
+  const profilePath = isSPO
+    ? `/pool/${encodeURIComponent(match.drepId)}`
+    : `/drep/${encodeURIComponent(match.drepId)}`;
 
   return (
     <Card className="overflow-hidden hover:border-primary/30 transition-colors">
@@ -492,13 +602,13 @@ function QuickMatchResultCard({
                 </span>
                 <div className="min-w-0">
                   <Link
-                    href={`/drep/${encodeURIComponent(match.drepId)}`}
+                    href={profilePath}
                     className="font-semibold text-sm hover:text-primary transition-colors truncate block"
                   >
                     {displayName}
                   </Link>
                   <span className="text-xs text-muted-foreground">
-                    Civica Score: {match.drepScore}
+                    {isSPO ? 'Gov Score' : 'Civica Score'}: {match.drepScore}
                   </span>
                 </div>
               </div>
@@ -542,13 +652,15 @@ function QuickMatchResultCard({
             )}
 
             <div className="flex gap-2 mt-1">
-              <DelegateButton
-                drepId={match.drepId}
-                drepName={displayName}
-                size="sm"
-                className="text-xs h-7"
-              />
-              <Link href={`/drep/${encodeURIComponent(match.drepId)}`}>
+              {!isSPO && (
+                <DelegateButton
+                  drepId={match.drepId}
+                  drepName={displayName}
+                  size="sm"
+                  className="text-xs h-7"
+                />
+              )}
+              <Link href={profilePath}>
                 <Button variant="outline" size="sm" className="text-xs gap-1 h-7">
                   View Profile <ChevronRight className="h-3 w-3" />
                 </Button>
