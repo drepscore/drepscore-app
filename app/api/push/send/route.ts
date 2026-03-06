@@ -23,7 +23,7 @@ export const POST = withRouteHandler(
 
     const { data: users } = await supabase
       .from('users')
-      .select('wallet_address, push_subscriptions, claimed_drep_id')
+      .select('id, wallet_address, push_subscriptions, claimed_drep_id')
       .not('push_subscriptions', 'eq', '{}');
 
     if (!users || users.length === 0) {
@@ -36,7 +36,7 @@ export const POST = withRouteHandler(
     );
 
     let payload: NotificationPayload;
-    let targetAddresses = subscribedUsers.map((u) => u.wallet_address);
+    let targetIds = subscribedUsers.map((u) => u.id as string);
 
     switch (type) {
       case 'critical-proposal-open': {
@@ -57,9 +57,9 @@ export const POST = withRouteHandler(
       case 'drep-pending-proposals': {
         const { pendingCount, criticalCount } = body;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        targetAddresses = subscribedUsers
+        targetIds = subscribedUsers
           .filter((u: any) => u.claimed_drep_id)
-          .map((u) => u.wallet_address);
+          .map((u) => u.id as string);
         payload = {
           eventType: 'pending-proposals',
           fallback: {
@@ -92,11 +92,11 @@ export const POST = withRouteHandler(
 
     buildPushPayload(payload);
 
-    const result = await sendPushBroadcast(targetAddresses, payload);
+    const result = await sendPushBroadcast(targetIds, payload);
     return NextResponse.json({
       sent: result.sent,
       expired: result.expired,
-      total: targetAddresses.length,
+      total: targetIds.length,
     });
   },
   { auth: 'none', rateLimit: { max: 10, window: 60 } },

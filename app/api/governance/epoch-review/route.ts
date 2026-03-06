@@ -22,8 +22,7 @@ function deriveParticipationTier(pollCount: number, drepVotesCast: number): stri
 }
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
-    const walletAddress = wallet!;
+  async (request: NextRequest, { userId }: RouteContext) => {
     const supabase = createClient();
     const currentEpoch = blockTimeToEpoch(Math.floor(Date.now() / 1000));
 
@@ -39,7 +38,7 @@ export const GET = withRouteHandler(
       supabase
         .from('users')
         .select('delegated_drep_id, governance_level, poll_count')
-        .eq('wallet_address', walletAddress)
+        .eq('id', userId!)
         .single(),
       supabase
         .from('proposals')
@@ -49,7 +48,7 @@ export const GET = withRouteHandler(
       supabase
         .from('poll_responses')
         .select('id', { count: 'exact', head: true })
-        .eq('wallet_address', walletAddress),
+        .eq('user_id', userId!),
       supabase.from('drep_votes').select('drep_id').eq('epoch_no', currentEpoch),
     ]);
 

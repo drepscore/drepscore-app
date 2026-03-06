@@ -48,7 +48,7 @@ function computeParticipationTier(
 }
 
 export async function buildGovernanceFootprint(
-  walletAddress: string,
+  userId: string,
   stakeAddress: string | null,
 ): Promise<GovernanceFootprint> {
   const supabase = createClient();
@@ -58,18 +58,18 @@ export async function buildGovernanceFootprint(
     supabase
       .from('poll_responses')
       .select('id, poll_id, created_at')
-      .eq('wallet_address', walletAddress)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false }),
     supabase
       .from('governance_events')
       .select('event_type, event_data, epoch, created_at')
-      .eq('wallet_address', walletAddress)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(200),
     supabase
       .from('users')
       .select('delegation_history, claimed_drep_id, last_visit_at, visit_streak')
-      .eq('wallet_address', walletAddress)
+      .eq('id', userId)
       .single(),
   ]);
 

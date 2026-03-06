@@ -64,11 +64,11 @@ export function buildPushPayload(payload: NotificationPayload): PushPayload {
 }
 
 /**
- * Send a push notification to a single user by wallet address.
+ * Send a push notification to a single user by user ID.
  * Reads their push_subscriptions from the users table.
  */
 export async function sendPushToUser(
-  walletAddress: string,
+  userId: string,
   payload: NotificationPayload,
 ): Promise<boolean> {
   if (!ensureVapid()) return false;
@@ -77,7 +77,7 @@ export async function sendPushToUser(
   const { data: user } = await supabase
     .from('users')
     .select('push_subscriptions')
-    .eq('wallet_address', walletAddress)
+    .eq('id', userId)
     .single();
 
   if (!user?.push_subscriptions?.endpoint || !user?.push_subscriptions?.keys) {
@@ -88,10 +88,7 @@ export async function sendPushToUser(
   const result = await sendToSubscription(user.push_subscriptions, pushPayload);
 
   if (result.expired) {
-    await supabase
-      .from('users')
-      .update({ push_subscriptions: {} })
-      .eq('wallet_address', walletAddress);
+    await supabase.from('users').update({ push_subscriptions: {} }).eq('id', userId);
   }
 
   return result.success;
@@ -102,7 +99,7 @@ export async function sendPushToUser(
  * Returns the count of successful sends.
  */
 export async function sendPushBroadcast(
-  walletAddresses: string[],
+  userIds: string[],
   payload: NotificationPayload,
 ): Promise<{ sent: number; expired: number }> {
   if (!ensureVapid()) return { sent: 0, expired: 0 };
@@ -110,8 +107,8 @@ export async function sendPushBroadcast(
   const supabase = getSupabaseAdmin();
   const { data: users } = await supabase
     .from('users')
-    .select('wallet_address, push_subscriptions')
-    .in('wallet_address', walletAddresses)
+    .select('id, push_subscriptions')
+    .in('id', userIds)
     .not('push_subscriptions', 'eq', '{}');
 
   if (!users || users.length === 0) return { sent: 0, expired: 0 };
@@ -119,7 +116,7 @@ export async function sendPushBroadcast(
   const pushPayload = buildPushPayload(payload);
   let sent = 0;
   let expired = 0;
-  const expiredAddresses: string[] = [];
+  const expiredIds: string[] = [];
 
   for (const user of users) {
     if (!user.push_subscriptions?.endpoint || !user.push_subscriptions?.keys) continue;
@@ -127,13 +124,13 @@ export async function sendPushBroadcast(
     if (result.success) sent++;
     if (result.expired) {
       expired++;
-      expiredAddresses.push(user.wallet_address);
+      expiredIds.push(user.id);
     }
   }
 
-  if (expiredAddresses.length > 0) {
-    for (const addr of expiredAddresses) {
-      await supabase.from('users').update({ push_subscriptions: {} }).eq('wallet_address', addr);
+  if (expiredIds.length > 0) {
+    for (const id of expiredIds) {
+      await supabase.from('users').update({ push_subscriptions: {} }).eq('id', id);
     }
   }
 

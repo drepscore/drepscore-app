@@ -102,7 +102,7 @@ export const generateEpochSummary = inngest.createFunction(
 
       const { data: activeUsers, error: userErr } = await supabase
         .from('users')
-        .select('wallet_address, delegation_history')
+        .select('id, wallet_address, delegation_history')
         .gte('last_visit_at', thirtyDaysAgo);
 
       if (userErr || !activeUsers) {
@@ -158,6 +158,7 @@ export const generateEpochSummary = inngest.createFunction(
             }
 
             return {
+              user_id: user.id,
               wallet_address: user.wallet_address,
               event_type: 'epoch_summary',
               event_data: {
@@ -214,19 +215,22 @@ export const generateEpochSummary = inngest.createFunction(
           const drepIds = [...new Set(relevantVotes.map((v) => v.drep_id))];
           const { data: delegators } = await supabase
             .from('users')
-            .select('wallet_address, delegation_history')
+            .select('id, wallet_address, delegation_history')
             .limit(500);
 
-          const walletToDrep = new Map<string, string>();
+          const userToDrep = new Map<
+            string,
+            { id: string; wallet_address: string; drepId: string }
+          >();
           for (const u of delegators || []) {
             const drepId = extractDrepId(u.delegation_history);
             if (drepId && drepIds.includes(drepId)) {
-              walletToDrep.set(u.wallet_address, drepId);
+              userToDrep.set(u.id, { id: u.id, wallet_address: u.wallet_address, drepId });
             }
           }
 
           const outcomeEvents = [];
-          for (const [wallet, drepId] of walletToDrep) {
+          for (const [, { id: userId, wallet_address, drepId }] of userToDrep) {
             for (const p of concludedProposals) {
               const vote = relevantVotes.find(
                 (v) => v.drep_id === drepId && v.proposal_tx_hash === p.tx_hash,
@@ -244,7 +248,8 @@ export const generateEpochSummary = inngest.createFunction(
 
               outcomeEvents.push({
                 id: crypto.randomUUID(),
-                wallet_address: wallet,
+                user_id: userId,
+                wallet_address,
                 event_type: 'proposal_outcome',
                 event_data: {
                   proposal_tx_hash: p.tx_hash,

@@ -47,20 +47,20 @@ export const POST = withRouteHandler(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const walletAddress = parsed.walletAddress;
+    const { userId } = parsed;
     const supabase = getSupabaseAdmin();
 
     const { error } = await supabase
       .from('users')
       .update({ claimed_drep_id: drepId })
-      .eq('wallet_address', walletAddress);
+      .eq('id', userId);
 
     if (error) {
       logger.error('Error', { context: 'drepclaim', error: error?.message });
       return NextResponse.json({ error: 'Failed to claim' }, { status: 500 });
     }
 
-    captureServerEvent('drep_claimed', { drep_id: drepId }, walletAddress);
+    captureServerEvent('drep_claimed', { drep_id: drepId }, userId);
     return NextResponse.json({ claimed: true, drepId });
   },
   { auth: 'none', rateLimit: { max: 5, window: 60 } },

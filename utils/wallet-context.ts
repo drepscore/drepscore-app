@@ -31,6 +31,7 @@ export interface WalletContextType {
   connecting: boolean;
   reconnecting: boolean;
   address: string | null;
+  userId: string | null;
   sessionAddress: string | null;
   isAuthenticated: boolean;
   delegatedDrepId: string | null;

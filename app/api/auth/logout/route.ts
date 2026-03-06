@@ -7,7 +7,7 @@ export const POST = withRouteHandler(async (request: NextRequest) => {
   if (cookie?.value) {
     const session = await validateSessionToken(cookie.value);
     if (session?.jti) {
-      await revokeSession(session.jti, session.walletAddress);
+      await revokeSession(session.jti, session.userId);
     }
   }
 

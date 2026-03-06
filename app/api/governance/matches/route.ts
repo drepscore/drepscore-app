@@ -23,14 +23,14 @@ function normalizeVote(vote: string): string {
 }
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
     const excludeDrepId = request.nextUrl.searchParams.get('currentDrepId') || undefined;
     const supabase = createClient();
 
     const { data: pollVotes } = await supabase
       .from('poll_responses')
       .select('proposal_tx_hash, proposal_index, vote')
-      .eq('wallet_address', wallet!);
+      .eq('user_id', userId!);
 
     if (!pollVotes?.length) {
       return NextResponse.json({

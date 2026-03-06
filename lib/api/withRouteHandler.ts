@@ -27,6 +27,7 @@ interface RouteOptions {
 
 export interface RouteContext {
   requestId: string;
+  userId?: string;
   wallet?: string;
 }
 
@@ -89,15 +90,18 @@ export function withRouteHandler(handler: HandlerFn, options: RouteOptions = {})
 
     try {
       // --- Auth ---
+      let userId: string | undefined;
       let wallet: string | undefined;
 
       if (auth === 'required') {
         const result = await requireAuth(request);
         if (result instanceof NextResponse) return result;
+        userId = result.userId;
         wallet = result.wallet;
       } else if (auth === 'optional') {
         const result = await requireAuth(request);
         if (!(result instanceof NextResponse)) {
+          userId = result.userId;
           wallet = result.wallet;
         }
       }
@@ -118,7 +122,7 @@ export function withRouteHandler(handler: HandlerFn, options: RouteOptions = {})
       }
 
       // --- Execute ---
-      const ctx: RouteContext = { requestId, wallet };
+      const ctx: RouteContext = { requestId, userId, wallet };
       const response = await handler(request, ctx);
 
       // --- Log ---

@@ -6,9 +6,7 @@ import { withRouteHandler, type RouteContext } from '@/lib/api/withRouteHandler'
 export const dynamic = 'force-dynamic';
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
-    const walletAddress = wallet!;
-
+  async (request: NextRequest, { userId }: RouteContext) => {
     const since = request.nextUrl.searchParams.get('since');
     const drepId = request.nextUrl.searchParams.get('drepId');
 

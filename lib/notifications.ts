@@ -83,7 +83,7 @@ export interface ChannelTarget {
   channel: Channel;
   channelIdentifier: string;
   config: Record<string, unknown>;
-  userWallet: string;
+  userId: string;
 }
 
 /** Convert legacy NotificationEvent to NotificationPayload */
@@ -151,7 +151,7 @@ type ChannelSender = (target: ChannelTarget, payload: NotificationPayload) => Pr
 const CHANNEL_SENDERS: Record<Channel, ChannelSender> = {
   discord: (target, payload) => sendDiscordWebhook(target.channelIdentifier, payload),
   telegram: (target, payload) => sendTelegramMessage(target.channelIdentifier, payload),
-  push: (target, payload) => sendPushToUser(target.userWallet, payload),
+  push: (target, payload) => sendPushToUser(target.userId, payload),
   email: async (_target, _payload) => {
     // Wired in Phase 2 via lib/email.ts
     return false;
@@ -170,7 +170,7 @@ export function registerChannelSender(channel: Channel, sender: ChannelSender): 
  * Accepts both legacy NotificationEvent and new NotificationPayload.
  */
 export async function notifyUser(
-  userWallet: string,
+  userId: string,
   event: NotificationEvent | NotificationPayload,
 ): Promise<void> {
   const payload = toPayload(event);
@@ -179,7 +179,7 @@ export async function notifyUser(
   const { data: prefs } = await supabase
     .from('notification_preferences')
     .select('channel')
-    .eq('user_wallet', userWallet)
+    .eq('user_id', userId)
     .eq('event_type', payload.eventType)
     .eq('enabled', true);
 
@@ -198,10 +198,10 @@ export async function notifyUser(
       channel: 'push',
       channelIdentifier: '',
       config: {},
-      userWallet,
+      userId,
     };
     const sent = await CHANNEL_SENDERS.push(target, payload);
-    await logAndTrack(supabase, userWallet, payload, 'push', sent);
+    await logAndTrack(supabase, userId, payload, 'push', sent);
   }
 
   if (emailEnabled) {
@@ -210,10 +210,10 @@ export async function notifyUser(
       channel: 'email',
       channelIdentifier: '',
       config: {},
-      userWallet,
+      userId,
     };
     const sent = await CHANNEL_SENDERS.email(target, payload);
-    await logAndTrack(supabase, userWallet, payload, 'email', sent);
+    await logAndTrack(supabase, userId, payload, 'email', sent);
   }
 
   // Discord and Telegram still use user_channels for identifiers
@@ -221,7 +221,7 @@ export async function notifyUser(
     const { data: channels } = await supabase
       .from('user_channels')
       .select('*')
-      .eq('user_wallet', userWallet);
+      .eq('user_id', userId);
 
     if (channels) {
       for (const ch of channels) {
@@ -234,11 +234,11 @@ export async function notifyUser(
           channel: ch.channel,
           channelIdentifier: ch.channel_identifier,
           config: ch.config || {},
-          userWallet,
+          userId,
         };
 
         const sent = await sender(target, payload);
-        await logAndTrack(supabase, userWallet, payload, ch.channel, sent);
+        await logAndTrack(supabase, userId, payload, ch.channel, sent);
       }
     }
   }
@@ -266,16 +266,16 @@ export async function broadcastEvent(
 
   const { data: prefs } = await supabase
     .from('notification_preferences')
-    .select('user_wallet, channel')
+    .select('user_id, channel')
     .eq('event_type', payload.eventType)
     .eq('enabled', true);
 
   if (!prefs || prefs.length === 0) return 0;
 
-  const wallets = new Set(prefs.map((p) => p.user_wallet));
+  const userIds = new Set(prefs.map((p) => p.user_id));
   let sent = 0;
-  for (const wallet of wallets) {
-    await notifyUser(wallet, payload);
+  for (const uid of userIds) {
+    await notifyUser(uid, payload);
     sent++;
   }
 
@@ -290,48 +290,42 @@ export type SegmentQuery =
   | { type: 'claimed-dreps' }
   | { type: 'active-holders'; sinceDays?: number }
   | { type: 'citizen-level-min'; level: string }
-  | { type: 'custom'; wallets: string[] };
+  | { type: 'custom'; userIds: string[] };
 
 async function resolveSegment(segment: SegmentQuery): Promise<string[]> {
   const supabase = getSupabaseAdmin();
 
   switch (segment.type) {
     case 'custom':
-      return segment.wallets;
+      return segment.userIds;
 
     case 'claimed-dreps': {
-      const { data } = await supabase
-        .from('users')
-        .select('wallet_address')
-        .not('claimed_drep_id', 'is', null);
-      return (data || []).map((u) => u.wallet_address);
+      const { data } = await supabase.from('users').select('id').not('claimed_drep_id', 'is', null);
+      return (data || []).map((u) => u.id);
     }
 
     case 'active-holders': {
       const days = segment.sinceDays ?? 30;
       const since = new Date(Date.now() - days * 86400000).toISOString();
-      const { data } = await supabase
-        .from('users')
-        .select('wallet_address')
-        .gte('last_active', since);
-      return (data || []).map((u) => u.wallet_address);
+      const { data } = await supabase.from('users').select('id').gte('last_active', since);
+      return (data || []).map((u) => u.id);
     }
 
     case 'watching': {
       const { data } = await supabase
         .from('users')
-        .select('wallet_address, watchlist')
+        .select('id, watchlist')
         .not('watchlist', 'is', null);
       return (data || [])
         .filter((u) => Array.isArray(u.watchlist) && u.watchlist.includes(segment.drepId))
-        .map((u) => u.wallet_address);
+        .map((u) => u.id);
     }
 
     case 'delegated-to': {
       // Users whose most recent delegation_history entry matches drepId
       const { data } = await supabase
         .from('users')
-        .select('wallet_address, delegation_history')
+        .select('id, delegation_history')
         .not('delegation_history', 'is', null);
       return (data || [])
         .filter((u) => {
@@ -342,7 +336,7 @@ async function resolveSegment(segment: SegmentQuery): Promise<string[]> {
             history[history.length - 1].drepId === segment.drepId
           );
         })
-        .map((u) => u.wallet_address);
+        .map((u) => u.id);
     }
 
     case 'citizen-level-min':
@@ -358,10 +352,10 @@ export async function notifySegment(
   segment: SegmentQuery,
   event: NotificationEvent | NotificationPayload,
 ): Promise<number> {
-  const wallets = await resolveSegment(segment);
+  const userIds = await resolveSegment(segment);
   let sent = 0;
-  for (const wallet of wallets) {
-    await notifyUser(wallet, event);
+  for (const uid of userIds) {
+    await notifyUser(uid, event);
     sent++;
   }
   return sent;
@@ -372,7 +366,7 @@ export async function notifySegment(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function logAndTrack(
   supabase: any,
-  wallet: string,
+  userId: string,
   payload: NotificationPayload,
   channel: string,
   sent: boolean,
@@ -384,11 +378,11 @@ async function logAndTrack(
       event_type: payload.eventType,
       delivered: sent,
     },
-    wallet,
+    userId,
   );
 
   await supabase.from('notification_log').insert({
-    user_wallet: wallet,
+    user_id: userId,
     event_type: payload.eventType,
     channel,
     payload: { ...payload.metadata, sent },

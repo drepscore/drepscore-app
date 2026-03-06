@@ -15,6 +15,7 @@ export type Database = {
           id: number;
           payload: Json | null;
           target: string | null;
+          user_id: string | null;
           wallet_address: string;
         };
         Insert: {
@@ -23,6 +24,7 @@ export type Database = {
           id?: never;
           payload?: Json | null;
           target?: string | null;
+          user_id?: string | null;
           wallet_address: string;
         };
         Update: {
@@ -31,9 +33,18 @@ export type Database = {
           id?: never;
           payload?: Json | null;
           target?: string | null;
+          user_id?: string | null;
           wallet_address?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'admin_audit_log_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       alignment_drift_records: {
         Row: {
@@ -1519,6 +1530,7 @@ export type Database = {
           epoch: number | null;
           id: string;
           rendered_html: string | null;
+          user_id: string | null;
           wallet_address: string;
         };
         Insert: {
@@ -1529,6 +1541,7 @@ export type Database = {
           epoch?: number | null;
           id?: string;
           rendered_html?: string | null;
+          user_id?: string | null;
           wallet_address: string;
         };
         Update: {
@@ -1539,9 +1552,18 @@ export type Database = {
           epoch?: number | null;
           id?: string;
           rendered_html?: string | null;
+          user_id?: string | null;
           wallet_address?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'governance_briefs_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       governance_epoch_stats: {
         Row: {
@@ -1601,6 +1623,7 @@ export type Database = {
           related_drep_id: string | null;
           related_proposal_index: number | null;
           related_proposal_tx_hash: string | null;
+          user_id: string | null;
           wallet_address: string;
         };
         Insert: {
@@ -1612,6 +1635,7 @@ export type Database = {
           related_drep_id?: string | null;
           related_proposal_index?: number | null;
           related_proposal_tx_hash?: string | null;
+          user_id?: string | null;
           wallet_address: string;
         };
         Update: {
@@ -1623,9 +1647,18 @@ export type Database = {
           related_drep_id?: string | null;
           related_proposal_index?: number | null;
           related_proposal_tx_hash?: string | null;
+          user_id?: string | null;
           wallet_address?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'governance_events_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       governance_participation_snapshots: {
         Row: {
@@ -1925,6 +1958,7 @@ export type Database = {
           id: string;
           payload: Json | null;
           sent_at: string;
+          user_id: string | null;
           user_wallet: string;
         };
         Insert: {
@@ -1933,6 +1967,7 @@ export type Database = {
           id?: string;
           payload?: Json | null;
           sent_at?: string;
+          user_id?: string | null;
           user_wallet: string;
         };
         Update: {
@@ -1941,9 +1976,18 @@ export type Database = {
           id?: string;
           payload?: Json | null;
           sent_at?: string;
+          user_id?: string | null;
           user_wallet?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'notification_log_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       notification_preferences: {
         Row: {
@@ -1951,6 +1995,7 @@ export type Database = {
           enabled: boolean;
           event_type: string;
           id: string;
+          user_id: string | null;
           user_wallet: string;
         };
         Insert: {
@@ -1958,6 +2003,7 @@ export type Database = {
           enabled?: boolean;
           event_type: string;
           id?: string;
+          user_id?: string | null;
           user_wallet: string;
         };
         Update: {
@@ -1965,15 +2011,16 @@ export type Database = {
           enabled?: boolean;
           event_type?: string;
           id?: string;
+          user_id?: string | null;
           user_wallet?: string;
         };
         Relationships: [
           {
-            foreignKeyName: 'notification_preferences_user_wallet_fkey';
-            columns: ['user_wallet'];
+            foreignKeyName: 'notification_preferences_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
             referencedRelation: 'users';
-            referencedColumns: ['wallet_address'];
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -2063,6 +2110,7 @@ export type Database = {
           source: string | null;
           stake_address: string | null;
           updated_at: string | null;
+          user_id: string | null;
           vote: string;
           vote_count: number | null;
           wallet_address: string;
@@ -2077,6 +2125,7 @@ export type Database = {
           source?: string | null;
           stake_address?: string | null;
           updated_at?: string | null;
+          user_id?: string | null;
           vote: string;
           vote_count?: number | null;
           wallet_address: string;
@@ -2091,11 +2140,20 @@ export type Database = {
           source?: string | null;
           stake_address?: string | null;
           updated_at?: string | null;
+          user_id?: string | null;
           vote?: string;
           vote_count?: number | null;
           wallet_address?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'poll_responses_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       pools: {
         Row: {
@@ -2547,19 +2605,30 @@ export type Database = {
         Row: {
           jti: string;
           revoked_at: string;
+          user_id: string | null;
           wallet_address: string;
         };
         Insert: {
           jti: string;
           revoked_at?: string;
+          user_id?: string | null;
           wallet_address: string;
         };
         Update: {
           jti?: string;
           revoked_at?: string;
+          user_id?: string | null;
           wallet_address?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'revoked_sessions_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       snapshot_completeness_log: {
         Row: {
@@ -3063,6 +3132,7 @@ export type Database = {
           config: Json | null;
           connected_at: string;
           id: string;
+          user_id: string | null;
           user_wallet: string;
         };
         Insert: {
@@ -3071,6 +3141,7 @@ export type Database = {
           config?: Json | null;
           connected_at?: string;
           id?: string;
+          user_id?: string | null;
           user_wallet: string;
         };
         Update: {
@@ -3079,15 +3150,16 @@ export type Database = {
           config?: Json | null;
           connected_at?: string;
           id?: string;
+          user_id?: string | null;
           user_wallet?: string;
         };
         Relationships: [
           {
-            foreignKeyName: 'user_channels_user_wallet_fkey';
-            columns: ['user_wallet'];
+            foreignKeyName: 'user_channels_user_id_fkey';
+            columns: ['user_id'];
             isOneToOne: false;
             referencedRelation: 'users';
-            referencedColumns: ['wallet_address'];
+            referencedColumns: ['id'];
           },
         ];
       };
@@ -3098,8 +3170,9 @@ export type Database = {
           pca_coordinates: number[] | null;
           personality_label: string | null;
           snapshot_at: string;
+          user_id: string;
           votes_used: number | null;
-          wallet_address: string;
+          wallet_address: string | null;
         };
         Insert: {
           alignment_scores?: Json | null;
@@ -3107,8 +3180,9 @@ export type Database = {
           pca_coordinates?: number[] | null;
           personality_label?: string | null;
           snapshot_at?: string;
+          user_id: string;
           votes_used?: number | null;
-          wallet_address: string;
+          wallet_address?: string | null;
         };
         Update: {
           alignment_scores?: Json | null;
@@ -3116,10 +3190,19 @@ export type Database = {
           pca_coordinates?: number[] | null;
           personality_label?: string | null;
           snapshot_at?: string;
+          user_id?: string;
           votes_used?: number | null;
-          wallet_address?: string;
+          wallet_address?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_governance_profile_history_new_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       user_governance_profiles: {
         Row: {
@@ -3128,8 +3211,9 @@ export type Database = {
           pca_coordinates: number[] | null;
           personality_label: string | null;
           updated_at: string | null;
+          user_id: string;
           votes_used: number;
-          wallet_address: string;
+          wallet_address: string | null;
         };
         Insert: {
           alignment_scores?: Json | null;
@@ -3137,8 +3221,9 @@ export type Database = {
           pca_coordinates?: number[] | null;
           personality_label?: string | null;
           updated_at?: string | null;
+          user_id: string;
           votes_used?: number;
-          wallet_address: string;
+          wallet_address?: string | null;
         };
         Update: {
           alignment_scores?: Json | null;
@@ -3146,21 +3231,74 @@ export type Database = {
           pca_coordinates?: number[] | null;
           personality_label?: string | null;
           updated_at?: string | null;
+          user_id?: string;
           votes_used?: number;
-          wallet_address?: string;
+          wallet_address?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_governance_profiles_new_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: true;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      user_wallets: {
+        Row: {
+          drep_id: string | null;
+          label: string | null;
+          last_used: string | null;
+          linked_at: string | null;
+          payment_address: string;
+          pool_id: string | null;
+          segments: string[] | null;
+          stake_address: string;
+          user_id: string;
+        };
+        Insert: {
+          drep_id?: string | null;
+          label?: string | null;
+          last_used?: string | null;
+          linked_at?: string | null;
+          payment_address: string;
+          pool_id?: string | null;
+          segments?: string[] | null;
+          stake_address: string;
+          user_id: string;
+        };
+        Update: {
+          drep_id?: string | null;
+          label?: string | null;
+          last_used?: string | null;
+          linked_at?: string | null;
+          payment_address?: string;
+          pool_id?: string | null;
+          segments?: string[] | null;
+          stake_address?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'user_wallets_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       users: {
         Row: {
           claimed_drep_id: string | null;
-          connected_wallets: string[] | null;
           delegation_history: Json[] | null;
           digest_frequency: string | null;
           display_name: string | null;
           email: string | null;
           email_verified: boolean | null;
           governance_level: string | null;
+          id: string;
           last_active: string | null;
           last_epoch_visited: number | null;
           last_push_check: string | null;
@@ -3175,13 +3313,13 @@ export type Database = {
         };
         Insert: {
           claimed_drep_id?: string | null;
-          connected_wallets?: string[] | null;
           delegation_history?: Json[] | null;
           digest_frequency?: string | null;
           display_name?: string | null;
           email?: string | null;
           email_verified?: boolean | null;
           governance_level?: string | null;
+          id?: string;
           last_active?: string | null;
           last_epoch_visited?: number | null;
           last_push_check?: string | null;
@@ -3196,13 +3334,13 @@ export type Database = {
         };
         Update: {
           claimed_drep_id?: string | null;
-          connected_wallets?: string[] | null;
           delegation_history?: Json[] | null;
           digest_frequency?: string | null;
           display_name?: string | null;
           email?: string | null;
           email_verified?: boolean | null;
           governance_level?: string | null;
+          id?: string;
           last_active?: string | null;
           last_epoch_visited?: number | null;
           last_push_check?: string | null;

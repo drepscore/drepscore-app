@@ -6,12 +6,12 @@ import { NotificationPrefSchema } from '@/lib/api/schemas/user';
 import { logger } from '@/lib/logger';
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId }: RouteContext) => {
     const supabase = getSupabaseAdmin();
     const { data } = await supabase
       .from('notification_preferences')
       .select('channel, event_type, enabled')
-      .eq('user_wallet', wallet!);
+      .eq('user_id', userId!);
 
     return NextResponse.json(data || []);
   },
@@ -19,19 +19,19 @@ export const GET = withRouteHandler(
 );
 
 export const POST = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
     const body = await request.json();
     const { channel, eventType, enabled } = NotificationPrefSchema.parse(body);
 
     const supabase = getSupabaseAdmin();
     const { error } = await supabase.from('notification_preferences').upsert(
       {
-        user_wallet: wallet!,
+        user_id: userId!,
         channel,
         event_type: eventType,
         enabled,
       },
-      { onConflict: 'user_wallet,channel,event_type' },
+      { onConflict: 'user_id,channel,event_type' },
     );
 
     if (error) {

@@ -126,6 +126,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [reconnecting, setReconnecting] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
   const [hexAddress, setHexAddress] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [sessionAddress, setSessionAddress] = useState<string | null>(null);
   const [delegatedDrepId, setDelegatedDrepId] = useState<string | null>(null);
   const [ownDRepId, setOwnDRepId] = useState<string | null>(null);
@@ -134,7 +135,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const clearError = useCallback(() => setError(null), []);
 
-  const isAuthenticated = sessionAddress !== null;
+  const isAuthenticated = userId !== null;
 
   useEffect(() => {
     const checkWallets = () => {
@@ -152,6 +153,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (token) {
       const payload = parseSessionToken(token);
       if (payload && !isSessionExpired(payload)) {
+        setUserId(payload.userId);
         setSessionAddress(payload.walletAddress);
       } else {
         clearSession();
@@ -393,8 +395,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         throw new Error(data.error || 'Authentication failed');
       }
 
-      const { sessionToken } = await authResponse.json();
+      const { sessionToken, userId: returnedUserId } = await authResponse.json();
       saveSession(sessionToken);
+      setUserId(returnedUserId);
       setSessionAddress(address);
       return true;
     } catch (err) {
@@ -407,6 +410,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     clearSession();
     clearSessionCookie();
+    setUserId(null);
     setSessionAddress(null);
     localStorage.removeItem(WALLET_NAME_KEY);
   }, []);
@@ -441,6 +445,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         connecting,
         reconnecting,
         address,
+        userId,
         sessionAddress,
         isAuthenticated,
         delegatedDrepId,

@@ -37,7 +37,7 @@ export const precomputeCitizenSummaries = inngest.createFunction(
 
       const { data: users } = await supabase
         .from('users')
-        .select('wallet_address, claimed_drep_id')
+        .select('id, wallet_address, claimed_drep_id')
         .not('claimed_drep_id', 'is', null);
 
       if (!users?.length) return { computed: 0, epoch: targetEpoch };
@@ -86,7 +86,7 @@ export const precomputeCitizenSummaries = inngest.createFunction(
           }
 
           summaries.push({
-            user_id: user.wallet_address,
+            user_id: user.id,
             epoch_no: targetEpoch,
             delegated_drep_id: drepId,
             drep_votes_cast: drepVotesCast,

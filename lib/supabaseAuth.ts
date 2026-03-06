@@ -9,6 +9,7 @@ const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 export interface SessionPayload {
+  userId: string;
   walletAddress: string;
   expiresAt: number;
   jti?: string;
@@ -25,9 +26,10 @@ function getSecretKey(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-export async function createSessionToken(walletAddress: string): Promise<string> {
+export async function createSessionToken(userId: string, walletAddress: string): Promise<string> {
   const jti = crypto.randomUUID();
   const payload: SessionPayload = {
+    userId,
     walletAddress,
     expiresAt: Date.now() + SESSION_DURATION_MS,
     jti,
@@ -65,7 +67,7 @@ async function isSessionRevoked(jti: string): Promise<boolean> {
   }
 }
 
-export async function revokeSession(jti: string, walletAddress: string): Promise<void> {
+export async function revokeSession(jti: string, userId: string): Promise<void> {
   try {
     const redis = getRedis();
     await redis.set(`revoked:${jti}`, '1', { ex: SESSION_MAX_AGE_SECONDS + 86400 });
@@ -75,7 +77,7 @@ export async function revokeSession(jti: string, walletAddress: string): Promise
 
   try {
     const supabase = getSupabaseAdmin();
-    await supabase.from('revoked_sessions').upsert({ jti, wallet_address: walletAddress });
+    await supabase.from('revoked_sessions').upsert({ jti, user_id: userId });
   } catch {
     logger.warn('Failed to insert revocation in Supabase', { context: 'session-revoke', jti });
   }
@@ -86,12 +88,13 @@ export async function validateSessionToken(token: string): Promise<SessionPayloa
     const { payload } = await jose.jwtVerify(token, getSecretKey());
 
     const sessionPayload: SessionPayload = {
+      userId: payload.userId as string,
       walletAddress: payload.walletAddress as string,
       expiresAt: (payload.expiresAt as number) || (payload.exp as number) * 1000,
       jti: (payload.jti as string) || undefined,
     };
 
-    if (!sessionPayload.walletAddress) return null;
+    if (!sessionPayload.userId || !sessionPayload.walletAddress) return null;
     if (sessionPayload.expiresAt < Date.now()) return null;
 
     if (sessionPayload.jti) {
@@ -119,11 +122,12 @@ export async function refreshSession(token: string): Promise<string | null> {
     if (Date.now() < halfLife) return null;
 
     const oldJti = payload.jti as string | undefined;
+    const userId = payload.userId as string;
     const wallet = payload.walletAddress as string;
-    const newToken = await createSessionToken(wallet);
+    const newToken = await createSessionToken(userId, wallet);
 
     if (oldJti) {
-      await revokeSession(oldJti, wallet);
+      await revokeSession(oldJti, userId);
     }
 
     return newToken;
@@ -159,7 +163,7 @@ export async function clearSessionCookie(): Promise<void> {
  */
 export async function requireAuth(
   request: NextRequest,
-): Promise<{ wallet: string } | NextResponse> {
+): Promise<{ userId: string; wallet: string } | NextResponse> {
   const auth = request.headers.get('authorization');
   if (!auth?.startsWith('Bearer ')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -168,7 +172,7 @@ export async function requireAuth(
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  return { wallet: session.walletAddress };
+  return { userId: session.userId, wallet: session.walletAddress };
 }
 
 /**
@@ -182,6 +186,7 @@ export function parseSessionToken(token: string): SessionPayload | null {
 
     const payload = JSON.parse(atob(parts[1]));
     return {
+      userId: payload.userId,
       walletAddress: payload.walletAddress,
       expiresAt: payload.expiresAt || payload.exp * 1000,
     };

@@ -6,12 +6,12 @@ import { ChannelConnectSchema, ChannelDeleteSchema } from '@/lib/api/schemas/use
 import { logger } from '@/lib/logger';
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId }: RouteContext) => {
     const supabase = getSupabaseAdmin();
     const { data } = await supabase
       .from('user_channels')
       .select('channel, channel_identifier, config, connected_at')
-      .eq('user_wallet', wallet!);
+      .eq('user_id', userId!);
 
     return NextResponse.json(data || []);
   },
@@ -19,20 +19,20 @@ export const GET = withRouteHandler(
 );
 
 export const POST = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
     const body = await request.json();
     const { channel, channelIdentifier, config } = ChannelConnectSchema.parse(body);
 
     const supabase = getSupabaseAdmin();
     const { error } = await supabase.from('user_channels').upsert(
       {
-        user_wallet: wallet!,
+        user_id: userId!,
         channel,
         channel_identifier: channelIdentifier,
         config: config || {},
         connected_at: new Date().toISOString(),
       },
-      { onConflict: 'user_wallet,channel' },
+      { onConflict: 'user_id,channel' },
     );
 
     if (error) {
@@ -51,12 +51,12 @@ export const POST = withRouteHandler(
 );
 
 export const DELETE = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
     const body = await request.json();
     const { channel } = ChannelDeleteSchema.parse(body);
 
     const supabase = getSupabaseAdmin();
-    await supabase.from('user_channels').delete().eq('user_wallet', wallet!).eq('channel', channel);
+    await supabase.from('user_channels').delete().eq('user_id', userId!).eq('channel', channel);
 
     captureServerEvent('notification_channel_disconnected', { channel }, wallet!);
     return NextResponse.json({ ok: true });

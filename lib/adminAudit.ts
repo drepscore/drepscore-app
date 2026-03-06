@@ -2,7 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 
 export async function logAdminAction(
-  walletAddress: string,
+  userId: string,
   action: string,
   target?: string,
   payload?: Record<string, unknown>,
@@ -10,7 +10,7 @@ export async function logAdminAction(
   try {
     const supabase = getSupabaseAdmin();
     await supabase.from('admin_audit_log').insert({
-      wallet_address: walletAddress,
+      user_id: userId,
       action,
       target: target ?? null,
       payload: payload ?? null,

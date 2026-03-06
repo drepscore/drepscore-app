@@ -14,15 +14,12 @@ import { withRouteHandler, type RouteContext } from '@/lib/api/withRouteHandler'
 import { EmailSchema } from '@/lib/api/schemas/user';
 
 export const POST = withRouteHandler(
-  async (request: NextRequest, { requestId, wallet }: RouteContext) => {
+  async (request: NextRequest, { requestId, userId, wallet }: RouteContext) => {
     const { email } = EmailSchema.parse(await request.json());
 
     const supabase = getSupabaseAdmin();
 
-    await supabase
-      .from('users')
-      .update({ email, email_verified: false })
-      .eq('wallet_address', wallet);
+    await supabase.from('users').update({ email, email_verified: false }).eq('id', userId!);
 
     const verifyUrl = generateVerificationUrl(wallet!, email);
     const sent = await sendEmail(

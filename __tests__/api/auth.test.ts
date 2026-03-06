@@ -12,6 +12,7 @@ vi.mock('@/lib/nonce', () => ({
 
 vi.mock('@meshsdk/core', () => ({
   checkSignature: vi.fn(),
+  resolveRewardAddress: vi.fn().mockReturnValue('stake_test1uz0000000000000000000000'),
 }));
 
 vi.mock('@/lib/supabaseAuth', () => ({
@@ -19,12 +20,29 @@ vi.mock('@/lib/supabaseAuth', () => ({
   SESSION_MAX_AGE_SECONDS: 7 * 24 * 60 * 60,
 }));
 
-vi.mock('@/lib/supabase', () => ({
-  getSupabaseAdmin: () => ({
-    from: () => ({
-      upsert: vi.fn().mockResolvedValue({ error: null }),
+// Chainable mock that supports the multi-step user lookup in auth/wallet
+const mockSupabase = {
+  from: vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        single: vi.fn().mockResolvedValue({ data: { id: 'test-uuid-123' }, error: null }),
+      }),
+    }),
+    insert: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: { id: 'test-uuid-123' }, error: null }),
+      }),
+    }),
+    upsert: vi.fn().mockResolvedValue({ error: null }),
+    update: vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
     }),
   }),
+};
+
+vi.mock('@/lib/supabase', () => ({
+  getSupabaseAdmin: () => mockSupabase,
 }));
 
 import { GET as getNonce } from '@/app/api/auth/nonce/route';
@@ -93,6 +111,7 @@ describe('POST /api/auth/wallet', () => {
 
     expect(res.status).toBe(200);
     expect(body.sessionToken).toBe('session.jwt.token');
+    expect(body.userId).toBe('test-uuid-123');
     expect(body.address).toBe('addr_test1qz...');
   });
 });

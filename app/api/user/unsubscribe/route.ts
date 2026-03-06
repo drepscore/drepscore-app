@@ -21,12 +21,9 @@ async function handleUnsubscribe(token: string | null): Promise<NextResponse> {
   }
 
   const supabase = getSupabaseAdmin();
-  await supabase
-    .from('users')
-    .update({ digest_frequency: 'off' })
-    .eq('wallet_address', parsed.walletAddress);
+  await supabase.from('users').update({ digest_frequency: 'off' }).eq('id', parsed.userId);
 
-  captureServerEvent('email_unsubscribed', {}, parsed.walletAddress);
+  captureServerEvent('email_unsubscribed', {}, parsed.userId);
 
   return new NextResponse(
     `<!DOCTYPE html>

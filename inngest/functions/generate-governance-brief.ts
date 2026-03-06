@@ -36,11 +36,12 @@ export const generateGovernanceBrief = inngest.createFunction(
 
       const { data } = await supabase
         .from('users')
-        .select('wallet_address, claimed_drep_id, delegation_history, digest_frequency')
+        .select('id, wallet_address, claimed_drep_id, delegation_history, digest_frequency')
         .gte('last_active', thirtyDaysAgo)
         .neq('digest_frequency', 'off');
 
       return (data ?? []).map((u) => ({
+        id: u.id as string,
         wallet: u.wallet_address,
         claimedDrepId: u.claimed_drep_id as string | null,
         currentDrepId: (() => {
@@ -70,14 +71,14 @@ export const generateGovernanceBrief = inngest.createFunction(
             let brief;
 
             if (isDRep && user.claimedDrepId) {
-              const ctx = await assembleDRepBriefContext(user.claimedDrepId, user.wallet);
+              const ctx = await assembleDRepBriefContext(user.claimedDrepId, user.id);
               if (!ctx) continue;
               brief = await generateAIDRepBrief(ctx);
-              await storeBrief(user.wallet, 'drep', brief, ctx.epoch);
+              await storeBrief(user.id, 'drep', brief, ctx.epoch);
             } else {
-              const ctx = await assembleHolderBriefContext(user.wallet, user.currentDrepId);
+              const ctx = await assembleHolderBriefContext(user.id, user.currentDrepId);
               brief = await generateAIHolderBrief(ctx);
-              await storeBrief(user.wallet, 'holder', brief, ctx.epoch);
+              await storeBrief(user.id, 'holder', brief, ctx.epoch);
             }
 
             batchGenerated++;
@@ -89,10 +90,10 @@ export const generateGovernanceBrief = inngest.createFunction(
                 drep_id: user.claimedDrepId,
                 brief_type: isDRep ? 'drep' : 'holder',
               },
-              user.wallet,
+              user.id,
             );
 
-            await notifyUser(user.wallet, {
+            await notifyUser(user.id, {
               eventType: 'governance-brief',
               fallback: {
                 title: 'Your Weekly Governance Brief',
@@ -115,10 +116,10 @@ export const generateGovernanceBrief = inngest.createFunction(
               {
                 brief_type: isDRep ? 'drep' : 'holder',
               },
-              user.wallet,
+              user.id,
             );
           } catch (err) {
-            logger.error(`[GovernanceBrief] Failed for ${user.wallet}`, { error: err });
+            logger.error(`[GovernanceBrief] Failed for ${user.id}`, { error: err });
           }
         }
 

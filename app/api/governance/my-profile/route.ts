@@ -12,13 +12,13 @@ import { withRouteHandler, type RouteContext } from '@/lib/api/withRouteHandler'
 export const dynamic = 'force-dynamic';
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId }: RouteContext) => {
     const supabase = createClient();
 
     const { data: existing } = await supabase
       .from('user_governance_profiles')
       .select('alignment_scores, personality_label, votes_used, confidence, updated_at')
-      .eq('wallet_address', wallet!)
+      .eq('user_id', userId!)
       .single();
 
     if (existing) {
@@ -31,7 +31,7 @@ export const GET = withRouteHandler(
       });
     }
 
-    const profile = await updateUserProfile(wallet!);
+    const profile = await updateUserProfile(userId!);
     if (!profile) {
       return NextResponse.json({
         alignmentScores: null,

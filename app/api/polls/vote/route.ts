@@ -24,7 +24,7 @@ function aggregateCounts(rows: { vote: string }[]): {
 }
 
 export const POST = withRouteHandler(
-  async (request: NextRequest, { requestId, wallet }: RouteContext) => {
+  async (request: NextRequest, { requestId, userId, wallet }: RouteContext) => {
     const walletAddress = wallet!;
     const { proposalTxHash, proposalIndex, vote, stakeAddress, delegatedDrepId } =
       PollVoteSchema.parse(await request.json());
@@ -43,7 +43,7 @@ export const POST = withRouteHandler(
       .select('id, vote_count')
       .eq('proposal_tx_hash', proposalTxHash)
       .eq('proposal_index', proposalIndex)
-      .eq('wallet_address', walletAddress)
+      .eq('user_id', userId!)
       .single();
 
     if (existing) {
@@ -69,6 +69,7 @@ export const POST = withRouteHandler(
       const { error: insertError } = await supabase.from('poll_responses').insert({
         proposal_tx_hash: proposalTxHash,
         proposal_index: proposalIndex,
+        user_id: userId!,
         wallet_address: walletAddress,
         stake_address: resolvedStakeAddress,
         delegated_drep_id: resolvedDrepId,
@@ -102,6 +103,7 @@ export const POST = withRouteHandler(
     supabase
       .from('governance_events')
       .insert({
+        user_id: userId!,
         wallet_address: walletAddress,
         event_type: 'poll_vote',
         event_data: { vote, proposalTitle },
@@ -117,7 +119,7 @@ export const POST = withRouteHandler(
           });
       });
 
-    updateUserProfile(walletAddress).catch((err) => {
+    updateUserProfile(userId!).catch((err) => {
       logger.error('Failed to update user profile', { context: 'poll-vote', error: err });
     });
 

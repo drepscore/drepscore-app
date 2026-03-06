@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkSignature, DataSignature } from '@meshsdk/core';
+import { checkSignature, DataSignature, resolveRewardAddress } from '@meshsdk/core';
 import { createSessionToken, SESSION_MAX_AGE_SECONDS } from '@/lib/supabaseAuth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyNonce } from '@/lib/nonce';
@@ -47,23 +47,82 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin();
-    const { error: upsertError } = await supabase.from('users').upsert(
-      {
-        wallet_address: address,
-        last_active: new Date().toISOString(),
-      },
-      { onConflict: 'wallet_address' },
-    );
 
-    if (upsertError) {
-      logger.error('User upsert error', { context: 'auth/wallet', error: upsertError?.message });
-      return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 });
+    // Derive stake address for wallet dedup
+    let stakeAddress: string | null = null;
+    try {
+      stakeAddress = resolveRewardAddress(address);
+    } catch {
+      // Script addresses may not resolve — proceed without stake address
     }
 
-    const sessionToken = await createSessionToken(address);
+    // Multi-step user lookup:
+    // 1. Check user_wallets by stake_address
+    // 2. Fallback: check users by wallet_address (legacy)
+    // 3. If neither: create new user
+    let userId: string | null = null;
+
+    if (stakeAddress) {
+      const { data: walletRow } = await supabase
+        .from('user_wallets')
+        .select('user_id')
+        .eq('stake_address', stakeAddress)
+        .maybeSingle();
+      if (walletRow) userId = walletRow.user_id;
+    }
+
+    if (!userId) {
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('id')
+        .eq('wallet_address', address)
+        .maybeSingle();
+      if (userRow) userId = userRow.id;
+    }
+
+    if (!userId) {
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({ wallet_address: address, last_active: new Date().toISOString() })
+        .select('id')
+        .single();
+      if (insertError || !newUser) {
+        logger.error('User insert error', { context: 'auth/wallet', error: insertError?.message });
+        return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 });
+      }
+      userId = newUser.id;
+    } else {
+      // Update last_active for existing user
+      await supabase
+        .from('users')
+        .update({ last_active: new Date().toISOString() })
+        .eq('id', userId);
+    }
+
+    // Upsert into user_wallets
+    if (stakeAddress) {
+      const { error: walletUpsertError } = await supabase.from('user_wallets').upsert(
+        {
+          stake_address: stakeAddress,
+          user_id: userId!,
+          payment_address: address,
+          last_used: new Date().toISOString(),
+        },
+        { onConflict: 'stake_address' },
+      );
+      if (walletUpsertError) {
+        logger.warn('Wallet upsert error', {
+          context: 'auth/wallet',
+          error: walletUpsertError.message,
+        });
+      }
+    }
+
+    const sessionToken = await createSessionToken(userId!, address);
 
     const response = NextResponse.json({
       sessionToken,
+      userId,
       address,
     });
 

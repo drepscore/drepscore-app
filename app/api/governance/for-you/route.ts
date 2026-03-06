@@ -104,19 +104,18 @@ function topAligningDimension(
 }
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
     const supabase = createClient();
-    const walletAddress = wallet!;
     const [profileResult, pollResult] = await Promise.all([
       supabase
         .from('user_governance_profiles')
         .select('alignment_scores')
-        .eq('wallet_address', walletAddress)
+        .eq('user_id', userId!)
         .single(),
       supabase
         .from('poll_responses')
         .select('proposal_tx_hash, proposal_index, vote')
-        .eq('wallet_address', walletAddress),
+        .eq('user_id', userId!),
     ]);
 
     let userVec: number[];
@@ -262,7 +261,7 @@ export const GET = withRouteHandler(
         profile_source: profileSource,
         has_conflicts: recommendations.some((r) => r.conflict),
       },
-      walletAddress,
+      wallet!,
     );
 
     return NextResponse.json({

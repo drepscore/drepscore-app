@@ -10,8 +10,8 @@ import { withRouteHandler, type RouteContext } from '@/lib/api/withRouteHandler'
 export const dynamic = 'force-dynamic';
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
-    const brief = await getLatestBrief(wallet!);
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
+    const brief = await getLatestBrief(userId!);
 
     if (!brief) {
       return NextResponse.json({ brief: null, message: 'No briefs yet' });

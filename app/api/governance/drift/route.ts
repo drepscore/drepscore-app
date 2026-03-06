@@ -26,7 +26,7 @@ export const GET = withRouteHandler(async (request: NextRequest) => {
   const [{ data: user }, { data: profile }] = await Promise.all([
     supabase
       .from('users')
-      .select('wallet_address, claimed_drep_id')
+      .select('id, wallet_address, claimed_drep_id')
       .eq('wallet_address', wallet)
       .single(),
     supabase
@@ -97,7 +97,7 @@ export const GET = withRouteHandler(async (request: NextRequest) => {
   const { data: history } = await supabase
     .from('alignment_drift_records')
     .select('drift_score, drift_classification, alternative_dreps, epoch_no, created_at')
-    .eq('user_id', wallet)
+    .eq('user_id', user.id)
     .eq('drep_id', user.claimed_drep_id)
     .order('created_at', { ascending: false })
     .limit(10);

@@ -19,13 +19,14 @@ export const dynamic = 'force-dynamic';
 
 export const POST = withRouteHandler(
   async (request: NextRequest, ctx: RouteContext) => {
+    const userId = ctx.userId!;
     const wallet = ctx.wallet!;
     const supabase = getSupabaseAdmin();
 
     const { data: user } = await supabase
       .from('users')
       .select('claimed_drep_id, delegation_history')
-      .eq('wallet_address', wallet)
+      .eq('id', userId)
       .single();
 
     if (!user) {
@@ -36,20 +37,20 @@ export const POST = withRouteHandler(
 
     let brief;
     if (isDRep) {
-      const briefCtx = await assembleDRepBriefContext(user.claimed_drep_id!, wallet);
+      const briefCtx = await assembleDRepBriefContext(user.claimed_drep_id!, userId);
       if (!briefCtx)
         return NextResponse.json({ error: 'Could not assemble DRep context' }, { status: 500 });
       brief = generateDRepBrief(briefCtx);
-      await storeBrief(wallet, 'drep', brief, briefCtx.epoch);
+      await storeBrief(userId, 'drep', brief, briefCtx.epoch);
     } else {
       const history = user.delegation_history as Array<{ drepId: string }> | null;
       const currentDrep = history?.length ? history[history.length - 1].drepId : null;
-      const briefCtx = await assembleHolderBriefContext(wallet, currentDrep);
+      const briefCtx = await assembleHolderBriefContext(userId, currentDrep);
       brief = generateHolderBrief(briefCtx);
-      await storeBrief(wallet, 'holder', brief, briefCtx.epoch);
+      await storeBrief(userId, 'holder', brief, briefCtx.epoch);
     }
 
-    await notifyUser(wallet, {
+    await notifyUser(userId, {
       eventType: 'governance-brief',
       fallback: {
         title: 'Your Weekly Governance Brief',
@@ -68,7 +69,7 @@ export const POST = withRouteHandler(
     captureServerEvent(
       'brief_generation_requested',
       { wallet_address: wallet, brief_type: isDRep ? 'drep' : 'holder' },
-      wallet,
+      userId,
     );
 
     return NextResponse.json({ ok: true, brief });

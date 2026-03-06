@@ -1,8 +1,8 @@
 import { UserPrefKey } from './drep';
 
 export interface SupabaseUser {
+  id: string;
   wallet_address: string;
-  connected_wallets: string[];
   display_name?: string;
   prefs: {
     userPrefs?: UserPrefKey[];
@@ -33,12 +33,13 @@ export interface PushSubscriptionData {
   subscribed_at?: string;
 }
 
-export type SupabaseUserUpdate = Partial<Omit<SupabaseUser, 'wallet_address'>>;
+export type SupabaseUserUpdate = Partial<Omit<SupabaseUser, 'id' | 'wallet_address'>>;
 
 export interface PollResponse {
   id: string;
   proposal_tx_hash: string;
   proposal_index: number;
+  user_id: string;
   wallet_address: string;
   stake_address: string | null;
   delegated_drep_id: string | null;

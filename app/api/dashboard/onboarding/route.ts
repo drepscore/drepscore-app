@@ -32,25 +32,23 @@ export const POST = withRouteHandler(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { userId } = parsed;
     const supabase = getSupabaseAdmin();
     const { data: user } = await supabase
       .from('users')
       .select('onboarding_checklist')
-      .eq('wallet_address', parsed.walletAddress)
+      .eq('id', userId)
       .single();
 
     const checklist = user?.onboarding_checklist || {};
     checklist[item] = completed !== false;
 
-    await supabase
-      .from('users')
-      .update({ onboarding_checklist: checklist })
-      .eq('wallet_address', parsed.walletAddress);
+    await supabase.from('users').update({ onboarding_checklist: checklist }).eq('id', userId);
 
     captureServerEvent(
       'onboarding_step_completed',
-      { item, completed: checklist[item], wallet_address: parsed.walletAddress },
-      parsed.walletAddress,
+      { item, completed: checklist[item], user_id: userId },
+      userId,
     );
 
     return NextResponse.json({ checklist });

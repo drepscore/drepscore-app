@@ -21,6 +21,11 @@ UPDATE users SET id = gen_random_uuid() WHERE id IS NULL;
 -- Make id NOT NULL
 ALTER TABLE users ALTER COLUMN id SET NOT NULL;
 
+-- Drop FK constraints that reference users_pkey (wallet_address)
+-- These tables will get a new user_id FK in section 3
+ALTER TABLE notification_preferences DROP CONSTRAINT IF EXISTS notification_preferences_user_wallet_fkey;
+ALTER TABLE user_channels DROP CONSTRAINT IF EXISTS user_channels_user_wallet_fkey;
+
 -- Drop existing PK on wallet_address
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_pkey;
 
@@ -35,24 +40,18 @@ ALTER TABLE users ADD CONSTRAINT users_wallet_address_unique UNIQUE (wallet_addr
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS user_wallets (
-  address       TEXT PRIMARY KEY,           -- bech32 payment address
+  stake_address TEXT PRIMARY KEY,             -- stable governance-meaningful key
   user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  stake_address TEXT,                        -- derived stake/reward address
-  label         TEXT,                        -- user-defined label ("DRep wallet", "Cold storage")
-  is_primary    BOOLEAN NOT NULL DEFAULT false,
-  segments      TEXT[] DEFAULT '{}',         -- cached: ['drep', 'spo', 'citizen']
-  drep_id       TEXT,                        -- derived DRep ID if registered
-  pool_id       TEXT,                        -- pool bech32 if SPO
+  payment_address TEXT NOT NULL,              -- bech32 payment address (most recent)
+  label         TEXT,                         -- user-defined label ("DRep wallet", "Cold storage")
+  segments      TEXT[] DEFAULT '{}',          -- cached: ['drep', 'spo', 'citizen']
+  drep_id       TEXT,                         -- derived DRep ID if registered
+  pool_id       TEXT,                         -- pool bech32 if SPO
   linked_at     TIMESTAMPTZ DEFAULT now(),
   last_used     TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX idx_user_wallets_user ON user_wallets(user_id);
-CREATE INDEX idx_user_wallets_stake ON user_wallets(stake_address) WHERE stake_address IS NOT NULL;
-
--- Only one primary wallet per user
-CREATE UNIQUE INDEX idx_user_wallets_primary
-  ON user_wallets(user_id) WHERE is_primary = true;
 
 -- RLS: public read, service role write
 ALTER TABLE user_wallets ENABLE ROW LEVEL SECURITY;

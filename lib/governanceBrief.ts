@@ -55,7 +55,7 @@ export interface GeneratedBrief {
 
 export async function assembleDRepBriefContext(
   drepId: string,
-  walletAddress: string,
+  userId: string,
 ): Promise<DRepBriefContext | null> {
   const supabase = getSupabaseAdmin();
 
@@ -110,7 +110,7 @@ export async function assembleDRepBriefContext(
     .eq('sync_type', 'dreps')
     .order('started_at', { ascending: false })
     .limit(1);
-  void walletAddress;
+  void userId;
 
   return {
     drepId,
@@ -132,7 +132,7 @@ export async function assembleDRepBriefContext(
 }
 
 export async function assembleHolderBriefContext(
-  walletAddress: string,
+  userId: string,
   drepId: string | null,
 ): Promise<HolderBriefContext> {
   const supabase = getSupabaseAdmin();
@@ -166,7 +166,7 @@ export async function assembleHolderBriefContext(
       drepScore = drep.score;
     }
   }
-  void walletAddress;
+  void userId;
 
   return {
     drepId,
@@ -326,7 +326,7 @@ function generateHolderBriefTemplate(ctx: HolderBriefContext): GeneratedBrief {
 // ── Storage ───────────────────────────────────────────────────────────────────
 
 export async function storeBrief(
-  walletAddress: string,
+  userId: string,
   briefType: 'drep' | 'holder',
   content: GeneratedBrief,
   epoch: number,
@@ -335,7 +335,7 @@ export async function storeBrief(
   const { data, error } = await supabase
     .from('governance_briefs')
     .insert({
-      wallet_address: walletAddress,
+      user_id: userId,
       brief_type: briefType,
       content_json: content,
       epoch,
@@ -350,12 +350,12 @@ export async function storeBrief(
   return data?.id ?? null;
 }
 
-export async function getLatestBrief(walletAddress: string) {
+export async function getLatestBrief(userId: string) {
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
     .from('governance_briefs')
     .select('*')
-    .eq('wallet_address', walletAddress)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
     .single();

@@ -5,14 +5,9 @@ import { logger } from '@/lib/logger';
 import { withRouteHandler, type RouteContext } from '@/lib/api/withRouteHandler';
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
-    const walletAddress = wallet!;
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('wallet_address', walletAddress)
-      .single();
+    const { data, error } = await supabase.from('users').select('*').eq('id', userId!).single();
 
     if (error || !data) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -23,7 +18,7 @@ export const GET = withRouteHandler(
     await supabase
       .from('users')
       .update({ last_visit_at: new Date().toISOString() })
-      .eq('wallet_address', walletAddress);
+      .eq('id', userId!);
 
     return NextResponse.json({
       ...data,
@@ -34,14 +29,12 @@ export const GET = withRouteHandler(
 );
 
 export const PATCH = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
-    const walletAddress = wallet!;
+  async (request: NextRequest, { userId }: RouteContext) => {
     const updates: SupabaseUserUpdate = await request.json();
 
     const allowedFields: (keyof SupabaseUserUpdate)[] = [
       'prefs',
       'watchlist',
-      'connected_wallets',
       'push_subscriptions',
       'display_name',
       'digest_frequency',
@@ -58,7 +51,7 @@ export const PATCH = withRouteHandler(
     const { data, error } = await supabase
       .from('users')
       .update(sanitizedUpdates)
-      .eq('wallet_address', walletAddress)
+      .eq('id', userId!)
       .select()
       .single();
 

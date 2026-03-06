@@ -37,8 +37,7 @@ function classifyVoter(treasuryYes: number, treasuryNo: number): string {
 }
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
-    const walletAddress = wallet!;
+  async (request: NextRequest, { userId }: RouteContext) => {
     const supabase = getSupabaseAdmin();
     const { count: totalVoters } = await supabase
       .from('poll_responses')
@@ -56,7 +55,7 @@ export const GET = withRouteHandler(
     const { data: userVotes } = await supabase
       .from('poll_responses')
       .select('vote, proposal_tx_hash, proposal_index')
-      .eq('wallet_address', walletAddress);
+      .eq('user_id', userId!);
 
     if (!userVotes || userVotes.length === 0) {
       return NextResponse.json({ cohort: null });

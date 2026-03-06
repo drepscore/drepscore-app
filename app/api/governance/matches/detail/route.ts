@@ -7,7 +7,7 @@ import { withRouteHandler, type RouteContext } from '@/lib/api/withRouteHandler'
 export const dynamic = 'force-dynamic';
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
     const drepId = request.nextUrl.searchParams.get('drepId');
     if (!drepId) {
       return NextResponse.json({ error: 'drepId required' }, { status: 400 });
@@ -18,7 +18,7 @@ export const GET = withRouteHandler(
     const { data: pollVotes } = await supabase
       .from('poll_responses')
       .select('proposal_tx_hash, proposal_index, vote')
-      .eq('wallet_address', wallet!);
+      .eq('user_id', userId!);
 
     if (!pollVotes || pollVotes.length === 0) {
       return NextResponse.json({ comparisons: [], agreed: 0, total: 0, matchScore: 0 });

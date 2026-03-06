@@ -22,7 +22,7 @@ const DIMENSIONS: AlignmentDimension[] = [
 ];
 
 export interface UserGovernanceProfile {
-  walletAddress: string;
+  userId: string;
   pcaCoordinates: number[] | null;
   alignmentScores: AlignmentScores;
   personalityLabel: string;
@@ -30,15 +30,13 @@ export interface UserGovernanceProfile {
   confidence: number;
 }
 
-export async function updateUserProfile(
-  walletAddress: string,
-): Promise<UserGovernanceProfile | null> {
+export async function updateUserProfile(userId: string): Promise<UserGovernanceProfile | null> {
   const supabase = getSupabaseAdmin();
 
   const { data: pollVotes } = await supabase
     .from('poll_responses')
     .select('proposal_tx_hash, proposal_index, vote')
-    .eq('wallet_address', walletAddress);
+    .eq('user_id', userId);
 
   if (!pollVotes?.length) return null;
 
@@ -99,7 +97,7 @@ export async function updateUserProfile(
   await supabase
     .from('user_governance_profile_history')
     .insert({
-      wallet_address: walletAddress,
+      user_id: userId,
       pca_coordinates: pcaCoordinates,
       alignment_scores: alignmentScores,
       personality_label: personalityLabel,
@@ -112,7 +110,7 @@ export async function updateUserProfile(
 
   await supabase.from('user_governance_profiles').upsert(
     {
-      wallet_address: walletAddress,
+      user_id: userId,
       pca_coordinates: pcaCoordinates,
       alignment_scores: alignmentScores,
       personality_label: personalityLabel,
@@ -120,11 +118,11 @@ export async function updateUserProfile(
       confidence,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: 'wallet_address' },
+    { onConflict: 'user_id' },
   );
 
   return {
-    walletAddress,
+    userId,
     pcaCoordinates,
     alignmentScores,
     personalityLabel,

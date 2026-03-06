@@ -12,6 +12,7 @@ import { errMsg } from '@/lib/sync-utils';
 import { logger } from '@/lib/logger';
 
 interface ClaimedUserRow {
+  id: string;
   wallet_address: string;
   claimed_drep_id: string | null;
 }
@@ -67,7 +68,7 @@ export const checkNotifications = inngest.createFunction(
 
       const { data: users } = await supabase
         .from('users')
-        .select('wallet_address, claimed_drep_id')
+        .select('id, wallet_address, claimed_drep_id')
         .not('claimed_drep_id', 'is', null);
 
       if (!users || users.length === 0)
@@ -132,7 +133,7 @@ export const checkNotifications = inngest.createFunction(
         if (history && history.length >= 2) {
           const delta = history[0].score - history[1].score;
           if (Math.abs(delta) >= SCORE_CHANGE_THRESHOLD) {
-            await notifyUser(user.wallet_address, {
+            await notifyUser(user.id, {
               eventType: 'score-change',
               title: `Score ${delta > 0 ? 'increased' : 'decreased'} by ${Math.abs(delta)} points`,
               body: `Your DRepScore is now ${history[0].score}/100.`,
@@ -158,7 +159,7 @@ export const checkNotifications = inngest.createFunction(
         ) {
           const delegatorDelta = snapshots[0].delegator_count - snapshots[1].delegator_count;
           if (delegatorDelta !== 0) {
-            await notifyUser(user.wallet_address, {
+            await notifyUser(user.id, {
               eventType: 'delegation-change',
               title: `${delegatorDelta > 0 ? '+' : ''}${delegatorDelta} delegator${Math.abs(delegatorDelta) !== 1 ? 's' : ''}`,
               body: `You now have ${snapshots[0].delegator_count} delegators.`,
@@ -167,7 +168,7 @@ export const checkNotifications = inngest.createFunction(
             stats.delegation++;
 
             if (delegatorDelta > 0) {
-              await notifyUser(user.wallet_address, {
+              await notifyUser(user.id, {
                 eventType: 'delegator-growth',
                 title: `You gained ${delegatorDelta} delegator${delegatorDelta !== 1 ? 's' : ''}`,
                 body: `Your delegation is growing — ${snapshots[0].delegator_count} total delegators.`,
@@ -208,7 +209,7 @@ export const checkNotifications = inngest.createFunction(
         });
 
         for (const user of context.users) {
-          await notifyUser(user.wallet_address, {
+          await notifyUser(user.id, {
             eventType: 'proposal-deadline',
             title: `${urgentProposals.length} proposal${urgentProposals.length !== 1 ? 's' : ''} expire in 2 epochs`,
             body: 'Vote now to maintain your participation rate.',
@@ -234,7 +235,7 @@ export const checkNotifications = inngest.createFunction(
         if (rank > 10 && rank <= 15 && allDreps.length >= 10) {
           const distance = allDreps[9].score - drep.score;
           if (distance <= 5) {
-            await notifyUser(user.wallet_address, {
+            await notifyUser(user.id, {
               eventType: 'score-opportunity',
               title: `You're ${distance} point${distance !== 1 ? 's' : ''} from the top 10`,
               body: `Ranked #${rank} — a few more rationales could push you into the top 10.`,
@@ -260,7 +261,7 @@ export const checkNotifications = inngest.createFunction(
           for (const key of newMilestones) {
             const def = MILESTONES.find((m) => m.key === key);
             if (def) {
-              await notifyUser(user.wallet_address, {
+              await notifyUser(user.id, {
                 eventType: 'near-milestone',
                 title: `Achievement unlocked: ${def.label}`,
                 body: def.description,
@@ -357,7 +358,7 @@ export const checkNotifications = inngest.createFunction(
             (u: ClaimedUserRow) => u.claimed_drep_id === tc.entity_id,
           );
           if (user) {
-            await notifyUser(user.wallet_address, {
+            await notifyUser(user.id, {
               eventType: 'tier-change',
               title: `${isUp ? '🎉' : '⚠️'} Tier ${isUp ? 'up' : 'down'}: ${tc.old_tier} → ${tc.new_tier}`,
               body: `Your governance tier ${isUp ? 'rose' : 'dropped'} to ${tc.new_tier} (score: ${tc.new_score}).${isUp ? ' Share your achievement!' : ''}`,
@@ -433,7 +434,7 @@ export const checkNotifications = inngest.createFunction(
 
         for (const threshold of milestoneThresholds) {
           if (currentDelegators >= threshold && previousDelegators < threshold) {
-            await notifyUser(user.wallet_address, {
+            await notifyUser(user.id, {
               eventType: 'delegation-milestone',
               title: `🎉 ${threshold.toLocaleString()} delegators!`,
               body: `You've reached ${threshold.toLocaleString()} delegators. Your governance voice represents a growing community.`,

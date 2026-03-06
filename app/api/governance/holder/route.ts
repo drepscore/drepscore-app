@@ -21,7 +21,7 @@ function normalizeVote(vote: string): string {
 }
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
     const walletAddress = wallet!;
 
     const delegatedDrepId = request.nextUrl.searchParams.get('drepId');
@@ -34,7 +34,7 @@ export const GET = withRouteHandler(
       supabase
         .from('poll_responses')
         .select('proposal_tx_hash, proposal_index, vote, initial_vote, created_at')
-        .eq('wallet_address', walletAddress)
+        .eq('user_id', userId!)
         .order('created_at', { ascending: false }),
       delegatedDrepId ? getDRepById(delegatedDrepId) : Promise.resolve(null),
       supabase
@@ -52,7 +52,7 @@ export const GET = withRouteHandler(
       admin
         .from('users')
         .select('governance_level, poll_count, visit_streak, last_epoch_visited')
-        .eq('wallet_address', walletAddress)
+        .eq('id', userId!)
         .single(),
     ]);
 
@@ -216,7 +216,7 @@ export const GET = withRouteHandler(
     }[] = [];
 
     if (pollVotes.length >= 3) {
-      const { matches } = await findBestMatchDReps(walletAddress, {
+      const { matches } = await findBestMatchDReps(userId!, {
         excludeDrepId: delegatedDrepId,
         minOverlap: 2,
         minMatchRate: 0.5,

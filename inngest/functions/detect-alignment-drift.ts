@@ -48,7 +48,7 @@ export const detectAlignmentDrift = inngest.createFunction(
 
       const { data: users } = await supabase
         .from('users')
-        .select('wallet_address, claimed_drep_id')
+        .select('id, wallet_address, claimed_drep_id')
         .not('claimed_drep_id', 'is', null);
 
       if (!users?.length) return { processed: 0, driftsDetected: 0 };
@@ -165,7 +165,7 @@ export const detectAlignmentDrift = inngest.createFunction(
             .slice(0, 3);
 
           driftRecords.push({
-            user_id: user.wallet_address,
+            user_id: user.id,
             drep_id: drepId,
             drift_score: drift.driftScore,
             drift_classification: drift.classification,

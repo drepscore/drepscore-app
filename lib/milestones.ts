@@ -236,7 +236,7 @@ export async function checkAndAwardMilestones(drepId: string): Promise<string[]>
   // Claimed profile — awarded elsewhere but check
   const { data: claimedUser } = await supabase
     .from('users')
-    .select('wallet_address')
+    .select('id')
     .eq('claimed_drep_id', drepId)
     .limit(1);
   if (claimedUser && claimedUser.length > 0) award('claimed-profile');

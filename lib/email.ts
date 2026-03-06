@@ -72,21 +72,23 @@ export async function sendEmail(
 
 // ── Unsubscribe Token ─────────────────────────────────────────────────────────
 
-export function generateUnsubscribeUrl(walletAddress: string): string {
+export function generateUnsubscribeUrl(userId: string): string {
   const token = Buffer.from(
     JSON.stringify({
-      w: walletAddress,
+      u: userId,
       t: Date.now(),
     }),
   ).toString('base64url');
   return `${BASE_URL}/api/user/unsubscribe?token=${token}`;
 }
 
-export function parseUnsubscribeToken(token: string): { walletAddress: string } | null {
+export function parseUnsubscribeToken(token: string): { userId: string } | null {
   try {
     const decoded = JSON.parse(Buffer.from(token, 'base64url').toString());
-    if (!decoded.w) return null;
-    return { walletAddress: decoded.w };
+    // Support both new `u` key and legacy `w` key
+    const userId = decoded.u ?? decoded.w;
+    if (!userId) return null;
+    return { userId };
   } catch {
     return null;
   }
@@ -94,10 +96,10 @@ export function parseUnsubscribeToken(token: string): { walletAddress: string } 
 
 // ── Email Verification Token ────────────────────────────────────────────────
 
-export function generateVerificationUrl(walletAddress: string, email: string): string {
+export function generateVerificationUrl(userId: string, email: string): string {
   const token = Buffer.from(
     JSON.stringify({
-      w: walletAddress,
+      u: userId,
       e: email,
       t: Date.now(),
       exp: Date.now() + 24 * 60 * 60 * 1000,
@@ -106,14 +108,14 @@ export function generateVerificationUrl(walletAddress: string, email: string): s
   return `${BASE_URL}/api/user/email/verify?token=${token}`;
 }
 
-export function parseVerificationToken(
-  token: string,
-): { walletAddress: string; email: string } | null {
+export function parseVerificationToken(token: string): { userId: string; email: string } | null {
   try {
     const decoded = JSON.parse(Buffer.from(token, 'base64url').toString());
-    if (!decoded.w || !decoded.e) return null;
+    // Support both new `u` key and legacy `w` key
+    const userId = decoded.u ?? decoded.w;
+    if (!userId || !decoded.e) return null;
     if (decoded.exp && Date.now() > decoded.exp) return null;
-    return { walletAddress: decoded.w, email: decoded.e };
+    return { userId, email: decoded.e };
   } catch {
     return null;
   }
@@ -130,13 +132,13 @@ async function emailChannelSender(
   const { data: user } = await supabase
     .from('users')
     .select('email, email_verified')
-    .eq('wallet_address', target.userWallet)
+    .eq('id', target.userId)
     .single();
 
   if (!user?.email || !user?.email_verified) return false;
 
   const rendered = renderEmail(payload);
-  const unsubscribeUrl = generateUnsubscribeUrl(target.userWallet);
+  const unsubscribeUrl = generateUnsubscribeUrl(target.userId);
 
   const { GenericNotificationEmail } = await import('./emailTemplates');
   const emailElement = React.createElement(GenericNotificationEmail, {

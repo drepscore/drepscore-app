@@ -17,20 +17,19 @@ interface TimelineEvent {
 }
 
 export const GET = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
-    const walletAddress = wallet!;
+  async (request: NextRequest, { userId }: RouteContext) => {
     const supabase = getSupabaseAdmin();
     const [eventsResult, pollResult] = await Promise.all([
       supabase
         .from('governance_events')
         .select('*')
-        .eq('wallet_address', walletAddress)
+        .eq('user_id', userId!)
         .order('created_at', { ascending: false })
         .limit(50),
       supabase
         .from('poll_responses')
         .select('proposal_tx_hash, proposal_index, vote, created_at')
-        .eq('wallet_address', walletAddress)
+        .eq('user_id', userId!)
         .order('created_at', { ascending: false }),
     ]);
 

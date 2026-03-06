@@ -31,25 +31,26 @@ export const GET = withRouteHandler(async (request: NextRequest) => {
     epochNo = (stats?.current_epoch ?? 1) - 1;
   }
 
-  const { data: existing } = await supabase
-    .from('citizen_epoch_summaries')
-    .select('*')
-    .eq('user_id', wallet)
-    .eq('epoch_no', epochNo)
-    .single();
-
-  if (existing) {
-    return NextResponse.json(existing);
-  }
-
+  // Look up user by wallet to get UUID
   const { data: user } = await supabase
     .from('users')
-    .select('wallet_address, claimed_drep_id')
+    .select('id, wallet_address, claimed_drep_id')
     .eq('wallet_address', wallet)
     .single();
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+
+  const { data: existing } = await supabase
+    .from('citizen_epoch_summaries')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('epoch_no', epochNo)
+    .single();
+
+  if (existing) {
+    return NextResponse.json(existing);
   }
 
   const drepId = user.claimed_drep_id;
@@ -88,7 +89,7 @@ export const GET = withRouteHandler(async (request: NextRequest) => {
     .single();
 
   const summary = {
-    user_id: wallet,
+    user_id: user.id,
     epoch_no: epochNo,
     delegated_drep_id: drepId,
     drep_votes_cast: drepVotesCast,

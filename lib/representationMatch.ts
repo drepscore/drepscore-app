@@ -81,7 +81,7 @@ export interface DRepMatchSummary {
  * Queries all DRep votes on proposals the user has voted on, then ranks by match rate.
  */
 export async function findBestMatchDReps(
-  walletAddress: string,
+  userId: string,
   opts?: {
     excludeDrepId?: string | null;
     minOverlap?: number;
@@ -101,7 +101,7 @@ export async function findBestMatchDReps(
   const { data: pollVotes } = await supabase
     .from('poll_responses')
     .select('proposal_tx_hash, proposal_index, vote')
-    .eq('wallet_address', walletAddress);
+    .eq('user_id', userId);
 
   if (!pollVotes || pollVotes.length === 0) {
     return { matches: [], currentDRepMatch: null };

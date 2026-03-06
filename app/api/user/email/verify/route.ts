@@ -24,14 +24,14 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase
     .from('users')
     .update({ email_verified: true })
-    .eq('wallet_address', parsed.walletAddress)
+    .eq('id', parsed.userId)
     .eq('email', parsed.email);
 
   if (error) {
     return new NextResponse('Verification failed', { status: 500 });
   }
 
-  captureServerEvent('email_verified', {}, parsed.walletAddress);
+  captureServerEvent('email_verified', {}, parsed.userId);
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://drepscore.io';
   return NextResponse.redirect(`${baseUrl}/profile?email_verified=true`);

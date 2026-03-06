@@ -6,7 +6,7 @@ import { withRouteHandler, type RouteContext } from '@/lib/api/withRouteHandler'
 import { TelegramConnectSchema } from '@/lib/api/schemas/user';
 
 export const POST = withRouteHandler(
-  async (request: NextRequest, { wallet }: RouteContext) => {
+  async (request: NextRequest, { userId, wallet }: RouteContext) => {
     const body = await request.json();
     const { token } = TelegramConnectSchema.parse(body);
 
@@ -31,13 +31,13 @@ export const POST = withRouteHandler(
 
     await supabase.from('user_channels').upsert(
       {
-        user_wallet: wallet!,
+        user_id: userId!,
         channel: 'telegram',
         channel_identifier: chatId,
         config: { chatId: config.chatId },
         connected_at: new Date().toISOString(),
       },
-      { onConflict: 'user_wallet,channel' },
+      { onConflict: 'user_id,channel' },
     );
 
     const defaultEvents = [
@@ -49,12 +49,12 @@ export const POST = withRouteHandler(
     for (const eventType of defaultEvents) {
       await supabase.from('notification_preferences').upsert(
         {
-          user_wallet: wallet!,
+          user_id: userId!,
           channel: 'telegram',
           event_type: eventType,
           enabled: true,
         },
-        { onConflict: 'user_wallet,channel,event_type' },
+        { onConflict: 'user_id,channel,event_type' },
       );
     }
 
