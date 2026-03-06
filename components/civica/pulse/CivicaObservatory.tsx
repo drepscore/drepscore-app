@@ -1,12 +1,14 @@
 'use client';
 
-import { Globe, TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
+import { Globe, TrendingUp, TrendingDown, Minus, Info, GitBranch } from 'lucide-react';
+import { scaleLinear } from 'd3-scale';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useGovernanceBenchmarks,
   useGovernanceHealthIndex,
   useGovernanceDecentralization,
+  useGovernanceInterBody,
 } from '@/hooks/queries';
 import { getChainMetrics, GOVERNANCE_MODELS } from '@/lib/crossChain/chainMetrics';
 import type { ChainBenchmark } from '@/lib/crossChain';
@@ -118,6 +120,155 @@ function EDICard({ metric }: { metric: EDIMetric }) {
   );
 }
 
+function MiniSparkline({
+  data,
+  color,
+  height = 40,
+}: {
+  data: number[];
+  color: string;
+  height?: number;
+}) {
+  if (data.length < 2) return null;
+  const W = 200;
+  const PAD = 2;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const xScale = scaleLinear()
+    .domain([0, data.length - 1])
+    .range([PAD, W - PAD]);
+  const yScale = scaleLinear()
+    .domain([min - range * 0.1, max + range * 0.1])
+    .range([height - PAD, PAD]);
+  const pts = data.map((v, i) => `${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`).join(' ');
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${height}`}
+      preserveAspectRatio="none"
+      className="w-full"
+      style={{ height }}
+    >
+      <polyline fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" points={pts} />
+    </svg>
+  );
+}
+
+const DECENTRALIZATION_METRICS = [
+  {
+    key: 'nakamoto_coefficient',
+    label: 'Nakamoto Coefficient',
+    color: '#818cf8',
+    format: (v: number) => String(v),
+  },
+  { key: 'gini', label: 'Gini Coefficient', color: '#f472b6', format: (v: number) => v.toFixed(3) },
+  {
+    key: 'composite_score',
+    label: 'Composite Score',
+    color: '#34d399',
+    format: (v: number) => v.toFixed(1),
+  },
+  { key: 'hhi', label: 'HHI', color: '#fbbf24', format: (v: number) => v.toFixed(4) },
+] as const;
+
+function DecentralizationTrends({ history }: { history: any[] }) {
+  if (history.length < 3) return null;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {DECENTRALIZATION_METRICS.map((m) => {
+        const values = history.map((h) => h[m.key]).filter((v) => v != null) as number[];
+        if (values.length < 2) return null;
+        const latest = values[values.length - 1];
+        const prev = values[values.length - 2];
+        const delta = latest - prev;
+        return (
+          <div key={m.key} className="rounded-xl border border-border bg-card p-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+                {m.label}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold tabular-nums text-foreground">
+                  {m.format(latest)}
+                </span>
+                {delta !== 0 && (
+                  <span
+                    className={cn(
+                      'text-[10px] font-medium tabular-nums',
+                      delta > 0 ? 'text-emerald-400' : 'text-rose-400',
+                    )}
+                  >
+                    {delta > 0 ? '+' : ''}
+                    {m.format(delta)}
+                  </span>
+                )}
+              </div>
+            </div>
+            <MiniSparkline data={values} color={m.color} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function InterBodySummary({ interBody }: { interBody: any }) {
+  const pairs = [
+    { label: 'DRep ↔ SPO', value: interBody.drepSpoAgreement },
+    { label: 'DRep ↔ CC', value: interBody.drepCcAgreement },
+    { label: 'SPO ↔ CC', value: interBody.spoCcAgreement },
+  ].filter((p) => p.value != null && p.value > 0);
+
+  if (pairs.length === 0) return null;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <GitBranch className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-bold uppercase tracking-wider">Inter-Body Alignment</h3>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4">
+        How often DReps, SPOs, and the Constitutional Committee vote the same way.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {pairs.map((p) => {
+          const pct = Math.round(p.value);
+          return (
+            <div key={p.label} className="rounded-xl border border-border bg-card p-4 space-y-2">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+                {p.label}
+              </p>
+              <p
+                className={cn(
+                  'font-display text-2xl font-bold tabular-nums',
+                  pct >= 70 ? 'text-emerald-400' : pct >= 40 ? 'text-amber-400' : 'text-rose-400',
+                )}
+              >
+                {pct}%
+              </p>
+              <div className="w-full h-2 bg-border rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full',
+                    pct >= 70 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-rose-500',
+                  )}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {interBody.proposalCount > 0 && (
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Based on {interBody.proposalCount} proposal{interBody.proposalCount !== 1 ? 's' : ''} with
+          multi-body votes
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ChainComparisonBar({ chain, benchmark }: { chain: string; benchmark: ChainBenchmark }) {
   const model = GOVERNANCE_MODELS[chain as keyof typeof GOVERNANCE_MODELS];
   const metrics = getChainMetrics(benchmark);
@@ -172,6 +323,7 @@ export function CivicaObservatory() {
   const { data: rawGHI, isLoading: ghiLoading } = useGovernanceHealthIndex(1);
   const { data: rawBenchmarks, isLoading: benchLoading } = useGovernanceBenchmarks();
   const { data: rawDecentralization } = useGovernanceDecentralization();
+  const { data: rawInterBody } = useGovernanceInterBody();
 
   const ghi = (rawGHI as any)?.current ?? rawGHI;
   const benchmarksObj = ((rawBenchmarks as any)?.benchmarks ?? {}) as Record<string, any>;
@@ -189,8 +341,10 @@ export function CivicaObservatory() {
       fetchedAt: row.fetched_at ?? row.fetchedAt ?? '',
     }));
   const decentralization = rawDecentralization as any;
+  const interBody = rawInterBody as any;
 
   const ediMetrics = buildEDIMetrics(ghi, decentralization);
+  const decHistory: any[] = decentralization?.history ?? [];
   const topDRepsByPower = (decentralization?.topDRepsByPower ?? []) as {
     drepId: string;
     name: string;
@@ -230,6 +384,12 @@ export function CivicaObservatory() {
           </div>
         )}
       </div>
+
+      {/* Decentralization trends */}
+      <DecentralizationTrends history={decHistory} />
+
+      {/* Inter-body alignment */}
+      {interBody && interBody.proposalCount > 0 && <InterBodySummary interBody={interBody} />}
 
       {/* Voting power treemap */}
       {topDRepsByPower.length > 0 && (

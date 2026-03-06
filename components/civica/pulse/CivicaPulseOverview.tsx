@@ -402,6 +402,90 @@ export function CivicaPulseOverview() {
             </div>
           )}
 
+          {/* ── Community vs DRep Sentiment Gap ─────────────────── */}
+          {pulse?.communityGap?.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Community vs DRep Sentiment
+              </p>
+              <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
+                {(pulse.communityGap as any[]).slice(0, 3).map((g: any) => {
+                  const pollTotal = g.pollTotal || 1;
+                  const yesPct = Math.round((g.pollYes / pollTotal) * 100);
+                  const noPct = Math.round((g.pollNo / pollTotal) * 100);
+                  return (
+                    <Link
+                      key={`${g.txHash}-${g.index}`}
+                      href={`/proposal/${g.txHash}/${g.index}`}
+                      className="block px-4 py-3 hover:bg-muted/20 transition-colors"
+                    >
+                      <p className="text-sm truncate mb-1.5">{g.title}</p>
+                      <div className="flex items-center gap-3 text-[11px]">
+                        <span className="text-muted-foreground">
+                          Community: <strong className="text-emerald-400">{yesPct}% Yes</strong>
+                          {' / '}
+                          <strong className="text-rose-400">{noPct}% No</strong>
+                          <span className="text-muted-foreground/60"> ({pollTotal} votes)</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          DReps: <strong className="text-foreground">{g.drepVotePct}%</strong> voted
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Treasury Health Components ─────────────────────── */}
+          {treasury?.healthComponents && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Treasury Health Breakdown
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {(treasury.healthComponents as any[]).map((c: any) => (
+                  <div
+                    key={c.name ?? c.label}
+                    className="rounded-xl border border-border bg-card px-4 py-3 space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium truncate">
+                        {c.name ?? c.label}
+                      </p>
+                      <span
+                        className={cn(
+                          'text-sm font-bold tabular-nums',
+                          (c.score ?? c.value ?? 0) >= 70
+                            ? 'text-emerald-400'
+                            : (c.score ?? c.value ?? 0) >= 40
+                              ? 'text-amber-400'
+                              : 'text-rose-400',
+                        )}
+                      >
+                        {Math.round(c.score ?? c.value ?? 0)}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full',
+                          (c.score ?? c.value ?? 0) >= 70
+                            ? 'bg-emerald-500'
+                            : (c.score ?? c.value ?? 0) >= 40
+                              ? 'bg-amber-500'
+                              : 'bg-rose-500',
+                        )}
+                        style={{ width: `${Math.min(100, c.score ?? c.value ?? 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ── ADA governed ────────────────────────────────────── */}
           {pulse?.totalAdaGoverned && (
             <div className="rounded-xl border border-border bg-muted/10 px-5 py-4 flex items-center justify-between">

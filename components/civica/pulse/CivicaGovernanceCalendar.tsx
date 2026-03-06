@@ -9,6 +9,7 @@ import {
   useGovernancePulse,
   useGovernanceEpochRecap,
   useGovernanceCalendar,
+  useGovernanceSparklines,
 } from '@/hooks/queries';
 
 interface CalendarData {
@@ -112,6 +113,14 @@ function ProposalDeadline({ proposal }: { proposal: CalendarData['upcoming'][0] 
 
 function EpochRecapCard({ recap }: { recap: any }) {
   const [expanded, setExpanded] = useState(false);
+  const ratified = recap.proposalsRatified ?? recap.proposals_ratified ?? 0;
+  const submitted = recap.proposalsSubmitted ?? recap.proposals_submitted;
+  const dropped = recap.proposalsDropped ?? recap.proposals_dropped;
+  const expired = recap.proposalsExpired ?? recap.proposals_expired;
+  const adaWithdrawn =
+    recap.adaWithdrawn ?? recap.treasury_withdrawn_ada ?? recap.treasuryWithdrawnAda;
+  const participation = recap.drepParticipationPct ?? recap.drep_participation_pct;
+  const narrative = recap.summary ?? recap.ai_narrative ?? recap.aiNarrative;
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -124,15 +133,28 @@ function EpochRecapCard({ recap }: { recap: any }) {
             {recap.epoch}
           </span>
           <div>
-            <p className="text-sm font-medium">
-              {recap.proposalsRatified ?? 0} ratified
-              {recap.adaWithdrawn ? ` · ₳${formatAda(recap.adaWithdrawn)} withdrawn` : ''}
-            </p>
-            {recap.ghiDelta != null && (
-              <p className="text-[11px] text-muted-foreground">
-                GHI {recap.ghiDelta > 0 ? `+${recap.ghiDelta}` : recap.ghiDelta}
-              </p>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium">{ratified} ratified</span>
+              {submitted != null && submitted > 0 && (
+                <span className="text-[11px] text-muted-foreground">{submitted} submitted</span>
+              )}
+              {adaWithdrawn ? (
+                <span className="text-[11px] text-emerald-400">₳{formatAda(adaWithdrawn)}</span>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              {participation != null && (
+                <span className="text-[11px] text-muted-foreground">
+                  {Math.round(participation)}% participation
+                </span>
+              )}
+              {dropped != null && dropped > 0 && (
+                <span className="text-[11px] text-rose-400/70">{dropped} dropped</span>
+              )}
+              {expired != null && expired > 0 && (
+                <span className="text-[11px] text-amber-400/70">{expired} expired</span>
+              )}
+            </div>
           </div>
         </div>
         <ChevronDown
@@ -142,9 +164,9 @@ function EpochRecapCard({ recap }: { recap: any }) {
           )}
         />
       </button>
-      {expanded && recap.summary && (
-        <div className="px-4 pb-3 text-xs text-muted-foreground border-t border-border pt-2">
-          {recap.summary}
+      {expanded && narrative && (
+        <div className="px-4 pb-3 text-xs text-muted-foreground border-t border-border pt-2 leading-relaxed">
+          {narrative}
         </div>
       )}
     </div>
@@ -164,8 +186,12 @@ export function CivicaGovernanceCalendar() {
 
   const { data: rawPulse } = useGovernancePulse();
   const { data: rawRecap } = useGovernanceEpochRecap();
+  const { data: rawSparklines } = useGovernanceSparklines();
   const pulse = rawPulse as any;
   const recap = rawRecap as any;
+  const sparklines = rawSparklines as any;
+  const participationRows: { epoch: number; participation_rate: number; rationale_rate: number }[] =
+    sparklines?.participation ?? [];
 
   // Initialize countdown from server data, then tick locally
   const initialSeconds = calendar?.secondsRemaining ?? null;
@@ -209,6 +235,47 @@ export function CivicaGovernanceCalendar() {
       ) : calendar ? (
         <EpochProgressHero calendar={calendar} countdown={countdown} />
       ) : null}
+
+      {/* Participation trend mini-chart */}
+      {participationRows.length >= 4 && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+              Participation Trend
+            </p>
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-1 w-3 rounded-full bg-blue-400" />
+                Participation
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-1 w-3 rounded-full bg-emerald-400 opacity-70" />
+                Rationale
+              </span>
+            </div>
+          </div>
+          <div className="flex items-end gap-[2px] h-12">
+            {(() => {
+              const maxP = Math.max(...participationRows.map((r) => r.participation_rate), 1);
+              return participationRows.slice(-20).map((r) => (
+                <div key={r.epoch} className="flex-1 flex flex-col justify-end gap-[1px]">
+                  <div
+                    className="bg-blue-400/70 rounded-t-sm min-w-[2px]"
+                    style={{
+                      height: `${Math.max(2, (r.participation_rate / maxP) * 100)}%`,
+                    }}
+                    title={`Epoch ${r.epoch}: ${r.participation_rate.toFixed(1)}% participation`}
+                  />
+                </div>
+              ));
+            })()}
+          </div>
+          <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+            <span>Ep {participationRows[Math.max(0, participationRows.length - 20)]?.epoch}</span>
+            <span>Ep {participationRows[participationRows.length - 1]?.epoch}</span>
+          </div>
+        </div>
+      )}
 
       {/* Upcoming proposal deadlines */}
       {calendar && calendar.upcoming.length > 0 && (
