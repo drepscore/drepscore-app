@@ -174,9 +174,20 @@ export function CivicaObservatory() {
   const { data: rawDecentralization } = useGovernanceDecentralization();
 
   const ghi = (rawGHI as any)?.current ?? rawGHI;
-  const benchmarks: ChainBenchmark[] = Array.isArray(rawBenchmarks)
-    ? rawBenchmarks
-    : ((rawBenchmarks as any)?.benchmarks ?? []);
+  const benchmarksObj = ((rawBenchmarks as any)?.benchmarks ?? {}) as Record<string, any>;
+  const benchmarks: ChainBenchmark[] = Object.values(benchmarksObj)
+    .filter(Boolean)
+    .map((row: any) => ({
+      chain: row.chain,
+      periodLabel: row.period_label ?? row.periodLabel ?? '',
+      participationRate: row.participation_rate ?? row.participationRate ?? null,
+      delegateCount: row.delegate_count ?? row.delegateCount ?? null,
+      proposalCount: row.proposal_count ?? row.proposalCount ?? null,
+      proposalThroughput: row.proposal_throughput ?? row.proposalThroughput ?? null,
+      avgRationaleRate: row.avg_rationale_rate ?? row.avgRationaleRate ?? null,
+      rawData: row.raw_data ?? row.rawData ?? {},
+      fetchedAt: row.fetched_at ?? row.fetchedAt ?? '',
+    }));
   const decentralization = rawDecentralization as any;
 
   const ediMetrics = buildEDIMetrics(ghi, decentralization);
