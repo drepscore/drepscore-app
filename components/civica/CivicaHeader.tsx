@@ -16,6 +16,7 @@ import {
   Sun,
   Moon,
   Eye,
+  Shield,
 } from 'lucide-react';
 import { AdminViewAsPicker } from './AdminViewAsPicker';
 import { useTheme } from 'next-themes';
@@ -177,6 +178,12 @@ export function CivicaHeader() {
                 {isAdmin && (
                   <>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin">
+                        <Shield className="h-4 w-4" />
+                        Admin
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger>
                         <Eye className="h-4 w-4" />
