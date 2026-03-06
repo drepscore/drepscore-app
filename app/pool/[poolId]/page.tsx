@@ -69,7 +69,7 @@ async function getPoolRow(poolId: string) {
     const { data, error } = await supabase
       .from('pools')
       .select(
-        'pool_id, ticker, pool_name, pledge, governance_score, participation_pct, deliberation_pct, consistency_pct, reliability_pct, governance_identity_pct, confidence, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency, delegator_count, live_stake, vote_count, governance_statement, current_tier, score_momentum',
+        'pool_id, ticker, pool_name, pledge_lovelace, governance_score, participation_pct, deliberation_pct, consistency_pct, reliability_pct, governance_identity_pct, confidence, alignment_treasury_conservative, alignment_treasury_growth, alignment_decentralization, alignment_security, alignment_innovation, alignment_transparency, delegator_count, live_stake_lovelace, vote_count, governance_statement, current_tier, score_momentum',
       )
       .eq('pool_id', poolId)
       .single();
@@ -339,8 +339,8 @@ export default async function PoolProfilePage({ params }: PageProps) {
   const ticker = (poolRow.ticker as string) || null;
   const governanceScore = (poolRow.governance_score as number) ?? 0;
   const delegatorCount = (poolRow.delegator_count as number) ?? 0;
-  const liveStake = poolRow.live_stake;
-  const pledge = poolRow.pledge;
+  const liveStake = poolRow.live_stake_lovelace;
+  const pledge = poolRow.pledge_lovelace;
   const voteCount = (poolRow.vote_count as number) ?? totalVotes;
   const participationPillar = (poolRow.participation_pct as number) ?? participationRate;
   const deliberationPillar = (poolRow.deliberation_pct as number) ?? null;
