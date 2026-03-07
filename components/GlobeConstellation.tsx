@@ -711,9 +711,7 @@ function ConstellationEdges({ edges, dimmed }: { edges: ConstellationEdge3D[]; d
   return (
     <>
       <EdgeLayer edges={layers.proximity} dimmed={dimmed} edgeType="proximity" />
-      <EdgeLayer edges={layers.infrastructure} dimmed={dimmed} edgeType="infrastructure" />
       <EdgeLayer edges={layers.lastmile} dimmed={dimmed} edgeType="lastmile" />
-      <EdgeLayer edges={layers.orbital} dimmed={dimmed} edgeType="orbital" />
     </>
   );
 }
@@ -802,60 +800,88 @@ function InnerGlow() {
 
 // --- Network pulse particles (light flowing along edges) ---
 
-const PULSE_COUNT = 40;
-const PULSE_SPEED = 0.3;
+const PULSE_COUNT = 70;
 
 const PULSE_VERT = /* glsl */ `
 attribute float aSize;
 attribute float aAlpha;
+attribute vec3 aPulseColor;
 varying float vAlpha;
+varying vec3 vPulseColor;
 
 void main() {
   vAlpha = aAlpha;
+  vPulseColor = aPulseColor;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = aSize * 400.0 / -mvPosition.z;
-  gl_PointSize = clamp(gl_PointSize, 1.0, 32.0);
+  gl_PointSize = aSize * 600.0 / -mvPosition.z;
+  gl_PointSize = clamp(gl_PointSize, 2.0, 48.0);
   gl_Position = projectionMatrix * mvPosition;
 }
 `;
 
 const PULSE_FRAG = /* glsl */ `
 varying float vAlpha;
+varying vec3 vPulseColor;
 
 void main() {
   float dist = length(gl_PointCoord - vec2(0.5));
   if (dist > 0.5) discard;
   float glow = 1.0 - smoothstep(0.0, 0.5, dist);
-  gl_FragColor = vec4(0.6, 0.85, 1.0, glow * vAlpha);
+  float core = 1.0 - smoothstep(0.0, 0.15, dist);
+  vec3 col = vPulseColor * (1.0 + core * 2.0);
+  gl_FragColor = vec4(col, glow * vAlpha);
 }
 `;
 
+// Color for each edge type's pulses
+const PULSE_COLORS: Record<string, [number, number, number]> = {
+  orbital: [1.0, 0.75, 0.15], // gold
+  infrastructure: [0.65, 0.55, 0.95], // purple
+  proximity: [0.18, 0.83, 0.75], // teal
+  lastmile: [0.3, 0.5, 0.6], // muted blue
+};
+
 function NetworkPulses({ edges, dimmed }: { edges: ConstellationEdge3D[]; dimmed: boolean }) {
-  // Pick a stable subset of edges for pulses
   const pulseEdges = useMemo(() => {
     if (edges.length === 0) return [];
-    // Prefer infrastructure and orbital edges for visual impact
-    const candidates = edges.filter(
-      (e) =>
-        e.edgeType === 'infrastructure' || e.edgeType === 'orbital' || e.edgeType === 'proximity',
-    );
-    if (candidates.length === 0) return edges.slice(0, PULSE_COUNT);
-    // Deterministic selection spread across edge list
-    const step = Math.max(1, Math.floor(candidates.length / PULSE_COUNT));
+    // Prioritize orbital and infrastructure edges (the ones without static lines)
+    const orbital = edges.filter((e) => e.edgeType === 'orbital');
+    const infra = edges.filter((e) => e.edgeType === 'infrastructure');
+    const prox = edges.filter((e) => e.edgeType === 'proximity');
+
     const selected: ConstellationEdge3D[] = [];
-    for (let i = 0; i < candidates.length && selected.length < PULSE_COUNT; i += step) {
-      selected.push(candidates[i]);
+    // All orbital edges get pulses (CC ring + tethers, ~15 edges)
+    selected.push(...orbital);
+    // Spread across infrastructure edges
+    const infraStep = Math.max(1, Math.floor(infra.length / 30));
+    for (let i = 0; i < infra.length && selected.length < 50; i += infraStep) {
+      selected.push(infra[i]);
+    }
+    // Fill remaining with proximity
+    const proxStep = Math.max(1, Math.floor(prox.length / 20));
+    for (let i = 0; i < prox.length && selected.length < PULSE_COUNT; i += proxStep) {
+      selected.push(prox[i]);
     }
     return selected;
   }, [edges]);
 
   const geoRef = useRef<THREE.BufferGeometry>(null);
   const progressRef = useRef<Float32Array>(new Float32Array(PULSE_COUNT));
+  // Vary speed per particle for organic feel
+  const speedsRef = useRef<Float32Array | null>(null);
 
-  // Initialize with staggered progress
   useEffect(() => {
+    // Staggered start
     for (let i = 0; i < PULSE_COUNT; i++) {
       progressRef.current[i] = i / PULSE_COUNT;
+    }
+    // Initialize speeds
+    if (!speedsRef.current) {
+      const s = new Float32Array(PULSE_COUNT);
+      for (let i = 0; i < PULSE_COUNT; i++) {
+        s[i] = 0.2 + (((i * 7) % 13) / 13) * 0.25; // 0.2–0.45
+      }
+      speedsRef.current = s;
     }
   }, []);
 
@@ -865,14 +891,17 @@ function NetworkPulses({ edges, dimmed }: { edges: ConstellationEdge3D[]; dimmed
 
     const positions = geo.getAttribute('position') as THREE.BufferAttribute | null;
     const alphas = geo.getAttribute('aAlpha') as THREE.BufferAttribute | null;
-    if (!positions || !alphas) return;
+    const colors = geo.getAttribute('aPulseColor') as THREE.BufferAttribute | null;
+    if (!positions || !alphas || !colors) return;
+
+    const speeds = speedsRef.current;
 
     for (let i = 0; i < PULSE_COUNT; i++) {
       const edge = pulseEdges[i % pulseEdges.length];
-      progressRef.current[i] = (progressRef.current[i] + delta * PULSE_SPEED) % 1.0;
+      const speed = speeds ? speeds[i] : 0.3;
+      progressRef.current[i] = (progressRef.current[i] + delta * speed) % 1.0;
       const t = progressRef.current[i];
 
-      // Lerp along edge
       positions.setXYZ(
         i,
         edge.from[0] * (1 - t) + edge.to[0] * t,
@@ -880,20 +909,24 @@ function NetworkPulses({ edges, dimmed }: { edges: ConstellationEdge3D[]; dimmed
         edge.from[2] * (1 - t) + edge.to[2] * t,
       );
 
-      // Fade in/out at endpoints
       const fade = Math.sin(t * Math.PI);
-      alphas.setX(i, dimmed ? fade * 0.1 : fade * 0.6);
+      alphas.setX(i, dimmed ? fade * 0.15 : fade * 0.85);
+
+      const c = PULSE_COLORS[edge.edgeType ?? 'proximity'] ?? PULSE_COLORS.proximity;
+      colors.setXYZ(i, c[0], c[1], c[2]);
     }
 
     positions.needsUpdate = true;
     alphas.needsUpdate = true;
+    colors.needsUpdate = true;
   });
 
   const buffers = useMemo(() => {
     const positions = new Float32Array(PULSE_COUNT * 3);
-    const sizes = new Float32Array(PULSE_COUNT).fill(0.06);
+    const sizes = new Float32Array(PULSE_COUNT).fill(0.12);
     const alphas = new Float32Array(PULSE_COUNT).fill(0);
-    return { positions, sizes, alphas };
+    const pulseColors = new Float32Array(PULSE_COUNT * 3).fill(0.5);
+    return { positions, sizes, alphas, pulseColors };
   }, []);
 
   if (pulseEdges.length === 0) return null;
@@ -904,6 +937,7 @@ function NetworkPulses({ edges, dimmed }: { edges: ConstellationEdge3D[]; dimmed
         <bufferAttribute attach="attributes-position" args={[buffers.positions, 3]} />
         <bufferAttribute attach="attributes-aSize" args={[buffers.sizes, 1]} />
         <bufferAttribute attach="attributes-aAlpha" args={[buffers.alphas, 1]} />
+        <bufferAttribute attach="attributes-aPulseColor" args={[buffers.pulseColors, 3]} />
       </bufferGeometry>
       <shaderMaterial
         vertexShader={PULSE_VERT}
