@@ -647,55 +647,61 @@ export const syncSpoScores = inngest.createFunction(
     await step.run('geocode-relay-ips', async () => {
       const supabase = getSupabaseAdmin();
 
-      // Find pools not yet geocoded (limit 100 per run to stay under timeout)
+      // Find pools not yet geocoded — process in small batches to avoid Koios 413
       const { data: poolsNeedingGeo } = await supabase
         .from('pools')
         .select('pool_id')
         .is('relay_locations', null)
         .gt('vote_count', 0)
-        .limit(100);
+        .limit(50);
 
       if (!poolsNeedingGeo?.length) return { geocoded: 0, reason: 'all processed' };
 
-      const poolIds = poolsNeedingGeo.map((p: { pool_id: string }) => p.pool_id);
-
-      // Fetch relay info from Koios via pool_info (pool_relays is GET-only)
-      const relayRes = await fetch(`${KOIOS_BASE}/pool_info`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _pool_bech32_ids: poolIds }),
-        signal: AbortSignal.timeout(15_000),
-      });
-
-      if (!relayRes.ok) {
-        logger.warn('[sync-spo-scores] Koios pool_info (relays) failed', {
-          status: relayRes.status,
-        });
-        return { geocoded: 0, reason: `koios ${relayRes.status}` };
-      }
-
-      const relayData = (await relayRes.json()) as KoiosPoolInfo[];
-
-      // Collect unique public IPv4 addresses for batch geocoding
+      const allPoolIds = poolsNeedingGeo.map((p: { pool_id: string }) => p.pool_id);
       const ipToPoolMap = new Map<string, string[]>();
       const dnsOnlyPools = new Set<string>();
+      const KOIOS_BATCH = 25; // Koios returns 413 for batches > ~30 pool IDs
 
-      for (const pool of relayData) {
-        if (!pool.pool_id_bech32) continue;
-        const relays = pool.relays ?? [];
-        let hasPublicIp = false;
+      // Fetch relay info in small batches
+      for (let i = 0; i < allPoolIds.length; i += KOIOS_BATCH) {
+        const batchIds = allPoolIds.slice(i, i + KOIOS_BATCH);
+        try {
+          const relayRes = await fetch(`${KOIOS_BASE}/pool_info`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ _pool_bech32_ids: batchIds }),
+            signal: AbortSignal.timeout(15_000),
+          });
 
-        for (const relay of relays) {
-          const ip = relay.ipv4;
-          if (!ip || isPrivateIP(ip)) continue;
-          hasPublicIp = true;
-          const pools = ipToPoolMap.get(ip) ?? [];
-          pools.push(pool.pool_id_bech32);
-          ipToPoolMap.set(ip, pools);
-        }
+          if (!relayRes.ok) {
+            logger.warn('[sync-spo-scores] Koios pool_info (relays) failed', {
+              status: relayRes.status,
+            });
+            continue;
+          }
 
-        if (!hasPublicIp) {
-          dnsOnlyPools.add(pool.pool_id_bech32);
+          const relayData = (await relayRes.json()) as KoiosPoolInfo[];
+
+          for (const pool of relayData) {
+            if (!pool.pool_id_bech32) continue;
+            const relays = pool.relays ?? [];
+            let hasPublicIp = false;
+
+            for (const relay of relays) {
+              const ip = relay.ipv4;
+              if (!ip || isPrivateIP(ip)) continue;
+              hasPublicIp = true;
+              const pools = ipToPoolMap.get(ip) ?? [];
+              pools.push(pool.pool_id_bech32);
+              ipToPoolMap.set(ip, pools);
+            }
+
+            if (!hasPublicIp) {
+              dnsOnlyPools.add(pool.pool_id_bech32);
+            }
+          }
+        } catch (err) {
+          logger.warn('[sync-spo-scores] relay fetch batch error', { error: errMsg(err) });
         }
       }
 
