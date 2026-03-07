@@ -626,23 +626,12 @@ export const syncSpoScores = inngest.createFunction(
           const data = (await res.json()) as KoiosPoolInfo[];
           for (const p of data) {
             if (!p.pool_id_bech32) continue;
-            // Extract relay IPs while we have the pool_info data (avoids separate Koios call)
-            const relayIps = (p.relays ?? [])
-              .map((r) => r.ipv4)
-              .filter((ip): ip is string => !!ip && !isPrivateIP(ip));
-            const relayUpdate: Record<string, unknown> = {
-              delegator_count: p.live_delegators ?? 0,
-              live_stake_lovelace: p.live_stake ?? 0,
-            };
-            // Store relay IPs as JSON for geocoding step (empty array = DNS-only, processed)
-            if (relayIps.length > 0) {
-              relayUpdate.relay_locations = relayIps.map((ip) => ({ ip }));
-            } else {
-              relayUpdate.relay_locations = [];
-            }
             const { error } = await supabase
               .from('pools')
-              .update(relayUpdate)
+              .update({
+                delegator_count: p.live_delegators ?? 0,
+                live_stake_lovelace: p.live_stake ?? 0,
+              })
               .eq('pool_id', p.pool_id_bech32);
             if (!error) refreshed++;
           }
@@ -655,35 +644,69 @@ export const syncSpoScores = inngest.createFunction(
     });
 
     // Geocode SPO relay IPs for globe visualization
-    // Relay IPs are extracted during refresh-delegator-counts (from pool_info response)
     await step.run('geocode-relay-ips', async () => {
       const supabase = getSupabaseAdmin();
 
-      // Find pools with relay IPs saved but not yet geocoded (relay_lat is null)
+      // Find pools not yet geocoded (limit 100 per run to stay under timeout)
       const { data: poolsNeedingGeo } = await supabase
         .from('pools')
-        .select('pool_id, relay_locations')
-        .is('relay_lat', null)
-        .not('relay_locations', 'is', null)
+        .select('pool_id')
+        .is('relay_locations', null)
         .gt('vote_count', 0)
-        .limit(200);
+        .limit(100);
 
-      if (!poolsNeedingGeo?.length) return { geocoded: 0, reason: 'no pools with IPs to geocode' };
+      if (!poolsNeedingGeo?.length) return { geocoded: 0, reason: 'all processed' };
 
-      // Collect unique IPs from saved relay_locations
+      const poolIds = poolsNeedingGeo.map((p: { pool_id: string }) => p.pool_id);
+
+      // Fetch relay info from Koios via pool_info (pool_relays is GET-only)
+      const relayRes = await fetch(`${KOIOS_BASE}/pool_info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ _pool_bech32_ids: poolIds }),
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (!relayRes.ok) {
+        logger.warn('[sync-spo-scores] Koios pool_info (relays) failed', {
+          status: relayRes.status,
+        });
+        return { geocoded: 0, reason: `koios ${relayRes.status}` };
+      }
+
+      const relayData = (await relayRes.json()) as KoiosPoolInfo[];
+
+      // Collect unique public IPv4 addresses for batch geocoding
       const ipToPoolMap = new Map<string, string[]>();
-      for (const pool of poolsNeedingGeo) {
-        const locations = pool.relay_locations as Array<{ ip?: string }>;
-        if (!Array.isArray(locations)) continue;
-        for (const loc of locations) {
-          if (!loc.ip) continue;
-          const pools = ipToPoolMap.get(loc.ip) ?? [];
-          pools.push(pool.pool_id);
-          ipToPoolMap.set(loc.ip, pools);
+      const dnsOnlyPools = new Set<string>();
+
+      for (const pool of relayData) {
+        if (!pool.pool_id_bech32) continue;
+        const relays = pool.relays ?? [];
+        let hasPublicIp = false;
+
+        for (const relay of relays) {
+          const ip = relay.ipv4;
+          if (!ip || isPrivateIP(ip)) continue;
+          hasPublicIp = true;
+          const pools = ipToPoolMap.get(ip) ?? [];
+          pools.push(pool.pool_id_bech32);
+          ipToPoolMap.set(ip, pools);
+        }
+
+        if (!hasPublicIp) {
+          dnsOnlyPools.add(pool.pool_id_bech32);
         }
       }
 
-      if (ipToPoolMap.size === 0) return { geocoded: 0, reason: 'all DNS-only' };
+      // Mark DNS-only pools as processed so we don't re-query them
+      for (const poolId of dnsOnlyPools) {
+        await supabase.from('pools').update({ relay_locations: [] }).eq('pool_id', poolId);
+      }
+
+      if (ipToPoolMap.size === 0) {
+        return { geocoded: 0, dnsOnly: dnsOnlyPools.size, reason: 'all DNS-only' };
+      }
 
       let geocoded = 0;
 
