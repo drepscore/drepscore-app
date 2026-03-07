@@ -84,7 +84,9 @@ export function AskYourDRep({ txHash, proposalIndex, proposalTitle }: AskYourDRe
         <CardContent className="py-4">
           <div className="flex items-center gap-2 text-sm text-primary">
             <CheckCircle2 className="h-4 w-4" />
-            <span>Your question has been sent to your DRep. They&apos;ll see it in their inbox.</span>
+            <span>
+              Your question has been sent to your DRep. They&apos;ll see it in their inbox.
+            </span>
           </div>
         </CardContent>
       </Card>
