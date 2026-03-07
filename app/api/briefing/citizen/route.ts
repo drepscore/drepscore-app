@@ -59,6 +59,8 @@ interface BriefingResponse {
     trend: TreasuryTrend;
     withdrawnThisEpoch: number;
     pendingProposals: number;
+    drepDelegatedAda: number | null;
+    proportionalShareAda: number | null;
   };
 
   upcoming: {
@@ -250,11 +252,12 @@ export const GET = withRouteHandler(
     // -----------------------------------------------------------------------
     const { data: stats } = await supabase
       .from('governance_stats')
-      .select('current_epoch')
+      .select('current_epoch, circulating_supply_lovelace')
       .eq('id', 1)
       .single();
 
     const currentEpoch = stats?.current_epoch ?? 0;
+    const circulatingSupplyLovelace = stats?.circulating_supply_lovelace ?? 0;
 
     // -----------------------------------------------------------------------
     // 2. Epoch recap
@@ -383,6 +386,24 @@ export const GET = withRouteHandler(
     }
 
     // -----------------------------------------------------------------------
+    // 4b. DRep delegated stake (for proportional treasury share)
+    // -----------------------------------------------------------------------
+    let drepDelegatedAda: number | null = null;
+    if (drepId) {
+      const { data: powerSnapshot } = await supabase
+        .from('drep_power_snapshots')
+        .select('live_stake_lovelace')
+        .eq('drep_id', drepId)
+        .order('epoch_no', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (powerSnapshot?.live_stake_lovelace) {
+        drepDelegatedAda = Math.round(powerSnapshot.live_stake_lovelace / 1_000_000);
+      }
+    }
+
+    // -----------------------------------------------------------------------
     // 5. Treasury data
     // -----------------------------------------------------------------------
     const [treasuryResult, previousTreasuryResult, pendingTreasuryResult] = await Promise.all([
@@ -469,6 +490,11 @@ export const GET = withRouteHandler(
         trend,
         withdrawnThisEpoch: recap?.treasury_withdrawn_ada ?? 0,
         pendingProposals,
+        drepDelegatedAda,
+        proportionalShareAda:
+          drepDelegatedAda && circulatingSupplyLovelace > 0
+            ? Math.round(balanceAda * (drepDelegatedAda / (circulatingSupplyLovelace / 1_000_000)))
+            : null,
       },
 
       upcoming: {

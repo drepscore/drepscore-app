@@ -304,6 +304,16 @@ export function EpochBriefing({ wallet }: EpochBriefingProps) {
             {' at current spending rate'}
           </p>
         )}
+        {data.treasury?.proportionalShareAda != null && data.treasury.proportionalShareAda > 0 && (
+          <p className="text-sm text-muted-foreground mt-1">
+            Your DRep&apos;s {formatAdaCompact(data.treasury.drepDelegatedAda ?? 0)} ADA delegation
+            represents{' '}
+            <span className="font-medium text-foreground">
+              {formatAdaCompact(data.treasury.proportionalShareAda)} ADA
+            </span>{' '}
+            of the treasury
+          </p>
+        )}
         {pendingProposals.length > 0 && (
           <div className="mt-3 space-y-1">
             <p className="text-xs font-medium text-muted-foreground">Awaiting decision</p>

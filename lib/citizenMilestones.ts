@@ -198,19 +198,19 @@ export async function checkAndAwardCitizenMilestones(
   if (engagementCount >= 1) award('first-engagement');
   if (engagementCount >= 10) award('engagement-10');
 
-  // ADA governed (from user's stake)
+  // ADA governed (from DRep's total delegated stake, representing governance footprint)
   if (drepId) {
-    const { data: walletData } = await supabase
-      .from('user_wallets')
-      .select('stake_lovelace')
-      .eq('user_id', userId)
+    const { data: powerSnapshot } = await supabase
+      .from('drep_power_snapshots')
+      .select('live_stake_lovelace')
+      .eq('drep_id', drepId)
+      .order('epoch_no', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    const stakeAda =
-      Number((walletData as { stake_lovelace?: string } | null)?.stake_lovelace ?? 0) / 1_000_000;
-    if (stakeAda >= 100_000) award('ada-governed-100k');
-    if (stakeAda >= 1_000_000) award('ada-governed-1m');
+    const governedAda = (powerSnapshot?.live_stake_lovelace ?? 0) / 1_000_000;
+    if (governedAda >= 100_000) award('ada-governed-100k');
+    if (governedAda >= 1_000_000) award('ada-governed-1m');
   }
 
   // Persist new milestones
