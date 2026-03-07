@@ -25,6 +25,10 @@ import { ParamChangesCard } from '@/components/civica/proposals/ParamChangesCard
 import { AlignmentCohortBreakdown } from '@/components/civica/proposals/AlignmentCohortBreakdown';
 import { VoteCastingPanel } from '@/components/civica/proposals/VoteCastingPanel';
 import { ConstitutionalAlignmentCard } from '@/components/ConstitutionalAlignmentCard';
+import { ProposalSentiment } from '@/components/engagement/ProposalSentiment';
+import { ConcernFlags } from '@/components/engagement/ConcernFlags';
+import { ImpactTags } from '@/components/engagement/ImpactTags';
+import { AskYourDRep } from '@/components/engagement/AskYourDRep';
 
 export const dynamic = 'force-dynamic';
 
@@ -167,6 +171,13 @@ export default async function ProposalDetailPage({ params }: PageProps) {
         aiSummary={proposal.aiSummary}
       />
 
+      {/* Community Engagement Layer */}
+      <ProposalSentiment txHash={txHash} proposalIndex={proposalIndex} isOpen={isOpen} />
+      {isOpen && <ConcernFlags txHash={txHash} proposalIndex={proposalIndex} isOpen={isOpen} />}
+      {isOpen && (
+        <AskYourDRep txHash={txHash} proposalIndex={proposalIndex} proposalTitle={title} />
+      )}
+
       {/* VP2 stack */}
 
       {/* 1. AI Summary */}
@@ -233,7 +244,12 @@ export default async function ProposalDetailPage({ params }: PageProps) {
       {/* 8. Similar Proposals */}
       <SimilarProposals txHash={txHash} proposalIndex={proposalIndex} />
 
-      {/* 9. Outcome (closed proposals only) */}
+      {/* 9. Citizen Impact Feedback (enacted/ratified proposals) */}
+      {(status === 'enacted' || status === 'ratified') && (
+        <ImpactTags txHash={txHash} proposalIndex={proposalIndex} />
+      )}
+
+      {/* 10. Outcome (closed proposals only) */}
       {!isOpen && (
         <ProposalOutcomeSection
           proposal={{

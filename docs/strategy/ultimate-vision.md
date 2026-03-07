@@ -2,8 +2,8 @@
 
 > **Status:** Active north star -- all build decisions, monetization timing, and architecture choices should align with this document.
 > **Created:** March 2026
-> **Version:** 2.2
-> **Last updated:** 2026-03-07 (V2.2: Step 4 infrastructure shipped -- citizen_milestones table, simplified_onboarding flag, generate-citizen-briefings Inngest function, PostHog conversion funnel wired, codebase audit corrections)
+> **Version:** 2.3
+> **Last updated:** 2026-03-07 (V2.3: Step 6 Community Engagement Layer shipped -- 6 mechanisms, /engage page, precompute-engagement-signals Inngest, generate-citizen-assembly AI function, stake-weighted sentiment for DReps)
 > **Supersedes:** V1 of this document. Persona deep dives live in `docs/strategy/personas/`.
 > **Living document:** Agents should update status markers, progress annotations, and minor refinements as work proceeds. Log changes in `docs/strategy/vision-changelog.md`. Increment minor version (2.1, 2.2...) for progress updates; reserve major version (3.0) for strategic pivots.
 
@@ -525,7 +525,7 @@ The capability that makes Civica indispensable: governance operations happen her
 
 ### Step 6: Community Engagement Layer (MEDIUM complexity)
 
-> **Status: NOT STARTED**
+> **Status: SHIPPED** -- 6 of 7 mechanisms built (Endorsements deferred). Proposal Sentiment with stake-weighted DRep view, Concern Flags, Impact Tags, Priority Signals (ranked-choice), Citizen Questions (proposal-linked), Citizen Assemblies (AI-generated). Precompute Inngest function + /engage page live. Feature flag `citizen_assembly_ai_generation` controls AI draft generation.
 > **Primary persona:** Citizen
 > **Secondary impact:** DRep (citizen signal), Treasury Team (validation + impact), Researcher (analyzable data)
 

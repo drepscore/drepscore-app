@@ -17,7 +17,9 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabaseAdmin();
   const { data: questions, error } = await supabase
     .from('drep_questions')
-    .select('id, drep_id, asker_wallet, question_text, created_at, status')
+    .select(
+      'id, drep_id, asker_wallet, question_text, created_at, status, proposal_tx_hash, proposal_index',
+    )
     .eq('drep_id', drepId)
     .neq('status', 'hidden')
     .order('created_at', { ascending: false })
@@ -48,6 +50,8 @@ export async function GET(request: NextRequest) {
     askerWallet: q.asker_wallet,
     questionText: q.question_text,
     createdAt: q.created_at,
+    proposalTxHash: q.proposal_tx_hash || null,
+    proposalIndex: q.proposal_index ?? null,
     response: responseMap.get(q.id) || null,
   }));
 
@@ -59,7 +63,8 @@ export async function GET(request: NextRequest) {
 export const POST = withRouteHandler(
   async (request: NextRequest, { requestId }: RouteContext) => {
     const body = await request.json();
-    const { sessionToken, drepId, questionText } = QuestionSchema.parse(body);
+    const { sessionToken, drepId, questionText, proposalTxHash, proposalIndex } =
+      QuestionSchema.parse(body);
 
     const parsed = await validateSessionToken(sessionToken);
     if (!parsed) {
@@ -90,6 +95,9 @@ export const POST = withRouteHandler(
         drep_id: drepId,
         asker_wallet: wallet,
         question_text: questionText.trim(),
+        user_id: parsed.userId || null,
+        ...(proposalTxHash && { proposal_tx_hash: proposalTxHash }),
+        ...(proposalIndex != null && { proposal_index: proposalIndex }),
       })
       .select()
       .single();

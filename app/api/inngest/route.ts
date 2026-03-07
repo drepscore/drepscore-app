@@ -33,6 +33,8 @@ import { syncCatalyst } from '@/inngest/functions/sync-catalyst';
 import { syncCcRationales } from '@/inngest/functions/sync-cc-rationales';
 import { generateCitizenBriefings } from '@/inngest/functions/generate-citizen-briefings';
 import { generateDrepEpochUpdates } from '@/inngest/functions/generate-drep-epoch-updates';
+import { precomputeEngagementSignals } from '@/inngest/functions/precompute-engagement-signals';
+import { generateCitizenAssembly } from '@/inngest/functions/generate-citizen-assembly';
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -70,5 +72,7 @@ export const { GET, POST, PUT } = serve({
     syncCcRationales,
     generateCitizenBriefings,
     generateDrepEpochUpdates,
+    precomputeEngagementSignals,
+    generateCitizenAssembly,
   ],
 });

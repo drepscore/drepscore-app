@@ -678,6 +678,131 @@ export type Database = {
         };
         Relationships: [];
       };
+      citizen_assemblies: {
+        Row: {
+          ai_context: Json | null;
+          closes_at: string;
+          created_at: string | null;
+          description: string | null;
+          epoch: number;
+          id: string;
+          opens_at: string;
+          options: Json;
+          question: string;
+          results: Json | null;
+          source: string;
+          status: string;
+          title: string;
+          total_votes: number | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          ai_context?: Json | null;
+          closes_at: string;
+          created_at?: string | null;
+          description?: string | null;
+          epoch: number;
+          id?: string;
+          opens_at: string;
+          options: Json;
+          question: string;
+          results?: Json | null;
+          source?: string;
+          status?: string;
+          title: string;
+          total_votes?: number | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          ai_context?: Json | null;
+          closes_at?: string;
+          created_at?: string | null;
+          description?: string | null;
+          epoch?: number;
+          id?: string;
+          opens_at?: string;
+          options?: Json;
+          question?: string;
+          results?: Json | null;
+          source?: string;
+          status?: string;
+          title?: string;
+          total_votes?: number | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      citizen_assembly_responses: {
+        Row: {
+          assembly_id: string;
+          created_at: string | null;
+          id: string;
+          selected_option: string;
+          stake_address: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Insert: {
+          assembly_id: string;
+          created_at?: string | null;
+          id?: string;
+          selected_option: string;
+          stake_address?: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Update: {
+          assembly_id?: string;
+          created_at?: string | null;
+          id?: string;
+          selected_option?: string;
+          stake_address?: string | null;
+          user_id?: string;
+          wallet_address?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'citizen_assembly_responses_assembly_id_fkey';
+            columns: ['assembly_id'];
+            isOneToOne: false;
+            referencedRelation: 'citizen_assemblies';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      citizen_concern_flags: {
+        Row: {
+          created_at: string | null;
+          flag_type: string;
+          id: string;
+          proposal_index: number;
+          proposal_tx_hash: string;
+          stake_address: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          flag_type: string;
+          id?: string;
+          proposal_index: number;
+          proposal_tx_hash: string;
+          stake_address?: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Update: {
+          created_at?: string | null;
+          flag_type?: string;
+          id?: string;
+          proposal_index?: number;
+          proposal_tx_hash?: string;
+          stake_address?: string | null;
+          user_id?: string;
+          wallet_address?: string;
+        };
+        Relationships: [];
+      };
       citizen_epoch_summaries: {
         Row: {
           alignment_drift_score: number | null;
@@ -732,6 +857,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      citizen_impact_tags: {
+        Row: {
+          awareness: string;
+          comment: string | null;
+          created_at: string | null;
+          id: string;
+          proposal_index: number;
+          proposal_tx_hash: string;
+          rating: string;
+          stake_address: string | null;
+          updated_at: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Insert: {
+          awareness: string;
+          comment?: string | null;
+          created_at?: string | null;
+          id?: string;
+          proposal_index: number;
+          proposal_tx_hash: string;
+          rating: string;
+          stake_address?: string | null;
+          updated_at?: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Update: {
+          awareness?: string;
+          comment?: string | null;
+          created_at?: string | null;
+          id?: string;
+          proposal_index?: number;
+          proposal_tx_hash?: string;
+          rating?: string;
+          stake_address?: string | null;
+          updated_at?: string | null;
+          user_id?: string;
+          wallet_address?: string;
+        };
+        Relationships: [];
+      };
       citizen_milestones: {
         Row: {
           achieved_at: string;
@@ -759,6 +926,105 @@ export type Database = {
           milestone_key?: string;
           milestone_label?: string | null;
           user_id?: string;
+        };
+        Relationships: [];
+      };
+      citizen_priority_rankings: {
+        Row: {
+          computed_at: string | null;
+          epoch: number;
+          id: string;
+          rankings: Json;
+          total_voters: number;
+        };
+        Insert: {
+          computed_at?: string | null;
+          epoch: number;
+          id?: string;
+          rankings: Json;
+          total_voters?: number;
+        };
+        Update: {
+          computed_at?: string | null;
+          epoch?: number;
+          id?: string;
+          rankings?: Json;
+          total_voters?: number;
+        };
+        Relationships: [];
+      };
+      citizen_priority_signals: {
+        Row: {
+          created_at: string | null;
+          epoch: number;
+          id: string;
+          ranked_priorities: string[];
+          stake_address: string | null;
+          updated_at: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          epoch: number;
+          id?: string;
+          ranked_priorities: string[];
+          stake_address?: string | null;
+          updated_at?: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Update: {
+          created_at?: string | null;
+          epoch?: number;
+          id?: string;
+          ranked_priorities?: string[];
+          stake_address?: string | null;
+          updated_at?: string | null;
+          user_id?: string;
+          wallet_address?: string;
+        };
+        Relationships: [];
+      };
+      citizen_sentiment: {
+        Row: {
+          created_at: string | null;
+          delegated_drep_id: string | null;
+          id: string;
+          initial_sentiment: string;
+          proposal_index: number;
+          proposal_tx_hash: string;
+          sentiment: string;
+          stake_address: string | null;
+          updated_at: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          delegated_drep_id?: string | null;
+          id?: string;
+          initial_sentiment: string;
+          proposal_index: number;
+          proposal_tx_hash: string;
+          sentiment: string;
+          stake_address?: string | null;
+          updated_at?: string | null;
+          user_id: string;
+          wallet_address: string;
+        };
+        Update: {
+          created_at?: string | null;
+          delegated_drep_id?: string | null;
+          id?: string;
+          initial_sentiment?: string;
+          proposal_index?: number;
+          proposal_tx_hash?: string;
+          sentiment?: string;
+          stake_address?: string | null;
+          updated_at?: string | null;
+          user_id?: string;
+          wallet_address?: string;
         };
         Relationships: [];
       };
@@ -1093,24 +1359,33 @@ export type Database = {
           created_at: string | null;
           drep_id: string;
           id: string;
+          proposal_index: number | null;
+          proposal_tx_hash: string | null;
           question_text: string;
           status: string | null;
+          user_id: string | null;
         };
         Insert: {
           asker_wallet: string;
           created_at?: string | null;
           drep_id: string;
           id?: string;
+          proposal_index?: number | null;
+          proposal_tx_hash?: string | null;
           question_text: string;
           status?: string | null;
+          user_id?: string | null;
         };
         Update: {
           asker_wallet?: string;
           created_at?: string | null;
           drep_id?: string;
           id?: string;
+          proposal_index?: number | null;
+          proposal_tx_hash?: string | null;
           question_text?: string;
           status?: string | null;
+          user_id?: string | null;
         };
         Relationships: [];
       };
@@ -1398,6 +1673,36 @@ export type Database = {
           size_tier?: string | null;
           updated_at?: string | null;
           votes?: Json[] | null;
+        };
+        Relationships: [];
+      };
+      engagement_signal_aggregations: {
+        Row: {
+          computed_at: string | null;
+          data: Json;
+          entity_id: string;
+          entity_type: string;
+          epoch: number | null;
+          id: string;
+          signal_type: string;
+        };
+        Insert: {
+          computed_at?: string | null;
+          data: Json;
+          entity_id: string;
+          entity_type: string;
+          epoch?: number | null;
+          id?: string;
+          signal_type: string;
+        };
+        Update: {
+          computed_at?: string | null;
+          data?: Json;
+          entity_id?: string;
+          entity_type?: string;
+          epoch?: number | null;
+          id?: string;
+          signal_type?: string;
         };
         Relationships: [];
       };
