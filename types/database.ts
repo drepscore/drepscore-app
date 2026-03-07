@@ -2610,6 +2610,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      rationale_documents: {
+        Row: {
+          content_hash: string;
+          created_at: string | null;
+          document: Json;
+          drep_id: string;
+          proposal_index: number;
+          proposal_tx_hash: string;
+          rationale_text: string;
+          vote_tx_hash: string | null;
+        };
+        Insert: {
+          content_hash: string;
+          created_at?: string | null;
+          document: Json;
+          drep_id: string;
+          proposal_index: number;
+          proposal_tx_hash: string;
+          rationale_text: string;
+          vote_tx_hash?: string | null;
+        };
+        Update: {
+          content_hash?: string;
+          created_at?: string | null;
+          document?: Json;
+          drep_id?: string;
+          proposal_index?: number;
+          proposal_tx_hash?: string;
+          rationale_text?: string;
+          vote_tx_hash?: string | null;
+        };
+        Relationships: [];
+      };
       revoked_sessions: {
         Row: {
           jti: string;
