@@ -1,18 +1,10 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ArrowRight, Users, ShieldCheck, Activity, Zap, Vote, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-
-const GovernanceConstellation = dynamic(
-  () =>
-    import('@/components/GovernanceConstellation').then((m) => ({
-      default: m.GovernanceConstellation,
-    })),
-  { ssr: false },
-);
+import { ConstellationScene } from '@/components/ConstellationScene';
 
 interface PulseData {
   totalAdaGoverned: string;
@@ -38,7 +30,7 @@ export function HomeAnonymous({ pulseData }: HomeAnonymousProps) {
         aria-label="Governance constellation visualization"
       >
         <div className="absolute inset-0">
-          <GovernanceConstellation className="w-full h-full" interactive={false} />
+          <ConstellationScene className="w-full h-full" interactive={false} />
         </div>
 
         {/* Gradient fade at bottom */}

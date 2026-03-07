@@ -8,15 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { GovTerm } from '@/components/GovTerm';
 import { useSPOPoolCompetitive } from '@/hooks/queries';
 import { useSegment } from '@/components/providers/SegmentProvider';
-import dynamic from 'next/dynamic';
-
-const GovernanceConstellation = dynamic(
-  () =>
-    import('@/components/GovernanceConstellation').then((m) => ({
-      default: m.GovernanceConstellation,
-    })),
-  { ssr: false },
-);
+import { ConstellationScene } from '@/components/ConstellationScene';
 
 const TIER_COLORS: Record<string, string> = {
   Emerging: 'text-muted-foreground',
@@ -114,7 +106,7 @@ export function HomeSPO() {
       {/* ── Constellation hero (25vh) — "You help run this network" ── */}
       <section className="relative h-[25vh] min-h-[180px] sm:-mt-14 overflow-hidden">
         <div className="absolute inset-0">
-          <GovernanceConstellation className="w-full h-full" interactive={false} />
+          <ConstellationScene className="w-full h-full" interactive={false} />
         </div>
         <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background to-transparent pointer-events-none" />
 

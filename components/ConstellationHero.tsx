@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { useWallet } from '@/utils/wallet';
@@ -12,27 +11,12 @@ import { ActivityTicker } from '@/components/ActivityTicker';
 import { PersonalizedStatsStrip } from '@/components/PersonalizedStatsStrip';
 import { ConstellationSearch } from '@/components/ConstellationSearch';
 import { ConstellationNodeDetail } from '@/components/ConstellationNodeDetail';
+import { ConstellationScene } from '@/components/ConstellationScene';
 
 import type { UserSegment } from '@/components/PersonalGovernanceCard';
 import type { ConstellationRef } from '@/components/GovernanceConstellation';
 import type { ConstellationNode3D } from '@/lib/constellation/types';
 import type { AlignmentDimension } from '@/lib/drepIdentity';
-
-const GovernanceConstellation = dynamic(
-  () =>
-    import('@/components/GovernanceConstellation').then((m) => ({
-      default: m.GovernanceConstellation,
-    })),
-  { ssr: false },
-);
-
-const GlobeConstellation = dynamic(
-  () =>
-    import('@/components/GlobeConstellation').then((m) => ({
-      default: m.GlobeConstellation,
-    })),
-  { ssr: false },
-);
 
 interface PersonalCardData {
   segment: UserSegment;
@@ -71,8 +55,6 @@ export function ConstellationHero({
 
   const interactiveFlag = useFeatureFlag('interactive_constellation');
   const isInteractive = interactiveFlag === true;
-  const globeFlag = useFeatureFlag('globe_constellation');
-  const useGlobe = globeFlag === true;
   const [selectedNode, setSelectedNode] = useState<ConstellationNode3D | null>(null);
 
   useEffect(() => {
@@ -264,25 +246,14 @@ export function ConstellationHero({
       className={`relative w-full transition-all duration-700 -mt-16 ${contracted ? 'min-h-[calc(35vh+4rem)]' : 'min-h-[calc(65vh+4rem)]'}`}
       onMouseEnter={handleConstellationHover}
     >
-      {useGlobe ? (
-        <GlobeConstellation
-          ref={constellationRef}
-          interactive={isInteractive}
-          onReady={handleConstellationReady}
-          onContracted={handleConstellationContracted}
-          onNodeSelect={isInteractive ? handleNodeSelect : undefined}
-          className={contracted ? 'h-[35vh]' : 'h-[65vh]'}
-        />
-      ) : (
-        <GovernanceConstellation
-          ref={constellationRef}
-          interactive={isInteractive}
-          onReady={handleConstellationReady}
-          onContracted={handleConstellationContracted}
-          onNodeSelect={isInteractive ? handleNodeSelect : undefined}
-          className={contracted ? 'h-[35vh]' : 'h-[65vh]'}
-        />
-      )}
+      <ConstellationScene
+        ref={constellationRef}
+        interactive={isInteractive}
+        onReady={handleConstellationReady}
+        onContracted={handleConstellationContracted}
+        onNodeSelect={isInteractive ? handleNodeSelect : undefined}
+        className={contracted ? 'h-[35vh]' : 'h-[65vh]'}
+      />
 
       {/* SSR gradient fallback */}
       <div

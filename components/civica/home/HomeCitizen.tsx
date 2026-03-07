@@ -20,15 +20,7 @@ import { computeTier } from '@/lib/scoring/tiers';
 import { useDRepReportCard } from '@/hooks/queries';
 import { useSegment } from '@/components/providers/SegmentProvider';
 import { useWallet } from '@/utils/wallet';
-import dynamic from 'next/dynamic';
-
-const GovernanceConstellation = dynamic(
-  () =>
-    import('@/components/GovernanceConstellation').then((m) => ({
-      default: m.GovernanceConstellation,
-    })),
-  { ssr: false },
-);
+import { ConstellationScene } from '@/components/ConstellationScene';
 
 const TIER_COLORS: Record<string, string> = {
   Emerging: 'text-muted-foreground',
@@ -80,7 +72,7 @@ function UndelegatedHome({ pulseData }: { pulseData: PulseData }) {
       {/* ── Constellation hero (~35vh) ─────────────────────────────── */}
       <section className="relative h-[35vh] min-h-[280px] sm:-mt-14 overflow-hidden">
         <div className="absolute inset-0">
-          <GovernanceConstellation className="w-full h-full" interactive={false} />
+          <ConstellationScene className="w-full h-full" interactive={false} />
         </div>
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
 
@@ -232,7 +224,7 @@ export function HomeCitizen({ pulseData, ssrHolderData, ssrWalletAddress }: Home
       {/* ── Constellation hero (28vh) — branded ambient with personal context ── */}
       <section className="relative h-[28vh] min-h-[200px] sm:-mt-14 overflow-hidden">
         <div className="absolute inset-0">
-          <GovernanceConstellation className="w-full h-full" interactive={false} />
+          <ConstellationScene className="w-full h-full" interactive={false} />
         </div>
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
 
