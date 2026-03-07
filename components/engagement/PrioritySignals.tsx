@@ -1,0 +1,295 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { useWallet } from '@/utils/wallet';
+import { getStoredSession } from '@/lib/supabaseAuth';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { BarChart3, CheckCircle2, Wallet, ArrowUp } from 'lucide-react';
+import { hapticLight } from '@/lib/haptics';
+import { usePriorityRankings, useUserPrioritySignal } from '@/hooks/useEngagement';
+import { PRIORITY_AREAS, type PriorityArea } from '@/lib/api/schemas/engagement';
+
+const PRIORITY_LABELS: Record<PriorityArea, { label: string; icon: string }> = {
+  infrastructure: { label: 'Infrastructure', icon: '🏗️' },
+  education: { label: 'Education', icon: '📚' },
+  defi: { label: 'DeFi', icon: '💱' },
+  marketing: { label: 'Marketing', icon: '📣' },
+  developer_tooling: { label: 'Developer Tooling', icon: '🛠️' },
+  governance_tooling: { label: 'Governance Tooling', icon: '🏛️' },
+  identity_dids: { label: 'Identity & DIDs', icon: '🪪' },
+  interoperability: { label: 'Interoperability', icon: '🔗' },
+  security_auditing: { label: 'Security & Auditing', icon: '🔒' },
+  community_hubs: { label: 'Community Hubs', icon: '🤝' },
+  research: { label: 'Research', icon: '🔬' },
+  media_content: { label: 'Media & Content', icon: '📰' },
+};
+
+interface PrioritySignalsProps {
+  epoch: number;
+}
+
+export function PrioritySignals({ epoch }: PrioritySignalsProps) {
+  const { connected, isAuthenticated, authenticate } = useWallet();
+  const {
+    data: rankings,
+    isLoading: rankingsLoading,
+    refetch: refetchRankings,
+  } = usePriorityRankings(epoch);
+  const { data: userSignal, refetch: refetchUser } = useUserPrioritySignal(epoch);
+
+  const [selected, setSelected] = useState<PriorityArea[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const hasSubmitted = !!userSignal || submitted;
+
+  const togglePriority = useCallback((area: PriorityArea) => {
+    hapticLight();
+    setSelected((prev) => {
+      if (prev.includes(area)) return prev.filter((p) => p !== area);
+      if (prev.length >= 3) return prev;
+      return [...prev, area];
+    });
+  }, []);
+
+  const moveUp = useCallback((index: number) => {
+    if (index === 0) return;
+    hapticLight();
+    setSelected((prev) => {
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  }, []);
+
+  const submit = async () => {
+    if (selected.length === 0) return;
+
+    hapticLight();
+    if (!isAuthenticated) {
+      const ok = await authenticate();
+      if (!ok) return;
+    }
+
+    const token = getStoredSession();
+    if (!token) return;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/engagement/priorities', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          rankedPriorities: selected,
+          epoch,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed');
+
+      setSubmitted(true);
+      await Promise.all([refetchRankings(), refetchUser()]);
+
+      import('@/lib/posthog')
+        .then(({ posthog }) => {
+          posthog.capture('citizen_priority_signaled', {
+            ranked_priorities: selected,
+            epoch,
+          });
+        })
+        .catch(() => {});
+    } catch {
+      // Silently fail
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (rankingsLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const rankingData = rankings?.rankings ?? [];
+  const totalVoters = rankings?.totalVoters ?? 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Community Rankings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            Community Priority Rankings
+            {totalVoters > 0 && (
+              <span className="text-sm font-normal text-muted-foreground">
+                ({totalVoters} citizen{totalVoters !== 1 ? 's' : ''} voted)
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {totalVoters === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No priority signals yet this epoch. Be the first to share what governance should focus
+              on.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {rankingData
+                .filter((r) => r.score > 0)
+                .slice(0, 10)
+                .map((item) => {
+                  const maxScore = rankingData[0]?.score || 1;
+                  const pct = Math.round((item.score / maxScore) * 100);
+                  const info = PRIORITY_LABELS[item.priority as PriorityArea];
+                  return (
+                    <div key={item.priority} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2">
+                          <Badge variant="outline" className="w-6 h-6 p-0 justify-center text-xs">
+                            {item.rank}
+                          </Badge>
+                          <span>{info?.icon}</span>
+                          <span>{info?.label ?? item.priority}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {item.firstChoiceCount} first-choice
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-700"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Voting Card */}
+      {!hasSubmitted ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">What should governance focus on?</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Pick your top 3 priorities in order. Tap to select, then drag to rank.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!connected ? (
+              <Button
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => {
+                  const event = new CustomEvent('open-wallet-modal');
+                  window.dispatchEvent(event);
+                }}
+              >
+                <Wallet className="h-4 w-4" />
+                Connect Wallet to Vote
+              </Button>
+            ) : (
+              <>
+                {/* Selected priorities with ranking */}
+                {selected.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Your ranking
+                    </p>
+                    {selected.map((area, i) => {
+                      const info = PRIORITY_LABELS[area];
+                      return (
+                        <div
+                          key={area}
+                          className="flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5"
+                        >
+                          <Badge className="w-6 h-6 p-0 justify-center text-xs">{i + 1}</Badge>
+                          <span>{info.icon}</span>
+                          <span className="text-sm flex-1">{info.label}</span>
+                          {i > 0 && (
+                            <button
+                              onClick={() => moveUp(i)}
+                              className="p-1 rounded hover:bg-primary/10 transition-colors"
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => togglePriority(area)}
+                            className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Available priorities */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {(PRIORITY_AREAS as readonly PriorityArea[])
+                    .filter((area) => !selected.includes(area))
+                    .map((area) => {
+                      const info = PRIORITY_LABELS[area];
+                      const disabled = selected.length >= 3;
+                      return (
+                        <button
+                          key={area}
+                          onClick={() => togglePriority(area)}
+                          disabled={disabled}
+                          className={`flex items-center gap-2 p-3 rounded-lg border text-sm text-left transition-all
+                            ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:border-primary/50 hover:bg-primary/5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]'}
+                            border-border/50`}
+                        >
+                          <span className="text-lg">{info.icon}</span>
+                          <span>{info.label}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+
+                {selected.length > 0 && (
+                  <Button onClick={submit} disabled={submitting} className="w-full gap-1.5">
+                    {submitting ? 'Submitting...' : `Submit Your Top ${selected.length}`}
+                  </Button>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="py-6">
+            <div className="flex items-center gap-2 text-sm text-primary">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="font-medium">
+                Your priorities have been recorded for Epoch {epoch}. Thanks for making your voice
+                heard!
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

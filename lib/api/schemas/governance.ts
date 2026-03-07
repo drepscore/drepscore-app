@@ -33,6 +33,8 @@ export const QuestionSchema = z.object({
   sessionToken: SessionTokenSchema,
   drepId: DrepIdSchema,
   questionText: z.string().min(1, 'questionText is required').max(500),
+  proposalTxHash: TxHashSchema.optional(),
+  proposalIndex: ProposalIndexSchema.optional(),
 });
 
 export const QuestionRespondSchema = z.object({
