@@ -56,18 +56,29 @@ Override with environment variables or per-command flags:
 ```bash
 bin/sentry.sh issues --query "is:unresolved" --period 24h --limit 20
 bin/sentry.sh issue get <id>
+bin/sentry.sh issue events <id> --limit 10
+bin/sentry.sh issue latest <id>
 bin/sentry.sh stats --period 24h
 ```
 
-The wrapper calls Sentry's project issue and project stats endpoints with
-read-only bearer auth:
+The wrapper calls Sentry's project issue, issue event, and project stats
+endpoints with read-only bearer auth:
 
 - `GET /projects/{org}/{project}/issues/`
 - `GET /organizations/{org}/issues/{issue_id}/`
+- `GET /organizations/{org}/issues/{issue_id}/events/`
+- `GET /organizations/{org}/issues/{issue_id}/events/latest/`
 - `GET /projects/{org}/{project}/stats/`
 
 `stats --period 24h` computes `since` and `until` timestamps locally and queries
 received event counts at hourly resolution.
+
+`issue events <id>` lists recent events for an issue with full payloads;
+`--limit` is a page-size hint passed to Sentry as `per_page`. `issue latest
+<id>` returns the single most recent event including its `entries` array — the
+`exception` entry carries the error type, value, and stack frames. This is the
+path for root-causing a Sentry error without dashboard access; no extra token
+scope beyond `event:read` (already provisioned) is required.
 
 ## Rotation
 
