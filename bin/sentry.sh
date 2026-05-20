@@ -29,7 +29,12 @@ usage() {
 Usage:
   bin/sentry.sh issues [--query <query>] [--period <period>] [--limit <n>] [--org-slug <slug>] [--project-slug <slug>]
   bin/sentry.sh issue get <id> [--org-slug <slug>]
+  bin/sentry.sh issue events <id> [--limit <n>] [--org-slug <slug>]
+  bin/sentry.sh issue latest <id> [--org-slug <slug>]
   bin/sentry.sh stats [--period <period>] [--org-slug <slug>] [--project-slug <slug>]
+
+  issue latest returns the most recent event with full stack-trace entries —
+  the path for root-causing an error without dashboard access.
 USAGE
 }
 
@@ -228,23 +233,48 @@ case "$command" in
     subcommand="${1:-}"
     issue_id="${2:-}"
     shift $(( $# >= 2 ? 2 : $# ))
-    if [[ "$subcommand" != "get" || -z "$issue_id" ]]; then
+    case "$subcommand" in
+      get | events | latest) ;;
+      *)
+        usage >&2
+        exit 1
+        ;;
+    esac
+    if [[ -z "$issue_id" ]]; then
       usage >&2
       exit 1
     fi
+    limit="10"
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --org-slug)
           org_slug="${2:-}"
           shift 2
           ;;
+        --limit)
+          limit="${2:-}"
+          shift 2
+          ;;
         *)
-          echo "BLOCKED: unknown issue get argument: $1" >&2
+          echo "BLOCKED: unknown issue ${subcommand} argument: $1" >&2
           exit 1
           ;;
       esac
     done
-    curl_with_token "/organizations/${org_slug}/issues/${issue_id}/"
+    case "$subcommand" in
+      get)
+        curl_with_token "/organizations/${org_slug}/issues/${issue_id}/"
+        ;;
+      events)
+        # List recent events for the issue with full payloads (stack frames,
+        # tags, context). per_page is Sentry's page-size hint.
+        curl_with_token "/organizations/${org_slug}/issues/${issue_id}/events/?full=true&per_page=$(urlencode "$limit")"
+        ;;
+      latest)
+        # Most recent event with full `entries` (exception type/value + frames).
+        curl_with_token "/organizations/${org_slug}/issues/${issue_id}/events/latest/"
+        ;;
+    esac
     ;;
   stats)
     period="24h"

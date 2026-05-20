@@ -43,6 +43,34 @@ for wrapper in betterstack sentry; do
   fi
 done
 
+# F14: the new `issue events` / `issue latest` subcommands must route through
+# the same credential gate as `issue get` — fail closed on a missing op-ref,
+# no bypass.
+sentry_new_subcommands=(
+  "issue events 999"
+  "issue latest 999"
+)
+for entry in "${sentry_new_subcommands[@]}"; do
+  read -r -a parts <<<"$entry"
+  set +e
+  output="$(
+    GOVERNADA_OBSERVABILITY_ENV_REFS_FILE="$empty_refs" \
+      OP_AGENT_RUNTIME_FILE="$runtime_file" \
+      "$repo_root/bin/sentry.sh" "${parts[@]}" 2>&1
+  )"
+  status=$?
+  set -e
+
+  if [ "$status" -eq 0 ]; then
+    printf 'expected sentry "%s" to fail closed with missing op-ref\n' "$entry" >&2
+    exit 1
+  fi
+  if ! printf '%s\n' "$output" | grep -Fq "BLOCKED: SENTRY_AUTH_TOKEN_OP_REF is not set"; then
+    printf 'expected sentry "%s" to report missing op-ref, got:\n%s\n' "$entry" "$output" >&2
+    exit 1
+  fi
+done
+
 cat >"$fake_bin/op" <<'OP'
 #!/usr/bin/env bash
 echo 'op failed for op://Governada-Agent/fake/token with sntrys_secretvalue1234567890 bt_secretvalue1234567890 ops_secretvalue1234567890' >&2
