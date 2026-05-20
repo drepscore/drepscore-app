@@ -1,34 +1,50 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-16T04:31:37.260Z",
-  "source": "Seeded from one live production Koios fetch per instrumented endpoint for Phase 6 schema drift detector.",
+  "generatedAt": "2026-05-20T06:03:29.066Z",
+  "source": "Auto-updated from Koios schema drift event for drep_metadata",
   "endpoints": {
     "account_assets": {
       "endpoint": "account_assets",
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "b116803c4a6f0876d6909d788b0b544d25fe4dfeae16fa4c2a3406100b7a2fb0",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "asset_name": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "decimals": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "fingerprint": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "policy_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "quantity": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "stake_address": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
@@ -39,48 +55,78 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "41c19de187903446a0f607674e8f2b163bc4796ad489c9c545389b801bfdb6ec",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "delegated_drep": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "delegated_pool": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "deposit": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_refund": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "reserves": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "rewards": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "rewards_available": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "stake_address": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "status": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "total_balance": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "treasury": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "utxo": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "withdrawals": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
@@ -91,56 +137,93 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "9b575feff69bc005e0ac99e10bc93ea71124531643cb46c23ebd9060a47171a8",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "members": {
-              "types": ["array"],
+              "types": [
+                "array"
+              ],
               "items": {
-                "types": ["object"],
+                "types": [
+                  "object"
+                ],
                 "fields": {
                   "cc_cold_has_script": {
-                    "types": ["boolean"]
+                    "types": [
+                      "boolean"
+                    ]
                   },
                   "cc_cold_hex": {
-                    "types": ["string"]
+                    "types": [
+                      "string"
+                    ]
                   },
                   "cc_cold_id": {
-                    "types": ["string"]
+                    "types": [
+                      "string"
+                    ]
                   },
                   "cc_hot_has_script": {
-                    "types": ["boolean", "null"]
+                    "types": [
+                      "boolean",
+                      "null"
+                    ]
                   },
                   "cc_hot_hex": {
-                    "types": ["null", "string"]
+                    "types": [
+                      "null",
+                      "string"
+                    ]
                   },
                   "cc_hot_id": {
-                    "types": ["null", "string"]
+                    "types": [
+                      "null",
+                      "string"
+                    ]
                   },
                   "expiration_epoch": {
-                    "types": ["number"]
+                    "types": [
+                      "number"
+                    ]
                   },
                   "status": {
-                    "types": ["string"]
+                    "types": [
+                      "string"
+                    ]
                   }
                 }
               }
             },
             "proposal_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_index": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "proposal_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "quorum_denominator": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "quorum_numerator": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             }
           }
         }
@@ -151,24 +234,38 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "0a55c86274bb5fbedf9afc6516c0041ca76d45e6bb7bc8d1d53607813cd9594c",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "amount": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "script_hash": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "stake_address": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "stake_address_hex": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
@@ -179,18 +276,28 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "f0418012b37bf7779b976952a5c05f19a4f5160da262c9a41003f0cbcbff4f0d",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "amount": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "dreps": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             }
           }
         }
@@ -201,39 +308,63 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "adf9abde28554ec49fe6374ac82358111985bc8d2a73ba22dd295a55cce567b4",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "active": {
-              "types": ["boolean"]
+              "types": [
+                "boolean"
+              ]
             },
             "amount": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "deposit": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "drep_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "drep_status": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "expires_epoch_no": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "has_script": {
-              "types": ["boolean"]
+              "types": [
+                "boolean"
+              ]
             },
             "hex": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "meta_hash": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "meta_url": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             }
           }
         }
@@ -244,21 +375,33 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "6316fd95104a51c7148c2b1a77a4c767fddb27cd972a3a187bd89dde7875e55c",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "drep_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "has_script": {
-              "types": ["boolean"]
+              "types": [
+                "boolean"
+              ]
             },
             "hex": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "registered": {
-              "types": ["boolean"]
+              "types": [
+                "boolean"
+              ]
             }
           }
         }
@@ -266,48 +409,603 @@
     },
     "drep_metadata": {
       "endpoint": "drep_metadata",
-      "observedAt": "2026-05-16T04:31:37.260Z",
-      "shapeHash": "12dcfacc6aede47291850598348ee8527523437ac14523b71b16ecc75bea87c1",
+      "observedAt": "2026-05-20T06:03:29.066Z",
+      "shapeHash": "e220da3313d9e053ed2e74e086f8bbc1f98c81f68ce2f6c9e29e1b7902784a0f",
       "shape": {
-        "types": ["array"],
         "items": {
-          "types": ["object"],
           "fields": {
             "bytes": {
-              "types": ["null"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "comment": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "drep_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "has_script": {
-              "types": ["boolean"]
+              "types": [
+                "boolean"
+              ]
             },
             "hex": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "is_valid": {
-              "types": ["null"]
+              "types": [
+                "boolean",
+                "null"
+              ]
             },
             "language": {
-              "types": ["null"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "meta_hash": {
-              "types": ["null"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "meta_json": {
-              "types": ["null"]
+              "fields": {
+                "@context": {
+                  "fields": {
+                    "@language": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "CIP100": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "CIP119": {
+                      "types": [
+                        "string"
+                      ]
+                    },
+                    "authors": {
+                      "fields": {
+                        "@container": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "@context": {
+                          "fields": {
+                            "name": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "witness": {
+                              "fields": {
+                                "@context": {
+                                  "fields": {
+                                    "publicKey": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "signature": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "witnessAlgorithm": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    }
+                                  },
+                                  "types": [
+                                    "object"
+                                  ]
+                                },
+                                "@id": {
+                                  "types": [
+                                    "string"
+                                  ]
+                                }
+                              },
+                              "types": [
+                                "object"
+                              ]
+                            }
+                          },
+                          "types": [
+                            "object"
+                          ]
+                        },
+                        "@id": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object"
+                      ]
+                    },
+                    "body": {
+                      "fields": {
+                        "@context": {
+                          "fields": {
+                            "bio": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "dRepName": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "doNotList": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "email": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "givenName": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "image": {
+                              "fields": {
+                                "@context": {
+                                  "fields": {
+                                    "ImageObject": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "contentUrl": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "sha256": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    }
+                                  },
+                                  "types": [
+                                    "object"
+                                  ]
+                                },
+                                "@id": {
+                                  "types": [
+                                    "string"
+                                  ]
+                                }
+                              },
+                              "types": [
+                                "object",
+                                "string"
+                              ]
+                            },
+                            "motivations": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "objectives": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "paymentAddress": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "qualifications": {
+                              "types": [
+                                "string"
+                              ]
+                            },
+                            "references": {
+                              "fields": {
+                                "@container": {
+                                  "types": [
+                                    "string"
+                                  ]
+                                },
+                                "@context": {
+                                  "fields": {
+                                    "GovernanceMetadata": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "Identity": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "Link": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "Other": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "label": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    },
+                                    "referenceHash": {
+                                      "fields": {
+                                        "@context": {
+                                          "fields": {
+                                            "hashAlgorithm": {
+                                              "types": [
+                                                "string"
+                                              ]
+                                            },
+                                            "hashDigest": {
+                                              "types": [
+                                                "string"
+                                              ]
+                                            }
+                                          },
+                                          "types": [
+                                            "object"
+                                          ]
+                                        },
+                                        "@id": {
+                                          "types": [
+                                            "string"
+                                          ]
+                                        }
+                                      },
+                                      "types": [
+                                        "object"
+                                      ]
+                                    },
+                                    "uri": {
+                                      "types": [
+                                        "string"
+                                      ]
+                                    }
+                                  },
+                                  "types": [
+                                    "object"
+                                  ]
+                                },
+                                "@id": {
+                                  "types": [
+                                    "string"
+                                  ]
+                                }
+                              },
+                              "types": [
+                                "object"
+                              ]
+                            }
+                          },
+                          "types": [
+                            "object"
+                          ]
+                        },
+                        "@id": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object"
+                      ]
+                    },
+                    "hashAlgorithm": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  },
+                  "types": [
+                    "object"
+                  ]
+                },
+                "authors": {
+                  "items": {
+                    "fields": {
+                      "witness": {
+                        "fields": {
+                          "publicKey": {
+                            "fields": {
+                              "@value": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            },
+                            "types": [
+                              "object"
+                            ]
+                          },
+                          "signature": {
+                            "fields": {
+                              "@value": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            },
+                            "types": [
+                              "object"
+                            ]
+                          },
+                          "witnessAlgorithm": {
+                            "fields": {
+                              "@value": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            },
+                            "types": [
+                              "object"
+                            ]
+                          }
+                        },
+                        "types": [
+                          "object"
+                        ]
+                      }
+                    },
+                    "types": [
+                      "object",
+                      "unknown"
+                    ]
+                  },
+                  "types": [
+                    "array"
+                  ]
+                },
+                "body": {
+                  "fields": {
+                    "bio": {
+                      "fields": {
+                        "@value": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object"
+                      ]
+                    },
+                    "dRepName": {
+                      "fields": {
+                        "@value": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object"
+                      ]
+                    },
+                    "doNotList": {
+                      "types": [
+                        "boolean"
+                      ]
+                    },
+                    "email": {
+                      "fields": {
+                        "@value": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object"
+                      ]
+                    },
+                    "givenName": {
+                      "fields": {
+                        "@value": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object",
+                        "string"
+                      ]
+                    },
+                    "image": {
+                      "fields": {
+                        "@type": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "contentUrl": {
+                          "types": [
+                            "string"
+                          ]
+                        },
+                        "sha256": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object"
+                      ]
+                    },
+                    "motivations": {
+                      "fields": {
+                        "@value": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object",
+                        "string"
+                      ]
+                    },
+                    "objectives": {
+                      "fields": {
+                        "@value": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object",
+                        "string"
+                      ]
+                    },
+                    "paymentAddress": {
+                      "fields": {
+                        "@value": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object",
+                        "string"
+                      ]
+                    },
+                    "qualifications": {
+                      "fields": {
+                        "@value": {
+                          "types": [
+                            "string"
+                          ]
+                        }
+                      },
+                      "types": [
+                        "object",
+                        "string"
+                      ]
+                    },
+                    "references": {
+                      "items": {
+                        "fields": {
+                          "@type": {
+                            "types": [
+                              "string"
+                            ]
+                          },
+                          "label": {
+                            "fields": {
+                              "@value": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            },
+                            "types": [
+                              "object",
+                              "string"
+                            ]
+                          },
+                          "uri": {
+                            "fields": {
+                              "@value": {
+                                "types": [
+                                  "string"
+                                ]
+                              }
+                            },
+                            "types": [
+                              "object",
+                              "string"
+                            ]
+                          }
+                        },
+                        "types": [
+                          "object",
+                          "unknown"
+                        ]
+                      },
+                      "types": [
+                        "array"
+                      ]
+                    }
+                  },
+                  "types": [
+                    "object"
+                  ]
+                },
+                "hashAlgorithm": {
+                  "fields": {
+                    "@value": {
+                      "types": [
+                        "string"
+                      ]
+                    }
+                  },
+                  "types": [
+                    "object",
+                    "string"
+                  ]
+                }
+              },
+              "types": [
+                "null",
+                "object"
+              ]
             },
             "meta_url": {
-              "types": ["null"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "warning": {
-              "types": ["null"]
+              "types": [
+                "null",
+                "string"
+              ]
             }
-          }
-        }
+          },
+          "types": [
+            "object"
+          ]
+        },
+        "types": [
+          "array"
+        ]
       }
     },
     "drep_updates": {
@@ -315,294 +1013,471 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "091f393a3f5e00d6d70613fef3260fc15f8615bb6d8a7306a332980c38d2267d",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "action": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "block_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "cert_index": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "deposit": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "drep_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "has_script": {
-              "types": ["boolean"]
+              "types": [
+                "boolean"
+              ]
             },
             "hex": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "meta_hash": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "meta_json": {
-              "types": ["null", "object"],
+              "types": [
+                "null",
+                "object"
+              ],
               "fields": {
                 "@context": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "@language": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP100": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP119": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "authors": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@container": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "name": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "witness": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "publicKey": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "signature": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "witnessAlgorithm": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "body": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "bio": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "dRepName": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "doNotList": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "email": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "givenName": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "image": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "ImageObject": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "contentUrl": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "sha256": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "motivations": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "objectives": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "paymentAddress": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "qualifications": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "references": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@container": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "GovernanceMetadata": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "Identity": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "Link": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "Other": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "label": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "referenceHash": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "@context": {
-                                          "types": ["object"],
+                                          "types": [
+                                            "object"
+                                          ],
                                           "fields": {
                                             "hashAlgorithm": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             },
                                             "hashDigest": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             }
                                           }
                                         },
                                         "@id": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         }
                                       }
                                     },
                                     "uri": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "hashAlgorithm": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "@type": {
-                  "types": ["string"]
+                  "types": [
+                    "string"
+                  ]
                 },
                 "authors": {
-                  "types": ["array"],
+                  "types": [
+                    "array"
+                  ],
                   "items": {
-                    "types": ["unknown"]
+                    "types": [
+                      "unknown"
+                    ]
                   }
                 },
                 "body": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "bio": {
-                      "types": ["object", "string"],
+                      "types": [
+                        "object",
+                        "string"
+                      ],
                       "fields": {
                         "@value": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "dRepName": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@value": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "doNotList": {
-                      "types": ["boolean"]
+                      "types": [
+                        "boolean"
+                      ]
                     },
                     "email": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@value": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "givenName": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "image": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@type": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "contentUrl": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "sha256": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "motivations": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "objectives": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "paymentAddress": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "policy": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "qualifications": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "references": {
-                      "types": ["array"],
+                      "types": [
+                        "array"
+                      ],
                       "items": {
-                        "types": ["object", "unknown"],
+                        "types": [
+                          "object",
+                          "unknown"
+                        ],
                         "fields": {
                           "@type": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "label": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "uri": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           }
                         }
                       }
@@ -610,23 +1485,35 @@
                   }
                 },
                 "hashAlgorithm": {
-                  "types": ["object", "string"],
+                  "types": [
+                    "object",
+                    "string"
+                  ],
                   "fields": {
                     "@value": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "signature": {
-                  "types": ["string"]
+                  "types": [
+                    "string"
+                  ]
                 }
               }
             },
             "meta_url": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "update_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
@@ -637,33 +1524,55 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "c72ffe146e38b5e2a9eb4e4de6256c808deed16391826e893fd885c61078d708",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "block_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "meta_hash": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "meta_url": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "proposal_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_index": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "proposal_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "vote": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "vote_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
@@ -674,18 +1583,28 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "e749816582c0581d653dcf594f6ffa60ebef2dca1a89a3002b579293155c1f7c",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "amount": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "drep_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             }
           }
         }
@@ -696,48 +1615,80 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "005c4c1612a1b2fcc86832eb93ea184b8095c6cc6a33ff7ff769997805e56735",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "active_stake": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "avg_blk_reward": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "blk_count": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "end_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "era": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "fees": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "first_block_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "last_block_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "out_sum": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "start_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "total_rewards": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "tx_count": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             }
           }
         }
@@ -748,194 +1699,320 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "ad7e0fddfcd50e00604c3a3e009a94cdfd6caa140085596d4c9f417c7c7e5a3b",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "block_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "coins_per_utxo_size": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "collateral_percent": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "committee_max_term_length": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "committee_min_size": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "cost_models": {
-              "types": ["object"],
+              "types": [
+                "object"
+              ],
               "fields": {
                 "PlutusV1": {
-                  "types": ["array"],
+                  "types": [
+                    "array"
+                  ],
                   "items": {
-                    "types": ["number"]
+                    "types": [
+                      "number"
+                    ]
                   }
                 },
                 "PlutusV2": {
-                  "types": ["array"],
+                  "types": [
+                    "array"
+                  ],
                   "items": {
-                    "types": ["number"]
+                    "types": [
+                      "number"
+                    ]
                   }
                 },
                 "PlutusV3": {
-                  "types": ["array"],
+                  "types": [
+                    "array"
+                  ],
                   "items": {
-                    "types": ["number"]
+                    "types": [
+                      "number"
+                    ]
                   }
                 }
               }
             },
             "decentralisation": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "drep_activity": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "drep_deposit": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "dvt_committee_no_confidence": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "dvt_committee_normal": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "dvt_hard_fork_initiation": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "dvt_motion_no_confidence": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "dvt_p_p_economic_group": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "dvt_p_p_gov_group": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "dvt_p_p_network_group": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "dvt_p_p_technical_group": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "dvt_treasury_withdrawal": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "dvt_update_to_constitution": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "era": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "extra_entropy": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "gov_action_deposit": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "gov_action_lifetime": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "influence": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "key_deposit": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "max_bh_size": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "max_block_ex_mem": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "max_block_ex_steps": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "max_block_size": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "max_collateral_inputs": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "max_epoch": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "max_tx_ex_mem": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "max_tx_ex_steps": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "max_tx_size": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "max_val_size": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "min_fee_a": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "min_fee_b": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "min_fee_ref_script_cost_per_byte": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "min_pool_cost": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "min_utxo_value": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "monetary_expand_rate": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "nonce": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "optimal_pool_count": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pool_deposit": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "price_mem": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "price_step": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "protocol_major": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "protocol_minor": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pvt_committee_no_confidence": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pvt_committee_normal": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pvt_hard_fork_initiation": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pvt_motion_no_confidence": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pvtpp_security_group": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "treasury_growth_rate": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             }
           }
         }
@@ -946,502 +2023,787 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "6c691d479da274b549bbac29eecbd29cc1c13020eef02e725cf56ceb0d2b3111",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "block_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "deposit": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "dropped_epoch": {
-              "types": ["null", "number"]
+              "types": [
+                "null",
+                "number"
+              ]
             },
             "enacted_epoch": {
-              "types": ["null", "number"]
+              "types": [
+                "null",
+                "number"
+              ]
             },
             "expiration": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "expired_epoch": {
-              "types": ["null", "number"]
+              "types": [
+                "null",
+                "number"
+              ]
             },
             "meta_comment": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "meta_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "meta_is_valid": {
-              "types": ["boolean"]
+              "types": [
+                "boolean"
+              ]
             },
             "meta_json": {
-              "types": ["object"],
+              "types": [
+                "object"
+              ],
               "fields": {
                 "@context": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "@context": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "CIP100": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "CIP108": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "CIP116": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "CIP169": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "authors": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "@container": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "@context": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "did": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "name": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "witness": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "@context": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "publicKey": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         },
                                         "signature": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         },
                                         "witnessAlgorithm": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         }
                                       }
                                     },
                                     "@id": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 }
                               }
                             },
                             "@id": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             }
                           }
                         },
                         "body": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "@context": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "abstract": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "motivation": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "onChain": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "@context": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "deposit": {
-                                          "types": ["object"],
+                                          "types": [
+                                            "object"
+                                          ],
                                           "fields": {
                                             "@id": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             },
                                             "@type": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             }
                                           }
                                         },
                                         "gov_action": {
-                                          "types": ["object"],
+                                          "types": [
+                                            "object"
+                                          ],
                                           "fields": {
                                             "@context": {
-                                              "types": ["object"],
+                                              "types": [
+                                                "object"
+                                              ],
                                               "fields": {
                                                 "key": {
-                                                  "types": ["object"],
+                                                  "types": [
+                                                    "object"
+                                                  ],
                                                   "fields": {
                                                     "@id": {
-                                                      "types": ["string"]
+                                                      "types": [
+                                                        "string"
+                                                      ]
                                                     },
                                                     "@type": {
-                                                      "types": ["string"]
+                                                      "types": [
+                                                        "string"
+                                                      ]
                                                     }
                                                   }
                                                 },
                                                 "rewards": {
-                                                  "types": ["object"],
+                                                  "types": [
+                                                    "object"
+                                                  ],
                                                   "fields": {
                                                     "@container": {
-                                                      "types": ["string"]
+                                                      "types": [
+                                                        "string"
+                                                      ]
                                                     },
                                                     "@id": {
-                                                      "types": ["string"]
+                                                      "types": [
+                                                        "string"
+                                                      ]
                                                     }
                                                   }
                                                 },
                                                 "tag": {
-                                                  "types": ["string"]
+                                                  "types": [
+                                                    "string"
+                                                  ]
                                                 },
                                                 "value": {
-                                                  "types": ["object"],
+                                                  "types": [
+                                                    "object"
+                                                  ],
                                                   "fields": {
                                                     "@id": {
-                                                      "types": ["string"]
+                                                      "types": [
+                                                        "string"
+                                                      ]
                                                     },
                                                     "@type": {
-                                                      "types": ["string"]
+                                                      "types": [
+                                                        "string"
+                                                      ]
                                                     }
                                                   }
                                                 }
                                               }
                                             },
                                             "@id": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             }
                                           }
                                         },
                                         "reward_account": {
-                                          "types": ["object"],
+                                          "types": [
+                                            "object"
+                                          ],
                                           "fields": {
                                             "@id": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             },
                                             "@type": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             }
                                           }
                                         }
                                       }
                                     },
                                     "@id": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "rationale": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "references": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "@container": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "@context": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "GovernanceMetadata": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         },
                                         "Other": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         },
                                         "label": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         },
                                         "referenceHash": {
-                                          "types": ["object"],
+                                          "types": [
+                                            "object"
+                                          ],
                                           "fields": {
                                             "@context": {
-                                              "types": ["object"],
+                                              "types": [
+                                                "object"
+                                              ],
                                               "fields": {
                                                 "hashAlgorithm": {
-                                                  "types": ["string"]
+                                                  "types": [
+                                                    "string"
+                                                  ]
                                                 },
                                                 "hashDigest": {
-                                                  "types": ["string"]
+                                                  "types": [
+                                                    "string"
+                                                  ]
                                                 }
                                               }
                                             },
                                             "@id": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             }
                                           }
                                         },
                                         "uri": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         }
                                       }
                                     },
                                     "@id": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "title": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "@id": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             }
                           }
                         },
                         "hashAlgorithm": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "@language": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP100": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP108": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP116": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP169": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "authors": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@container": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "did": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "name": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "witness": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "publicKey": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "signature": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "witnessAlgorithm": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "body": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "abstract": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "motivation": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "onChain": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "deposit": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "@id": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         },
                                         "@type": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         }
                                       }
                                     },
                                     "gov_action": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "@context": {
-                                          "types": ["object"],
+                                          "types": [
+                                            "object"
+                                          ],
                                           "fields": {
                                             "key": {
-                                              "types": ["object"],
+                                              "types": [
+                                                "object"
+                                              ],
                                               "fields": {
                                                 "@id": {
-                                                  "types": ["string"]
+                                                  "types": [
+                                                    "string"
+                                                  ]
                                                 },
                                                 "@type": {
-                                                  "types": ["string"]
+                                                  "types": [
+                                                    "string"
+                                                  ]
                                                 }
                                               }
                                             },
                                             "rewards": {
-                                              "types": ["object"],
+                                              "types": [
+                                                "object"
+                                              ],
                                               "fields": {
                                                 "@container": {
-                                                  "types": ["string"]
+                                                  "types": [
+                                                    "string"
+                                                  ]
                                                 },
                                                 "@id": {
-                                                  "types": ["string"]
+                                                  "types": [
+                                                    "string"
+                                                  ]
                                                 }
                                               }
                                             },
                                             "tag": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             },
                                             "value": {
-                                              "types": ["object"],
+                                              "types": [
+                                                "object"
+                                              ],
                                               "fields": {
                                                 "@id": {
-                                                  "types": ["string"]
+                                                  "types": [
+                                                    "string"
+                                                  ]
                                                 },
                                                 "@type": {
-                                                  "types": ["string"]
+                                                  "types": [
+                                                    "string"
+                                                  ]
                                                 }
                                               }
                                             }
                                           }
                                         },
                                         "@id": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         }
                                       }
                                     },
                                     "reward_account": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "@id": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         },
                                         "@type": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         }
                                       }
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "rationale": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "references": {
-                              "types": ["object", "string"],
+                              "types": [
+                                "object",
+                                "string"
+                              ],
                               "fields": {
                                 "@container": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "GovernanceMetadata": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "Other": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "label": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "referenceHash": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "@context": {
-                                          "types": ["object"],
+                                          "types": [
+                                            "object"
+                                          ],
                                           "fields": {
                                             "hashAlgorithm": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             },
                                             "hashDigest": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             }
                                           }
                                         },
                                         "@id": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         }
                                       }
                                     },
                                     "uri": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "title": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "hashAlgorithm": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "authors": {
-                  "types": ["array"],
+                  "types": [
+                    "array"
+                  ],
                   "items": {
-                    "types": ["object", "unknown"],
+                    "types": [
+                      "object",
+                      "unknown"
+                    ],
                     "fields": {
                       "name": {
-                        "types": ["string"]
+                        "types": [
+                          "string"
+                        ]
                       },
                       "witness": {
-                        "types": ["object"],
+                        "types": [
+                          "object"
+                        ],
                         "fields": {
                           "publicKey": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "signature": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "witnessAlgorithm": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           }
                         }
                       }
@@ -1449,122 +2811,197 @@
                   }
                 },
                 "body": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "abstract": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "motivation": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "onChain": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "deposit": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "gov_action": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "rewards": {
-                              "types": ["array"],
+                              "types": [
+                                "array"
+                              ],
                               "items": {
-                                "types": ["object"],
+                                "types": [
+                                  "object"
+                                ],
                                 "fields": {
                                   "key": {
-                                    "types": ["string"]
+                                    "types": [
+                                      "string"
+                                    ]
                                   },
                                   "value": {
-                                    "types": ["string"]
+                                    "types": [
+                                      "string"
+                                    ]
                                   }
                                 }
                               }
                             },
                             "tag": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             }
                           }
                         },
                         "reward_account": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "rationale": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "references": {
-                      "types": ["array"],
+                      "types": [
+                        "array"
+                      ],
                       "items": {
-                        "types": ["object", "unknown"],
+                        "types": [
+                          "object",
+                          "unknown"
+                        ],
                         "fields": {
                           "@type": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "label": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "referenceHash": {
-                            "types": ["object"],
+                            "types": [
+                              "object"
+                            ],
                             "fields": {
                               "hashAlgorithm": {
-                                "types": ["string"]
+                                "types": [
+                                  "string"
+                                ]
                               },
                               "hashDigest": {
-                                "types": ["string"]
+                                "types": [
+                                  "string"
+                                ]
                               }
                             }
                           },
                           "uri": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           }
                         }
                       }
                     },
                     "title": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "hashAlgorithm": {
-                  "types": ["string"]
+                  "types": [
+                    "string"
+                  ]
                 }
               }
             },
             "meta_language": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "meta_url": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "param_proposal": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "proposal_description": {
-              "types": ["object"],
+              "types": [
+                "object"
+              ],
               "fields": {
                 "contents": {
-                  "types": ["array"],
+                  "types": [
+                    "array"
+                  ],
                   "items": {
-                    "types": ["array", "string"],
+                    "types": [
+                      "array",
+                      "string"
+                    ],
                     "items": {
-                      "types": ["array", "unknown"],
+                      "types": [
+                        "array",
+                        "unknown"
+                      ],
                       "items": {
-                        "types": ["number", "object", "unknown"],
+                        "types": [
+                          "number",
+                          "object",
+                          "unknown"
+                        ],
                         "fields": {
                           "credential": {
-                            "types": ["object"],
+                            "types": [
+                              "object"
+                            ],
                             "fields": {
                               "keyHash": {
-                                "types": ["string"]
+                                "types": [
+                                  "string"
+                                ]
                               },
                               "scriptHash": {
-                                "types": ["string"]
+                                "types": [
+                                  "string"
+                                ]
                               }
                             }
                           },
                           "network": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           }
                         }
                       }
@@ -1572,41 +3009,67 @@
                   }
                 },
                 "tag": {
-                  "types": ["string"]
+                  "types": [
+                    "string"
+                  ]
                 }
               }
             },
             "proposal_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_index": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "proposal_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_type": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposed_epoch": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "ratified_epoch": {
-              "types": ["null", "number"]
+              "types": [
+                "null",
+                "number"
+              ]
             },
             "return_address": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "withdrawal": {
-              "types": ["array"],
+              "types": [
+                "array"
+              ],
               "items": {
-                "types": ["object", "unknown"],
+                "types": [
+                  "object",
+                  "unknown"
+                ],
                 "fields": {
                   "amount": {
-                    "types": ["string"]
+                    "types": [
+                      "string"
+                    ]
                   },
                   "stake_address": {
-                    "types": ["string"]
+                    "types": [
+                      "string"
+                    ]
                   }
                 }
               }
@@ -1620,108 +3083,178 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "c1a6cdfec46bf61a3808936227e6942bbf7e8b22c1dced2829706b39e5782f58",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "committee_abstain_votes_cast": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "committee_no_pct": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "committee_no_votes_cast": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "committee_yes_pct": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "committee_yes_votes_cast": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "drep_abstain_votes_cast": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "drep_active_abstain_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "drep_active_no_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "drep_active_yes_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "drep_always_abstain_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "drep_always_no_confidence_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "drep_no_pct": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "drep_no_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "drep_no_votes_cast": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "drep_yes_pct": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "drep_yes_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "drep_yes_votes_cast": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pool_abstain_votes_cast": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pool_active_abstain_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "pool_active_no_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "pool_active_yes_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "pool_no_pct": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pool_no_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "pool_no_votes_cast": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pool_passive_always_abstain_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "pool_passive_always_abstain_votes_assigned": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pool_passive_always_no_confidence_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "pool_passive_always_no_confidence_votes_assigned": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pool_yes_pct": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "pool_yes_vote_power": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "pool_yes_votes_cast": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "proposal_type": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
@@ -1732,33 +3265,53 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "2fd28352ff14e07ba175a376a49b318f9aea0d1bc8864b18906ae29dcf4fcec7",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "abs_slot": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "block_height": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "block_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "block_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "epoch_slot": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "era": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
@@ -1769,48 +3322,78 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "d008f8bcef991ff06f47ae95419451d28f8c0857a5e6a3fd5d382f9e34ee9c18",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "circulation": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "deposits_drep": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "deposits_proposal": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "deposits_stake": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "fees": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "reserves": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "reserves_withdrawal": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "reward": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "supply": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "treasury": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "treasury_donation": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             },
             "treasury_withdrawal": {
-              "types": ["null"]
+              "types": [
+                "null"
+              ]
             }
           }
         }
@@ -1821,204 +3404,324 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "8e2d49777e3c3d7f62ebc351c531ff6dc16c2d363e4d77b716d688cbb19fb84a",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "block_height": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "block_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "meta_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "meta_json": {
-              "types": ["object"],
+              "types": [
+                "object"
+              ],
               "fields": {
                 "@context": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "@language": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP100": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP129": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP136": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "authors": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@container": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "did": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "name": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "witness": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "publicKey": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "signature": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "witnessAlgorithm": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "body": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "conclusion": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "counterargumentDiscussion": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "govActionId": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "internalVote": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@container": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "abstain": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "againstVote": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "constitutional": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "didNotVote": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "unconstitutional": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "precedentDiscussion": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "rationaleStatement": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "references": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@container": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "GovernanceMetadata": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "Other": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "RelevantArticles": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "hash": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "label": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "uri": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "summary": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "hashAlgorithm": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "authors": {
-                  "types": ["array"],
+                  "types": [
+                    "array"
+                  ],
                   "items": {
-                    "types": ["object"],
+                    "types": [
+                      "object"
+                    ],
                     "fields": {
                       "name": {
-                        "types": ["string"]
+                        "types": [
+                          "string"
+                        ]
                       },
                       "witness": {
-                        "types": ["object"],
+                        "types": [
+                          "object"
+                        ],
                         "fields": {
                           "publicKey": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "signature": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "witnessAlgorithm": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           }
                         }
                       }
@@ -2026,116 +3729,187 @@
                   }
                 },
                 "body": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "conclusion": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "counterargumentDiscussion": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "govActionId": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "internalVote": {
-                      "types": ["array", "object"],
+                      "types": [
+                        "array",
+                        "object"
+                      ],
                       "fields": {
                         "abstain": {
-                          "types": ["number"]
+                          "types": [
+                            "number"
+                          ]
                         },
                         "againstVote": {
-                          "types": ["number"]
+                          "types": [
+                            "number"
+                          ]
                         },
                         "constitutional": {
-                          "types": ["number"]
+                          "types": [
+                            "number"
+                          ]
                         },
                         "didNotVote": {
-                          "types": ["number"]
+                          "types": [
+                            "number"
+                          ]
                         },
                         "unconstitutional": {
-                          "types": ["number"]
+                          "types": [
+                            "number"
+                          ]
                         }
                       },
                       "items": {
-                        "types": ["object", "unknown"],
+                        "types": [
+                          "object",
+                          "unknown"
+                        ],
                         "fields": {
                           "abstain": {
-                            "types": ["number"]
+                            "types": [
+                              "number"
+                            ]
                           },
                           "againstVote": {
-                            "types": ["number"]
+                            "types": [
+                              "number"
+                            ]
                           },
                           "constitutional": {
-                            "types": ["number"]
+                            "types": [
+                              "number"
+                            ]
                           },
                           "didNotVote": {
-                            "types": ["number"]
+                            "types": [
+                              "number"
+                            ]
                           },
                           "unconstitutional": {
-                            "types": ["number"]
+                            "types": [
+                              "number"
+                            ]
                           }
                         }
                       }
                     },
                     "precedentDiscussion": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "rationaleStatement": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "references": {
-                      "types": ["array"],
+                      "types": [
+                        "array"
+                      ],
                       "items": {
-                        "types": ["object", "unknown"],
+                        "types": [
+                          "object",
+                          "unknown"
+                        ],
                         "fields": {
                           "@type": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "label": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "uri": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           }
                         }
                       }
                     },
                     "summary": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "hashAlgorithm": {
-                  "types": ["string"]
+                  "types": [
+                    "string"
+                  ]
                 }
               }
             },
             "meta_url": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_index": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "proposal_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_type": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "vote": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "vote_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "voter_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "voter_role": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
@@ -2146,288 +3920,457 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "9b47de7c1dd55ba876db3119d28a4f710de800c62b5e7710fb10f779ef94f674",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "block_height": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "block_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "meta_hash": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "meta_json": {
-              "types": ["null", "object"],
+              "types": [
+                "null",
+                "object"
+              ],
               "fields": {
                 "@context": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "@language": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP100": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP129": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "CIP136": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "authors": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@container": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "did": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "name": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "witness": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "publicKey": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "signature": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "witnessAlgorithm": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "body": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "comment": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "conclusion": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "counterargumentDiscussion": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "externalUpdates": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "title": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "uri": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "govActionId": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "internalVote": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@container": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "abstain": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "againstVote": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "constitutional": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "didNotVote": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "unconstitutional": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "precedentDiscussion": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "rationaleStatement": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "references": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@container": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "GovernanceMetadata": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "Other": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "RelevantArticles": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "label": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "referenceHash": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "@context": {
-                                          "types": ["object"],
+                                          "types": [
+                                            "object"
+                                          ],
                                           "fields": {
                                             "hashAlgorithm": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             },
                                             "hashDigest": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             }
                                           }
                                         },
                                         "@id": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         }
                                       }
                                     },
                                     "uri": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "summary": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "hashAlgorithm": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "body": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "comment": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "govActionId": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "rationaleStatement": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "references": {
-                      "types": ["array"],
+                      "types": [
+                        "array"
+                      ],
                       "items": {
-                        "types": ["object"],
+                        "types": [
+                          "object"
+                        ],
                         "fields": {
                           "@type": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "label": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           },
                           "uri": {
-                            "types": ["string"]
+                            "types": [
+                              "string"
+                            ]
                           }
                         }
                       }
                     },
                     "summary": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "hashAlgorithm": {
-                  "types": ["string"]
+                  "types": [
+                    "string"
+                  ]
                 }
               }
             },
             "meta_url": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "proposal_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_index": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "proposal_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_type": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "vote": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "vote_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "voter_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "voter_role": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
@@ -2438,204 +4381,321 @@
       "observedAt": "2026-05-16T04:31:37.260Z",
       "shapeHash": "02136186462abcebe1db344fed0fbe92ad24fecd047d9c46fc43e594e3565d67",
       "shape": {
-        "types": ["array"],
+        "types": [
+          "array"
+        ],
         "items": {
-          "types": ["object"],
+          "types": [
+            "object"
+          ],
           "fields": {
             "block_height": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "block_time": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "epoch_no": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "meta_hash": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "meta_json": {
-              "types": ["null", "object"],
+              "types": [
+                "null",
+                "object"
+              ],
               "fields": {
                 "@context": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "CIP100": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     },
                     "authors": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@container": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         },
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "name": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "witness": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "publicKey": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "signature": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "witnessAlgorithm": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "body": {
-                      "types": ["object"],
+                      "types": [
+                        "object"
+                      ],
                       "fields": {
                         "@context": {
-                          "types": ["object"],
+                          "types": [
+                            "object"
+                          ],
                           "fields": {
                             "comment": {
-                              "types": ["string"]
+                              "types": [
+                                "string"
+                              ]
                             },
                             "externalUpdates": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "title": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "uri": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             },
                             "references": {
-                              "types": ["object"],
+                              "types": [
+                                "object"
+                              ],
                               "fields": {
                                 "@container": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 },
                                 "@context": {
-                                  "types": ["object"],
+                                  "types": [
+                                    "object"
+                                  ],
                                   "fields": {
                                     "GovernanceMetadata": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "Other": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "label": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     },
                                     "referenceHash": {
-                                      "types": ["object"],
+                                      "types": [
+                                        "object"
+                                      ],
                                       "fields": {
                                         "@context": {
-                                          "types": ["object"],
+                                          "types": [
+                                            "object"
+                                          ],
                                           "fields": {
                                             "hashAlgorithm": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             },
                                             "hashDigest": {
-                                              "types": ["string"]
+                                              "types": [
+                                                "string"
+                                              ]
                                             }
                                           }
                                         },
                                         "@id": {
-                                          "types": ["string"]
+                                          "types": [
+                                            "string"
+                                          ]
                                         }
                                       }
                                     },
                                     "uri": {
-                                      "types": ["string"]
+                                      "types": [
+                                        "string"
+                                      ]
                                     }
                                   }
                                 },
                                 "@id": {
-                                  "types": ["string"]
+                                  "types": [
+                                    "string"
+                                  ]
                                 }
                               }
                             }
                           }
                         },
                         "@id": {
-                          "types": ["string"]
+                          "types": [
+                            "string"
+                          ]
                         }
                       }
                     },
                     "hashAlgorithm": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "authors": {
-                  "types": ["array"],
+                  "types": [
+                    "array"
+                  ],
                   "items": {
-                    "types": ["unknown"]
+                    "types": [
+                      "unknown"
+                    ]
                   }
                 },
                 "body": {
-                  "types": ["object"],
+                  "types": [
+                    "object"
+                  ],
                   "fields": {
                     "comment": {
-                      "types": ["string"]
+                      "types": [
+                        "string"
+                      ]
                     }
                   }
                 },
                 "hashAlgorithm": {
-                  "types": ["string"]
+                  "types": [
+                    "string"
+                  ]
                 }
               }
             },
             "meta_url": {
-              "types": ["null", "string"]
+              "types": [
+                "null",
+                "string"
+              ]
             },
             "proposal_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_index": {
-              "types": ["number"]
+              "types": [
+                "number"
+              ]
             },
             "proposal_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "proposal_type": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "vote": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "vote_tx_hash": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "voter_id": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             },
             "voter_role": {
-              "types": ["string"]
+              "types": [
+                "string"
+              ]
             }
           }
         }
