@@ -26,6 +26,7 @@
     "gh": "bin/gh.sh",
     "github:merge": "node scripts/github-merge.mjs",
     "env:doctor": "node scripts/env-doctor.mjs",
+    "env:run": "node scripts/env-run.mjs",
     "op:agent-doctor": "node scripts/op-agent-doctor.mjs",
     "gh:auth-status": "node scripts/gh-auth-status.js",
     "auth:repair": "node scripts/repair-gh-auth.mjs",
