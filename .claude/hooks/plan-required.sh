@@ -66,7 +66,7 @@ Usage:
   PLAN_REQUIRED_TEXT='...' bash .claude/hooks/plan-required.sh
 
 Remediation:
-  1. Fill docs/templates/feature-plan.md into brain/plans/<slug>.md.
+  1. Fill brain/templates/plan.md into brain/plans/<slug>.md.
   2. Reference brain/plans/<slug>.md in the commit message or PR body.
 EOF
 }
@@ -121,7 +121,7 @@ if [ "$hook_mode" -eq 1 ]; then
 
   # Detect commits targeting a different working tree than the hook's CWD.
   # The hook lives at <app-repo-root>/.claude/hooks/ and only enforces app-repo
-  # feature-plan discipline. Without this block, commits reached via
+  # plan-note discipline. Without this block, commits reached via
   # `cd <path> && git commit` or `git -C <path> commit` get evaluated against
   # the hook's own CWD instead of the commit's actual target — producing false
   # positives on cross-repo commits (e.g., brain repo) and on commits to
