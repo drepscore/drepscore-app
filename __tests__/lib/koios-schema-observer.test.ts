@@ -108,7 +108,7 @@ describe('Koios schema observer', () => {
     });
   });
 
-  it('keeps the same drift fingerprint when only surrounding response shape changes', async () => {
+  it('keeps the drift fingerprint stable when a surrounding known field appears or disappears', async () => {
     const knownResponse = [{ drep_id: 'drep1', amount: '10', meta_json: { nested: true } }];
     const sendEvent = vi.fn(async (_data: SchemaDriftEventData) => null);
     const knownShapes = knownShapesFor('drep_info', knownResponse);
@@ -130,6 +130,38 @@ describe('Koios schema observer', () => {
     expect(sendEvent.mock.calls[0][0].driftFingerprint).toBe(
       sendEvent.mock.calls[1][0].driftFingerprint,
     );
+  });
+
+  it('emits one event per change with a per-change fingerprint stable across novel-field-set variance', async () => {
+    const knownShapes = knownShapesFor('drep_info', [{ drep_id: 'drep1', amount: '10' }]);
+    const sendEvent = vi.fn(async (_data: SchemaDriftEventData) => null);
+
+    // Scan 1: the recurring `bytes` drift co-occurs with novel field `alpha`.
+    await recordKoiosSchema([{ drep_id: 'd', amount: '1', bytes: 'ab', alpha: 1 }], '/drep_info', {
+      knownShapes,
+      sendEvent,
+    });
+    // Scan 2: the same `bytes` drift co-occurs with a different novel field `beta`.
+    await recordKoiosSchema([{ drep_id: 'd', amount: '1', bytes: 'cd', beta: 2 }], '/drep_info', {
+      knownShapes,
+      sendEvent,
+    });
+
+    const events = sendEvent.mock.calls.map((call) => call[0]);
+    // One event per change: [alpha, bytes] + [beta, bytes] = 4 single-change events.
+    expect(events).toHaveLength(4);
+    expect(events.every((event) => event.changes.length === 1)).toBe(true);
+
+    const bytesEvents = events.filter((event) => event.changes[0].path === '[].bytes');
+    expect(bytesEvents).toHaveLength(2);
+    // The recurring drift keeps one fingerprint despite the surrounding set changing.
+    expect(bytesEvents[0].driftFingerprint).toBe(bytesEvents[1].driftFingerprint);
+
+    // Distinct fields get distinct fingerprints.
+    const alpha = events.find((event) => event.changes[0].path === '[].alpha');
+    const beta = events.find((event) => event.changes[0].path === '[].beta');
+    expect(alpha?.driftFingerprint).not.toBe(beta?.driftFingerprint);
+    expect(alpha?.driftFingerprint).not.toBe(bytesEvents[0].driftFingerprint);
   });
 
   it('flags type drift without treating missing fields in partial Koios selects as drift', () => {

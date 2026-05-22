@@ -117,6 +117,15 @@ export function hashShape(shape: SchemaShape): string {
   return createHash('sha256').update(stableStringify(shape)).digest('hex');
 }
 
+// The drift fingerprint is the dedup key for the whole Phase 6 pipeline — the
+// Inngest debounce (`event.data.driftFingerprint`), the auto-PR branch name,
+// and the recent-duplicate-PR check all key on it. It must therefore be STABLE
+// for a given field-drift across scans, so it covers only the drift's identity
+// (endpoint, kind, path) and deliberately excludes knownTypes/observedTypes/
+// suggestedZod, which are derived from the sampled Koios response and vary
+// scan-to-scan. recordKoiosSchema emits one event per change, so `changes` is a
+// single-element array here. Do not re-add the sample-derived fields: that
+// reintroduces the F15 duplicate-PR explosion.
 export function hashSchemaDrift(
   endpoint: InstrumentedKoiosEndpointKey,
   changes: SchemaDriftChange[],
@@ -128,9 +137,6 @@ export function hashSchemaDrift(
         changes: changes.map((change) => ({
           kind: change.kind,
           path: change.path,
-          knownTypes: change.knownTypes,
-          observedTypes: change.observedTypes,
-          suggestedZod: change.suggestedZod,
         })),
       }),
     )
@@ -417,20 +423,30 @@ export async function recordKoiosSchema(
       return { emitted: false, endpoint: endpointKey, changes: 0 };
     }
 
-    const eventData: SchemaDriftEventData = {
-      endpoint: endpointKey,
-      rawEndpoint: endpoint,
-      observedAt: (options.now ?? (() => new Date()))().toISOString(),
-      knownShapeHash: known?.shapeHash ?? null,
-      observedShapeHash,
-      driftFingerprint: hashSchemaDrift(endpointKey, changes),
-      changes,
-      observedShape: observed.shape,
-      targetFile: KOIOS_SCHEMA_TARGET_FILE,
-      precedentPr: KOIOS_SCHEMA_PRECEDENT_PR,
-    };
+    const observedAt = (options.now ?? (() => new Date()))().toISOString();
+    const send = options.sendEvent ?? sendSchemaDriftEvent;
 
-    await (options.sendEvent ?? sendSchemaDriftEvent)(eventData);
+    // Emit one event per change. Each event's driftFingerprint is the stable
+    // identity of a single drift (see hashSchemaDrift), so a genuinely
+    // recurring drift dedups even when the surrounding set of detected changes
+    // varies between scans — the F15 fix for the duplicate-PR explosion.
+    await Promise.all(
+      changes.map((change) => {
+        const eventData: SchemaDriftEventData = {
+          endpoint: endpointKey,
+          rawEndpoint: endpoint,
+          observedAt,
+          knownShapeHash: known?.shapeHash ?? null,
+          observedShapeHash,
+          driftFingerprint: hashSchemaDrift(endpointKey, [change]),
+          changes: [change],
+          observedShape: observed.shape,
+          targetFile: KOIOS_SCHEMA_TARGET_FILE,
+          precedentPr: KOIOS_SCHEMA_PRECEDENT_PR,
+        };
+        return send(eventData);
+      }),
+    );
     return { emitted: true, endpoint: endpointKey, changes: changes.length };
   } catch (error) {
     logger.warn('[KoiosSchemaObserver] Failed to observe Koios response shape', {
