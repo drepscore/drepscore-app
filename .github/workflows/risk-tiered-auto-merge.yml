@@ -1,0 +1,58 @@
+name: Risk-Tiered Auto-Merge
+
+# B4 of Horizon 2 (brain/plans/horizon-2-backlog-and-merge-policy.md):
+# classify each PR via scripts/classify-pr-risk.mjs and enable GitHub native
+# auto-merge for the low-risk tier. Required checks (per branch protection)
+# still gate the actual merge — auto-merge only removes the per-PR human
+# chat-approval step for safe changes. Dependabot uses its own workflow.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: risk-tiered-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    if: github.actor != 'dependabot[bot]' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Classify PR risk
+        id: classify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          result=$(node scripts/classify-pr-risk.mjs --json "${{ github.event.pull_request.number }}")
+          tier=$(echo "$result" | jq -r .tier)
+          echo "tier=$tier" >> "$GITHUB_OUTPUT"
+          echo "Risk tier: $tier"
+          echo "$result" | jq .
+
+      - name: Enable native auto-merge for low-risk PRs
+        if: steps.classify.outputs.tier == 'low'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --auto --squash
+
+      - name: Disable auto-merge if no longer low-risk
+        # If a PR drifts away from low-risk on a later push, withdraw the
+        # auto-merge we previously queued. `--disable-auto` is a no-op when
+        # auto-merge isn't enabled, so swallow that case.
+        if: steps.classify.outputs.tier != 'low'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --disable-auto || true
