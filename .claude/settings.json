@@ -22,7 +22,8 @@
       "mcp__Claude_Preview__*",
       "mcp__Claude_in_Chrome__*",
       "mcp__scheduled-tasks__*",
-      "Bash(npm run git:push:*)"
+      "Bash(npm run git:push:*)",
+      "Bash(bin/gh.sh api --method DELETE:*)"
     ]
   },
   "hooks": {

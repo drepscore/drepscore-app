@@ -378,6 +378,14 @@ enforce_api_policy() {
     return 0
   fi
 
+  # Branch cleanup: delete a merged/closed feature branch ref. Scoped to the
+  # feat/* and codex/* agent namespaces; protected branches (main, master,
+  # release/*, production*) and any other ref cannot match this pattern and
+  # stay blocked. Branch refs are recoverable from their commit SHA.
+  if [[ "$method" == "DELETE" && "$endpoint" =~ ^repos/governada/app/git/refs/heads/(feat|codex)/.+$ ]]; then
+    return 0
+  fi
+
   block_policy "gh api ${method} /${endpoint} is not in the allowlist."
 }
 
