@@ -61,32 +61,52 @@ BEGIN
   END IF;
 END $$;
 
-INSERT INTO supabase_migrations.audit_rebaseline_stored_statements_20260516135606
-  (version, name, statements, created_by, idempotency_key, rollback, snapshot_reason)
-SELECT
-  sm.version,
-  sm.name,
-  sm.statements,
-  sm.created_by,
-  sm.idempotency_key,
-  sm.rollback,
-  'F4 rebaseline stored statements repair 20260516135606'
-FROM supabase_migrations.schema_migrations sm
-WHERE sm.version = '20260407004741'
-  AND sm.name = 'schema_rebaseline'
-  AND array_length(sm.statements, 1) = 706
-  AND EXISTS (
+-- See F16 / the F3 sibling migration: supabase_migrations.schema_migrations
+-- has created_by/idempotency_key/rollback columns on the production platform
+-- but not on a freshly-created Supabase preview-branch database, so referencing
+-- them directly fails at parse time (column does not exist, SQLSTATE 42703)
+-- and aborts the migration on every preview replay. Guard the audit snapshot
+-- behind a column-existence check and run it via dynamic SQL. On a preview
+-- branch the WHERE clause matches no rows anyway, so this is a clean no-op.
+DO $f16$
+BEGIN
+  IF EXISTS (
     SELECT 1
-    FROM unnest(sm.statements) AS s
-    WHERE s ILIKE '%ALTER TABLE%dreps%ADD COLUMN%'
-  )
-  AND NOT EXISTS (
-    SELECT 1
-    FROM unnest(sm.statements) AS s
-    WHERE s ILIKE '%CREATE TABLE%public.dreps%'
-       OR s ILIKE '%CREATE TABLE%"public"."dreps"%'
-  )
-ON CONFLICT DO NOTHING;
+    FROM information_schema.columns
+    WHERE table_schema = 'supabase_migrations'
+      AND table_name = 'schema_migrations'
+      AND column_name = 'created_by'
+  ) THEN
+    EXECUTE $snapshot$
+      INSERT INTO supabase_migrations.audit_rebaseline_stored_statements_20260516135606
+        (version, name, statements, created_by, idempotency_key, rollback, snapshot_reason)
+      SELECT
+        sm.version,
+        sm.name,
+        sm.statements,
+        sm.created_by,
+        sm.idempotency_key,
+        sm.rollback,
+        'F4 rebaseline stored statements repair 20260516135606'
+      FROM supabase_migrations.schema_migrations sm
+      WHERE sm.version = '20260407004741'
+        AND sm.name = 'schema_rebaseline'
+        AND array_length(sm.statements, 1) = 706
+        AND EXISTS (
+          SELECT 1
+          FROM unnest(sm.statements) AS s
+          WHERE s ILIKE '%ALTER TABLE%dreps%ADD COLUMN%'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM unnest(sm.statements) AS s
+          WHERE s ILIKE '%CREATE TABLE%public.dreps%'
+             OR s ILIKE '%CREATE TABLE%"public"."dreps"%'
+        )
+      ON CONFLICT DO NOTHING
+    $snapshot$;
+  END IF;
+END $f16$;
 
 UPDATE supabase_migrations.schema_migrations sm
 SET statements = ARRAY[$f4_rebaseline_20260516135606$-- Live-schema baseline generated from linked Supabase project on 2026-04-07.
