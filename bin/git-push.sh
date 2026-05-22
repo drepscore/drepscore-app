@@ -74,11 +74,14 @@ assert_op_ref() {
   fi
 }
 
+# --force-with-lease / --force-if-includes are permitted (see parse_push_args):
+# they refuse to overwrite a remote that moved unexpectedly, so they publish a
+# rebase safely. Raw --force / -f and +refspecs stay blocked — blind overwrite.
 contains_blocked_flag() {
   local arg
   for arg in "$@"; do
     case "$arg" in
-      --force | -f | --force-with-lease | --force-with-lease=* | --delete | -d | --mirror | --all | --tags | --prune | --repo | --repo=*)
+      --force | -f | --delete | -d | --mirror | --all | --tags | --prune | --repo | --repo=*)
         block_policy "flag ${arg} is outside the autonomous branch-publication lane."
         ;;
     esac
@@ -97,7 +100,7 @@ parse_push_args() {
 
   for arg in "$@"; do
     case "$arg" in
-      --dry-run | -u | --set-upstream)
+      --dry-run | -u | --set-upstream | --force-with-lease | --force-with-lease=* | --force-if-includes)
         parsed+=("$arg")
         ;;
       --*)
