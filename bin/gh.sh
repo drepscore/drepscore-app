@@ -187,6 +187,42 @@ check_pr_comment_flags() {
   done
 }
 
+check_pr_close_flags() {
+  local args=("$@")
+  local arg positional_count=0
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --repo | -R | --comment)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --repo=* | -R* | --comment=*)
+        ;;
+      --delete-branch)
+        block_policy "gh pr close --delete-branch is outside the autonomous lane; branch deletion is a separate action."
+        ;;
+      --web)
+        block_policy "interactive browser PR flows are not part of the autonomous lane."
+        ;;
+      --*)
+        block_policy "PR close flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "PR close short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        positional_count=$((positional_count + 1))
+        if [[ "$positional_count" -gt 1 ]]; then
+          block_policy "PR close accepts only one PR number or URL positional argument."
+        fi
+        ;;
+    esac
+  done
+}
+
 enforce_pr_policy() {
   local subcommand="${1:-}"
   shift || true
@@ -209,7 +245,11 @@ enforce_pr_policy() {
       check_pr_comment_flags "$@"
       return 0
       ;;
-    merge | ready | close | reopen | review | checkout | lock | unlock)
+    close)
+      check_pr_close_flags "$@"
+      return 0
+      ;;
+    merge | ready | reopen | review | checkout | lock | unlock)
       block_policy "gh pr ${subcommand} is outside the autonomous lane."
       ;;
     *)
