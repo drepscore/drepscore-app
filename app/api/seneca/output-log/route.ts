@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withRouteHandler } from '@/lib/api/withRouteHandler';
+import { logger } from '@/lib/logger';
 import { insertSenecaOutput } from '@/lib/seneca/outputLog';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,14 @@ export const POST = withRouteHandler(
     });
 
     if (!result.ok) {
-      return NextResponse.json({ ok: false, error: 'output logging failed' }, { status: 500 });
+      // Best-effort telemetry: a persistence failure must not surface as 5xx
+      // (it spams error logs and reads as an outage). Log the cause, accept 202.
+      logger.warn('Seneca output log not persisted', {
+        context: 'api/seneca/output-log',
+        source: body.source,
+        error: result.error,
+      });
+      return NextResponse.json({ ok: false, persisted: false }, { status: 202 });
     }
 
     return NextResponse.json({ ok: true, id: result.id });
