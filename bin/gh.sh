@@ -389,6 +389,68 @@ enforce_api_policy() {
   block_policy "gh api ${method} /${endpoint} is not in the allowlist."
 }
 
+check_issue_edit_flags() {
+  local args=("$@")
+  local arg positional_count=0
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --repo | -R | --add-label | --remove-label | --title | --body | --body-file | --milestone | --add-milestone | --remove-milestone)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --repo=* | -R* | --add-label=* | --remove-label=* | --title=* | --body=* | --body-file=* | --milestone=* | --add-milestone=* | --remove-milestone=*)
+        ;;
+      --add-assignee | --remove-assignee | --add-assignee=* | --remove-assignee=*)
+        block_policy "issue assignees are outside the label-based claim lane; use --add-label/--remove-label."
+        ;;
+      --add-project | --remove-project | --add-project=* | --remove-project=*)
+        block_policy "GitHub Projects v2 operations are deferred to Phase B1b."
+        ;;
+      --web)
+        block_policy "interactive browser flows are not part of the autonomous lane."
+        ;;
+      --*)
+        block_policy "issue edit flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "issue edit short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        positional_count=$((positional_count + 1))
+        if [[ "$positional_count" -gt 1 ]]; then
+          block_policy "issue edit accepts only one issue-number positional argument."
+        fi
+        ;;
+    esac
+  done
+}
+
+enforce_issue_policy() {
+  local subcommand="${1:-}"
+  shift || true
+
+  assert_repo_arg_allowed "$@"
+
+  case "$subcommand" in
+    view | list | status)
+      return 0
+      ;;
+    edit)
+      check_issue_edit_flags "$@"
+      return 0
+      ;;
+    create | comment | close | reopen | delete | lock | unlock | pin | unpin | transfer | develop)
+      block_policy "gh issue ${subcommand} is outside the current autonomous lane (Phase B1a allows list/view/edit only)."
+      ;;
+    *)
+      block_policy "gh issue ${subcommand:-'(missing subcommand)'} is not in the allowlist."
+      ;;
+  esac
+}
+
 enforce_capability_policy() {
   local command="${1:-}"
   shift || true
@@ -399,6 +461,9 @@ enforce_capability_policy() {
       ;;
     pr)
       enforce_pr_policy "$@"
+      ;;
+    issue)
+      enforce_issue_policy "$@"
       ;;
     *)
       block_policy "gh ${command:-'(missing command)'} is not in the allowlist."
