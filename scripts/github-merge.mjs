@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 export const DEFAULT_REPO = 'governada/app';
-export const REQUIRED_MERGE_CHECKS = ['checks', 'test', 'validate-pr-body'];
+export const REQUIRED_MERGE_CHECKS = ['checks', 'test', 'validate-pr-body', 'migrations'];
 export const INFORMATIONAL_CHECKS = ['Supabase Preview'];
 
 const DEFAULT_CHECK_TIMEOUT_MS = Number.parseInt(

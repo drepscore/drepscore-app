@@ -26,6 +26,7 @@ describe('github merge required-check gate', () => {
       { conclusion: 'FAILURE', name: 'checks', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'test', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'validate-pr-body', status: 'COMPLETED' },
+      { conclusion: 'SUCCESS', name: 'migrations', status: 'COMPLETED' },
     ]);
     const decision = decideMergeGate(evaluation, { prNumber: '998' });
 
@@ -44,6 +45,7 @@ describe('github merge required-check gate', () => {
       { conclusion: 'FAILURE', name: 'checks', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'test', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'validate-pr-body', status: 'COMPLETED' },
+      { conclusion: 'SUCCESS', name: 'migrations', status: 'COMPLETED' },
     ]);
     const decision = decideMergeGate(evaluation, {
       forceMergeWithFailingChecks: true,
@@ -63,12 +65,18 @@ describe('github merge required-check gate', () => {
       { conclusion: 'SUCCESS', name: 'checks', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'test', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'validate-pr-body', status: 'COMPLETED' },
+      { conclusion: 'SUCCESS', name: 'migrations', status: 'COMPLETED' },
       { conclusion: 'FAILURE', name: 'Supabase Preview', status: 'COMPLETED' },
     ]);
     const decision = decideMergeGate(evaluation, { prNumber: '1003' });
 
     expect(evaluation.ok).toBe(true);
-    expect(evaluation.passes).toEqual(['checks: green', 'test: green', 'validate-pr-body: green']);
+    expect(evaluation.passes).toEqual([
+      'checks: green',
+      'test: green',
+      'validate-pr-body: green',
+      'migrations: green',
+    ]);
     expect(evaluation.warnings).toEqual([
       'Supabase Preview: failure (status=COMPLETED conclusion=FAILURE); known-broken informational check, not a merge blocker for F7',
     ]);
@@ -87,6 +95,7 @@ describe('github merge required-check gate', () => {
     expect(evaluation.blockers).toEqual([
       'test: pending (test status=IN_PROGRESS)',
       'validate-pr-body: missing from statusCheckRollup',
+      'migrations: missing from statusCheckRollup',
     ]);
   });
 
@@ -120,11 +129,13 @@ describe('github merge required-check gate', () => {
       { conclusion: 'FAILURE', name: 'checks', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'test', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'validate-pr-body', status: 'COMPLETED' },
+      { conclusion: 'SUCCESS', name: 'migrations', status: 'COMPLETED' },
     ];
     const passing = [
       { conclusion: 'SUCCESS', name: 'checks', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'test', status: 'COMPLETED' },
       { conclusion: 'SUCCESS', name: 'validate-pr-body', status: 'COMPLETED' },
+      { conclusion: 'SUCCESS', name: 'migrations', status: 'COMPLETED' },
     ];
 
     const blocked = runWrapperWithFakeGh(failing, ['--pr', '998', '--check-timeout-ms=0']);

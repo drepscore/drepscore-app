@@ -42,6 +42,7 @@
     "vault:check": "node scripts/vault-check.js",
     "agent:validate": "node scripts/validate-agent-constraints.mjs",
     "migration:test": "node scripts/test-migration.js",
+    "migrations:verify": "node scripts/verify-migrations.mjs",
     "session:doctor": "node scripts/session-doctor.js",
     "session:guard": "node scripts/session-doctor.js --strict",
     "start-session": "node scripts/start-session.mjs",
