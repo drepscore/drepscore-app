@@ -208,20 +208,30 @@ describe('prioritization engine selector', () => {
   });
 
   it('returns sentiment_opportunity for citizen sentiment opportunities', async () => {
+    const opportunity = {
+      id: 'proposal:tx-sentiment:2',
+      title: 'Treasury sentiment',
+      proposalType: 'TreasuryWithdrawals',
+      txHash: 'tx-sentiment',
+      proposalIndex: 2,
+      expirationEpoch: 300,
+    };
     const queue = await getCinematicState(
       user(),
       governance({
-        sentimentOpportunities: [
-          {
-            id: 'proposal-1',
-            title: 'Treasury sentiment',
-            proposalType: 'TreasuryWithdrawals',
-          },
-        ],
+        sentimentOpportunities: [opportunity],
       }),
     );
 
     expect(queue.primary.state).toBe('sentiment_opportunity');
+    expect(queue.primary.payload).toMatchObject({
+      opportunities: [
+        expect.objectContaining({
+          txHash: 'tx-sentiment',
+          proposalIndex: 2,
+        }),
+      ],
+    });
   });
 
   it('does not return sentiment_opportunity for non-citizen personas', async () => {
@@ -230,9 +240,12 @@ describe('prioritization engine selector', () => {
       governance({
         sentimentOpportunities: [
           {
-            id: 'proposal-1',
+            id: 'proposal:tx-sentiment:2',
             title: 'Treasury sentiment',
             proposalType: 'TreasuryWithdrawals',
+            txHash: 'tx-sentiment',
+            proposalIndex: 2,
+            expirationEpoch: 300,
           },
         ],
       }),
