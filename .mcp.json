@@ -8,6 +8,10 @@
     "supabase-staging": {
       "command": "bash",
       "args": ["bin/supabase-staging-mcp.sh"]
+    },
+    "supabase-account": {
+      "command": "bash",
+      "args": ["bin/supabase-account-mcp.sh"]
     }
   }
 }
