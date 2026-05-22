@@ -27,7 +27,7 @@ interface ProposalListPage {
   total: number;
 }
 
-interface ProposalListQueryBuilder<TSelf> {
+export interface ProposalListQueryBuilder<TSelf> {
   is(column: string, value: null): TSelf;
   not(column: string, operator: string, value: null): TSelf;
   eq(column: string, value: string): TSelf;
@@ -36,7 +36,7 @@ interface ProposalListQueryBuilder<TSelf> {
 const PROPOSAL_LIST_SELECT =
   'tx_hash, proposal_index, title, abstract, ai_summary, proposal_type, withdrawal_amount, treasury_tier, relevant_prefs, proposed_epoch, block_time, ratified_epoch, enacted_epoch, dropped_epoch, expired_epoch, expiration_epoch, param_changes';
 
-function applyStatusFilter<T extends ProposalListQueryBuilder<T>>(
+export function applyStatusFilter<T extends ProposalListQueryBuilder<T>>(
   query: T,
   status: ProposalListStatus,
 ): T {

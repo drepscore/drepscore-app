@@ -11,6 +11,7 @@ const {
   derivePersonaFromSessionMock,
   getSupabaseAdminMock,
   getCinematicStateMock,
+  getCitizenSentimentOpportunitiesMock,
   getTier0TriggersMock,
   recordHomepageVisitMock,
   blockTimeToEpochMock,
@@ -54,6 +55,7 @@ const {
   derivePersonaFromSessionMock: vi.fn(),
   getSupabaseAdminMock: vi.fn(),
   getCinematicStateMock: vi.fn(),
+  getCitizenSentimentOpportunitiesMock: vi.fn(),
   getTier0TriggersMock: vi.fn(),
   recordHomepageVisitMock: vi.fn(),
   blockTimeToEpochMock: vi.fn(),
@@ -103,6 +105,10 @@ vi.mock('@/lib/governance/prioritizationEngine', () => ({
   getCinematicState: getCinematicStateMock,
 }));
 
+vi.mock('@/lib/governance/sentimentOpportunities', () => ({
+  getCitizenSentimentOpportunities: getCitizenSentimentOpportunitiesMock,
+}));
+
 vi.mock('@/lib/governance/tier0Triggers', () => ({
   getTier0Triggers: getTier0TriggersMock,
 }));
@@ -129,6 +135,7 @@ describe('HomePageShell', () => {
     derivePersonaFromSessionMock.mockClear();
     getSupabaseAdminMock.mockClear();
     getCinematicStateMock.mockClear();
+    getCitizenSentimentOpportunitiesMock.mockClear();
     getTier0TriggersMock.mockClear();
     recordHomepageVisitMock.mockClear();
     getValidatedSessionFromCookiesMock.mockResolvedValue(null);
@@ -141,6 +148,7 @@ describe('HomePageShell', () => {
       from: vi.fn(() => acknowledgmentQuery),
     });
     getTier0TriggersMock.mockResolvedValue([]);
+    getCitizenSentimentOpportunitiesMock.mockResolvedValue([]);
     recordHomepageVisitMock.mockResolvedValue({
       tracked: false,
       visitStarted: false,
@@ -190,6 +198,7 @@ describe('HomePageShell', () => {
       currentEpoch: 555,
     });
     expect(getTier0TriggersMock).toHaveBeenCalledWith(expect.any(Date));
+    expect(getCitizenSentimentOpportunitiesMock).not.toHaveBeenCalled();
     expect(getCinematicStateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         segment: 'anonymous',
@@ -198,6 +207,7 @@ describe('HomePageShell', () => {
       }),
       expect.objectContaining({
         tier0Triggers: [],
+        sentimentOpportunities: [],
         now: expect.any(Date),
       }),
     );
@@ -209,6 +219,84 @@ describe('HomePageShell', () => {
     );
     expect(homepageMatchWorkspaceMock).not.toHaveBeenCalled();
     expect(screen.getByTestId('json-ld-organization').getAttribute('nonce')).toBe('nonce-123');
+  });
+
+  it('passes active proposal opportunities into the citizen cinematic context', async () => {
+    const opportunity = {
+      id: 'proposal:tx-sentiment:1',
+      title: 'Citizen sentiment proposal',
+      proposalType: 'InfoAction',
+      txHash: 'tx-sentiment',
+      proposalIndex: 1,
+      expirationEpoch: 600,
+    };
+    getValidatedSessionFromCookiesMock.mockResolvedValue({
+      userId: 'user1',
+      walletAddress: 'stake1',
+    });
+    derivePersonaFromSessionMock.mockResolvedValue({
+      persona: 'citizen',
+      delegatedDrepId: null,
+    });
+    getCitizenSentimentOpportunitiesMock.mockResolvedValue([opportunity]);
+    recordHomepageVisitMock.mockResolvedValue({
+      tracked: true,
+      visitStarted: true,
+      priorEpochVisited: 555,
+      state: {
+        stake_address: 'stake1',
+        last_visit_at: '2026-05-06T14:00:00.000Z',
+        prior_visit_at: '2026-05-06T13:00:00.000Z',
+        last_epoch_visited: 555,
+      },
+    });
+
+    render(await HomePageShell({}));
+
+    expect(getCitizenSentimentOpportunitiesMock).toHaveBeenCalledWith(expect.any(Date));
+    expect(getCinematicStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        segment: 'citizen',
+      }),
+      expect.objectContaining({
+        sentimentOpportunities: [opportunity],
+      }),
+    );
+  });
+
+  it.each([
+    ['drep', { persona: 'drep', drepId: 'drep1xyz' }],
+    ['spo', { persona: 'spo', poolId: 'pool1xyz' }],
+    ['cc', { persona: 'cc', ccHotId: 'cc1xyz' }],
+  ])('does not fetch citizen sentiment opportunities for %s personas', async (_label, persona) => {
+    getValidatedSessionFromCookiesMock.mockResolvedValue({
+      userId: 'user1',
+      walletAddress: 'stake1',
+    });
+    derivePersonaFromSessionMock.mockResolvedValue(persona);
+    recordHomepageVisitMock.mockResolvedValue({
+      tracked: true,
+      visitStarted: true,
+      priorEpochVisited: 555,
+      state: {
+        stake_address: 'stake1',
+        last_visit_at: '2026-05-06T14:00:00.000Z',
+        prior_visit_at: '2026-05-06T13:00:00.000Z',
+        last_epoch_visited: 555,
+      },
+    });
+
+    render(await HomePageShell({}));
+
+    expect(getCitizenSentimentOpportunitiesMock).not.toHaveBeenCalled();
+    expect(getCinematicStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        segment: persona.persona,
+      }),
+      expect.objectContaining({
+        sentimentOpportunities: [],
+      }),
+    );
   });
 
   it('does not mark undelegated returning wallet users as cold-start', async () => {

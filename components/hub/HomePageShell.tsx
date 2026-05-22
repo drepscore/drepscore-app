@@ -14,10 +14,12 @@ import {
   derivePersonaFromSession,
   type ResolvedSessionPersona,
 } from '@/lib/governance/derivePersonaFromSession';
+import { getCitizenSentimentOpportunities } from '@/lib/governance/sentimentOpportunities';
 import { getTier0Triggers } from '@/lib/governance/tier0Triggers';
 import { recordHomepageVisit } from '@/lib/governance/visitState';
 import type {
   GovernanceCinematicContext,
+  GovernanceProposalSignal,
   PrioritizationAcknowledgment,
   Tier0Trigger,
   PrioritizedQueue,
@@ -140,6 +142,20 @@ async function getTier0TriggersSafe(now: Date): Promise<Tier0Trigger[]> {
   }
 }
 
+async function getCitizenSentimentOpportunitiesSafe(
+  now: Date,
+): Promise<GovernanceProposalSignal[]> {
+  try {
+    return await getCitizenSentimentOpportunities(now);
+  } catch (error) {
+    logger.warn('Homepage citizen sentiment opportunity read failed', {
+      context: 'homepage-cinematic',
+      error,
+    });
+    return [];
+  }
+}
+
 function toVisitState(
   state:
     | {
@@ -183,13 +199,19 @@ async function buildHomepageCinematic(): Promise<HomepageCinematicResult> {
   const identityKey = stakeAddress ?? userId;
   const now = new Date();
   const currentEpoch = blockTimeToEpoch(Math.floor(now.getTime() / 1000));
+  const resolvedPersonaPromise = derivePersonaFromSessionSafe(session);
+  const sentimentOpportunitiesPromise = resolvedPersonaPromise.then((resolvedPersona) =>
+    resolvedPersona.persona === 'citizen' ? getCitizenSentimentOpportunitiesSafe(now) : [],
+  );
 
-  const [resolvedPersona, visitResult, tier0Triggers, acknowledgments] = await Promise.all([
-    derivePersonaFromSessionSafe(session),
-    recordHomepageVisitSafe(stakeAddress, now, currentEpoch),
-    getTier0TriggersSafe(now),
-    readPrioritizationAcknowledgmentsSafe(identityKey),
-  ]);
+  const [resolvedPersona, visitResult, tier0Triggers, acknowledgments, sentimentOpportunities] =
+    await Promise.all([
+      resolvedPersonaPromise,
+      recordHomepageVisitSafe(stakeAddress, now, currentEpoch),
+      getTier0TriggersSafe(now),
+      readPrioritizationAcknowledgmentsSafe(identityKey),
+      sentimentOpportunitiesPromise,
+    ]);
 
   const visitState = toVisitState(visitResult.state, visitResult.priorEpochVisited);
   const hasConnectedWallet = !!stakeAddress;
@@ -211,7 +233,11 @@ async function buildHomepageCinematic(): Promise<HomepageCinematicResult> {
       hasConnectedWallet && visitResult.visitStarted && visitState?.priorVisitAt === null,
     isInSessionReturn: hasConnectedWallet && visitResult.tracked && !visitResult.visitStarted,
   };
-  const governanceContextDraft: GovernanceCinematicContext = { tier0Triggers, now };
+  const governanceContextDraft: GovernanceCinematicContext = {
+    tier0Triggers,
+    sentimentOpportunities,
+    now,
+  };
   const userContext: UserCinematicContext = {
     ...userContextDraft,
     isColdStart:
