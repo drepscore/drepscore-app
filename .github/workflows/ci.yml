@@ -140,6 +140,46 @@ jobs:
             if (failed) { console.error('Coverage below threshold'); process.exit(1); }
           "
 
+  # Migration replay: for PRs that touch supabase/migrations/ (or this gate's
+  # own verifier script), boot a local Supabase stack and replay the full
+  # migration history on a fresh database. Free (GitHub Actions, no Supabase
+  # billing) and independent of Supabase preview branches. See
+  # governada-brain/plans/migration-replay-ci-gate.md.
+  migrations:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Detect migration-relevant changes
+        id: detect
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD -- \
+            'supabase/migrations/**' \
+            'supabase/config.toml' \
+            'supabase/seed.sql' \
+            'scripts/verify-migrations.mjs' || true)
+          if [ -n "$CHANGED" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Migration-relevant files changed — running replay:"
+            echo "$CHANGED"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No migration-relevant changes — skipping replay (pass)."
+          fi
+      - uses: actions/setup-node@v6
+        if: steps.detect.outputs.run == 'true'
+        with:
+          node-version: ${{ env.CI_NODE_VERSION }}
+      - uses: supabase/setup-cli@v2
+        if: steps.detect.outputs.run == 'true'
+        with:
+          version: latest
+      - name: Replay migrations on a fresh local stack
+        if: steps.detect.outputs.run == 'true'
+        run: node scripts/verify-migrations.mjs
+
   build:
     needs: [install, checks, test]
     runs-on: ubuntu-latest
@@ -351,7 +391,7 @@ jobs:
 
   notify:
     if: failure()
-    needs: [checks, test, build, browser-smoke, e2e-critical]
+    needs: [checks, test, migrations, build, browser-smoke, e2e-critical]
     runs-on: ubuntu-latest
     steps:
       - name: Discord notification

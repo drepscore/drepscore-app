@@ -16,6 +16,15 @@
       "mcp__linear__*",
       "mcp__supabase__*",
       "mcp__supabase-staging__*",
+      "mcp__supabase-account__list_organizations",
+      "mcp__supabase-account__get_organization",
+      "mcp__supabase-account__list_projects",
+      "mcp__supabase-account__get_project",
+      "mcp__supabase-account__get_cost",
+      "mcp__supabase-account__list_branches",
+      "mcp__supabase-account__get_logs",
+      "mcp__supabase-account__get_advisors",
+      "mcp__supabase-account__search_docs",
       "mcp__sentry__*",
       "mcp__github__*",
       "mcp__railway__*",
@@ -24,6 +33,17 @@
       "mcp__scheduled-tasks__*",
       "Bash(npm run git:push:*)",
       "Bash(bin/gh.sh api --method DELETE:*)"
+    ],
+    "deny": [
+      "mcp__supabase-account__create_project",
+      "mcp__supabase-account__pause_project",
+      "mcp__supabase-account__restore_project",
+      "mcp__supabase-account__confirm_cost",
+      "mcp__supabase-account__create_branch",
+      "mcp__supabase-account__delete_branch",
+      "mcp__supabase-account__merge_branch",
+      "mcp__supabase-account__reset_branch",
+      "mcp__supabase-account__rebase_branch"
     ]
   },
   "hooks": {

@@ -24,40 +24,59 @@ DECLARE
   current_legacy_alter_dreps_present boolean;
   current_create_dreps_present boolean;
 BEGIN
-  SELECT
-    array_length(sm.statements, 1),
-    bool_or(s ILIKE '%ALTER TABLE%dreps%ADD COLUMN%'),
-    bool_or(
-      s ILIKE '%CREATE TABLE%public.dreps%'
-      OR s ILIKE '%CREATE TABLE%"public"."dreps"%'
-    )
-  INTO
-    current_count,
-    current_legacy_alter_dreps_present,
-    current_create_dreps_present
-  FROM supabase_migrations.schema_migrations sm,
-       LATERAL unnest(sm.statements) AS s
-  WHERE sm.version = '20260407004741'
-    AND sm.name = 'schema_rebaseline'
-  GROUP BY sm.version;
-
-  -- Two valid states:
-  --   Pre-apply: count=706, legacy ALTER dreps bundle present,
-  --              CREATE TABLE dreps absent -> proceed
-  --   Already applied: count=1, legacy ALTER dreps bundle absent,
-  --                    CREATE TABLE dreps present -> no-op
-  -- Anything else fails loudly because it means the remote metadata changed
-  -- underneath this repair.
-  IF (current_count = 706 AND current_legacy_alter_dreps_present AND NOT current_create_dreps_present)
-     OR (current_count = 1 AND NOT current_legacy_alter_dreps_present AND current_create_dreps_present)
-  THEN
-    -- valid state
-  ELSE
-    RAISE EXCEPTION
-      'F4 preflight unexpected state: count=% legacy_alter_dreps=% create_dreps=%',
+  -- The preflight below asserts a production-specific schema_rebaseline state
+  -- (the 706-statement legacy bundle, or the count=1 repaired form). A fresh
+  -- Supabase preview branch or local stack has neither -- its schema_rebaseline
+  -- row just holds the repo file's own statements -- so the assertion would
+  -- abort every fresh replay. (F16 fixed an earlier parse-time error in this
+  -- file but not this preflight; the recurring Supabase Preview failure would
+  -- still hit this RAISE.) A fresh branch/local database also lacks the
+  -- platform-only created_by column (see F16). When that column is absent this
+  -- is not the production database and there is nothing to repair, so skip the
+  -- preflight. On production the column exists and the loud-fail assertion runs
+  -- exactly as before. See brain/plans/migration-replay-ci-gate.md.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'supabase_migrations'
+      AND table_name = 'schema_migrations'
+      AND column_name = 'created_by'
+  ) THEN
+    SELECT
+      array_length(sm.statements, 1),
+      bool_or(s ILIKE '%ALTER TABLE%dreps%ADD COLUMN%'),
+      bool_or(
+        s ILIKE '%CREATE TABLE%public.dreps%'
+        OR s ILIKE '%CREATE TABLE%"public"."dreps"%'
+      )
+    INTO
       current_count,
       current_legacy_alter_dreps_present,
-      current_create_dreps_present;
+      current_create_dreps_present
+    FROM supabase_migrations.schema_migrations sm,
+         LATERAL unnest(sm.statements) AS s
+    WHERE sm.version = '20260407004741'
+      AND sm.name = 'schema_rebaseline'
+    GROUP BY sm.version;
+
+    -- Two valid states:
+    --   Pre-apply: count=706, legacy ALTER dreps bundle present,
+    --              CREATE TABLE dreps absent -> proceed
+    --   Already applied: count=1, legacy ALTER dreps bundle absent,
+    --                    CREATE TABLE dreps present -> no-op
+    -- Anything else fails loudly because it means the remote metadata changed
+    -- underneath this repair.
+    IF (current_count = 706 AND current_legacy_alter_dreps_present AND NOT current_create_dreps_present)
+       OR (current_count = 1 AND NOT current_legacy_alter_dreps_present AND current_create_dreps_present)
+    THEN
+      -- valid state
+    ELSE
+      RAISE EXCEPTION
+        'F4 preflight unexpected state: count=% legacy_alter_dreps=% create_dreps=%',
+        current_count,
+        current_legacy_alter_dreps_present,
+        current_create_dreps_present;
+    END IF;
   END IF;
 END $$;
 
