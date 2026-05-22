@@ -34,8 +34,9 @@ Governada is the governance intelligence platform for Cardano. It serves every p
 
 ### Prerequisites
 
-- Node.js 18.17.0+
+- Node.js 24.x (see `.nvmrc`)
 - npm
+- 1Password CLI (`op`) — local runs resolve the staging environment through it
 
 ### Installation
 
@@ -43,13 +44,13 @@ Governada is the governance intelligence platform for Cardano. It serves every p
 git clone <repository-url>
 cd governada-app
 npm install
-cp .env.example .env.local
-npm run dev
+npm run env:doctor               # verify local environment bootstrap
+npm run env:run -- npm run dev   # run the app against the staging environment
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-See `.env.example` for required environment variables. Note: `.env.local` connects to **production** Supabase — treat all local operations as production operations.
+Local runs target the **staging** environment. `npm run env:run` injects 1Password-backed credentials declared in `.env.local.refs` into the command — no `.env` file with live credentials is committed or copied into worktrees. Run `npm run env:doctor` to check bootstrap readiness. `.env.example` documents the optional Koios/VAPID variables.
 
 ## Architecture
 

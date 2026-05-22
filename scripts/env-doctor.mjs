@@ -1,31 +1,24 @@
 #!/usr/bin/env node
 
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+// env:doctor — diagnose the local environment bootstrap.
+//
+// Verifies that env:run can resolve the staging environment in this checkout:
+// the .env.local.refs file, the agent service-account token, the 1Password
+// CLI, and a live sample resolution. Exits non-zero when a blocker is found.
+
+import { lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import os from 'node:os';
 
-const AGENT_TOKEN_KEY = 'OP_AGENT_SERVICE_ACCOUNT_TOKEN';
-const DEFAULT_AGENT_VAULT = 'Governada-Agent';
-const HUMAN_SSH_HOST = process.env.GOVERNADA_ENV_DOCTOR_SSH_HOST || 'github-governada';
-const SSH_CONFIG = process.env.SSH_CONFIG || path.join(os.homedir(), '.ssh', 'config');
-
-function findRepoRoot(startDir) {
-  let current = startDir;
-
-  while (true) {
-    if (existsSync(path.join(current, 'package.json'))) {
-      return current;
-    }
-
-    const parent = path.dirname(current);
-    if (parent === current) {
-      return startDir;
-    }
-
-    current = parent;
-  }
-}
+import {
+  ENV_REFS_FILE,
+  findEnvRefsFile,
+  opVersion,
+  parseEnvEntries,
+  planInjection,
+  readAgentToken,
+  resolveOpRef,
+} from './lib/env-bootstrap.mjs';
+import { getScriptContext } from './lib/runtime.mjs';
 
 function checkoutKind(repoRoot) {
   try {
@@ -35,89 +28,108 @@ function checkoutKind(repoRoot) {
   }
 }
 
-function stripSshConfigComment(value) {
-  let quote = '';
-
-  for (let index = 0; index < value.length; index += 1) {
-    const char = value[index];
-    if ((char === '"' || char === "'") && (!quote || quote === char)) {
-      quote = quote ? '' : char;
-      continue;
-    }
-
-    if (char === '#' && !quote) {
-      return value.slice(0, index).trim();
-    }
+function finish(blockers, warnings) {
+  if (blockers.length > 0) {
+    console.log(`Env doctor result: BLOCKED (${blockers.length} blocker(s))`);
+    process.exit(1);
   }
-
-  return value.trim();
+  if (warnings.length > 0) {
+    console.log(`Env doctor result: PASS_WITH_ADVISORIES (${warnings.length} advisory item(s))`);
+    return;
+  }
+  console.log('Env doctor result: PASS');
 }
 
-function hostBlockMatches(line, host) {
-  const [, value = ''] = line.match(/^host\s+(.+)$/iu) || [];
-  return stripSshConfigComment(value)
-    .split(/\s+/u)
-    .some((pattern) => pattern.toLowerCase() === host.toLowerCase());
-}
+async function main() {
+  const { repoRoot } = getScriptContext(import.meta.url);
+  const blockers = [];
+  const warnings = [];
+  const ok = (message) => console.log(`OK: ${message}`);
+  const warn = (message) => {
+    warnings.push(message);
+    console.log(`WARN: ${message}`);
+  };
+  const block = (message) => {
+    blockers.push(message);
+    console.log(`BLOCKED: ${message}`);
+  };
 
-function hasHumanSshLane() {
-  if (process.env.GOVERNADA_ENV_DOCTOR_DISABLE_HUMAN_LANE === '1') {
-    return false;
-  }
-
-  if (!existsSync(SSH_CONFIG)) {
-    return false;
-  }
-
-  let inMatchingHostBlock = false;
-  let hasIdentityConfig = false;
-
-  for (const rawLine of readFileSync(SSH_CONFIG, 'utf8').split(/\r?\n/u)) {
-    const line = stripSshConfigComment(rawLine.trim());
-    if (!line) {
-      continue;
-    }
-
-    if (/^host\s+/iu.test(line)) {
-      if (inMatchingHostBlock && (hasIdentityConfig || process.env.SSH_AUTH_SOCK)) {
-        return true;
-      }
-      inMatchingHostBlock = hostBlockMatches(line, HUMAN_SSH_HOST);
-      hasIdentityConfig = false;
-      continue;
-    }
-
-    if (inMatchingHostBlock && /^(identityagent|identityfile)\s+/iu.test(line)) {
-      const [, value = ''] = line.match(/^\S+\s+(.+)$/u) || [];
-      if (value.trim() && value.trim().toLowerCase() !== 'none') {
-        hasIdentityConfig = true;
-      }
-    }
-  }
-
-  return inMatchingHostBlock && (hasIdentityConfig || Boolean(process.env.SSH_AUTH_SOCK));
-}
-
-function activeLaneLine(repoRoot) {
-  if (process.env[AGENT_TOKEN_KEY]) {
-    const vault = process.env.GOVERNADA_OP_AGENT_VAULT || DEFAULT_AGENT_VAULT;
-    return `Active credential lane: agent (${AGENT_TOKEN_KEY}, vault=${vault})`;
-  }
-
-  if (hasHumanSshLane()) {
-    return 'Active credential lane: human (SSH+1Password Desktop)';
-  }
-
-  return 'Active credential lane: NONE';
-}
-
-function main() {
-  const scriptPath = fileURLToPath(import.meta.url);
-  const repoRoot = findRepoRoot(path.dirname(scriptPath));
-
-  console.log(activeLaneLine(repoRoot));
   console.log('Env doctor: Governada local environment bootstrap');
-  console.log(`OK: checkout kind: ${checkoutKind(repoRoot)}`);
+  ok(`checkout kind: ${checkoutKind(repoRoot)}`);
+
+  const refsPath = findEnvRefsFile(repoRoot);
+  if (!refsPath) {
+    block(`${ENV_REFS_FILE} not found in this checkout or shared root`);
+    finish(blockers, warnings);
+    return;
+  }
+  ok(`${ENV_REFS_FILE} found: ${refsPath}`);
+
+  const { refs, literals, skipped } = planInjection(
+    parseEnvEntries(readFileSync(refsPath, 'utf8')),
+  );
+  ok(
+    `${refs.length} reference(s) to resolve, ${literals.length} literal(s), ` +
+      `${skipped.length} GitHub-lane key(s) skipped`,
+  );
+
+  if (refs.length === 0) {
+    warn('no op:// references found; env:run would inject literals only');
+    finish(blockers, warnings);
+    return;
+  }
+
+  const { token, file, reason } = readAgentToken();
+  if (!token) {
+    block(`agent service-account token unavailable: ${reason} (${file})`);
+    finish(blockers, warnings);
+    return;
+  }
+  ok(`agent service-account token present (${file})`);
+
+  const version = opVersion(token);
+  if (version.error?.code === 'ENOENT') {
+    block('1Password CLI (`op`) is not installed or not on PATH');
+    finish(blockers, warnings);
+    return;
+  }
+  if (version.error || version.status !== 0) {
+    block('1Password CLI (`op`) is not runnable from this process');
+    finish(blockers, warnings);
+    return;
+  }
+  ok(`1Password CLI available (${(version.stdout || '').trim() || 'version unknown'})`);
+
+  // Resolve every reference so the doctor reports exactly what env:run can and
+  // cannot inject. Secret values are held in memory only — never printed.
+  const resolutions = await Promise.all(
+    refs.map(async (ref) => ({ ref, resolution: await resolveOpRef(ref.opRef, token) })),
+  );
+  const resolved = resolutions.filter((entry) => entry.resolution.ok);
+  const failed = resolutions.filter((entry) => !entry.resolution.ok);
+  const nested = resolved.filter((entry) => entry.resolution.depth > 0);
+
+  if (failed.length === 0) {
+    ok(`all ${refs.length} reference(s) resolve from the agent vault`);
+  } else {
+    for (const { ref, resolution } of failed) {
+      warn(`${ref.sourceKey} does not resolve (${resolution.reason})`);
+    }
+  }
+  if (nested.length > 0) {
+    ok(`${nested.length} reference(s) resolve through nested 1Password references`);
+  }
+
+  const injectable = [
+    ...resolved.map((entry) => entry.ref.envKey),
+    ...literals.map((lit) => lit.envKey),
+  ]
+    .sort()
+    .join(', ');
+  console.log('');
+  console.log(`env:run will inject: ${injectable}`);
+
+  finish(blockers, warnings);
 }
 
 main();
