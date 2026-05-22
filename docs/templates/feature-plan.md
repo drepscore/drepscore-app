@@ -1,3 +1,10 @@
+---
+status: active
+created:
+updated:
+pr:
+---
+
 # Feature Plan
 
 ## Spec Link
