@@ -21,7 +21,8 @@
       "mcp__railway__*",
       "mcp__Claude_Preview__*",
       "mcp__Claude_in_Chrome__*",
-      "mcp__scheduled-tasks__*"
+      "mcp__scheduled-tasks__*",
+      "Bash(npm run git:push:*)"
     ]
   },
   "hooks": {
@@ -62,6 +63,10 @@
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-gh-lane.sh"
+          },
           {
             "type": "command",
             "command": "bash .claude/hooks/check-behind-main.sh"
