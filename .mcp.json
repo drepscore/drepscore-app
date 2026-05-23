@@ -5,10 +5,6 @@
       "command": "bash",
       "args": ["bin/supabase-mcp.sh"]
     },
-    "supabase-staging": {
-      "command": "bash",
-      "args": ["bin/supabase-staging-mcp.sh"]
-    },
     "supabase-sandbox": {
       "command": "bash",
       "args": ["bin/supabase-sandbox-mcp.sh"]
