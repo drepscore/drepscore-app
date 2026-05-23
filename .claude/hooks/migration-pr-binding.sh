@@ -181,6 +181,14 @@ if [[ -z "$allowed_path" ]]; then
   exit 2
 fi
 
-# Allowed. Print a one-liner so the operator can see which file was matched.
+# Allowed. Print confirmation + post-apply alignment hint. The Supabase MCP's
+# apply_migration generates its own apply-time timestamp for the
+# schema_migrations.version column; Supabase Branching's auto-sync requires
+# that version to byte-match the filename's timestamp prefix, and without
+# realignment Branching's main-branch sync reports MIGRATIONS_FAILED.
+file_timestamp="$(basename "$allowed_path" | grep -oE '^[0-9]+')"
 echo "migration-pr-binding: allowing apply_migration name=${migration_name} bound to $(basename "$allowed_path")"
+echo "  After apply, ensure DB version matches the file's prefix ${file_timestamp}."
+echo "  Check:   SELECT version FROM supabase_migrations.schema_migrations WHERE name = '${migration_name}';"
+echo "  If they differ, rename the file (and its rollback) to match the DB version, then commit."
 exit 0
