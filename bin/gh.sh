@@ -591,6 +591,118 @@ enforce_label_policy() {
   esac
 }
 
+is_governada_owner_arg() {
+  [[ "$1" == "governada" ]]
+}
+
+assert_owner_arg_allowed() {
+  local args=("$@")
+  local arg owner
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    owner=""
+    case "$arg" in
+      --owner)
+        i=$((i + 1))
+        owner="${args[$i]:-}"
+        ;;
+      --owner=*)
+        owner="${arg#--owner=}"
+        ;;
+    esac
+
+    if [[ -n "$owner" ]] && ! is_governada_owner_arg "$owner"; then
+      block_policy "the project lane is scoped to the governada owner, not ${owner}."
+    fi
+  done
+}
+
+check_project_item_add_flags() {
+  local args=("$@")
+  local arg
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --owner | --url | --format | --jq | --template)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --owner=* | --url=* | --format=* | --jq=* | --template=*)
+        ;;
+      --*)
+        block_policy "project item-add flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "project item-add short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        # positional project number is accepted by gh; allow it through.
+        ;;
+    esac
+  done
+}
+
+check_project_item_edit_flags() {
+  local args=("$@")
+  local arg
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --clear)
+        # boolean flag — no value.
+        ;;
+      --id | --project-id | --field-id | --text | --number | --date | --single-select-option-id | --iteration-id | --format | --jq | --template)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --id=* | --project-id=* | --field-id=* | --text=* | --number=* | --date=* | --single-select-option-id=* | --iteration-id=* | --format=* | --jq=* | --template=*)
+        ;;
+      --*)
+        block_policy "project item-edit flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "project item-edit short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        block_policy "project item-edit takes no positional arguments; got ${arg}."
+        ;;
+    esac
+  done
+}
+
+enforce_project_policy() {
+  local subcommand="${1:-}"
+  shift || true
+
+  assert_owner_arg_allowed "$@"
+
+  case "$subcommand" in
+    list | view | item-list | field-list)
+      return 0
+      ;;
+    item-add)
+      check_project_item_add_flags "$@"
+      return 0
+      ;;
+    item-edit)
+      check_project_item_edit_flags "$@"
+      return 0
+      ;;
+    create | delete | edit | copy | close | archive | unarchive | mark-template | unmark-template | link | unlink | item-archive | item-delete | field-create | field-delete)
+      block_policy "gh project ${subcommand} is outside the autonomous lane."
+      ;;
+    *)
+      block_policy "gh project ${subcommand:-'(missing subcommand)'} is not in the allowlist."
+      ;;
+  esac
+}
+
 enforce_capability_policy() {
   local command="${1:-}"
   shift || true
@@ -607,6 +719,9 @@ enforce_capability_policy() {
       ;;
     label)
       enforce_label_policy "$@"
+      ;;
+    project)
+      enforce_project_policy "$@"
       ;;
     *)
       block_policy "gh ${command:-'(missing command)'} is not in the allowlist."

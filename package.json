@@ -28,6 +28,7 @@
     "classify:pr-risk": "node scripts/classify-pr-risk.mjs",
     "backlog": "node scripts/backlog.mjs",
     "seed-backlog": "node scripts/seed-backlog.mjs",
+    "project": "node scripts/project.mjs",
     "env:doctor": "node scripts/env-doctor.mjs",
     "env:run": "node scripts/env-run.mjs",
     "op:agent-doctor": "node scripts/op-agent-doctor.mjs",
