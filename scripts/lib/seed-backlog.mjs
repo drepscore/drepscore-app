@@ -9,6 +9,11 @@ export const BACKLOG_LABEL_DEFS = Object.freeze([
   { name: 'priority/p3', color: 'C5DEF5', description: 'Low — whenever' },
   { name: 'status/in-progress', color: '0E8A16', description: 'Claimed by an agent' },
   {
+    name: 'status/blocked',
+    color: '6F42C1',
+    description: 'Blocked — needs human input or external action (HITL signal)',
+  },
+  {
     name: 'risk-tier/low',
     color: '0E8A16',
     description: 'Auto-merge eligible (Horizon 2 B4)',

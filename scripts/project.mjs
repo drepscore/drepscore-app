@@ -7,13 +7,16 @@
 //
 // One-time setup:
 //   1. Visit https://github.com/orgs/governada/projects/new and create a
-//      Project (suggested name: "Governada Backlog").
-//   2. Add a single-select field named "Status" with options:
-//      Backlog, Ready, In Progress, In Review, Done.
+//      Project (recommended: Kanban template).
+//   2. Confirm the Status field has the Kanban defaults + a Blocked
+//      addition: Backlog, Ready, In progress, In review, Done, Blocked.
+//      (Option names are case-sensitive — pass them to the CLI exactly
+//      as GitHub displays them.)
 //   3. Project Settings → Workflows: enable
 //        - "Auto-add to project" for any issue with a priority/* label.
 //        - "Item closed → set Status: Done."
-//        - (Optional) "When labeled status/in-progress → set Status: In Progress."
+//        - (Optional) "When labeled status/in-progress → set Status: In progress."
+//        - (Optional) "When labeled status/blocked → set Status: Blocked."
 //   4. Set GOVERNADA_PROJECT_NUMBER=<N> in your shell env (find N in the
 //      Project's URL).
 //

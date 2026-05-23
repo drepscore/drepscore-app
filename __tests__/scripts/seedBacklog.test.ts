@@ -155,7 +155,7 @@ describe('filterUnseeded', () => {
 });
 
 describe('BACKLOG_LABEL_DEFS', () => {
-  it('should include priority/p0..p3, status/in-progress, and risk-tier/{low,standard,high}', () => {
+  it('should include priority/p0..p3, status/{blocked,in-progress}, and risk-tier/{low,standard,high}', () => {
     const names = BACKLOG_LABEL_DEFS.map((def) => def.name).sort();
     expect(names).toEqual([
       'priority/p0',
@@ -165,6 +165,7 @@ describe('BACKLOG_LABEL_DEFS', () => {
       'risk-tier/high',
       'risk-tier/low',
       'risk-tier/standard',
+      'status/blocked',
       'status/in-progress',
     ]);
   });
