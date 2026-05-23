@@ -1,16 +1,26 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { repoRoot, runCommand } = require('./lib/runtime');
+const { getSharedCheckoutRoot, isSharedCheckout, repoRoot, runCommand } = require('./lib/runtime');
 
 const worktreeRoot = path.join(repoRoot, '.claude', 'worktrees');
-const mode = process.argv[2] || 'dry-run';
-const validModes = new Set(['dry-run', '--clean', '--clean-all']);
 
-if (!validModes.has(mode)) {
-  console.error('Usage: node scripts/cleanup.js [--clean|--clean-all]');
-  process.exit(1);
+const allowedFlags = new Set(['--clean', '--clean-all', '--force-dirty']);
+const args = process.argv.slice(2);
+for (const arg of args) {
+  if (!allowedFlags.has(arg)) {
+    console.error('Usage: node scripts/cleanup.js [--clean|--clean-all] [--force-dirty]');
+    process.exit(1);
+  }
 }
+
+let mode = 'dry-run';
+if (args.includes('--clean-all')) {
+  mode = '--clean-all';
+} else if (args.includes('--clean')) {
+  mode = '--clean';
+}
+const forceDirty = args.includes('--force-dirty');
 
 const color = {
   red: '\x1b[0;31m',
@@ -22,6 +32,21 @@ const color = {
 
 function paint(text, which) {
   return `${color[which]}${text}${color.reset}`;
+}
+
+if (!isSharedCheckout(repoRoot)) {
+  const sharedRoot = getSharedCheckoutRoot(repoRoot);
+  const rerun = `cd ${sharedRoot} && npm run cleanup${args.length > 0 ? ` -- ${args.join(' ')}` : ''}`;
+  console.error(
+    `${paint('ERROR', 'red')}: cleanup must run from the shared checkout, not a worktree.`,
+  );
+  console.error(`  Current location: ${repoRoot}`);
+  console.error(`  Shared checkout:  ${sharedRoot}`);
+  console.error(`  Re-run with:      ${rerun}`);
+  console.error(
+    '  (running from a worktree mis-computes the managed worktree root and silently reports nothing to clean.)',
+  );
+  process.exit(1);
 }
 
 function normalize(filePath) {
@@ -370,13 +395,40 @@ console.log('');
 if (mode === '--clean' || mode === '--clean-all') {
   console.log(paint('=== Cleaning ===', 'cyan'));
 
+  const skippedDirty = [];
   for (const worktreePath of [...mergedWorktrees, ...staleWorktrees]) {
     const label = mergedWorktrees.includes(worktreePath) ? 'merged' : 'stale';
+    const worktreeName = path.basename(worktreePath);
+    const dirtyLines = getStatusLines(worktreePath);
+
+    if (dirtyLines.length > 0 && !forceDirty) {
+      console.log(
+        `  ${paint('SKIPPED (dirty)', 'yellow')} ${label} worktree: ${worktreeName} (${dirtyLines.length} uncommitted/untracked change(s))`,
+      );
+      formatCountLines(dirtyLines, 3);
+      skippedDirty.push(worktreePath);
+      continue;
+    }
+
     console.log(
-      `  Removing ${label} worktree: ${paint(path.basename(worktreePath), label === 'merged' ? 'green' : 'yellow')}`,
+      `  Removing ${label} worktree: ${paint(worktreeName, label === 'merged' ? 'green' : 'yellow')}`,
     );
     removeDirIfExists(path.join(worktreePath, 'node_modules'));
-    runCommand('git', ['worktree', 'remove', worktreePath, '--force'], { cwd: repoRoot });
+    const removeArgs = ['worktree', 'remove', worktreePath];
+    if (forceDirty) {
+      removeArgs.push('--force');
+    }
+    runCommand('git', removeArgs, { cwd: repoRoot });
+  }
+
+  if (skippedDirty.length > 0) {
+    console.log('');
+    console.log(
+      paint(
+        `Skipped ${skippedDirty.length} dirty worktree(s). Resolve the changes or pass --force-dirty to remove anyway (uncommitted work will be lost).`,
+        'yellow',
+      ),
+    );
   }
 
   if (mode === '--clean-all') {

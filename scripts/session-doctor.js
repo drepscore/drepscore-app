@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { repoRoot, runCommand } = require('./lib/runtime');
+const { isSharedCheckout, repoRoot, runCommand } = require('./lib/runtime');
 const { classifyCommandResult, formatClassification } = require('./lib/auth-failure-classifier');
 
 const EXPECTED_ORIGIN_REMOTE = 'git@github-governada:governada/app.git';
@@ -289,21 +289,6 @@ function printSection(title, lines) {
   for (const line of lines) {
     console.log(`  - ${line}`);
   }
-}
-
-function isSharedCheckout(topLevel) {
-  const gitDir = runOrEmpty('git', ['rev-parse', '--path-format=absolute', '--git-dir'], topLevel);
-  const commonDir = runOrEmpty(
-    'git',
-    ['rev-parse', '--path-format=absolute', '--git-common-dir'],
-    topLevel,
-  );
-
-  if (!gitDir || !commonDir) {
-    return false;
-  }
-
-  return path.resolve(gitDir) === path.resolve(commonDir);
 }
 
 function hasGoneUpstream(branch) {

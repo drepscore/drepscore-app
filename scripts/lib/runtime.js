@@ -163,7 +163,32 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isSharedCheckout(dir) {
+  const cwd = dir || repoRoot;
+  const gitDir = runCommand('git', ['rev-parse', '--path-format=absolute', '--git-dir'], { cwd });
+  const commonDir = runCommand('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+    cwd,
+  });
+  if (gitDir.status !== 0 || commonDir.status !== 0) {
+    return false;
+  }
+  return path.resolve(gitDir.stdout.trim()) === path.resolve(commonDir.stdout.trim());
+}
+
+function getSharedCheckoutRoot(dir) {
+  const cwd = dir || repoRoot;
+  const commonDir = runCommand('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+    cwd,
+  });
+  if (commonDir.status !== 0) {
+    return cwd;
+  }
+  return path.dirname(commonDir.stdout.trim());
+}
+
 module.exports = {
+  getSharedCheckoutRoot,
+  isSharedCheckout,
   loadLocalEnv,
   repoRoot,
   runCommand,
