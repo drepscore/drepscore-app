@@ -451,6 +451,102 @@ enforce_issue_policy() {
   esac
 }
 
+check_label_create_flags() {
+  local args=("$@")
+  local arg positional_count=0
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --force)
+        # gh's idempotent-overwrite flag for label create — safe to allow.
+        ;;
+      --repo | -R | --color | --description)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --repo=* | -R* | --color=* | --description=*)
+        ;;
+      --web)
+        block_policy "interactive browser flows are not part of the autonomous lane."
+        ;;
+      --*)
+        block_policy "label create flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "label create short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        positional_count=$((positional_count + 1))
+        if [[ "$positional_count" -gt 1 ]]; then
+          block_policy "label create accepts only one label-name positional argument."
+        fi
+        ;;
+    esac
+  done
+}
+
+check_label_edit_flags() {
+  local args=("$@")
+  local arg positional_count=0
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --repo | -R | --name | --color | --description)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --repo=* | -R* | --name=* | --color=* | --description=*)
+        ;;
+      --web)
+        block_policy "interactive browser flows are not part of the autonomous lane."
+        ;;
+      --*)
+        block_policy "label edit flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "label edit short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        positional_count=$((positional_count + 1))
+        if [[ "$positional_count" -gt 1 ]]; then
+          block_policy "label edit accepts only one label-name positional argument."
+        fi
+        ;;
+    esac
+  done
+}
+
+enforce_label_policy() {
+  local subcommand="${1:-}"
+  shift || true
+
+  assert_repo_arg_allowed "$@"
+
+  case "$subcommand" in
+    list)
+      return 0
+      ;;
+    create)
+      check_label_create_flags "$@"
+      return 0
+      ;;
+    edit)
+      check_label_edit_flags "$@"
+      return 0
+      ;;
+    delete | clone)
+      block_policy "gh label ${subcommand} is outside the autonomous lane; label deletion is a separate human action."
+      ;;
+    *)
+      block_policy "gh label ${subcommand:-'(missing subcommand)'} is not in the allowlist."
+      ;;
+  esac
+}
+
 enforce_capability_policy() {
   local command="${1:-}"
   shift || true
@@ -464,6 +560,9 @@ enforce_capability_policy() {
       ;;
     issue)
       enforce_issue_policy "$@"
+      ;;
+    label)
+      enforce_label_policy "$@"
       ;;
     *)
       block_policy "gh ${command:-'(missing command)'} is not in the allowlist."
