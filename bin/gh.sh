@@ -389,6 +389,320 @@ enforce_api_policy() {
   block_policy "gh api ${method} /${endpoint} is not in the allowlist."
 }
 
+check_issue_edit_flags() {
+  local args=("$@")
+  local arg positional_count=0
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --repo | -R | --add-label | --remove-label | --title | --body | --body-file | --milestone | --add-milestone | --remove-milestone)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --repo=* | -R* | --add-label=* | --remove-label=* | --title=* | --body=* | --body-file=* | --milestone=* | --add-milestone=* | --remove-milestone=*)
+        ;;
+      --add-assignee | --remove-assignee | --add-assignee=* | --remove-assignee=*)
+        block_policy "issue assignees are outside the label-based claim lane; use --add-label/--remove-label."
+        ;;
+      --add-project | --remove-project | --add-project=* | --remove-project=*)
+        block_policy "GitHub Projects v2 operations are deferred to Phase B1b."
+        ;;
+      --web)
+        block_policy "interactive browser flows are not part of the autonomous lane."
+        ;;
+      --*)
+        block_policy "issue edit flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "issue edit short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        positional_count=$((positional_count + 1))
+        if [[ "$positional_count" -gt 1 ]]; then
+          block_policy "issue edit accepts only one issue-number positional argument."
+        fi
+        ;;
+    esac
+  done
+}
+
+check_issue_create_flags() {
+  local args=("$@")
+  local arg
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --repo | -R | --title | --body | --body-file | --label | --milestone)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --repo=* | -R* | --title=* | --body=* | --body-file=* | --label=* | --milestone=*)
+        ;;
+      --assignee | --assignee=*)
+        block_policy "issue assignees are outside the label-based claim lane; use --label."
+        ;;
+      --project | --project=*)
+        block_policy "GitHub Projects v2 operations are deferred to Phase B1b."
+        ;;
+      --editor | --web)
+        block_policy "interactive flows are not part of the autonomous lane."
+        ;;
+      --*)
+        block_policy "issue create flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "issue create short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        block_policy "issue create must use flags, not positional argument ${arg}."
+        ;;
+    esac
+  done
+}
+
+enforce_issue_policy() {
+  local subcommand="${1:-}"
+  shift || true
+
+  assert_repo_arg_allowed "$@"
+
+  case "$subcommand" in
+    view | list | status)
+      return 0
+      ;;
+    create)
+      check_issue_create_flags "$@"
+      return 0
+      ;;
+    edit)
+      check_issue_edit_flags "$@"
+      return 0
+      ;;
+    comment)
+      check_pr_comment_flags "$@"
+      return 0
+      ;;
+    close | reopen | delete | lock | unlock | pin | unpin | transfer | develop)
+      block_policy "gh issue ${subcommand} is outside the autonomous lane."
+      ;;
+    *)
+      block_policy "gh issue ${subcommand:-'(missing subcommand)'} is not in the allowlist."
+      ;;
+  esac
+}
+
+check_label_create_flags() {
+  local args=("$@")
+  local arg positional_count=0
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --force)
+        # gh's idempotent-overwrite flag for label create — safe to allow.
+        ;;
+      --repo | -R | --color | --description)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --repo=* | -R* | --color=* | --description=*)
+        ;;
+      --web)
+        block_policy "interactive browser flows are not part of the autonomous lane."
+        ;;
+      --*)
+        block_policy "label create flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "label create short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        positional_count=$((positional_count + 1))
+        if [[ "$positional_count" -gt 1 ]]; then
+          block_policy "label create accepts only one label-name positional argument."
+        fi
+        ;;
+    esac
+  done
+}
+
+check_label_edit_flags() {
+  local args=("$@")
+  local arg positional_count=0
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --repo | -R | --name | --color | --description)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --repo=* | -R* | --name=* | --color=* | --description=*)
+        ;;
+      --web)
+        block_policy "interactive browser flows are not part of the autonomous lane."
+        ;;
+      --*)
+        block_policy "label edit flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "label edit short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        positional_count=$((positional_count + 1))
+        if [[ "$positional_count" -gt 1 ]]; then
+          block_policy "label edit accepts only one label-name positional argument."
+        fi
+        ;;
+    esac
+  done
+}
+
+enforce_label_policy() {
+  local subcommand="${1:-}"
+  shift || true
+
+  assert_repo_arg_allowed "$@"
+
+  case "$subcommand" in
+    list)
+      return 0
+      ;;
+    create)
+      check_label_create_flags "$@"
+      return 0
+      ;;
+    edit)
+      check_label_edit_flags "$@"
+      return 0
+      ;;
+    delete | clone)
+      block_policy "gh label ${subcommand} is outside the autonomous lane; label deletion is a separate human action."
+      ;;
+    *)
+      block_policy "gh label ${subcommand:-'(missing subcommand)'} is not in the allowlist."
+      ;;
+  esac
+}
+
+is_governada_owner_arg() {
+  [[ "$1" == "governada" ]]
+}
+
+assert_owner_arg_allowed() {
+  local args=("$@")
+  local arg owner
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    owner=""
+    case "$arg" in
+      --owner)
+        i=$((i + 1))
+        owner="${args[$i]:-}"
+        ;;
+      --owner=*)
+        owner="${arg#--owner=}"
+        ;;
+    esac
+
+    if [[ -n "$owner" ]] && ! is_governada_owner_arg "$owner"; then
+      block_policy "the project lane is scoped to the governada owner, not ${owner}."
+    fi
+  done
+}
+
+check_project_item_add_flags() {
+  local args=("$@")
+  local arg
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --owner | --url | --format | --jq | --template)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --owner=* | --url=* | --format=* | --jq=* | --template=*)
+        ;;
+      --*)
+        block_policy "project item-add flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "project item-add short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        # positional project number is accepted by gh; allow it through.
+        ;;
+    esac
+  done
+}
+
+check_project_item_edit_flags() {
+  local args=("$@")
+  local arg
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --clear)
+        # boolean flag — no value.
+        ;;
+      --id | --project-id | --field-id | --text | --number | --date | --single-select-option-id | --iteration-id | --format | --jq | --template)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --id=* | --project-id=* | --field-id=* | --text=* | --number=* | --date=* | --single-select-option-id=* | --iteration-id=* | --format=* | --jq=* | --template=*)
+        ;;
+      --*)
+        block_policy "project item-edit flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "project item-edit short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        block_policy "project item-edit takes no positional arguments; got ${arg}."
+        ;;
+    esac
+  done
+}
+
+enforce_project_policy() {
+  local subcommand="${1:-}"
+  shift || true
+
+  assert_owner_arg_allowed "$@"
+
+  case "$subcommand" in
+    list | view | item-list | field-list)
+      return 0
+      ;;
+    item-add)
+      check_project_item_add_flags "$@"
+      return 0
+      ;;
+    item-edit)
+      check_project_item_edit_flags "$@"
+      return 0
+      ;;
+    create | delete | edit | copy | close | archive | unarchive | mark-template | unmark-template | link | unlink | item-archive | item-delete | field-create | field-delete)
+      block_policy "gh project ${subcommand} is outside the autonomous lane."
+      ;;
+    *)
+      block_policy "gh project ${subcommand:-'(missing subcommand)'} is not in the allowlist."
+      ;;
+  esac
+}
+
 enforce_capability_policy() {
   local command="${1:-}"
   shift || true
@@ -399,6 +713,15 @@ enforce_capability_policy() {
       ;;
     pr)
       enforce_pr_policy "$@"
+      ;;
+    issue)
+      enforce_issue_policy "$@"
+      ;;
+    label)
+      enforce_label_policy "$@"
+      ;;
+    project)
+      enforce_project_policy "$@"
       ;;
     *)
       block_policy "gh ${command:-'(missing command)'} is not in the allowlist."
