@@ -187,6 +187,29 @@ function ensureNodeModulesLink(worktreePath, noNodeModulesLink) {
   }
 }
 
+function ensureHooksPath(worktreePath) {
+  // Husky's `.husky/_/` is gitignored — only present where `npm install` ran (the
+  // shared checkout). With `extensions.worktreeConfig = true`, the default
+  // `core.hooksPath = .husky/_` resolves per-worktree to a missing directory and
+  // hooks (incl. lint-staged) silently skip. Point each worktree at the shared
+  // checkout's `.husky/_/` so hooks fire consistently.
+  const sharedHooksPath = path.join(repoRoot, '.husky', '_');
+  if (!existsSync(sharedHooksPath)) {
+    console.log(
+      'hooks: .husky/_ not present in shared checkout; skipping core.hooksPath setup. Run npm install in the shared checkout first.',
+    );
+    return;
+  }
+  try {
+    git(['config', '--worktree', 'core.hooksPath', sharedHooksPath], { cwd: worktreePath });
+    console.log(`hooks: core.hooksPath set (per-worktree) to ${sharedHooksPath}`);
+  } catch (error) {
+    console.log(
+      `hooks: failed to set core.hooksPath (${error.message}). Manual fix: git -C "${worktreePath}" config --worktree core.hooksPath "${sharedHooksPath}"`,
+    );
+  }
+}
+
 function reportEnvBootstrap() {
   const sharedRefs = path.join(repoRoot, ENV_REFS_FILE);
   const sharedEnv = path.join(repoRoot, ENV_LOCAL_FILE);
@@ -239,6 +262,7 @@ function main() {
 
   reportEnvBootstrap();
   ensureNodeModulesLink(worktreePath, options.noNodeModulesLink);
+  ensureHooksPath(worktreePath);
 
   console.log('');
   console.log('Worktree ready:');
