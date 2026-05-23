@@ -233,7 +233,7 @@ Always pause for Tim's explicit approval before:
 2. Confirm it is scoped only to `Governada-Agent`.
 3. Confirm `Governada-Agent` contains only the approved items listed in [Items In Vault](#items-in-vault); during the transition it may also contain the soon-to-be-decommissioned old token item until Tim removes it after merge.
 4. Confirm the PostHog tokens are dev/staging project scope, not production and not admin.
-5. Confirm Supabase refs are staging/preview automation only, with no production database URL or admin token referenced from `.env.local.refs`.
+5. Confirm Supabase refs are sandbox/preview automation only, with no production database URL or admin token referenced from `.env.local.refs`.
 6. Confirm the GitHub App is installed only on `governada/app` with Contents:read+write, Pull requests:read+write, Metadata:read, Actions:read, and Workflows:read.
 7. Confirm `/Users/tim/dev/agent-runtime/env/governada-agent.env` exists with mode `600`.
 8. Run `npm run op:agent-doctor`.
