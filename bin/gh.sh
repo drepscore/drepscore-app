@@ -428,6 +428,42 @@ check_issue_edit_flags() {
   done
 }
 
+check_issue_create_flags() {
+  local args=("$@")
+  local arg
+  local i
+
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    arg="${args[$i]}"
+    case "$arg" in
+      --repo | -R | --title | --body | --body-file | --label | --milestone)
+        require_value_arg "$arg" "${args[$((i + 1))]:-}"
+        i=$((i + 1))
+        ;;
+      --repo=* | -R* | --title=* | --body=* | --body-file=* | --label=* | --milestone=*)
+        ;;
+      --assignee | --assignee=*)
+        block_policy "issue assignees are outside the label-based claim lane; use --label."
+        ;;
+      --project | --project=*)
+        block_policy "GitHub Projects v2 operations are deferred to Phase B1b."
+        ;;
+      --editor | --web)
+        block_policy "interactive flows are not part of the autonomous lane."
+        ;;
+      --*)
+        block_policy "issue create flag ${arg} is not in the allowlist."
+        ;;
+      -*)
+        block_policy "issue create short flag ${arg} is not in the allowlist."
+        ;;
+      *)
+        block_policy "issue create must use flags, not positional argument ${arg}."
+        ;;
+    esac
+  done
+}
+
 enforce_issue_policy() {
   local subcommand="${1:-}"
   shift || true
@@ -438,12 +474,20 @@ enforce_issue_policy() {
     view | list | status)
       return 0
       ;;
+    create)
+      check_issue_create_flags "$@"
+      return 0
+      ;;
     edit)
       check_issue_edit_flags "$@"
       return 0
       ;;
-    create | comment | close | reopen | delete | lock | unlock | pin | unpin | transfer | develop)
-      block_policy "gh issue ${subcommand} is outside the current autonomous lane (Phase B1a allows list/view/edit only)."
+    comment)
+      check_pr_comment_flags "$@"
+      return 0
+      ;;
+    close | reopen | delete | lock | unlock | pin | unpin | transfer | develop)
+      block_policy "gh issue ${subcommand} is outside the autonomous lane."
       ;;
     *)
       block_policy "gh issue ${subcommand:-'(missing subcommand)'} is not in the allowlist."
