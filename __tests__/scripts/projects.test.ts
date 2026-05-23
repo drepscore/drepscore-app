@@ -6,12 +6,14 @@ import {
   findItemByIssueNumber,
   findOptionByName,
   groupItemsByStatus,
+  STATUS_FIELD_KEY,
   STATUS_FIELD_NAME,
 } from '@/scripts/lib/projects.mjs';
 
 describe('exports', () => {
   it('should export stable defaults', () => {
     expect(STATUS_FIELD_NAME).toBe('Status');
+    expect(STATUS_FIELD_KEY).toBe('status');
     expect(DEFAULT_PROJECT_OWNER).toBe('governada');
   });
 });
@@ -19,19 +21,19 @@ describe('exports', () => {
 describe('groupItemsByStatus', () => {
   it('should group items by their Status field value', () => {
     const items = [
-      { id: 'a', Status: 'Backlog' },
-      { id: 'b', Status: 'In Progress' },
-      { id: 'c', Status: 'Backlog' },
-      { id: 'd', Status: 'Done' },
+      { id: 'a', status: 'Backlog' },
+      { id: 'b', status: 'In progress' },
+      { id: 'c', status: 'Backlog' },
+      { id: 'd', status: 'Done' },
     ];
     const groups = groupItemsByStatus(items);
     expect(groups.get('Backlog')?.map((item: { id: string }) => item.id)).toEqual(['a', 'c']);
-    expect(groups.get('In Progress')?.map((item: { id: string }) => item.id)).toEqual(['b']);
+    expect(groups.get('In progress')?.map((item: { id: string }) => item.id)).toEqual(['b']);
     expect(groups.get('Done')?.map((item: { id: string }) => item.id)).toEqual(['d']);
   });
 
   it('should place items without a Status under "(no status)"', () => {
-    const items = [{ id: 'a' }, { id: 'b', Status: 'Done' }];
+    const items = [{ id: 'a' }, { id: 'b', status: 'Done' }];
     const groups = groupItemsByStatus(items);
     expect(groups.get('(no status)')?.map((item: { id: string }) => item.id)).toEqual(['a']);
     expect(groups.get('Done')?.map((item: { id: string }) => item.id)).toEqual(['b']);
@@ -43,9 +45,9 @@ describe('groupItemsByStatus', () => {
     expect(groupItemsByStatus(undefined).size).toBe(0);
   });
 
-  it('should accept a custom status field name', () => {
-    const items = [{ id: 'a', Priority: 'P1' }];
-    const groups = groupItemsByStatus(items, 'Priority');
+  it('should accept a custom status field key', () => {
+    const items = [{ id: 'a', priority: 'P1' }];
+    const groups = groupItemsByStatus(items, 'priority');
     expect(groups.get('P1')?.map((item: { id: string }) => item.id)).toEqual(['a']);
   });
 });
@@ -109,9 +111,9 @@ describe('findItemByIssueNumber', () => {
 describe('filterItemsByStatus', () => {
   it('should filter items to those matching a Status value', () => {
     const items = [
-      { id: 'a', Status: 'Backlog' },
-      { id: 'b', Status: 'In Progress' },
-      { id: 'c', Status: 'Backlog' },
+      { id: 'a', status: 'Backlog' },
+      { id: 'b', status: 'In progress' },
+      { id: 'c', status: 'Backlog' },
     ];
     expect(filterItemsByStatus(items, 'Backlog').map((item: { id: string }) => item.id)).toEqual([
       'a',
@@ -120,7 +122,7 @@ describe('filterItemsByStatus', () => {
   });
 
   it('should return an empty array when nothing matches', () => {
-    expect(filterItemsByStatus([{ Status: 'X' }], 'Y')).toEqual([]);
+    expect(filterItemsByStatus([{ status: 'X' }], 'Y')).toEqual([]);
     expect(filterItemsByStatus(null, 'Y')).toEqual([]);
   });
 });

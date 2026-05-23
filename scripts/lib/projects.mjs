@@ -5,16 +5,21 @@
 // See scripts/project.mjs (CLI) and brain/plans/horizon-2-backlog-and-merge-policy.md.
 
 export const DEFAULT_PROJECT_OWNER = 'governada';
-export const STATUS_FIELD_NAME = 'Status';
 
-// `gh project item-list --format json` returns items with custom-field values
-// as top-level keys named after the field (e.g. item.Status, item.Priority).
+// `gh project field-list --format json` returns fields with their display name
+// (e.g. `name: "Status"`). `gh project item-list --format json` returns each
+// item with custom-field values keyed by the lowercased field name (e.g.
+// `item.status`, `item.priority`). The two are NOT interchangeable — use
+// STATUS_FIELD_NAME when matching field-list entries, STATUS_FIELD_KEY when
+// reading values off an item.
+export const STATUS_FIELD_NAME = 'Status';
+export const STATUS_FIELD_KEY = 'status';
 
 // Map<statusName, item[]> from a flat items array.
-export function groupItemsByStatus(items, statusFieldName = STATUS_FIELD_NAME) {
+export function groupItemsByStatus(items, statusFieldKey = STATUS_FIELD_KEY) {
   const groups = new Map();
   for (const item of items || []) {
-    const status = (item && item[statusFieldName]) ?? '(no status)';
+    const status = (item && item[statusFieldKey]) ?? '(no status)';
     if (!groups.has(status)) {
       groups.set(status, []);
     }
@@ -47,6 +52,6 @@ export function findItemByIssueNumber(items, issueNumber) {
 }
 
 // Filter items to those whose Status value matches statusName.
-export function filterItemsByStatus(items, statusName, statusFieldName = STATUS_FIELD_NAME) {
-  return (items || []).filter((item) => item && item[statusFieldName] === statusName);
+export function filterItemsByStatus(items, statusName, statusFieldKey = STATUS_FIELD_KEY) {
+  return (items || []).filter((item) => item && item[statusFieldKey] === statusName);
 }

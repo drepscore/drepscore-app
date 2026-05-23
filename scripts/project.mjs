@@ -35,6 +35,7 @@ import {
   findItemByIssueNumber,
   findOptionByName,
   groupItemsByStatus,
+  STATUS_FIELD_KEY,
   STATUS_FIELD_NAME,
 } from './lib/projects.mjs';
 import { getScriptContext } from './lib/runtime.mjs';
@@ -185,7 +186,7 @@ async function fetchProjectId(runGh, options) {
 }
 
 function renderItem(item) {
-  const status = item?.[STATUS_FIELD_NAME] || '(no status)';
+  const status = item?.[STATUS_FIELD_KEY] || '(no status)';
   const ref = item?.content?.number ? `#${item.content.number}` : '(draft)';
   const title = item?.title || item?.content?.title || '(no title)';
   return `  ${ref}  [${status}]  ${title}`;
