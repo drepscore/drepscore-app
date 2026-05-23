@@ -74,8 +74,14 @@ export function sortByPriority(issues) {
   });
 }
 
-// Factory. Pass a `runGh` adapter for testability — `runGh(args)` must resolve
-// to parsed JSON when `args` includes `--json`, or the raw string otherwise.
+/**
+ * Factory. Pass a `runGh` adapter for testability — `runGh(args)` must resolve
+ * to parsed JSON when `args` includes `--json`, or the raw string otherwise.
+ *
+ * @param {object} [options]
+ * @param {(args: string[]) => Promise<any>} [options.runGh]
+ * @param {string} [options.repo]
+ */
 export function createGitHubBacklog({ runGh, repo = DEFAULT_REPO } = {}) {
   if (typeof runGh !== 'function') {
     throw new Error('createGitHubBacklog requires a runGh adapter.');
