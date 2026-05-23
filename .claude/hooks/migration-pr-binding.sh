@@ -78,7 +78,7 @@ except Exception:
 ' 2>/dev/null)
 
 case "$tool_name" in
-  mcp__supabase__apply_migration|mcp__supabase-staging__apply_migration) ;;
+  mcp__supabase*__apply_migration) ;;
   *) exit 0 ;;
 esac
 

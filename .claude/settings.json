@@ -16,6 +16,7 @@
       "mcp__linear__*",
       "mcp__supabase__*",
       "mcp__supabase-staging__*",
+      "mcp__supabase-sandbox__*",
       "mcp__supabase-account__list_organizations",
       "mcp__supabase-account__get_organization",
       "mcp__supabase-account__list_projects",
@@ -113,6 +114,15 @@
       },
       {
         "matcher": "mcp__supabase-staging__apply_migration",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/migration-pr-binding.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__supabase-sandbox__apply_migration",
         "hooks": [
           {
             "type": "command",
