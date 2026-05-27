@@ -40,7 +40,7 @@ absolute paths.
 - Never commit a secret. Use an `op://` reference in `.env.local.refs` and
   resolve at runtime via the agent runtime token.
 - Never re-add `.claude/settings.local.json` to git — that file's whole purpose
-  is to be the per-machine override Claude Code merges *on top of* the shared
+  is to be the per-machine override Claude Code merges _on top of_ the shared
   `settings.json`. Tracking it collapses the two layers.
 
 A boundary defect ships when a committed file holds a per-machine path or
