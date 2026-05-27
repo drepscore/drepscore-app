@@ -25,6 +25,7 @@ export default defineConfig({
           name: 'component',
           include: ['__tests__/**/*.test.tsx'],
           environment: 'jsdom',
+          setupFiles: ['./__tests__/setup/jsdom-webstorage.ts'],
         },
       },
     ],
