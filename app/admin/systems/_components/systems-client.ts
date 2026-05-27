@@ -21,6 +21,7 @@ import type {
   SystemsProvenanceStamp,
   SystemsQueueViewData,
   SystemsReviewDraft,
+  SystemsSelfHealViewData,
   SystemsSourcesViewData,
   SystemsStatus,
   SystemsTrustSurfaceReviewRecord,
@@ -99,6 +100,7 @@ export type SystemsWorkspaceDataMap = {
   incidents: SystemsIncidentsViewData;
   evidence: SystemsEvidenceViewData;
   sources: SystemsSourcesViewData;
+  'self-heal': SystemsSelfHealViewData;
   history: SystemsHistoryViewData;
 };
 
@@ -108,6 +110,7 @@ const SECTION_ENDPOINTS: Record<SystemsWorkspaceSection, string> = {
   incidents: '/api/admin/systems/incidents',
   evidence: '/api/admin/systems/evidence',
   sources: '/api/admin/systems/sources',
+  'self-heal': '/api/admin/systems/self-heal',
   history: '/api/admin/systems/history',
 };
 
@@ -652,6 +655,8 @@ export function workspaceTitle(section: SystemsWorkspaceSection) {
       return 'Evidence';
     case 'sources':
       return 'Source Health';
+    case 'self-heal':
+      return 'Self-Heal Playbook';
     default:
       return 'History';
   }
@@ -672,6 +677,8 @@ export function workspaceDescription(
       return 'Review the proof behind the current call: SLOs, journey verification, performance baselines, trust reviews, and scorecard drift.';
     case 'sources':
       return 'Watch Koios and Blockfrost per-endpoint health so vendor degradation is visible before it becomes user-facing drift.';
+    case 'self-heal':
+      return 'Audit the self-heal playbook: which classes fired, what action was taken, what escalated. The mitigation history behind every retrigger and quarantine.';
     default:
       return 'Audit the operating trail: reviews, automation runs, escalations, review drafts, and incident state transitions.';
   }

@@ -88,6 +88,7 @@ jobs:
       - run: npm run agent:validate
       - run: npm run format:check
       - run: npm run lint
+      - run: npm run lint:migrations
       - run: npm run type-check
 
   # Tests run in parallel with checks

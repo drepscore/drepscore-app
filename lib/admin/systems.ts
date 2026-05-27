@@ -1,4 +1,5 @@
 import type { SourceHealthSummary } from '@/lib/sourceHealth';
+import type { SelfHealClassName } from '@/lib/selfHeal/types';
 
 export type SystemsStatus = 'good' | 'warning' | 'critical' | 'bootstrap';
 export type SystemsConfidence = 'live' | 'partial' | 'manual' | 'bootstrap';
@@ -15,6 +16,7 @@ export type SystemsWorkspaceSection =
   | 'incidents'
   | 'evidence'
   | 'sources'
+  | 'self-heal'
   | 'history';
 export type SystemsProvenanceKind =
   | 'live_probe'
@@ -594,12 +596,40 @@ export interface SystemsSourcesViewData {
   windowMinutes: number;
 }
 
+export interface SelfHealActionRecord {
+  id: number;
+  class: SelfHealClassName;
+  signal: Record<string, unknown>;
+  action: string;
+  startedAt: string;
+  finishedAt: string | null;
+  success: boolean | null;
+  escalated: boolean;
+  detail: Record<string, unknown> | null;
+}
+
+export interface SelfHealClassStats {
+  class: SelfHealClassName;
+  last24h: number;
+  last7d: number;
+  successRate: number;
+  lastFiredAt: string | null;
+}
+
+export interface SystemsSelfHealViewData {
+  summary: SystemsWorkspaceSummary;
+  recentActions: SelfHealActionRecord[];
+  classStats: SelfHealClassStats[];
+  registeredClasses: SelfHealClassName[];
+}
+
 export const SYSTEMS_SECTION_HREFS: Record<SystemsWorkspaceSection, string> = {
   launch: '/admin/systems/launch',
   queue: '/admin/systems/queue',
   incidents: '/admin/systems/incidents',
   evidence: '/admin/systems/evidence',
   sources: '/admin/systems/sources',
+  'self-heal': '/admin/systems/self-heal',
   history: '/admin/systems/history',
 };
 

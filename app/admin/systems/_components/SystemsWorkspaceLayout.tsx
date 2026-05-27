@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   ClipboardList,
   History,
+  HeartPulse,
   RadioTower,
   Radar,
   ShieldAlert,
@@ -57,6 +58,13 @@ const NAV_ITEMS: Array<{
     summary: 'Koios and Blockfrost endpoint health',
   },
   {
+    section: 'self-heal',
+    label: 'Self-Heal',
+    href: '/admin/systems/self-heal',
+    icon: HeartPulse,
+    summary: 'Recovery classes, audit history, escalations',
+  },
+  {
     section: 'history',
     label: 'History',
     href: '/admin/systems/history',
@@ -86,7 +94,7 @@ export function SystemsWorkspaceLayout({ children }: { children: React.ReactNode
             </div>
           </div>
 
-          <nav aria-label="Systems workspace navigation" className="grid gap-2 md:grid-cols-6">
+          <nav aria-label="Systems workspace navigation" className="grid gap-2 md:grid-cols-7">
             {NAV_ITEMS.map((item) => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
