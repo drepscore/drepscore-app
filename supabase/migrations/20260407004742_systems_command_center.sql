@@ -259,17 +259,17 @@ CREATE INDEX IF NOT EXISTS idx_systems_commitments_linked_incident
 DROP TRIGGER IF EXISTS set_systems_incidents_updated_at ON systems_incidents;
 CREATE TRIGGER set_systems_incidents_updated_at
   BEFORE UPDATE ON systems_incidents
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 DROP TRIGGER IF EXISTS set_systems_commitments_updated_at ON systems_commitments;
 CREATE TRIGGER set_systems_commitments_updated_at
   BEFORE UPDATE ON systems_commitments
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 DROP TRIGGER IF EXISTS set_systems_automation_followups_updated_at ON systems_automation_followups;
 CREATE TRIGGER set_systems_automation_followups_updated_at
   BEFORE UPDATE ON systems_automation_followups
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 ALTER TABLE systems_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE systems_commitments ENABLE ROW LEVEL SECURITY;

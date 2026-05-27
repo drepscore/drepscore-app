@@ -1,12 +1,13 @@
 /**
- * Sync Freshness Guard — rapid self-healing cron.
- * Runs every 30 min, checks v_sync_health for stale syncs, and retriggers them
- * via Inngest events (durable, no HTTP round-trip vulnerability).
+ * Sync Freshness Guard — orchestrates self-heal classes + sync_log hygiene.
+ *
+ * Phase 2 slice 0 lifts the historical stale-sync recovery loop into the
+ * `stale_sync` class via the walker. The cleanups + epoch-gap path stay
+ * inline; slice 3 moves epoch-gap into the `snapshot_gap` class.
  */
 
 import { inngest } from '@/lib/inngest';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { getSyncPolicy, SYNC_POLICY } from '@/lib/syncPolicy';
 import {
   alertDiscord,
   alertCritical,
@@ -16,6 +17,7 @@ import {
 } from '@/lib/sync-utils';
 import { logger } from '@/lib/logger';
 import { withCronMonitor } from '@/lib/sentry-cron';
+import { runSelfHealWalker } from '@/lib/selfHeal/walker';
 
 const RECENT_FAILURE_WINDOW_MS = 15 * 60 * 1000;
 const GHOST_THRESHOLD_MS = 30 * 60 * 1000;
@@ -147,44 +149,10 @@ export const syncFreshnessGuard = inngest.createFunction(
         return count ?? 0;
       });
 
-      const staleTypes = await step.run('check-freshness', async () => {
-        const supabase = getSupabaseAdmin();
-        const { data: rows } = await supabase.from('v_sync_health').select('*');
-        if (!rows) return [];
-
-        const now = Date.now();
-        const stale: { syncType: string; staleMins: number; event: string }[] = [];
-        const seenTypes = new Set<string>();
-
-        for (const row of rows) {
-          seenTypes.add(row.sync_type);
-          const config = getSyncPolicy(row.sync_type);
-          if (!config.event) continue;
-          if (!row.last_run) {
-            stale.push({ syncType: row.sync_type, staleMins: Infinity, event: config.event });
-            continue;
-          }
-
-          const staleMins = Math.round((now - new Date(row.last_run).getTime()) / 60_000);
-          if (staleMins > config.retriggerAfterMinutes) {
-            stale.push({ syncType: row.sync_type, staleMins, event: config.event });
-          }
-        }
-
-        // ── "Never ran" detection ──
-        // Sync types in the canonical sync policy but completely absent from v_sync_health
-        // have never produced a sync_log entry — likely a registration or trigger failure.
-        for (const [syncType, config] of Object.entries(SYNC_POLICY)) {
-          if (!config.event || seenTypes.has(syncType)) continue;
-          stale.push({ syncType, staleMins: Infinity, event: config.event });
-        }
-
-        return stale;
-      });
-
-      // ── Epoch-gap detection for snapshot tables ──
-      // Catches cases where the daily GHI/treasury sync ran before an epoch boundary,
-      // leaving the new epoch without a snapshot until the next scheduled run.
+      // ── Epoch-gap detection for snapshot tables (slice 3 moves this into the
+      // snapshot_gap self-heal class). Catches cases where the daily GHI /
+      // treasury sync ran before an epoch boundary, leaving the new epoch
+      // without a snapshot until the next scheduled run.
       const epochGaps = await step.run('check-epoch-gaps', async () => {
         const supabase = getSupabaseAdmin();
         const { data: stats } = await supabase
@@ -290,75 +258,33 @@ export const syncFreshnessGuard = inngest.createFunction(
         });
       }
 
-      if (staleTypes.length === 0 && epochGaps.length === 0) {
-        await step.run('heartbeat-freshness-guard', () =>
-          pingHeartbeat('HEARTBEAT_URL_FRESHNESS_GUARD'),
-        );
-        return { recovered: 0, message: 'All syncs fresh' };
-      }
-
-      for (const { syncType, staleMins, event } of staleTypes) {
-        const recovered = await step.run(`recover-${syncType}`, async () => {
-          const supabase = getSupabaseAdmin();
-
-          const { data: recentFail } = await supabase
-            .from('sync_log')
-            .select('id')
-            .eq('sync_type', syncType)
-            .eq('success', false)
-            .gte('started_at', new Date(Date.now() - RECENT_FAILURE_WINDOW_MS).toISOString())
-            .limit(1)
-            .single();
-
-          if (recentFail) {
-            logger.info('[FreshnessGuard] Skipping — recent failure within 15m', { syncType });
-            return null;
-          }
-
-          const { count: recentTriggerCount } = await supabase
-            .from('sync_log')
-            .select('id', { count: 'exact', head: true })
-            .eq('sync_type', syncType)
-            .gte('started_at', new Date(Date.now() - SELF_HEAL_WINDOW_MS).toISOString());
-
-          if ((recentTriggerCount ?? 0) >= SELF_HEAL_MAX_TRIGGERS) {
-            logger.info('[FreshnessGuard] Throttling — too many recent runs', {
-              syncType,
-              recentTriggerCount,
-              max: SELF_HEAL_MAX_TRIGGERS,
-            });
-            await alertCritical(
-              `Self-Heal Throttled: ${syncType}`,
-              `${recentTriggerCount} runs in last 2h but still stale (${staleMins}m). Possible persistent failure — needs manual investigation.`,
-            );
-            return null;
-          }
-
-          logger.info('[FreshnessGuard] Retriggering stale sync via Inngest event', {
-            syncType,
-            staleMins,
-          });
-          await inngest.send({ name: event });
-
-          emitPostHog(true, syncType as SyncType, 0, {
-            event_override: 'sync_self_healed',
-            staleness_minutes: staleMins,
-          });
-          await alertDiscord(
-            `Self-Healed: ${syncType}`,
-            `Sync was ${staleMins}m stale. Retriggered via freshness guard (Inngest event).`,
-          );
-          return { syncType, staleMins };
-        });
-
-        if (recovered) {
-          recoveries.push(`${recovered.syncType}: ${recovered.staleMins}m stale`);
+      // ── Self-heal walker (slice 0 registers `stale_sync` only). Each class
+      // is responsible for its own step.run boundaries; the walker isolates
+      // failures so one class can't break the others. Inngest's step.run
+      // returns `Promise<Jsonify<T>>`; our class signatures treat it as
+      // `Promise<T>` since the values we step.run with are plain JSON-clean
+      // shapes, so the cast is safe.
+      const walkerResults = await runSelfHealWalker({
+        step: step as unknown as import('@/lib/selfHeal/types').SelfHealStep,
+      });
+      for (const result of walkerResults) {
+        for (const detail of result.details) {
+          recoveries.push(detail);
         }
       }
 
       await step.run('heartbeat-freshness-guard', () =>
         pingHeartbeat('HEARTBEAT_URL_FRESHNESS_GUARD'),
       );
-      return { recovered: recoveries.length, details: recoveries };
+
+      return {
+        recovered: recoveries.length,
+        details: recoveries,
+        walker: walkerResults.map((r) => ({
+          class: r.className,
+          actions: r.actions,
+          error: r.error,
+        })),
+      };
     }),
 );
