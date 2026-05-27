@@ -1,8 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const supabaseMocks = vi.hoisted(() => ({
+  getSupabaseAdminMock: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase', () => ({
+  getSupabaseAdmin: () => supabaseMocks.getSupabaseAdminMock(),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
 import {
   ALERT_SUPPRESSIONS,
   effectiveStatusAfterSuppression,
   isSuppressed,
+  loadQuarantinedMetrics,
   partitionMismatches,
 } from '@/lib/reconciliation/alert-suppressions';
 import type { CheckResult } from '@/lib/reconciliation/types';
@@ -61,6 +75,10 @@ describe('alert-suppressions', () => {
     it('returns false for an unknown metric', () => {
       expect(isSuppressed('Some Brand New Metric')).toBe(false);
     });
+
+    it('returns true for a dynamically quarantined metric', () => {
+      expect(isSuppressed('Foo', undefined, new Set(['Foo']))).toBe(true);
+    });
   });
 
   describe('partitionMismatches', () => {
@@ -97,6 +115,20 @@ describe('alert-suppressions', () => {
       expect(surfaced).toHaveLength(0);
       expect(suppressed).toHaveLength(1);
     });
+
+    it('suppresses dynamically quarantined metrics outside the static catalog', () => {
+      const mismatches = [mismatch('Foo'), mismatch('Total proposals')];
+      const { surfaced, suppressed } = partitionMismatches(mismatches, undefined, new Set(['Foo']));
+      expect(surfaced.map((m) => m.metric)).toEqual(['Total proposals']);
+      expect(suppressed.map((m) => m.metric)).toEqual(['Foo']);
+    });
+
+    it('keeps static-only behavior when no dynamic quarantines are passed', () => {
+      const mismatches = [mismatch('Foo'), mismatch('Total registered DReps')];
+      const { surfaced, suppressed } = partitionMismatches(mismatches);
+      expect(surfaced.map((m) => m.metric)).toEqual(['Foo']);
+      expect(suppressed.map((m) => m.metric)).toEqual(['Total registered DReps']);
+    });
   });
 
   describe('effectiveStatusAfterSuppression', () => {
@@ -120,6 +152,95 @@ describe('alert-suppressions', () => {
       expect(effectiveStatusAfterSuppression([{ status: 'drift' }, { status: 'mismatch' }])).toBe(
         'mismatch',
       );
+    });
+  });
+
+  describe('loadQuarantinedMetrics', () => {
+    interface QuarantineRow {
+      metric: string;
+      expires_at: string | null;
+    }
+
+    function makeSupabase(rows: QuarantineRow[]) {
+      const captured = { orFilter: '' as string };
+      const client = {
+        from(table: string) {
+          if (table !== 'quarantined_metrics') {
+            throw new Error(`Unexpected table: ${table}`);
+          }
+          return {
+            select: vi.fn().mockReturnValue({
+              or: vi.fn((filter: string) => {
+                captured.orFilter = filter;
+                // The real Supabase client applies the .or() filter
+                // server-side. We honor it here so the test exercises the
+                // intent of the query, not just the call shape.
+                const now = Date.now();
+                const filtered = rows.filter((r) => {
+                  if (r.expires_at === null) return true;
+                  return new Date(r.expires_at).getTime() > now;
+                });
+                return Promise.resolve({
+                  data: filtered.map((r) => ({ metric: r.metric })),
+                  error: null,
+                });
+              }),
+            }),
+          };
+        },
+      };
+      return { captured, client };
+    }
+
+    beforeEach(() => {
+      supabaseMocks.getSupabaseAdminMock.mockReset();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('returns only metrics whose expires_at is null or in the future', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-05-27T12:00:00Z'));
+
+      const { client, captured } = makeSupabase([
+        { metric: 'active-with-expiry', expires_at: '2026-06-03T12:00:00.000Z' },
+        { metric: 'active-no-expiry', expires_at: null },
+        { metric: 'expired-yesterday', expires_at: '2026-05-26T12:00:00.000Z' },
+        { metric: 'expired-just-now', expires_at: '2026-05-27T11:59:59.000Z' },
+      ]);
+      supabaseMocks.getSupabaseAdminMock.mockReturnValue(client);
+
+      const result = await loadQuarantinedMetrics();
+      expect(Array.from(result).sort()).toEqual(['active-no-expiry', 'active-with-expiry']);
+      // Sanity-check the actual filter string the production code sends to
+      // Supabase — guarding the postgrest expression catches future regressions.
+      expect(captured.orFilter).toContain('expires_at.is.null');
+      expect(captured.orFilter).toContain('expires_at.gt.2026-05-27T12:00:00.000Z');
+    });
+
+    it('returns an empty set when the supabase call errors', async () => {
+      const client = {
+        from() {
+          return {
+            select: vi.fn().mockReturnValue({
+              or: vi.fn(async () => ({ data: null, error: { message: 'boom' } })),
+            }),
+          };
+        },
+      };
+      supabaseMocks.getSupabaseAdminMock.mockReturnValue(client);
+      const result = await loadQuarantinedMetrics();
+      expect(result.size).toBe(0);
+    });
+
+    it('returns an empty set when getSupabaseAdmin throws', async () => {
+      supabaseMocks.getSupabaseAdminMock.mockImplementation(() => {
+        throw new Error('admin client init failed');
+      });
+      const result = await loadQuarantinedMetrics();
+      expect(result.size).toBe(0);
     });
   });
 

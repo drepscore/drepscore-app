@@ -17,6 +17,7 @@ import { isAvailable } from '@/lib/reconciliation/blockfrost';
 import { buildReconciliationSyncLogEntry } from '@/lib/reconciliation/sync-log';
 import {
   effectiveStatusAfterSuppression,
+  loadQuarantinedMetrics,
   partitionMismatches,
 } from '@/lib/reconciliation/alert-suppressions';
 
@@ -50,7 +51,15 @@ export const reconcileData = inngest.createFunction(
       return runReconciliation({ tier1: false, tier2: true });
     });
 
-    const { surfaced, suppressed } = partitionMismatches(report.mismatches);
+    const quarantinedMetrics = await step.run('load-quarantines', async () => {
+      return Array.from(await loadQuarantinedMetrics());
+    });
+    const dynamicQuarantines = new Set(quarantinedMetrics);
+    const { surfaced, suppressed } = partitionMismatches(
+      report.mismatches,
+      undefined,
+      dynamicQuarantines,
+    );
     const effectiveStatus = effectiveStatusAfterSuppression(surfaced);
 
     // Step 3: Store results
