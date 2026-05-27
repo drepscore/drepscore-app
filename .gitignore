@@ -103,6 +103,7 @@ PR_BODY*.md
 .claude/infra-snapshots/
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+.claude/settings.local.json
 /.gh-cache/
 /.codex-*
 /.codex-next-start.*
