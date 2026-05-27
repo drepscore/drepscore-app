@@ -1,10 +1,15 @@
 /**
  * Self-heal class registry.
  *
- * Phase 2 ships slice-by-slice; each slice adds one entry below. Slice 0
- * registers `stale_sync` only — behavior-preserving extraction of the
- * historical freshness-guard body. Future slices append:
- *   - `persistent_mismatch` (slice 1)
+ * Phase 2 ships slice-by-slice; each slice adds one entry below. Shipped:
+ *   - `stale_sync`           (slice 0) - behavior-preserving extraction
+ *                                       of the historical freshness-guard
+ *                                       body.
+ *   - `persistent_mismatch`  (slice 1) - auto-quarantines metrics with
+ *                                       3+ consecutive mismatches spanning
+ *                                       at least 30 min.
+ *
+ * Future slices append:
  *   - `vendor_degraded`     (slice 2)
  *   - `snapshot_gap`        (slice 3)
  *   - `schema_drift`        (slice 4)
@@ -15,10 +20,14 @@
  * without its test.
  */
 
+import { persistentMismatchClass } from './classes/persistentMismatch';
 import { staleSyncClass } from './classes/staleSync';
 import type { SelfHealClass } from './types';
 
-export const SELF_HEAL_REGISTRY: ReadonlyArray<SelfHealClass> = [staleSyncClass];
+export const SELF_HEAL_REGISTRY: ReadonlyArray<SelfHealClass> = [
+  staleSyncClass,
+  persistentMismatchClass,
+];
 
 export function findSelfHealClass(name: string): SelfHealClass | undefined {
   return SELF_HEAL_REGISTRY.find((cls) => cls.className === name);

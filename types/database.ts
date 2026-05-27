@@ -5418,6 +5418,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      quarantined_metrics: {
+        Row: {
+          consecutive_count: number;
+          expires_at: string | null;
+          last_seen_at: string;
+          metric: string;
+          quarantined_at: string;
+          reason: string;
+          source: string;
+          surfaced_to_users: boolean;
+        };
+        Insert: {
+          consecutive_count?: number;
+          expires_at?: string | null;
+          last_seen_at?: string;
+          metric: string;
+          quarantined_at?: string;
+          reason: string;
+          source?: string;
+          surfaced_to_users?: boolean;
+        };
+        Update: {
+          consecutive_count?: number;
+          expires_at?: string | null;
+          last_seen_at?: string;
+          metric?: string;
+          quarantined_at?: string;
+          reason?: string;
+          source?: string;
+          surfaced_to_users?: boolean;
+        };
+        Relationships: [];
+      };
       rationale_documents: {
         Row: {
           content_hash: string;

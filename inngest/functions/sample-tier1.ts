@@ -14,6 +14,7 @@ import { isAvailable } from '@/lib/reconciliation/blockfrost';
 import { buildReconciliationSyncLogEntry } from '@/lib/reconciliation/sync-log';
 import {
   effectiveStatusAfterSuppression,
+  loadQuarantinedMetrics,
   partitionMismatches,
 } from '@/lib/reconciliation/alert-suppressions';
 
@@ -45,7 +46,15 @@ export const sampleTier1 = inngest.createFunction(
       return runReconciliation({ tier1: true, tier2: false });
     });
 
-    const { surfaced, suppressed } = partitionMismatches(report.mismatches);
+    const quarantinedMetrics = await step.run('load-quarantines', async () => {
+      return Array.from(await loadQuarantinedMetrics());
+    });
+    const dynamicQuarantines = new Set(quarantinedMetrics);
+    const { surfaced, suppressed } = partitionMismatches(
+      report.mismatches,
+      undefined,
+      dynamicQuarantines,
+    );
     const effectiveStatus = effectiveStatusAfterSuppression(surfaced);
 
     await step.run('store-results', async () => {
@@ -113,8 +122,11 @@ export const sampleTier1 = inngest.createFunction(
 
     return {
       overallStatus: report.overallStatus,
+      effectiveStatus,
       checks: report.results.length,
       mismatches: report.mismatches.length,
+      surfacedMismatches: surfaced.length,
+      suppressedMismatches: suppressed.length,
       durationMs: report.durationMs,
       tierScope: 'tier1_sample',
     };

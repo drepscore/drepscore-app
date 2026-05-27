@@ -6,6 +6,12 @@
 
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getFeatureFlag } from '@/lib/featureFlags';
+import {
+  effectiveStatusAfterSuppression,
+  loadQuarantinedMetrics,
+  partitionMismatches,
+} from '@/lib/reconciliation/alert-suppressions';
+import type { CheckResult } from '@/lib/reconciliation/types';
 import { calibrate, CALIBRATION } from './calibration';
 import {
   computeDRepParticipation,
@@ -109,6 +115,8 @@ export interface GHIComputeResult extends GHIResult {
       mismatchCount: number;
       checkedAt: string;
     };
+    /** Metrics currently quarantined by persistent_mismatch self-heal */
+    quarantinedMetrics?: string[];
   };
 }
 
@@ -119,24 +127,32 @@ export async function computeGHI(): Promise<GHIComputeResult> {
   // If a mismatch was detected in the last 4 hours, flag it in meta
   let crossReferenceAlert: { status: string; mismatchCount: number; checkedAt: string } | undefined;
   const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-  const { data: reconcStatus } = await supabase
-    .from('reconciliation_log')
-    .select('overall_status, mismatches, checked_at')
-    .gte('checked_at', fourHoursAgo)
-    .eq('overall_status', 'mismatch')
-    .order('checked_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [dynamicQuarantines, { data: reconcStatus }] = await Promise.all([
+    loadQuarantinedMetrics(),
+    supabase
+      .from('reconciliation_log')
+      .select('overall_status, mismatches, checked_at')
+      .gte('checked_at', fourHoursAgo)
+      .eq('overall_status', 'mismatch')
+      .order('checked_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   if (reconcStatus) {
-    const mismatchCount = Array.isArray(reconcStatus.mismatches)
-      ? reconcStatus.mismatches.length
-      : 0;
-    crossReferenceAlert = {
-      status: reconcStatus.overall_status,
-      mismatchCount,
-      checkedAt: reconcStatus.checked_at,
-    };
+    const mismatches = Array.isArray(reconcStatus.mismatches)
+      ? (reconcStatus.mismatches as CheckResult[])
+      : [];
+    const { surfaced } = partitionMismatches(mismatches, undefined, dynamicQuarantines);
+    const effectiveStatus = effectiveStatusAfterSuppression(surfaced);
+
+    if (effectiveStatus !== 'match') {
+      crossReferenceAlert = {
+        status: effectiveStatus,
+        mismatchCount: surfaced.length,
+        checkedAt: reconcStatus.checked_at,
+      };
+    }
   }
 
   // Get current epoch
@@ -247,6 +263,9 @@ export async function computeGHI(): Promise<GHIComputeResult> {
       governanceOutcomesEnabled: governanceOutcomesHasData,
       ...(staleComponents.length > 0 ? { staleComponents } : {}),
       ...(crossReferenceAlert ? { crossReferenceAlert } : {}),
+      ...(dynamicQuarantines.size > 0
+        ? { quarantinedMetrics: Array.from(dynamicQuarantines).sort() }
+        : {}),
     },
   };
 }
