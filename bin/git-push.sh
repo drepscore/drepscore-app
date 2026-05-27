@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ADDENDUM='[[decisions/lean-agent-harness#addendum-4-2026-05-05--pivot-from-user-pat-to-github-app-for-autonomous-agent-operations]]'
-DEFAULT_AGENT_RUNTIME_FILE='/Users/tim/dev/agent-runtime/env/governada-agent.env'
+DEFAULT_AGENT_RUNTIME_FILE="${HOME}/dev/agent-runtime/env/governada-agent.env"
 
 redact() {
   sed -E \
