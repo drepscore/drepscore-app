@@ -3,6 +3,7 @@
 Slim shipped/not-shipped checklist consolidated from `docs/archive/strategy-context/build-manifest.md`.
 
 Last auth-harness verification: 2026-04-30.
+Last code reconciliation of not-shipped statuses: 2026-06-09.
 
 ## Shipped
 
@@ -47,30 +48,34 @@ Last auth-harness verification: 2026-04-30.
 
 ## Not Shipped
 
+State tags from the 2026-06-09 code reconciliation: `greenfield` = no meaningful code; `scaffold` = components or events exist but no pipeline or mount; `half-built` = substantial code with wiring or depth missing; `built-unwired` = complete, needs only a mount, route, or flag flip.
+
 ### Phase 1 Remaining
 
-- [ ] `/you/inbox` notification pipeline wired to real governance events.
-- [ ] Dual-role sidebar expansion for DRep+SPO users.
+- [ ] `/you/inbox` notification pipeline wired to real governance events — **built-unwired**. `components/notifications/InboxFeed.tsx` is complete but imported nowhere; `check-notifications` (Inngest) and `/api/you/notifications` already produce and serve real events; the header bell shows unread counts. Remaining work is a route and a mount.
+- [ ] Dual-role sidebar expansion for DRep+SPO users — **half-built**. An admin-gated two-step dual-role picker exists in `GovernadaHeader`; workspace nav is not SPO-differentiated and SPO workspace sub-pages redirect away.
 
-### Phase 2 Not Started: Living Platform
+### Phase 2 Partially Built: Living Platform
 
-- [ ] Hub and entity-page engagement prompts.
-- [ ] Anonymous engagement glass window and conversion loop.
-- [ ] Citizen sentiment surfaced in DRep Workspace.
-- [ ] Governance Impact Score and milestone system.
-- [ ] Enhanced civic identity and governance resume.
-- [ ] Milestone, profile, and governance-stat share cards.
-- [ ] Claim-profile flows for DReps and SPOs.
-- [ ] Delegator intelligence and representative sharing toolkit.
+- [ ] Hub and entity-page engagement prompts — **half-built**. Engagement components are mounted in the proposal page community-signals zone, backed by 19 routes under `/api/engagement/`; Hub and DRep-page prompt coverage is incomplete.
+- [ ] Anonymous engagement glass window and conversion loop — **scaffold**. `IntentWalletPrompt` and typed funnel events exist but are unmounted; no progressive-reveal pattern exists.
+- [ ] Citizen sentiment surfaced in DRep Workspace — **scaffold**. `DelegatorSentimentSection` exists; `/api/workspace/delegator-intelligence` is an 18-line stub; `/workspace/delegators` redirects away.
+- [ ] Governance Impact Score and milestone system — **half-built**. `lib/citizenImpactScore.ts`, `lib/citizenMilestones.ts`, `lib/milestones.ts`, `/api/you/impact-score`, and milestone awarding in `check-notifications` all exist; the scorecard UI is thin.
+- [ ] Enhanced civic identity and governance resume — **half-built**. `CivicIdentityProfile` renders at `/you`; passport/footprint libs and OG images are live; depth and share wiring remain.
+- [ ] Milestone, profile, and governance-stat share cards — **built-unwired**. 36 OG image routes plus share-card components exist; remaining work is CTA coverage and social-crawler QA.
+- [ ] Claim-profile flows for DReps and SPOs — **half-built**. The DRep claim route and API are substantive; SPO claim components exist with no route.
+- [ ] Delegator intelligence and representative sharing toolkit — **half-built**. Components exist (`DelegatorIntelligence`, `DelegatorShareCard`, trend charts); the API stub is 18 lines; no live workspace tab.
 
-### Phase 3 Not Started: Growth Engine
+### Phase 3 Partially Built: Growth Engine
 
-- [ ] Anonymous conversion funnel instrumentation and SEO foundation.
-- [ ] Epoch-boundary digest and email opt-in.
-- [ ] Alert system and real `/you/inbox` events.
-- [ ] Return-loop "what changed" summaries.
-- [ ] Community intelligence surfaces: Citizen Mandate, Sentiment Divergence, State of Governance, Governance Temperature.
-- [ ] Mobile launch audit, performance optimization, load testing, edge-case polish, legal/privacy baseline.
+- [ ] Anonymous conversion funnel instrumentation and SEO foundation — **half-built**. Typed funnel/onboarding events in `lib/funnel.ts`, ~440 capture/track call sites, sitemap and robots present; no funnel dashboard configuration or SEO audit.
+- [ ] Epoch-boundary digest and email opt-in — **built-unwired**. `emails/EpochDigest.tsx`, the `notify-epoch-recap` Inngest function, prefs, verification, and unsubscribe are complete; gated off by the `governance_wrapped` flag.
+- [ ] Alert system and real `/you/inbox` events — **half-built**. `check-notifications.ts` writes real milestone/proposal/DRep events; the only missing surface is the unmounted inbox (see Phase 1).
+- [ ] Return-loop "what changed" summaries — **built-unwired**. `/api/you/what-changed` is implemented and `components/hub/WhatChanged.tsx` exists; mounted nowhere.
+- [ ] Community intelligence surfaces — **half-built**. All four components plus their compute Inngest functions exist; State of Governance and Governance Temperature are mounted; Citizen Mandate and Sentiment Divergence are not.
+- [ ] Mobile launch audit and edge-case polish — **greenfield**. One mobile-specific test; no viewport or Lighthouse tooling.
+- [ ] Performance optimization and load testing — **scaffold**. Four k6 scenarios in `tests/load/scenarios/` (manual, no thresholds) and a CI bundle budget; no Lighthouse CI or perf baselines.
+- [ ] Legal/privacy baseline — **half-built**. Real `/privacy` and `/terms` pages exist; needs a legal review pass.
 
 ### Post-Launch
 
@@ -81,6 +86,6 @@ Last auth-harness verification: 2026-04-30.
 ## Launch Posture
 
 - Foundation is complete.
-- Phase 1 is mostly complete, but notifications and dual-role navigation remain open.
-- Phase 2 and Phase 3 are the public-launch product, not optional polish.
-- Public launch waits until Phase 3 closes.
+- Phase 1 is mostly complete; both remaining items are wiring, not new builds.
+- Phase 2 and Phase 3 are the public-launch product, not optional polish. The 2026-06-09 reconciliation found most items half-built or built-unwired; the truly greenfield work is the glass-window conversion loop, the citizen-sentiment pipeline, SPO workspace depth, and mobile/perf audit tooling.
+- Public launch waits until Phase 3 closes and the launch bars behind the roadmap's open questions are defined.
