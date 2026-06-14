@@ -131,6 +131,23 @@ describe('getGovernanceHighlights', () => {
     ]);
   });
 
+  it('drops the contested-vote link when only a truncated display hash is available', async () => {
+    // Text line carries the 12-char display hash; no structured showControversy id.
+    executeShowControversyMock.mockResolvedValue({
+      result:
+        '**Most controversial proposals** (DRep vs SPO voting split):\n1. "Treasury guardrails" — DReps 82% yes, SPOs 34% yes | abcdef123456#2',
+      globeCommands: [],
+    });
+
+    const highlights = await getGovernanceHighlights();
+
+    const contested = highlights.find((highlight) => highlight.id === 'contested-vote');
+    // Degrades to the safe fallback card rather than emitting a broken /proposal/<short-hash> link.
+    expect(contested?.label).toBe('Hottest vote: checking live splits');
+    expect(contested?.href).toBe('/governance/proposals');
+    expect(contested?.href).not.toContain('abcdef123456');
+  });
+
   it('degrades to newcomer-safe highlight labels when sources fail', async () => {
     getCitizenSentimentOpportunitiesMock.mockRejectedValue(new Error('proposal read failed'));
     getAllDRepsMock.mockRejectedValue(new Error('drep read failed'));

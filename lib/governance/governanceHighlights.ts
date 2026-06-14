@@ -29,6 +29,9 @@ const GOVERNANCE_HIGHLIGHTS_CACHE_KEY = 'governance-highlights:anon';
 const GOVERNANCE_HIGHLIGHTS_TTL_SECONDS = 300;
 
 export async function getGovernanceHighlights(now = new Date()): Promise<GovernanceHighlight[]> {
+  // Cached under a single static key for all anonymous visitors (5-min TTL). `now` flows
+  // to the proposal read for forward-compatibility but does NOT vary the cache key — callers
+  // within the TTL window share one result, so `now` is not a per-request freshness lever.
   try {
     return await cached(GOVERNANCE_HIGHLIGHTS_CACHE_KEY, GOVERNANCE_HIGHLIGHTS_TTL_SECONDS, () =>
       getGovernanceHighlightsUncached(now),
@@ -188,13 +191,26 @@ function parseControversyResult(
 
   const proposalIndex = Number.parseInt(match[3], 10);
   if (!Number.isFinite(proposalIndex)) return null;
+
+  // The "1. ..." text line only carries a truncated display hash (hash.slice(0, 12)),
+  // which would build a broken /proposal/<short-hash> link. Trust the structured
+  // showControversy globe-command id (a full tx hash); fall back to the text hash only
+  // if it is itself a full 64-char tx hash. Otherwise return null so the contested-vote
+  // card degrades to its safe fallback instead of emitting a dead link.
   const fullProposalRef = getControversyProposalRef(globeCommands);
+  const textHash = match[2];
+  const txHash = fullProposalRef?.txHash ?? (isFullTxHash(textHash) ? textHash : null);
+  if (!txHash) return null;
 
   return {
     title: match[1],
-    txHash: fullProposalRef?.txHash ?? match[2],
+    txHash,
     proposalIndex: fullProposalRef?.proposalIndex ?? proposalIndex,
   };
+}
+
+function isFullTxHash(value: string): boolean {
+  return /^[0-9a-f]{64}$/iu.test(value);
 }
 
 function getControversyProposalRef(
