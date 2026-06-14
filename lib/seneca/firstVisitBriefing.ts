@@ -1,7 +1,7 @@
 import type { UserCinematicContext } from '@/types/cinematic';
 import { logSenecaOutput, type SenecaOutputLogger } from '@/lib/seneca/outputLog';
 
-export type BriefingMoveId = 'name_what' | 'explain_position' | 'offer_paths';
+export type BriefingMoveId = 'opener';
 export type BriefingPathId = 'a' | 'b' | 'c';
 
 export interface BriefingMove {
@@ -14,6 +14,7 @@ export interface BriefingPath {
   label: string;
   action: 'conversation' | 'match';
   query: string;
+  globeHint?: string;
 }
 
 export interface BriefingPayload {
@@ -25,37 +26,35 @@ export interface BriefingPayload {
 
 export const FIRST_VISIT_BRIEFING_MOVES: readonly BriefingMove[] = [
   {
-    id: 'name_what',
-    text: "These are Cardano's representatives, its proposals, and the citizens who hold its currency. Together, they govern the network.",
-  },
-  {
-    id: 'explain_position',
-    text: 'Their place in the sky reflects how they govern — what they prioritize, what they protect.',
-  },
-  {
-    id: 'offer_paths',
-    text: "I can show you who's most active, find someone who fits your views, or explain what's being decided right now.",
+    id: 'opener',
+    text: "Cardano has a government — and if you hold ADA, you have a say in it. This is a live map of who's making the decisions. Where do you want to start?",
   },
 ];
 
 export const FIRST_VISIT_BRIEFING_PATHS: readonly BriefingPath[] = [
   {
     id: 'a',
-    label: "Show me who's most active.",
+    label: 'What am I looking at?',
     action: 'conversation',
-    query: "Show me who's most active.",
+    query:
+      'Explain this Cardano governance constellation in plain language and narrate what I am seeing on the globe: representatives, proposals, and citizens. Do not move or zoom the camera.',
+    globeHint: 'proposals',
   },
   {
     id: 'b',
-    label: 'Find someone who fits my views.',
-    action: 'match',
-    query: 'Find someone who fits my views.',
+    label: 'Why should I care?',
+    action: 'conversation',
+    query:
+      "Explain Cardano governance like I'm new here: my ADA is a vote, governance decides treasury spending, fees, and protocol changes, and those decisions affect the network I use.",
+    globeHint: 'treasury',
   },
   {
     id: 'c',
-    label: "Explain what's being decided right now.",
+    label: "Who's making decisions?",
     action: 'conversation',
-    query: "Explain what's being decided right now.",
+    query:
+      'Show me the most active DReps making governance decisions right now, explain why activity matters, and highlight them on the globe without zooming.',
+    globeHint: 'participation',
   },
 ];
 

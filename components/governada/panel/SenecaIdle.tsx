@@ -13,6 +13,7 @@ import type { PanelRoute } from '@/hooks/useSenecaThread';
 import { buildFirstVisitBriefing, logFirstVisitBriefing } from '@/lib/seneca/firstVisitBriefing';
 import type { BriefingPathId } from '@/lib/seneca/firstVisitBriefing';
 import { getEvergreenFallback, logEvergreenFallback } from '@/lib/seneca/evergreenFallbacks';
+import type { GovernanceHighlight } from '@/lib/governance/governanceHighlights';
 import { logSenecaOutput } from '@/lib/seneca/outputLog';
 import { cn } from '@/lib/utils';
 import type { UserSegment } from '@/components/providers/SegmentProvider';
@@ -177,6 +178,7 @@ export interface GuidedOption {
   query?: string;
   href?: string;
   path?: BriefingPathId;
+  globeHint?: string;
 }
 
 export function getAnonOptions(route: PanelRoute): GuidedOption[] {
@@ -357,10 +359,12 @@ export function IdleContent({
   cinematicAnchoredCards = [],
   cinematicReasoning,
   cinematicSegment = 'anonymous',
+  governanceHighlights = [],
   userContextIdentifier,
   panelOpen,
   canRecordLifecycle,
   onPrioritizationAction,
+  onGovernanceHighlight,
   accentColor,
 }: {
   panelRoute: PanelRoute;
@@ -374,10 +378,12 @@ export function IdleContent({
   cinematicAnchoredCards?: AnchoredCardDescriptor[];
   cinematicReasoning?: string;
   cinematicSegment?: UserSegment;
+  governanceHighlights?: GovernanceHighlight[];
   userContextIdentifier?: string | null;
   panelOpen?: boolean;
   canRecordLifecycle?: boolean;
   onPrioritizationAction?: (item: PrioritizedItem, action: 'acknowledge' | 'dismiss') => void;
+  onGovernanceHighlight?: (highlight: GovernanceHighlight) => void;
   accentColor?: string;
 }) {
   const prefersReducedMotion = useReducedMotion();
@@ -396,6 +402,8 @@ export function IdleContent({
     cinematicPrimary?.state === 'first_visit_anonymous'
       ? buildFirstVisitBriefing({ segment: cinematicSegment })
       : null;
+  const showGovernanceHighlights =
+    !isAuthenticated && firstVisitBriefing !== null && governanceHighlights.length > 0;
   const loggedIdleOutputKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -463,6 +471,7 @@ export function IdleContent({
                     action: path.action,
                     query: path.query,
                     path: path.id,
+                    globeHint: path.globeHint,
                   })
                 }
                 className={cn(
@@ -506,51 +515,59 @@ export function IdleContent({
         </>
       )}
 
-      {/* Quick actions (authenticated) or guided options (anonymous) */}
-      <motion.div
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25, duration: 0.2 }}
-        className="flex flex-wrap gap-1.5"
-      >
-        {isAuthenticated
-          ? quickActions.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => onQuickAction(action)}
-                className={cn(
-                  'px-3 py-1.5 rounded-full text-xs font-medium',
-                  'border border-white/[0.08] bg-white/[0.04]',
-                  'hover:bg-white/[0.08] hover:border-white/[0.12]',
-                  'text-zinc-100 hover:text-white',
-                  'transition-colors min-h-[32px]',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                )}
-              >
-                {action.label}
-              </button>
-            ))
-          : anonOptions.map((option) => (
-              <button
-                key={option.label}
-                type="button"
-                onClick={() => onAnonOption(option)}
-                className={cn(
-                  'px-3 py-1.5 rounded-full text-xs font-medium',
-                  'border border-white/[0.08] bg-white/[0.04]',
-                  'hover:bg-white/[0.08] hover:border-white/[0.12]',
-                  'text-zinc-100 hover:text-white',
-                  'transition-colors min-h-[32px]',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-      </motion.div>
+      {!firstVisitBriefing && (
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.2 }}
+          className="flex flex-wrap gap-1.5"
+        >
+          {isAuthenticated
+            ? quickActions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => onQuickAction(action)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-xs font-medium',
+                    'border border-white/[0.08] bg-white/[0.04]',
+                    'hover:bg-white/[0.08] hover:border-white/[0.12]',
+                    'text-zinc-100 hover:text-white',
+                    'transition-colors min-h-[32px]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  )}
+                >
+                  {action.label}
+                </button>
+              ))
+            : anonOptions.map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => onAnonOption(option)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-xs font-medium',
+                    'border border-white/[0.08] bg-white/[0.04]',
+                    'hover:bg-white/[0.08] hover:border-white/[0.12]',
+                    'text-zinc-100 hover:text-white',
+                    'transition-colors min-h-[32px]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+        </motion.div>
+      )}
 
-      {secondaryMentions.length > 0 && (
+      {showGovernanceHighlights && (
+        <GovernanceHighlightsSection
+          highlights={governanceHighlights}
+          onGovernanceHighlight={onGovernanceHighlight}
+        />
+      )}
+
+      {!showGovernanceHighlights && secondaryMentions.length > 0 && (
         <div className="space-y-2 border-t border-white/[0.06] pt-3">
           <p className="text-[10px] uppercase tracking-wide text-zinc-300">Still in view</p>
           {secondaryMentions.slice(0, secondaryLimit).map((item) => (
@@ -564,6 +581,42 @@ export function IdleContent({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function GovernanceHighlightsSection({
+  highlights,
+  onGovernanceHighlight,
+}: {
+  highlights: GovernanceHighlight[];
+  onGovernanceHighlight?: (highlight: GovernanceHighlight) => void;
+}) {
+  return (
+    <div className="space-y-2 border-t border-white/[0.08] pt-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-200">
+        Live governance
+      </p>
+      <div className="grid gap-2">
+        {highlights.map((highlight) => (
+          <button
+            key={highlight.id}
+            type="button"
+            onClick={() => onGovernanceHighlight?.(highlight)}
+            className={cn(
+              'w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-left',
+              'transition-colors hover:border-white/[0.16] hover:bg-white/[0.07]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+            )}
+            aria-label={`${highlight.label}: ${highlight.body}`}
+          >
+            <span className="block text-xs font-semibold text-zinc-50">{highlight.label}</span>
+            <span className="mt-1 block text-[11px] leading-relaxed text-zinc-200">
+              {highlight.body}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -625,20 +678,17 @@ function LifecycleActions({
   canRecordLifecycle?: boolean;
   onPrioritizationAction?: (item: PrioritizedItem, action: 'acknowledge' | 'dismiss') => void;
 }) {
-  if (item.acknowledged_at || item.dismissed_at) return null;
+  if (!canRecordLifecycle || item.acknowledged_at || item.dismissed_at) return null;
 
   return (
     <div className="mt-2 flex items-center gap-2">
       <button
         type="button"
-        disabled={!canRecordLifecycle}
         onClick={() => onPrioritizationAction?.(item, 'acknowledge')}
         className={cn(
           'inline-flex items-center gap-1 rounded-md px-2 py-1',
           'text-[11px] font-medium transition-colors',
-          canRecordLifecycle
-            ? 'bg-white/[0.08] text-foreground/75 hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-            : 'cursor-not-allowed bg-white/5 text-muted-foreground/35',
+          'bg-white/[0.08] text-foreground/85 hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
         )}
       >
         <Check className="h-3 w-3" />
@@ -646,14 +696,11 @@ function LifecycleActions({
       </button>
       <button
         type="button"
-        disabled={!canRecordLifecycle}
         onClick={() => onPrioritizationAction?.(item, 'dismiss')}
         className={cn(
           'inline-flex items-center gap-1 rounded-md px-2 py-1',
           'text-[11px] font-medium transition-colors',
-          canRecordLifecycle
-            ? 'text-muted-foreground/65 hover:bg-white/[0.08] hover:text-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-            : 'cursor-not-allowed text-muted-foreground/30',
+          'text-muted-foreground/80 hover:bg-white/[0.08] hover:text-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
         )}
       >
         <X className="h-3 w-3" />

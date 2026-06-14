@@ -12,6 +12,7 @@ const {
   getSupabaseAdminMock,
   getCinematicStateMock,
   getCitizenSentimentOpportunitiesMock,
+  getGovernanceHighlightsMock,
   getTier0TriggersMock,
   recordHomepageVisitMock,
   blockTimeToEpochMock,
@@ -40,14 +41,17 @@ const {
     ({
       queue,
       autoOpenFirstVisit,
+      governanceHighlights,
     }: {
       queue: { primary: { state: string } };
       autoOpenFirstVisit?: boolean;
+      governanceHighlights?: Array<{ id: string }>;
     }) => (
       <div
         data-testid="homepage-seneca-bridge"
         data-state={queue.primary.state}
         data-auto-open={String(autoOpenFirstVisit)}
+        data-highlights={String(governanceHighlights?.length ?? 0)}
       />
     ),
   ),
@@ -56,6 +60,7 @@ const {
   getSupabaseAdminMock: vi.fn(),
   getCinematicStateMock: vi.fn(),
   getCitizenSentimentOpportunitiesMock: vi.fn(),
+  getGovernanceHighlightsMock: vi.fn(),
   getTier0TriggersMock: vi.fn(),
   recordHomepageVisitMock: vi.fn(),
   blockTimeToEpochMock: vi.fn(),
@@ -109,6 +114,10 @@ vi.mock('@/lib/governance/sentimentOpportunities', () => ({
   getCitizenSentimentOpportunities: getCitizenSentimentOpportunitiesMock,
 }));
 
+vi.mock('@/lib/governance/governanceHighlights', () => ({
+  getGovernanceHighlights: getGovernanceHighlightsMock,
+}));
+
 vi.mock('@/lib/governance/tier0Triggers', () => ({
   getTier0Triggers: getTier0TriggersMock,
 }));
@@ -136,6 +145,7 @@ describe('HomePageShell', () => {
     getSupabaseAdminMock.mockClear();
     getCinematicStateMock.mockClear();
     getCitizenSentimentOpportunitiesMock.mockClear();
+    getGovernanceHighlightsMock.mockClear();
     getTier0TriggersMock.mockClear();
     recordHomepageVisitMock.mockClear();
     getValidatedSessionFromCookiesMock.mockResolvedValue(null);
@@ -149,6 +159,15 @@ describe('HomePageShell', () => {
     });
     getTier0TriggersMock.mockResolvedValue([]);
     getCitizenSentimentOpportunitiesMock.mockResolvedValue([]);
+    getGovernanceHighlightsMock.mockResolvedValue([
+      {
+        id: 'open-proposals',
+        kind: 'open_proposals',
+        label: '3 proposals open now',
+        body: 'Live governance highlight',
+        href: '/governance/proposals',
+      },
+    ]);
     recordHomepageVisitMock.mockResolvedValue({
       tracked: false,
       visitStarted: false,
@@ -199,6 +218,7 @@ describe('HomePageShell', () => {
     });
     expect(getTier0TriggersMock).toHaveBeenCalledWith(expect.any(Date));
     expect(getCitizenSentimentOpportunitiesMock).not.toHaveBeenCalled();
+    expect(getGovernanceHighlightsMock).toHaveBeenCalledWith(expect.any(Date));
     expect(getCinematicStateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         segment: 'anonymous',
@@ -216,6 +236,18 @@ describe('HomePageShell', () => {
     );
     expect(screen.getByTestId('homepage-seneca-bridge').getAttribute('data-auto-open')).toBe(
       'true',
+    );
+    expect(screen.getByTestId('homepage-seneca-bridge').getAttribute('data-highlights')).toBe('1');
+    expect(homepageSenecaBridgeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        governanceHighlights: [
+          expect.objectContaining({
+            id: 'open-proposals',
+            label: '3 proposals open now',
+          }),
+        ],
+      }),
+      undefined,
     );
     expect(homepageMatchWorkspaceMock).not.toHaveBeenCalled();
     expect(screen.getByTestId('json-ld-organization').getAttribute('nonce')).toBe('nonce-123');
@@ -254,6 +286,7 @@ describe('HomePageShell', () => {
     render(await HomePageShell({}));
 
     expect(getCitizenSentimentOpportunitiesMock).toHaveBeenCalledWith(expect.any(Date));
+    expect(getGovernanceHighlightsMock).not.toHaveBeenCalled();
     expect(getCinematicStateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         segment: 'citizen',
@@ -289,6 +322,7 @@ describe('HomePageShell', () => {
     render(await HomePageShell({}));
 
     expect(getCitizenSentimentOpportunitiesMock).not.toHaveBeenCalled();
+    expect(getGovernanceHighlightsMock).not.toHaveBeenCalled();
     expect(getCinematicStateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         segment: persona.persona,

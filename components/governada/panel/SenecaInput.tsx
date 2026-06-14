@@ -66,8 +66,8 @@ export function SenecaInput({ panelRoute, onSubmit, disabled, className }: Senec
         disabled={disabled}
         className={cn(
           'flex-1 bg-transparent text-sm outline-none min-w-0',
-          'placeholder:text-muted-foreground/40 placeholder:text-xs',
-          'disabled:opacity-50',
+          'placeholder:text-muted-foreground placeholder:text-xs',
+          'disabled:text-muted-foreground disabled:opacity-100',
         )}
         aria-label="Ask Seneca"
       />
@@ -76,8 +76,8 @@ export function SenecaInput({ panelRoute, onSubmit, disabled, className }: Senec
         disabled={!value.trim() || disabled}
         className={cn(
           'p-1.5 rounded-md transition-colors shrink-0',
-          'text-muted-foreground/50 hover:text-primary hover:bg-primary/10',
-          'disabled:opacity-20 disabled:cursor-not-allowed',
+          'text-muted-foreground hover:text-primary hover:bg-primary/10',
+          'disabled:cursor-not-allowed disabled:text-muted-foreground',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
         )}
         aria-label="Send message"
