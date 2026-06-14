@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:doctor": "node scripts/dev-doctor.mjs",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint --cache",
@@ -95,7 +96,7 @@
     ]
   },
   "engines": {
-    "node": ">=24 <25"
+    "node": ">=24.15 <25"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",

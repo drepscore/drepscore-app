@@ -14,7 +14,7 @@ Inputs:
 
 Model command:
   PEER_REVIEW_CMD overrides the default.
-  Default is Codex CLI when available: codex exec --sandbox read-only --ask-for-approval never -`);
+  Default is Codex CLI when available: codex exec --sandbox read-only --ephemeral -`);
 }
 
 function run(command, commandArgs, options = {}) {
@@ -145,7 +145,7 @@ let result;
 if (configuredCommand) {
   result = run('sh', ['-lc', configuredCommand], { input: prompt });
 } else if (commandExists('codex')) {
-  result = run('codex', ['exec', '--sandbox', 'read-only', '--ask-for-approval', 'never', '-'], {
+  result = run('codex', ['exec', '--sandbox', 'read-only', '--ephemeral', '-'], {
     input: prompt,
   });
 } else {

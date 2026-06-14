@@ -28,6 +28,16 @@ function checkoutKind(repoRoot) {
   }
 }
 
+function formatActiveCredentialLane(tokenState) {
+  if (tokenState.token) {
+    return 'agent (OP_AGENT_SERVICE_ACCOUNT_TOKEN, vault=Governada-Agent)';
+  }
+  if (process.env.SSH_AUTH_SOCK) {
+    return 'human (SSH+1Password Desktop)';
+  }
+  return 'NONE';
+}
+
 function finish(blockers, warnings) {
   if (blockers.length > 0) {
     console.log(`Env doctor result: BLOCKED (${blockers.length} blocker(s))`);
@@ -55,6 +65,8 @@ async function main() {
   };
 
   console.log('Env doctor: Governada local environment bootstrap');
+  const agentTokenState = readAgentToken();
+  console.log(`Active credential lane: ${formatActiveCredentialLane(agentTokenState)}`);
   ok(`checkout kind: ${checkoutKind(repoRoot)}`);
 
   const refsPath = findEnvRefsFile(repoRoot);
@@ -79,7 +91,7 @@ async function main() {
     return;
   }
 
-  const { token, file, reason } = readAgentToken();
+  const { token, file, reason } = agentTokenState;
   if (!token) {
     block(`agent service-account token unavailable: ${reason} (${file})`);
     finish(blockers, warnings);

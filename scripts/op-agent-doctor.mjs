@@ -17,7 +17,16 @@ const DEFAULT_EXPECTED_ITEMS = [
     fields: ['POSTHOG_PERSONAL_API_KEY', 'POSTHOG_PROJECT_ID', 'NEXT_PUBLIC_POSTHOG_HOST'],
   },
 ];
-const FORBIDDEN_ITEM_NAME_PATTERNS = ['prod', 'production', 'mainnet', 'admin', 'deploy', 'rotate'];
+const FORBIDDEN_ITEM_NAME_PATTERNS = [
+  /(^|[-_\s])(prod|production)([-_\s]|$)/u,
+  /mainnet/u,
+  /admin/u,
+  /deploy/u,
+  /rotate/u,
+];
+// Examples: governada-preprod-environment is allowed because preprod is the
+// approved non-production app runtime label; governada-production-environment
+// and governada-admin-token are blocked.
 const MIN_OP_VERSION = [2, 18, 0];
 const OP_TIMEOUT_MS = 15000;
 
@@ -268,10 +277,15 @@ function printCheck(ok, message) {
   console.log(`${ok ? 'OK' : 'BLOCKED'}: ${message}`);
 }
 
+function isForbiddenItemName(itemName) {
+  const name = String(itemName || '').toLowerCase();
+  return FORBIDDEN_ITEM_NAME_PATTERNS.some((pattern) => pattern.test(name));
+}
+
 function findForbiddenItemNames(items) {
   return items.filter((item) => {
     const name = String(item.item || item.title || item.name || '').toLowerCase();
-    return FORBIDDEN_ITEM_NAME_PATTERNS.some((pattern) => name.includes(pattern));
+    return isForbiddenItemName(name);
   });
 }
 
