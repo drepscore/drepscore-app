@@ -34,7 +34,7 @@ jobs:
       node_modules_cache_key: ${{ steps.node_modules_cache_key.outputs.key }}
       node_modules_restore_prefix: ${{ steps.node_modules_cache_key.outputs.restore_prefix }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
@@ -51,7 +51,7 @@ jobs:
           echo "key=nm-${{ runner.os }}-${{ runner.arch }}-node${{ env.CI_NODE_VERSION }}-${{ hashFiles('package-lock.json') }}-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
           echo "restore_prefix=nm-${{ runner.os }}-${{ runner.arch }}-node${{ env.CI_NODE_VERSION }}-${{ hashFiles('package-lock.json') }}-" >> "$GITHUB_OUTPUT"
       - run: npm ci
-      - uses: actions/cache/save@v5
+      - uses: actions/cache/save@v6
         with:
           path: node_modules
           key: ${{ steps.node_modules_cache_key.outputs.key }}
@@ -61,7 +61,7 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Verify no brain/ files
@@ -79,7 +79,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
-      - uses: actions/cache/restore@v5
+      - uses: actions/cache/restore@v6
         with:
           path: node_modules
           key: ${{ needs.install.outputs.node_modules_cache_key }}
@@ -96,11 +96,11 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
-      - uses: actions/cache/restore@v5
+      - uses: actions/cache/restore@v6
         with:
           path: node_modules
           key: ${{ needs.install.outputs.node_modules_cache_key }}
@@ -150,7 +150,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Detect migration-relevant changes
@@ -173,7 +173,7 @@ jobs:
         if: steps.detect.outputs.run == 'true'
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
-      - uses: supabase/setup-cli@v2
+      - uses: supabase/setup-cli@v3
         if: steps.detect.outputs.run == 'true'
         with:
           version: latest
@@ -190,18 +190,18 @@ jobs:
       NEXT_PUBLIC_KOIOS_BASE_URL: https://api.koios.rest/api/v1
       NEXT_PUBLIC_APP_URL: https://governada.io
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
-      - uses: actions/cache/restore@v5
+      - uses: actions/cache/restore@v6
         with:
           path: node_modules
           key: ${{ needs.install.outputs.node_modules_cache_key }}
           restore-keys: |
             ${{ needs.install.outputs.node_modules_restore_prefix }}
       - name: Restore Next.js build cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
@@ -256,11 +256,11 @@ jobs:
       UPSTASH_REDIS_REST_URL: https://placeholder-redis.upstash.io
       UPSTASH_REDIS_REST_TOKEN: placeholder-redis-token
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
-      - uses: actions/cache/restore@v5
+      - uses: actions/cache/restore@v6
         with:
           path: node_modules
           key: ${{ needs.install.outputs.node_modules_cache_key }}
@@ -268,7 +268,7 @@ jobs:
             ${{ needs.install.outputs.node_modules_restore_prefix }}
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -316,11 +316,11 @@ jobs:
       UPSTASH_REDIS_REST_TOKEN: placeholder-redis-token
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
-      - uses: actions/cache/restore@v5
+      - uses: actions/cache/restore@v6
         with:
           path: node_modules
           key: ${{ needs.install.outputs.node_modules_cache_key }}
@@ -328,7 +328,7 @@ jobs:
             ${{ needs.install.outputs.node_modules_restore_prefix }}
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -380,7 +380,7 @@ jobs:
       SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
       SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Create Sentry release
