@@ -47,7 +47,7 @@ describe('GET /api/v1/dreps/[drepId]/history', () => {
     mockGetDRepById.mockResolvedValue(fakeDrep);
     mockGetScoreHistory.mockResolvedValue([
       {
-        date: '2026-04-01',
+        date: new Date().toISOString().split('T')[0],
         score: 82,
         effectiveParticipation: 75,
         rationaleRate: 60,
