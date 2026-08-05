@@ -17,6 +17,31 @@ import {
 import { logger } from '@/lib/logger';
 import { computeAndCacheAlignment } from '@/lib/interBodyAlignment';
 
+type VoteWithBlockTime = { block_time: number };
+type BatchResult = Awaited<ReturnType<typeof batchUpsert>>;
+
+function dedupeLatestVotes<T extends VoteWithBlockTime>(
+  votes: T[],
+  keyFor: (vote: T) => string,
+): T[] {
+  const deduped = new Map<string, T>();
+  for (const vote of votes) {
+    const key = keyFor(vote);
+    const existing = deduped.get(key);
+    if (!existing || vote.block_time > existing.block_time) {
+      deduped.set(key, vote);
+    }
+  }
+  return [...deduped.values()];
+}
+
+function requireCompleteUpsert(label: string, result: BatchResult): void {
+  if (result.errors === 0) return;
+
+  const details = result.errorMessages.length > 0 ? `: ${result.errorMessages.join('; ')}` : '';
+  throw new Error(`${label} upsert incomplete: ${result.errors} row(s) failed${details}`);
+}
+
 export const syncSpoAndCcVotes = inngest.createFunction(
   {
     id: 'sync-spo-cc-votes',
@@ -62,11 +87,22 @@ export const syncSpoAndCcVotes = inngest.createFunction(
       const supabase = getSupabaseAdmin();
       const logger = new SyncLogger(supabase, 'spo_votes');
       await logger.start();
+      const metrics = {
+        spoVotesFetched: 0,
+        spoVotesDeduplicated: 0,
+        duplicatesRemoved: 0,
+        upserted: 0,
+        failed: 0,
+      };
 
       try {
         const votes = await fetchAllSPOVotesBulk();
+        const deduped = dedupeLatestVotes(
+          votes,
+          (v) => `${v.pool_id}:${v.proposal_tx_hash}:${v.proposal_index}`,
+        );
 
-        const rows = votes.map((v) => ({
+        const rows = deduped.map((v) => ({
           pool_id: v.pool_id,
           proposal_tx_hash: v.proposal_tx_hash,
           proposal_index: v.proposal_index,
@@ -75,6 +111,10 @@ export const syncSpoAndCcVotes = inngest.createFunction(
           tx_hash: v.tx_hash,
           epoch: v.epoch,
         }));
+
+        metrics.spoVotesFetched = votes.length;
+        metrics.spoVotesDeduplicated = rows.length;
+        metrics.duplicatesRemoved = votes.length - rows.length;
 
         let upserted = 0;
         if (rows.length > 0) {
@@ -86,12 +126,15 @@ export const syncSpoAndCcVotes = inngest.createFunction(
             'spo-votes',
           );
           upserted = result.success;
+          metrics.upserted = result.success;
+          metrics.failed = result.errors;
+          requireCompleteUpsert('SPO votes', result);
         }
 
-        await logger.finalize(true, null, { spoVotesFetched: votes.length, upserted });
-        return { fetched: votes.length, upserted };
+        await logger.finalize(true, null, metrics);
+        return { fetched: votes.length, deduplicated: rows.length, upserted };
       } catch (err) {
-        await logger.finalize(false, errMsg(err), {});
+        await logger.finalize(false, errMsg(err), metrics);
         throw err;
       }
     });
@@ -100,6 +143,13 @@ export const syncSpoAndCcVotes = inngest.createFunction(
       const supabase = getSupabaseAdmin();
       const logger = new SyncLogger(supabase, 'cc_votes');
       await logger.start();
+      const metrics = {
+        ccVotesFetched: 0,
+        ccVotesDeduplicated: 0,
+        duplicatesRemoved: 0,
+        upserted: 0,
+        failed: 0,
+      };
 
       try {
         const votes = await fetchAllCCVotesBulk();
@@ -116,16 +166,12 @@ export const syncSpoAndCcVotes = inngest.createFunction(
         // Deduplicate: a voter can change their vote, producing multiple rows
         // for the same (cc_hot_id, proposal_tx_hash, proposal_index). Keep the
         // latest by block_time to avoid "ON CONFLICT cannot affect row a second time".
-        const deduped = new Map<string, (typeof votes)[number]>();
-        for (const v of votes) {
-          const key = `${v.cc_hot_id}:${v.proposal_tx_hash}:${v.proposal_index}`;
-          const existing = deduped.get(key);
-          if (!existing || v.block_time > existing.block_time) {
-            deduped.set(key, v);
-          }
-        }
+        const deduped = dedupeLatestVotes(
+          votes,
+          (v) => `${v.cc_hot_id}:${v.proposal_tx_hash}:${v.proposal_index}`,
+        );
 
-        const rows = [...deduped.values()].map((v) => ({
+        const rows = deduped.map((v) => ({
           cc_hot_id: v.cc_hot_id,
           cc_cold_id: hotToCold.get(v.cc_hot_id) ?? null,
           proposal_tx_hash: v.proposal_tx_hash,
@@ -138,6 +184,10 @@ export const syncSpoAndCcVotes = inngest.createFunction(
           meta_hash: v.meta_hash,
         }));
 
+        metrics.ccVotesFetched = votes.length;
+        metrics.ccVotesDeduplicated = rows.length;
+        metrics.duplicatesRemoved = votes.length - rows.length;
+
         let upserted = 0;
         if (rows.length > 0) {
           const result = await batchUpsert(
@@ -148,12 +198,15 @@ export const syncSpoAndCcVotes = inngest.createFunction(
             'cc-votes',
           );
           upserted = result.success;
+          metrics.upserted = result.success;
+          metrics.failed = result.errors;
+          requireCompleteUpsert('CC votes', result);
         }
 
-        await logger.finalize(true, null, { ccVotesFetched: votes.length, upserted });
-        return { fetched: votes.length, upserted };
+        await logger.finalize(true, null, metrics);
+        return { fetched: votes.length, deduplicated: rows.length, upserted };
       } catch (err) {
-        await logger.finalize(false, errMsg(err), {});
+        await logger.finalize(false, errMsg(err), metrics);
         throw err;
       }
     });
