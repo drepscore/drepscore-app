@@ -21,19 +21,22 @@ Service account:
 
 Vault scope:
 
-- Contains only non-production preview/staging credentials, non-production Supabase automation credentials, and the GitHub App credential approved in Addendum #4.
+- Contains only non-production preview/staging credentials, non-production Supabase automation credentials, observability automation tokens, and the GitHub App credential approved in Addendum #4.
 - Production credentials and production database URLs are never approved for agent runtime use and are structurally inaccessible to the service account.
-- The doctor treats obvious production/admin item names as blockers, but the monthly manual vault audit is the definitive control.
+- The doctor treats obvious production/admin item names as blockers, but `preprod` is the approved non-production runtime label and is not blocked by substring alone. The monthly manual vault audit is the definitive control.
 
 ## Items In Vault
 
-| Item                            | Operational fields                                                                                                                                                                                                                                                                      | Scope                                                                                           |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `governada-agent-app`           | `app_id`, `client_id`, `installation_id`, `private_key`                                                                                                                                                                                                                                 | GitHub App installed only on `governada/app` for API operations and guarded branch publication. |
-| `governada-posthog-staging`     | `NEXT_PUBLIC_POSTHOG_HOST`, `NEXT_PUBLIC_POSTHOG_KEY`, `POSTHOG_DEV_PROJECT_TOKEN`, `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`                                                                                                                                                    | PostHog dev/staging telemetry, preview wiring, and read/query access.                           |
-| `governada-preprod-environment` | `ANTHROPIC_API_KEY`, `CRON_SECRET`, `ENVIRONMENT`, `GOVERNADA_DELEGATION_MODE`, `NEXT_PUBLIC_POSTHOG_HOST`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SESSION_SECRET`, `SUPABASE_SECRET_KEY`, `UPSTASH_*` | Preprod app runtime and local agent verification credentials.                                   |
-| `governada-supabase-automation` | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PREVIEW_ACCESS_TOKEN`, `SUPABASE_PREVIEW_PARENT_PROJECT_REF`, `SUPABASE_SANDBOX_PROJECT_REF`                                                                                                                                                         | Supabase typegen, sandbox schema work, and preview-branch support.                              |
-| `governada-preview-environment` | `AUTO_TEARDOWN`, `ENVIRONMENT`, `GOVERNADA_DELEGATION_MODE`, `NEXT_PUBLIC_SITE_URL`, `POSTHOG_DEV_PROJECT_TOKEN`, `PR_BASE_ENVIRONMENT`, `SUPABASE_BRANCH`                                                                                                                              | Preview environment metadata and CI wiring support.                                             |
+| Item                               | Operational fields                                                                                                                                                                                                                                                                      | Scope                                                                                           |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `governada-agent-app`              | `app_id`, `client_id`, `installation_id`, `private_key`                                                                                                                                                                                                                                 | GitHub App installed only on `governada/app` for API operations and guarded branch publication. |
+| `governada-posthog-staging`        | `NEXT_PUBLIC_POSTHOG_HOST`, `NEXT_PUBLIC_POSTHOG_KEY`, `POSTHOG_DEV_PROJECT_TOKEN`, `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`                                                                                                                                                    | PostHog dev/staging telemetry, preview wiring, and read/query access.                           |
+| `governada-preprod-environment`    | `ANTHROPIC_API_KEY`, `CRON_SECRET`, `ENVIRONMENT`, `GOVERNADA_DELEGATION_MODE`, `NEXT_PUBLIC_POSTHOG_HOST`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SESSION_SECRET`, `SUPABASE_SECRET_KEY`, `UPSTASH_*` | Preprod app runtime and local agent verification credentials.                                   |
+| `governada-sandbox-environment`    | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`                                                                                                                                                                                               | Supabase sandbox runtime used by local staging-backed app runs.                                 |
+| `governada-supabase-automation`    | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PREVIEW_ACCESS_TOKEN`, `SUPABASE_PREVIEW_PARENT_PROJECT_REF`, `SUPABASE_SANDBOX_PROJECT_REF`                                                                                                                                                         | Supabase typegen, sandbox schema work, and preview-branch support.                              |
+| `governada-preview-environment`    | `AUTO_TEARDOWN`, `ENVIRONMENT`, `GOVERNADA_DELEGATION_MODE`, `NEXT_PUBLIC_SITE_URL`, `POSTHOG_DEV_PROJECT_TOKEN`, `PR_BASE_ENVIRONMENT`, `SUPABASE_BRANCH`                                                                                                                              | Preview environment metadata and CI wiring support.                                             |
+| `governada-betterstack-automation` | `token`                                                                                                                                                                                                                                                                                 | BetterStack automation for observability checks and wrappers.                                   |
+| `governada-sentry-automation`      | `token`                                                                                                                                                                                                                                                                                 | Sentry automation for error-rate checks and wrappers.                                           |
 
 Empty boilerplate fields such as `username`, `credential`, and `notesPlain` are not runtime credentials. Production-named Supabase fields, empty URL templates, and static preview metadata are not referenced from `.env.local.refs`.
 
@@ -44,13 +47,15 @@ Empty boilerplate fields such as `username`, `credential`, and `notesPlain` are 
 References included for new worktrees:
 
 - GitHub App lane: `GOVERNADA_GITHUB_CLIENT_ID_OP_REF`, `GOVERNADA_GITHUB_INSTALLATION_ID_OP_REF`, `GOVERNADA_GITHUB_APP_PRIVATE_KEY_OP_REF`.
-- Preprod app runtime: `ANTHROPIC_API_KEY_OP_REF`, Supabase URL/publishable/secret refs, PostHog public key/host refs, `NEXT_PUBLIC_SITE_URL_OP_REF`, `CRON_SECRET_OP_REF`, `SESSION_SECRET_OP_REF`, and Upstash refs.
+- Preprod app runtime: `ANTHROPIC_API_KEY_OP_REF`, PostHog public host refs, `NEXT_PUBLIC_SITE_URL_OP_REF`, `CRON_SECRET_OP_REF`, `SESSION_SECRET_OP_REF`, and Upstash refs.
+- Supabase sandbox runtime: `NEXT_PUBLIC_SUPABASE_URL_OP_REF`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY_OP_REF`, and `SUPABASE_SECRET_KEY_OP_REF`.
 - Supabase automation: `SUPABASE_ACCESS_TOKEN_OP_REF`, `SUPABASE_PREVIEW_ACCESS_TOKEN_OP_REF`, `SUPABASE_PREVIEW_PARENT_PROJECT_REF_OP_REF`, and `SUPABASE_SANDBOX_PROJECT_REF_OP_REF`.
 - PostHog staging: `POSTHOG_PERSONAL_API_KEY_OP_REF`, `POSTHOG_PROJECT_ID_OP_REF`, and `POSTHOG_DEV_PROJECT_TOKEN_OP_REF`.
+- Observability automation: `BETTERSTACK_API_TOKEN_OP_REF` and `SENTRY_AUTH_TOKEN_OP_REF`.
 
 The old `governada-app-agent` user token item is being decommissioned by Tim after the Addendum #4 PR merges. Expanding the App's repository access, permissions, or vault contents requires an explicit ADR addendum, not a vault-content change.
 
-Sentry is intentionally deferred. Add it only after observed need, by adding the item to `Governada-Agent` and configuring the relevant doctor expectation; do not make this lane fail closed on an anticipated Sentry item.
+Sentry and BetterStack automation tokens are included for existing observability wrappers. Do not expand them into production mutation, project administration, or secret-management scopes.
 
 ## What This Vault Must Not Contain
 
@@ -188,10 +193,13 @@ The allowlist is intentionally narrow. Extending it is a deliberate action, not 
 Run:
 
 ```bash
+npm run dev:doctor
 npm run gh:auth-status
 npm run op:agent-doctor
 npm run env:doctor
 ```
+
+`npm run dev:doctor` is a non-secret local readiness check. It reports Node version drift, npm availability, `.env.local.refs` discovery, agent runtime file presence, 1Password CLI availability, global `core.hooksPath` leakage, and OrbStack/Docker reachability. It does not resolve `op://` references or print raw secrets.
 
 `npm run gh:auth-status` checks:
 

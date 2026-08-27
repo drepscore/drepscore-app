@@ -34,9 +34,10 @@ Governada is the governance intelligence platform for Cardano. It serves every p
 
 ### Prerequisites
 
-- Node.js 24.x (see `.nvmrc`)
+- Node.js 24.15.x or newer within Node 24 (see `.nvmrc`, `.node-version`, and `package.json#engines`)
 - npm
 - 1Password CLI (`op`) — local runs resolve the staging environment through it
+- OrbStack or Docker Desktop for Docker-backed lanes such as Supabase migration replay and the optional Cube local stack
 
 ### Installation
 
@@ -44,13 +45,18 @@ Governada is the governance intelligence platform for Cardano. It serves every p
 git clone <repository-url>
 cd governada-app
 npm install
+npm run dev:doctor               # check local tooling, Node, 1Password, Docker, and git-hook friction
 npm run env:doctor               # verify local environment bootstrap
 npm run env:run -- npm run dev   # run the app against the staging environment
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Local runs target the **staging** environment. `npm run env:run` injects 1Password-backed credentials declared in `.env.local.refs` into the command — no `.env` file with live credentials is committed or copied into worktrees. Run `npm run env:doctor` to check bootstrap readiness. `.env.example` documents the optional Koios/VAPID variables.
+Local app runs are **staging-backed** by default. `npm run env:run` injects 1Password-backed credentials declared in `.env.local.refs` into the command — no `.env` file with live credentials is committed or copied into worktrees. Run `npm run dev:doctor` first for local tooling friction, then `npm run env:doctor` for secret-resolution readiness.
+
+OrbStack/Docker is still useful, but it is not the default app data plane. It is required for Docker-backed workflows such as `npm run migrations:verify` and the optional Cube stack in `cube/docker-compose.yml`. Inngest Cloud backs scheduled jobs by default; use `npm run inngest:dev` when testing event delivery locally.
+
+`.env.example` documents optional local-only values such as Koios, VAPID, and mock-auth helpers.
 
 ## Architecture
 
