@@ -20,6 +20,7 @@ import type { ThreadMessage } from '@/stores/senecaThreadStore';
 import { useSenecaThreadStore } from '@/stores/senecaThreadStore';
 import type { HomepageCinematicSnapshot } from '@/stores/senecaThreadStore';
 import type { AnchoredCardDescriptor } from '@/components/globe/AnchoredCard';
+import type { GovernanceHighlight } from '@/lib/governance/governanceHighlights';
 import type { PanelRoute, World } from '@/hooks/useSenecaThread';
 import { useEpochContext } from '@/hooks/useEpochContext';
 import { useSegment } from '@/components/providers/SegmentProvider';
@@ -60,12 +61,17 @@ import {
   type MotionStrengthUserOverride,
   useMotionStrengthSetter,
 } from '@/lib/motion/motionStrength';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+const SENECA_DIALOG_DESCRIPTION =
+  'Ask Seneca about live Cardano governance, representatives, proposals, and your next steps.';
+const SENECA_DIALOG_DESCRIPTION_ID = 'seneca-dialog-description';
 
 interface SenecaThreadProps {
   isOpen: boolean;
@@ -205,6 +211,23 @@ export function SenecaThread({
     },
     [mode, onClose, panelRoute, viewportClass],
   );
+
+  const handleConversationReset = useCallback(() => {
+    posthog.capture('seneca_reset_clicked', {
+      source: 'header',
+      mode,
+      panel_route: panelRoute,
+      message_count: messages.length,
+    });
+    captureSenecaInteraction({
+      kind: 'conversation_reset',
+      source: 'header',
+      mode,
+      panel_route: panelRoute,
+      message_count: messages.length,
+    });
+    onClearConversation();
+  }, [messages.length, mode, onClearConversation, panelRoute]);
 
   // 2C: Navigation-aware context — auto-fire advisor response on route change
   const pendingNavRef = useRef<{
@@ -570,6 +593,32 @@ export function SenecaThread({
     [onStartConversation, onStartResearch, onStartMatch, router, onClose],
   );
 
+  const handleGovernanceHighlight = useCallback(
+    (highlight: GovernanceHighlight) => {
+      posthog.capture('governance_highlight_clicked', {
+        highlight_id: highlight.id,
+        highlight_kind: highlight.kind,
+        href: highlight.href,
+        has_globe_command: !!highlight.globeCommand,
+        panel_route: panelRoute,
+      });
+      captureSenecaInteraction({
+        kind: 'governance_highlight_clicked',
+        highlight_id: highlight.id,
+        highlight_kind: highlight.kind,
+        source: 'seneca_panel',
+        panel_route: panelRoute,
+      });
+      if (highlight.globeCommand) {
+        dispatchGlobeCommand(highlight.globeCommand);
+      }
+      if (highlight.href) {
+        router.push(highlight.href);
+      }
+    },
+    [panelRoute, router],
+  );
+
   const handlePrioritizationAction = useCallback(
     async (
       item: NonNullable<HomepageCinematicSnapshot>['queue']['primary'],
@@ -616,6 +665,13 @@ export function SenecaThread({
   const handleAnonOption = useCallback(
     (option: GuidedOption) => {
       if (option.path) {
+        posthog.capture('seneca_first_visit_pill_clicked', {
+          path: option.path,
+          label: option.label,
+          query: option.query,
+          globe_hint: option.globeHint,
+          panel_route: panelRoute,
+        });
         captureSenecaInteraction({
           kind: 'path_chosen',
           path: option.path,
@@ -634,6 +690,9 @@ export function SenecaThread({
           choice: option.href ?? option.query ?? option.label,
           source: 'onboarding',
         });
+      }
+      if (option.globeHint) {
+        dispatchGlobeCommand({ type: 'warmTopic', topic: option.globeHint });
       }
       switch (option.action) {
         case 'conversation':
@@ -655,7 +714,7 @@ export function SenecaThread({
           break;
       }
     },
-    [onStartConversation, onStartMatch, onClose, router, senecaSearch],
+    [onStartConversation, onStartMatch, onClose, panelRoute, router, senecaSearch],
   );
 
   // Determine persona label to show in header
@@ -711,7 +770,7 @@ export function SenecaThread({
             'p-1.5 rounded-md transition-colors',
             settingsOpen
               ? 'text-primary bg-primary/10'
-              : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-white/5',
+              : 'text-muted-foreground/75 hover:text-muted-foreground hover:bg-white/5',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
           )}
           aria-label="Seneca settings"
@@ -721,18 +780,25 @@ export function SenecaThread({
         </button>
 
         {messages.length > 0 && (
-          <button
-            type="button"
-            onClick={onClearConversation}
-            className={cn(
-              'p-1.5 rounded-md transition-colors',
-              'text-muted-foreground/40 hover:text-muted-foreground hover:bg-white/5',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-            )}
-            aria-label="Clear conversation"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleConversationReset}
+                  className={cn(
+                    'p-1.5 rounded-md transition-colors',
+                    'text-muted-foreground/75 hover:text-muted-foreground hover:bg-white/5',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  )}
+                  aria-label="Start over"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Start over</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         <button
@@ -740,7 +806,7 @@ export function SenecaThread({
           onClick={() => handlePanelDismiss('close_button')}
           className={cn(
             'p-1.5 rounded-md transition-colors',
-            'text-muted-foreground/40 hover:text-muted-foreground hover:bg-white/5',
+            'text-muted-foreground/75 hover:text-muted-foreground hover:bg-white/5',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
           )}
           aria-label="Close Seneca"
@@ -774,6 +840,7 @@ export function SenecaThread({
             cinematicPrimary={homepageCinematic?.queue.primary}
             cinematicSecondary={homepageCinematic?.queue.secondary}
             cinematicAnchoredCards={homepageAnchoredCards}
+            governanceHighlights={homepageCinematic?.governanceHighlights}
             panelOpen={isOpen}
             cinematicReasoning={homepageCinematic?.queue.meta.reasoning}
             cinematicSegment={segment}
@@ -783,6 +850,7 @@ export function SenecaThread({
               !!(homepageCinematic?.identity.stakeAddress ?? homepageCinematic?.identity.userId)
             }
             onPrioritizationAction={handlePrioritizationAction}
+            onGovernanceHighlight={handleGovernanceHighlight}
             accentColor={persona.accentColor}
           />
         )}
@@ -851,6 +919,7 @@ export function SenecaThread({
           )}
         >
           <SheetTitle className="sr-only">Seneca conversation</SheetTitle>
+          <SheetDescription className="sr-only">{SENECA_DIALOG_DESCRIPTION}</SheetDescription>
           {panelContent}
         </SheetContent>
       </Sheet>
@@ -874,8 +943,12 @@ export function SenecaThread({
           )}
           role="dialog"
           aria-label="Seneca conversation"
+          aria-describedby={SENECA_DIALOG_DESCRIPTION_ID}
           aria-modal="true"
         >
+          <p id={SENECA_DIALOG_DESCRIPTION_ID} className="sr-only">
+            {SENECA_DIALOG_DESCRIPTION}
+          </p>
           {panelContent}
         </motion.div>
       )}

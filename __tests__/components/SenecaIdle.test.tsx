@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IdleContent } from '@/components/governada/panel/SenecaIdle';
 import type { AnchoredCardDescriptor } from '@/components/globe/AnchoredCard';
@@ -110,5 +110,93 @@ describe('Seneca IdleContent cinematic labels', () => {
     });
 
     expect(screen.queryByText('Voting deadline moved')).toBeNull();
+  });
+
+  it('renders one approved newcomer pill set for anonymous first visits', () => {
+    const onAnonOption = vi.fn();
+
+    renderIdle({
+      isAuthenticated: false,
+      cinematicPrimary: item('first_visit_anonymous'),
+      anonOptions: [
+        {
+          label: "What's being decided right now?",
+          action: 'search',
+          query: 'active proposals being voted on',
+        },
+      ],
+      canRecordLifecycle: false,
+      onAnonOption,
+    });
+
+    expect(
+      screen.getByText(
+        "Cardano has a government — and if you hold ADA, you have a say in it. This is a live map of who's making the decisions. Where do you want to start?",
+      ),
+    ).toBeTruthy();
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'What am I looking at?',
+      'Why should I care?',
+      "Who's making decisions?",
+    ]);
+    expect(screen.queryByText("What's being decided right now?")).toBeNull();
+    expect(screen.queryByText('Got it')).toBeNull();
+    expect(screen.queryByText('Dismiss')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: "Who's making decisions?" }));
+    expect(onAnonOption).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: "Who's making decisions?",
+        action: 'conversation',
+        path: 'c',
+        globeHint: 'participation',
+      }),
+    );
+  });
+
+  it('renders live anonymous governance highlights as tappable secondary content', () => {
+    const onGovernanceHighlight = vi.fn();
+
+    renderIdle({
+      isAuthenticated: false,
+      cinematicPrimary: item('first_visit_anonymous'),
+      cinematicSecondary: [
+        {
+          ...item('returning_cold_start'),
+          id: 'citizen-only-secondary',
+        },
+      ],
+      governanceHighlights: [
+        {
+          id: 'open-proposals',
+          kind: 'open_proposals',
+          label: '3 proposals open now',
+          body: 'Treasury, protocol, and governance updates are currently live.',
+          href: '/governance/proposals',
+        },
+        {
+          id: 'active-dreps',
+          kind: 'active_representative',
+          label: 'Most active this epoch: Ada Delegate',
+          body: 'Last voted recently across active governance work.',
+          globeCommand: { type: 'narrowTo', nodeIds: ['drep_drep1ada'], fly: false },
+        },
+      ],
+      onGovernanceHighlight,
+    });
+
+    expect(screen.queryByText('Still in view')).toBeNull();
+    expect(screen.getByText('Live governance')).toBeTruthy();
+    expect(screen.getByText('3 proposals open now')).toBeTruthy();
+    expect(screen.getByText('Most active this epoch: Ada Delegate')).toBeTruthy();
+    expect(screen.queryByText('Your representative')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Most active this epoch: Ada Delegate/i }));
+    expect(onGovernanceHighlight).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'active-dreps',
+        globeCommand: { type: 'narrowTo', nodeIds: ['drep_drep1ada'], fly: false },
+      }),
+    );
   });
 });

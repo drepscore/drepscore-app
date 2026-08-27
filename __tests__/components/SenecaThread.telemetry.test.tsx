@@ -6,6 +6,7 @@ import type { ThreadMessage } from '@/stores/senecaThreadStore';
 const {
   captureSenecaInteractionMock,
   posthogCaptureMock,
+  dispatchGlobeCommandMock,
   readAdvisorStreamMock,
   setPendingQueryMock,
   setMotionOverrideMock,
@@ -13,6 +14,7 @@ const {
 } = vi.hoisted(() => ({
   captureSenecaInteractionMock: vi.fn(),
   posthogCaptureMock: vi.fn(),
+  dispatchGlobeCommandMock: vi.fn(),
   readAdvisorStreamMock: vi.fn(),
   setPendingQueryMock: vi.fn(),
   setMotionOverrideMock: vi.fn(),
@@ -117,7 +119,7 @@ vi.mock('@/lib/api/client', () => ({
 }));
 
 vi.mock('@/lib/globe/globeCommandBus', () => ({
-  dispatchGlobeCommand: vi.fn(),
+  dispatchGlobeCommand: dispatchGlobeCommandMock,
 }));
 
 vi.mock('@/components/governada/CompassSigil', () => ({
@@ -157,6 +159,13 @@ vi.mock('@/components/governada/panel/SenecaIdle', () => ({
       action: 'match',
       path: 'match',
     },
+    {
+      label: "Who's making decisions?",
+      action: 'conversation',
+      path: 'c',
+      query: 'Show me the most active DReps without zooming.',
+      globeHint: 'participation',
+    },
   ],
   getDiscoveryChips: () => [],
   sigilStateForMode: () => 'idle',
@@ -164,13 +173,36 @@ vi.mock('@/components/governada/panel/SenecaIdle', () => ({
     anonOptions,
     onAnonOption,
   }: {
-    anonOptions: Array<{ label: string; action: string; path?: string }>;
-    onAnonOption: (option: { label: string; action: 'match'; path?: string }) => void;
+    anonOptions: Array<{
+      label: string;
+      action: string;
+      path?: string;
+      query?: string;
+      globeHint?: string;
+    }>;
+    onAnonOption: (option: {
+      label: string;
+      action: 'match' | 'conversation';
+      path?: string;
+      query?: string;
+      globeHint?: string;
+    }) => void;
   }) => (
-    <button type="button" onClick={() => onAnonOption(anonOptions[0] as never)}>
-      {anonOptions[0]?.label}
-    </button>
+    <>
+      {anonOptions.map((option) => (
+        <button key={option.label} type="button" onClick={() => onAnonOption(option as never)}>
+          {option.label}
+        </button>
+      ))}
+    </>
   ),
+}));
+
+vi.mock('@/components/ui/tooltip', () => ({
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock('@/components/ui/sheet', () => ({
@@ -283,6 +315,64 @@ describe('SenecaThread telemetry', () => {
       }),
     );
     expect(onStartMatch).toHaveBeenCalled();
+  });
+
+  it('captures approved first-visit pill clicks and dispatches a no-zoom globe hint', async () => {
+    const onStartConversation = vi.fn();
+    renderSenecaThread({ onStartConversation });
+    await settlePanelOpen();
+
+    fireEvent.click(screen.getByRole('button', { name: "Who's making decisions?" }));
+
+    expect(posthogCaptureMock).toHaveBeenCalledWith(
+      'seneca_first_visit_pill_clicked',
+      expect.objectContaining({
+        path: 'c',
+        label: "Who's making decisions?",
+        globe_hint: 'participation',
+      }),
+    );
+    expect(dispatchGlobeCommandMock).toHaveBeenCalledWith({
+      type: 'warmTopic',
+      topic: 'participation',
+    });
+    expect(dispatchGlobeCommandMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'flyTo' }),
+    );
+    expect(onStartConversation).toHaveBeenCalledWith(
+      'Show me the most active DReps without zooming.',
+    );
+  });
+
+  it('labels reset as Start over and captures reset telemetry', async () => {
+    const onClearConversation = vi.fn();
+    renderSenecaThread({ onClearConversation }, [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: 'What am I looking at?',
+        ts: 1,
+      },
+    ]);
+    await settlePanelOpen();
+
+    expect(screen.getByText('Start over')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
+
+    expect(onClearConversation).toHaveBeenCalled();
+    expect(posthogCaptureMock).toHaveBeenCalledWith(
+      'seneca_reset_clicked',
+      expect.objectContaining({
+        source: 'header',
+        panel_route: 'hub',
+      }),
+    );
+    expect(captureSenecaInteractionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'conversation_reset',
+        source: 'header',
+      }),
+    );
   });
 
   it('captures mechanical question asked before answering locally', async () => {

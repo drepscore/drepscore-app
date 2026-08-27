@@ -14,6 +14,10 @@ import {
   derivePersonaFromSession,
   type ResolvedSessionPersona,
 } from '@/lib/governance/derivePersonaFromSession';
+import {
+  getGovernanceHighlights,
+  type GovernanceHighlight,
+} from '@/lib/governance/governanceHighlights';
 import { getCitizenSentimentOpportunities } from '@/lib/governance/sentimentOpportunities';
 import { getTier0Triggers } from '@/lib/governance/tier0Triggers';
 import { recordHomepageVisit } from '@/lib/governance/visitState';
@@ -61,6 +65,7 @@ interface HomepageCinematicResult {
     stakeAddress?: string | null;
     userId?: string | null;
   };
+  governanceHighlights: GovernanceHighlight[];
 }
 
 async function readPrioritizationAcknowledgments(
@@ -156,6 +161,18 @@ async function getCitizenSentimentOpportunitiesSafe(
   }
 }
 
+async function getGovernanceHighlightsSafe(now: Date): Promise<GovernanceHighlight[]> {
+  try {
+    return await getGovernanceHighlights(now);
+  } catch (error) {
+    logger.warn('Homepage governance highlight read failed', {
+      context: 'homepage-cinematic',
+      error,
+    });
+    return [];
+  }
+}
+
 function toVisitState(
   state:
     | {
@@ -203,15 +220,25 @@ async function buildHomepageCinematic(): Promise<HomepageCinematicResult> {
   const sentimentOpportunitiesPromise = resolvedPersonaPromise.then((resolvedPersona) =>
     resolvedPersona.persona === 'citizen' ? getCitizenSentimentOpportunitiesSafe(now) : [],
   );
+  const governanceHighlightsPromise = resolvedPersonaPromise.then((resolvedPersona) =>
+    resolvedPersona.persona === 'anonymous' ? getGovernanceHighlightsSafe(now) : [],
+  );
 
-  const [resolvedPersona, visitResult, tier0Triggers, acknowledgments, sentimentOpportunities] =
-    await Promise.all([
-      resolvedPersonaPromise,
-      recordHomepageVisitSafe(stakeAddress, now, currentEpoch),
-      getTier0TriggersSafe(now),
-      readPrioritizationAcknowledgmentsSafe(identityKey),
-      sentimentOpportunitiesPromise,
-    ]);
+  const [
+    resolvedPersona,
+    visitResult,
+    tier0Triggers,
+    acknowledgments,
+    sentimentOpportunities,
+    governanceHighlights,
+  ] = await Promise.all([
+    resolvedPersonaPromise,
+    recordHomepageVisitSafe(stakeAddress, now, currentEpoch),
+    getTier0TriggersSafe(now),
+    readPrioritizationAcknowledgmentsSafe(identityKey),
+    sentimentOpportunitiesPromise,
+    governanceHighlightsPromise,
+  ]);
 
   const visitState = toVisitState(visitResult.state, visitResult.priorEpochVisited);
   const hasConnectedWallet = !!stakeAddress;
@@ -253,6 +280,7 @@ async function buildHomepageCinematic(): Promise<HomepageCinematicResult> {
   return {
     queue,
     identity: { stakeAddress, userId },
+    governanceHighlights,
   };
 }
 
@@ -273,6 +301,7 @@ export async function HomePageShell({ filter, entity, mode, sort }: HomePageShel
       <HomepageSenecaBridge
         queue={cinematic.queue}
         identity={cinematic.identity}
+        governanceHighlights={cinematic.governanceHighlights}
         autoOpenFirstVisit={!isMatchWorkspace}
       />
       {isMatchWorkspace ? (

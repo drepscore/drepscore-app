@@ -15,6 +15,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AnchoredCardDescriptor } from '@/components/globe/AnchoredCard';
+import type { GovernanceHighlight } from '@/lib/governance/governanceHighlights';
 import type { AdvisorMessage } from '@/lib/intelligence/streamAdvisor';
 import type { GlobeIntent } from '@/lib/intelligence/advisor';
 import type { PrioritizedQueue } from '@/types/cinematic';
@@ -54,6 +55,7 @@ export interface HomepageCinematicIdentity {
 export interface HomepageCinematicSnapshot {
   queue: PrioritizedQueue;
   identity: HomepageCinematicIdentity;
+  governanceHighlights?: GovernanceHighlight[];
 }
 
 export interface RegionSuggestionWhisper {
