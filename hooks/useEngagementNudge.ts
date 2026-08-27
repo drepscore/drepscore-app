@@ -10,6 +10,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSegment } from '@/components/providers/SegmentProvider';
+import { useViewportClass } from '@/hooks/useViewportClass';
+import { useSenecaThreadStore } from '@/stores/senecaThreadStore';
 import {
   shouldShowNudge,
   recordPageView,
@@ -24,11 +26,14 @@ const CHECK_INTERVAL_MS = 5_000; // Check every 5 seconds
 export function useEngagementNudge() {
   const { segment } = useSegment();
   const pathname = usePathname();
+  const viewportClass = useViewportClass();
+  const senecaPanelOpen = useSenecaThreadStore((s) => s.isOpen);
   const [show, setShow] = useState(false);
   const shownRef = useRef(false);
 
   // Only for anonymous users, not on homepage
   const isEligible = segment === 'anonymous' && pathname !== '/';
+  const suppressedByMobileSenecaPanel = viewportClass === 'mobile' && senecaPanelOpen;
 
   // Track page views on navigation
   useEffect(() => {
@@ -53,6 +58,13 @@ export function useEngagementNudge() {
     return () => clearInterval(timer);
   }, [isEligible]);
 
+  // Route/identity changes can make a previously visible nudge ineligible.
+  useEffect(() => {
+    if (!isEligible && show) {
+      setShow(false);
+    }
+  }, [isEligible, show]);
+
   // Rotate through 3 content variants
   const state = getDiscoveryState();
   const variant = state.nudgeShownCount % 3;
@@ -70,7 +82,7 @@ export function useEngagementNudge() {
   }, []);
 
   return {
-    shouldShow: show,
+    shouldShow: show && isEligible && !suppressedByMobileSenecaPanel,
     variant,
     dismiss,
     convert,

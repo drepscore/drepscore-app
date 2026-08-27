@@ -199,13 +199,11 @@ function QuickConnectButton({
   t,
   locale,
   setLocale,
-  walletModalOpen,
   setWalletModalOpen,
 }: {
   t: (key: string) => string;
   locale: SupportedLocale;
   setLocale: (locale: SupportedLocale) => void;
-  walletModalOpen: boolean;
   setWalletModalOpen: (open: boolean) => void;
 }) {
   const {
@@ -320,18 +318,15 @@ function QuickConnectButton({
         </div>
       ) : (
         /* No wallets detected: open full modal */
-        <>
-          <Button
-            variant="outline"
-            size="sm"
-            className="whitespace-nowrap gap-1.5"
-            onClick={() => setWalletModalOpen(true)}
-          >
-            <Wallet className="h-3.5 w-3.5" />
-            {t('Connect Wallet')}
-          </Button>
-          <WalletConnectModal open={walletModalOpen} onOpenChange={setWalletModalOpen} />
-        </>
+        <Button
+          variant="outline"
+          size="sm"
+          className="whitespace-nowrap gap-1.5"
+          onClick={() => setWalletModalOpen(true)}
+        >
+          <Wallet className="h-3.5 w-3.5" />
+          {t('Connect Wallet')}
+        </Button>
       )}
     </>
   );
@@ -1025,13 +1020,15 @@ export function GovernadaHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <QuickConnectButton
-              t={t}
-              locale={locale}
-              setLocale={setLocale}
-              walletModalOpen={walletModalOpen}
-              setWalletModalOpen={setWalletModalOpen}
-            />
+            <>
+              <QuickConnectButton
+                t={t}
+                locale={locale}
+                setLocale={setLocale}
+                setWalletModalOpen={setWalletModalOpen}
+              />
+              <WalletConnectModal open={walletModalOpen} onOpenChange={setWalletModalOpen} />
+            </>
           )}
         </div>
       </div>

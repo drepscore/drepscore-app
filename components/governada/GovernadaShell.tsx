@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { Suspense, useCallback, useEffect, type CSSProperties } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -326,16 +325,6 @@ export function GovernadaShell({ children }: { children: React.ReactNode }) {
             </p>
             <div className="mt-3 space-y-2">
               <LegalLinks />
-              <p className="text-[11px] text-foreground/70">
-                Analytics may be enabled in production deployments. See{' '}
-                <Link
-                  href="/privacy"
-                  className="text-foreground/70 underline decoration-dotted underline-offset-2 hover:text-foreground"
-                >
-                  Privacy
-                </Link>{' '}
-                for the current telemetry baseline.
-              </p>
             </div>
           </footer>
         )}

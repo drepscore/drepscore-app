@@ -49,18 +49,18 @@ export function EngagementNudge() {
   useEffect(() => {
     if (shouldShow && !trackedRef.current) {
       trackedRef.current = true;
-      posthog.capture('engagement_nudge_shown', { variant });
+      posthog.capture('engagement_nudge_shown', { variant, cta: content.cta });
     }
-  }, [shouldShow, variant]);
+  }, [content.cta, shouldShow, variant]);
 
   const handleDismiss = () => {
     dismiss();
-    posthog.capture('engagement_nudge_dismissed', { variant, method: 'close' });
+    posthog.capture('engagement_nudge_dismissed', { variant, cta: content.cta, method: 'close' });
   };
 
   const handleConvert = () => {
     convert();
-    posthog.capture('engagement_nudge_converted', { variant });
+    posthog.capture('engagement_nudge_converted', { variant, cta: content.cta });
   };
 
   return (
@@ -71,7 +71,7 @@ export function EngagementNudge() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={spring.smooth}
-          className="fixed bottom-24 sm:bottom-8 left-4 sm:left-auto sm:right-4 z-30 w-[320px] max-w-[calc(100vw-2rem)]"
+          className="fixed bottom-24 left-4 z-50 w-[320px] max-w-[calc(100vw-2rem)] sm:bottom-8 sm:left-6"
         >
           <div className="rounded-xl border border-white/[0.08] bg-card/95 backdrop-blur-xl shadow-2xl p-4 space-y-3">
             <div className="flex items-start gap-3">
